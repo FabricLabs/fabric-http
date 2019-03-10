@@ -8,7 +8,7 @@
     "build:coverage": "nyc report --reporter=html npm run test",
     "coverage": "nyc npm run test",
     "docs": "npm run build:docs && ecstatic docs",
-    "report:coverage": "nyc report --reporter=text-lcov > coverage.lcov",
+    "report:coverage": "nyc report --reporter=text-lcov > coverage.lcov && codecov",
     "review:coverage": "npm run build:coverage && ecstatic reports/coverage",
     "start": "node examples/server.js",
     "test": "semistandard && mocha tests"
