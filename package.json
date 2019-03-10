@@ -4,7 +4,7 @@
   "description": "tools for serving the legacy web with Fabric",
   "main": "types/server.js",
   "scripts": {
-    "build:docs": "jsdoc types -d docs",
+    "build:docs": "jsdoc types README.md -d docs",
     "build:coverage": "nyc report --reporter=html npm run test",
     "coverage": "nyc npm run test",
     "docs": "npm run build:docs && ecstatic docs",
@@ -39,6 +39,7 @@
     "ws": "^6.1.4"
   },
   "devDependencies": {
+    "codecov": "^3.2.0",
     "mocha": "^6.0.2",
     "nyc": "^13.3.0",
     "semistandard": "^13.0.1"
