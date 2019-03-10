@@ -1,0 +1,55 @@
+{
+  "name": "@fabric/http",
+  "version": "0.1.0-dev",
+  "description": "tools for serving the legacy web with Fabric",
+  "main": "types/server.js",
+  "scripts": {
+    "build:docs": "jsdoc types -d docs",
+    "build:coverage": "nyc report --reporter=html npm run test",
+    "coverage": "nyc npm run test",
+    "docs": "npm run build:docs && ecstatic docs",
+    "review:coverage": "npm run build:coverage && ecstatic reports/coverage",
+    "start": "node examples/server.js",
+    "test": "semistandard && mocha tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FabricLabs/web.git"
+  },
+  "keywords": [
+    "http",
+    "web",
+    "fabric",
+    "bitcoin",
+    "blockchain"
+  ],
+  "author": "Eric Martindale",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/FabricLabs/web/issues"
+  },
+  "homepage": "https://github.com/FabricLabs/web#readme",
+  "dependencies": {
+    "@fabric/core": "FabricLabs/fabric#pruning",
+    "body-parser": "^1.18.3",
+    "express": "^4.16.4",
+    "express-session": "^1.15.6",
+    "peer": "^0.2.10",
+    "pluralize": "^7.0.0",
+    "ws": "^6.1.4"
+  },
+  "devDependencies": {
+    "mocha": "^6.0.2",
+    "nyc": "^13.3.0",
+    "semistandard": "^13.0.1"
+  },
+  "nyc": {
+    "report-dir": "reports/coverage"
+  },
+  "semistandard": {
+    "ignore": [
+      "docs",
+      "tests"
+    ]
+  }
+}
