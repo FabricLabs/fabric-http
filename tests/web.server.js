@@ -5,6 +5,7 @@ const assert = require('assert');
 
 // Web
 const HTTPServer = require('../types/server');
+const HTTPClient = require('../types/client');
 
 describe('@fabric/web', function () {
   describe('Server', function () {
@@ -16,6 +17,19 @@ describe('@fabric/web', function () {
       let server = new HTTPServer();
       await server.start();
       assert.ok(server);
+      await server.stop();
+    });
+
+    xit('can serve a simple GET request', async function () {
+      let client = new HTTPClient();
+      let server = new HTTPServer();
+
+      await server.start();
+
+      let result = await client._GET('/');
+
+      assert.ok(result);
+
       await server.stop();
     });
   });

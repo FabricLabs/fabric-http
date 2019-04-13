@@ -53,6 +53,8 @@ class HTTPServer extends Fabric.Oracle {
       path: '/services/peering'
     });
 
+    this.customRoutes = [];
+
     return this;
   }
 
@@ -215,6 +217,16 @@ class HTTPServer extends Fabric.Oracle {
     });
   }
 
+  /**
+   * Add a route manually.
+   * @param {String} method  HTTP verb.
+   * @param {String} path    HTTP route.
+   * @param {Function} handler HTTP handler (req, res, next)
+   */
+  _addRoute (method, path, handler) {
+    this.customRoutes.push({ method, path, handler });
+  }
+
   async _handleRoutableRequest (req, res, next) {
     switch (req.method) {
       default:
@@ -233,7 +245,7 @@ class HTTPServer extends Fabric.Oracle {
         return res.send(patch);
       case 'DELETE':
         await this._DELETE(req.path);
-        return res.end(204);
+        return res.sendStatus(204);
       case 'OPTIONS':
         return res.send({
           '@type': 'Error',
@@ -267,6 +279,21 @@ class HTTPServer extends Fabric.Oracle {
     server.express.patch('/*', server._handleRoutableRequest.bind(server));
     server.express.delete('/*', server._handleRoutableRequest.bind(server));
     server.express.options('/*', server._handleRoutableRequest.bind(server));
+
+    // handle custom routes.
+    // TODO: abolish this garbage in favor of resources.
+    for (let i = 0; i < server.customRoutes.length; i++) {
+      let route = server.customRoutes[i];
+      switch (route.method.toLowerCase()) {
+        case 'get':
+        case 'put':
+        case 'post':
+        case 'patch':
+        case 'delete':
+          server.express[route.method.toLowerCase()](route.path, route.handler);
+          break;
+      }
+    }
 
     // create the HTTP server
     server.http = http.createServer(server.express);

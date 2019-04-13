@@ -46,7 +46,11 @@
     "semistandard": "^13.0.1"
   },
   "nyc": {
-    "report-dir": "reports/coverage"
+    "report-dir": "reports/coverage",
+    "exclude": [
+      "docs",
+      "tests"
+    ]
   },
   "semistandard": {
     "ignore": [
