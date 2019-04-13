@@ -272,14 +272,6 @@ class HTTPServer extends Fabric.Oracle {
     server.express.options('/', server._handleOptionsRequest.bind(server));
     server.express.get('/', server._handleIndexRequest.bind(server));
 
-    // session manager
-    server.express.get('/*', server._handleRoutableRequest.bind(server));
-    server.express.put('/*', server._handleRoutableRequest.bind(server));
-    server.express.post('/*', server._handleRoutableRequest.bind(server));
-    server.express.patch('/*', server._handleRoutableRequest.bind(server));
-    server.express.delete('/*', server._handleRoutableRequest.bind(server));
-    server.express.options('/*', server._handleRoutableRequest.bind(server));
-
     // handle custom routes.
     // TODO: abolish this garbage in favor of resources.
     for (let i = 0; i < server.customRoutes.length; i++) {
@@ -294,6 +286,14 @@ class HTTPServer extends Fabric.Oracle {
           break;
       }
     }
+
+    // Attach the internal router
+    server.express.get('/*', server._handleRoutableRequest.bind(server));
+    server.express.put('/*', server._handleRoutableRequest.bind(server));
+    server.express.post('/*', server._handleRoutableRequest.bind(server));
+    server.express.patch('/*', server._handleRoutableRequest.bind(server));
+    server.express.delete('/*', server._handleRoutableRequest.bind(server));
+    server.express.options('/*', server._handleRoutableRequest.bind(server));
 
     // create the HTTP server
     server.http = http.createServer(server.express);
