@@ -1,0 +1,13 @@
+'use strict';
+
+const HTTP_CLIENT_PORT = 80;
+const HTTP_SERVER_PORT = 9999;
+const HTTPS_CLIENT_PORT = 443;
+const HTTPS_SERVER_PORT = 19999;
+
+module.exports = {
+  HTTP_CLIENT_PORT,
+  HTTP_SERVER_PORT,
+  HTTPS_CLIENT_PORT,
+  HTTPS_SERVER_PORT
+};

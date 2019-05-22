@@ -2,15 +2,16 @@
   "name": "@fabric/http",
   "version": "0.1.0-dev",
   "description": "tools for serving the legacy web with Fabric",
-  "main": "types/server.js",
+  "main": "types/web.js",
   "scripts": {
     "build:docs": "jsdoc types README.md -d docs",
     "build:coverage": "nyc report --reporter=html npm run test",
+    "build:scripts": "webpack scripts/index.js",
     "coverage": "nyc npm run test",
     "docs": "npm run build:docs && ecstatic docs",
     "report:coverage": "nyc report --reporter=text-lcov > coverage.lcov && codecov",
     "review:coverage": "npm run build:coverage && ecstatic reports/coverage",
-    "start": "node examples/server.js",
+    "start": "npm run build:scripts && node examples/server.js",
     "test": "semistandard && mocha tests"
   },
   "repository": {
@@ -33,9 +34,12 @@
   "dependencies": {
     "@fabric/core": "FabricLabs/fabric#pruning",
     "body-parser": "^1.18.3",
+    "d3": "^5.9.2",
+    "d3-graphviz": "^2.6.1",
     "express": "^4.16.4",
     "express-session": "^1.15.6",
     "metascraper": "^3.12.1",
+    "page": "^1.11.4",
     "peer": "^0.2.10",
     "pluralize": "^7.0.0",
     "ws": "^6.1.4"
@@ -45,7 +49,9 @@
     "ecstatic": "^3.3.1",
     "mocha": "^6.0.2",
     "nyc": "^13.3.0",
-    "semistandard": "^13.0.1"
+    "semistandard": "^13.0.1",
+    "webpack": "^4.32.0",
+    "webpack-cli": "^3.3.2"
   },
   "nyc": {
     "report-dir": "reports/coverage",

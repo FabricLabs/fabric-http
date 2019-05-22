@@ -10,6 +10,12 @@ const pluralize = require('pluralize');
 
 // Core components
 const Fabric = require('@fabric/core');
+const App = require('./app');
+const Client = require('./client');
+const Component = require('./component');
+const SPA = require('./spa');
+
+// Dependencies
 const WebSocket = require('ws');
 const PeerServer = require('peer').ExpressPeerServer;
 
@@ -27,6 +33,7 @@ class HTTPServer extends Fabric.Oracle {
     super(settings);
 
     this.config = Object.assign({
+      name: 'FabricHTTPServer',
       host: '0.0.0.0',
       path: './stores/server',
       port: 9999,
@@ -39,6 +46,7 @@ class HTTPServer extends Fabric.Oracle {
     this.connections = {};
     this.definitions = {};
     this.validator = new Fabric.Machine();
+    this.app = new SPA(this.config);
 
     this.wss = null;
     this.http = null;
@@ -56,6 +64,22 @@ class HTTPServer extends Fabric.Oracle {
     this.customRoutes = [];
 
     return this;
+  }
+
+  static get App () {
+    return App;
+  }
+
+  static get Client () {
+    return Client;
+  }
+
+  static get Component () {
+    return Component;
+  }
+
+  static get SPA () {
+    return SPA;
   }
 
   /**
@@ -184,9 +208,9 @@ class HTTPServer extends Fabric.Oracle {
   }
 
   _handleIndexRequest (req, res) {
-    // TODO: use rendering from Fabric
+    let html = this.app.render();
     res.set('Content-Type', 'text/html');
-    res.send('<h1>Hello, friend!</h1>');
+    res.send(`${html}`);
   }
 
   _handleOptionsRequest (req, res) {
@@ -228,6 +252,11 @@ class HTTPServer extends Fabric.Oracle {
   }
 
   async _handleRoutableRequest (req, res, next) {
+    // TODO: check known resources
+    // if (~this.resouces.indexOf(req.path)) {
+    // ...
+    // }
+
     switch (req.method) {
       default:
         return next();
@@ -260,6 +289,8 @@ class HTTPServer extends Fabric.Oracle {
     if (!fs.existsSync('stores')) {
       fs.mkdirSync('stores');
     }
+
+    await server.app.start();
 
     // configure router
     server.express.use(express.static('assets'));

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>@fabric/maki &middot; @fabric/web</title>
+  <link rel="stylesheet" type="text/css" href="/styles/screen.css" />
+</head>
+<body data-integrity="sha256:cceb345297e893c2e71702248b669531e903e72579add869dc726f479d9b0eae"><fabric-application route="/">
+  <fabric-grid>
+    <fabric-grid-row id="details">
+      <h1>@fabric/maki</h1>
+      <fabric-channel></fabric-channel>
+    </fabric-grid-row>
+    <fabric-grid-row id="settings">
+      <h3>Settings</h3>
+      <application-settings type="application/json"><code>{"name":"@fabric/maki","handle":"html","language":"en","components":{}}</code></application-settings>
+      <h3>Resources</h3>
+      <fabric-resource-list></fabric-resource-list>
+      <h3>Circuit</h3>
+      <fabric-circuit>
+  <code>digraph "fsm" {
+  "init";
+  "ready";
+  "complete";
+  "listening";
+  "init" -> "ready" [ label=" start " ];
+  "init" -> "complete" [ label=" start " ];
+  "ready" -> "listening" [ label=" wire " ];
+}</code>
+  <fabric-canvas id="graph"></fabric-canvas>
+</fabric-circuit>
+    </fabric-grid-row>
+    <fabric-grid-row id="router">
+      <fabric-router></fabric-router>
+    </fabric-grid-row>
+    <fabric-grid-row id="content">
+      <fabric-column id="canvas">
+          <fabric-canvas></fabric-canvas>
+      </fabric-column>
+      <fabric-column id="peers">
+        <fabric-peer-list></fabric-peer-list>
+      </fabric-column>
+    </fabric-grid-row>
+  </fabric-grid>
+  <script type="text/javascript" src="/scripts/index.js"></script>
+</fabric-application></body>
+</html>
