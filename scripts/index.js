@@ -20,7 +20,43 @@ async function main () {
 
   window.app._verifyElements();
 
-  console.log('[FABRIC:WEB]', 'ready!');
+  // TODO: move these into App
+  window.app.actions = [];
+  window.app.bindings = [];
+
+  let elements = document.querySelectorAll('*[data-bind]');
+  console.log('found bound elements:', elements);
+  for (let i = 0; i < elements.length; i++) {
+    let element = elements[i];
+    let binding = element.getAttribute('data-bind');
+    console.log('found element with binding:', element, binding);
+    window.app.bindings.push(element);
+    window.circuit.on(binding, function (data) {
+      console.log('received replacement data (from circuit!) targeted for binding:', binding);
+      element.innerHTML = data;
+    });
+
+    window.app.on(binding, function (data) {
+      console.log('received replacement data targeted for binding:', binding);
+      element.innerHTML = data;
+    });
+  }
+
+  let actionables = document.querySelectorAll('*[data-action]');
+  console.log('found actionable elements:', actionables);
+  for (let i = 0; i < actionables.length; i++) {
+    let element = actionables[i];
+    let action = element.getAttribute('data-action');
+    console.log('found element with action:', element, action);
+    element.addEventListener('click', function (event) {
+      console.log('click event on actionable element:', action, event);
+      let result = window.circuit[action].call(window.circuit);
+      console.log('result:', result);
+    });
+    window.app.actions.push(element);
+  }
+
+  console.log('[FABRIC:WEB]', 'ready!!!');
 }
 
 main();

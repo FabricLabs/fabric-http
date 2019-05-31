@@ -4,14 +4,16 @@
   "description": "tools for serving the legacy web with Fabric",
   "main": "types/web.js",
   "scripts": {
-    "build:docs": "jsdoc types README.md -d docs",
+    "build:docs": "jsdoc types components README.md -d docs",
     "build:coverage": "nyc report --reporter=html npm run test",
     "build:scripts": "webpack scripts/index.js",
+    "compile": "npm run build:scripts && node examples/build.js",
     "coverage": "nyc npm run test",
     "docs": "npm run build:docs && ecstatic docs",
     "report:coverage": "nyc report --reporter=text-lcov > coverage.lcov && codecov",
     "review:coverage": "npm run build:coverage && ecstatic reports/coverage",
-    "start": "npm run build:scripts && node examples/server.js",
+    "start": "npm run compile && node examples/server.js",
+    "static": "npm run build:scripts && ecstatic assets",
     "test": "semistandard && mocha tests"
   },
   "repository": {

@@ -1,6 +1,6 @@
 {
   "name": "@fabric/http",
-  "chat": "https://chat.fabric.pub/#/room/#hub:fabric.pub",
+  "chat": "https://chat.fabric.pub/#/room/#web:fabric.pub",
   "source": "https://github.com/FabricLabs/web",
   "templates": {
     "default": {

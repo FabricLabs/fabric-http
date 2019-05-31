@@ -1,0 +1,8 @@
+{
+  "name": "@fabric/http",
+  "scope": "/",
+  "display": "minimal-ui",
+  "orientation": "landscape",
+  "background_color": "#333",
+  "start_url": "/"
+}

@@ -1,8 +1,14 @@
 'use strict';
 
+const {
+  HTTP_SERVER_PORT,
+  HTTPS_SERVER_PORT
+} = require('../constants');
+
 // trusted community modules
 const fs = require('fs');
 const http = require('http');
+const crypto = require('crypto');
 const express = require('express');
 const session = require('express-session');
 const parsers = require('body-parser');
@@ -21,7 +27,7 @@ const PeerServer = require('peer').ExpressPeerServer;
 
 /**
  * The primary web server.
- * @type {Object}
+ * @extends Oracle
  */
 class HTTPServer extends Fabric.Oracle {
   /**
@@ -36,8 +42,9 @@ class HTTPServer extends Fabric.Oracle {
       name: 'FabricHTTPServer',
       host: '0.0.0.0',
       path: './stores/server',
-      port: 9999,
+      port: HTTP_SERVER_PORT,
       resources: {},
+      components: {},
       seed: Math.random(),
       sessions: false,
       verbose: false
@@ -45,8 +52,11 @@ class HTTPServer extends Fabric.Oracle {
 
     this.connections = {};
     this.definitions = {};
-    this.validator = new Fabric.Machine();
     this.app = new SPA(this.config);
+
+    /* this.compiler = webpack({
+      // webpack options
+    }); */
 
     this.wss = null;
     this.http = null;
@@ -62,6 +72,11 @@ class HTTPServer extends Fabric.Oracle {
     });
 
     this.customRoutes = [];
+
+    for (let name in this.config.resources) {
+      let resource = this.config.resources[name];
+      this.define(name, resource);
+    }
 
     return this;
   }
@@ -294,6 +309,8 @@ class HTTPServer extends Fabric.Oracle {
 
     // configure router
     server.express.use(express.static('assets'));
+
+    // configure sessions & parsers
     server.express.use(server.sessions);
     server.express.use(parsers.urlencoded({ extended: true }));
     server.express.use(parsers.json());
@@ -349,6 +366,7 @@ class HTTPServer extends Fabric.Oracle {
     if (this.config.verbose) {
       let address = server.http.address();
       console.log('address:', address);
+      if (!address) console.error('could not get address:', server.http);
       let link = `http://${address.address}:${address.port}`;
       console.log('[FABRIC:WEB]', 'Started!', `Now listening on ${link} ⇐ live URL`);
       // TODO: include somewhere
