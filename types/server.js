@@ -73,11 +73,6 @@ class HTTPServer extends Fabric.Oracle {
 
     this.customRoutes = [];
 
-    for (let name in this.config.resources) {
-      let resource = this.config.resources[name];
-      this.define(name, resource);
-    }
-
     return this;
   }
 
@@ -103,8 +98,8 @@ class HTTPServer extends Fabric.Oracle {
    * @param  {Definition} definition Configuration object for the type.
    * @return {HTTPServer}            [description]
    */
-  define (name, definition) {
-    let resource = super.define(name, definition);
+  async define (name, definition) {
+    let resource = await super.define(name, definition);
     let snapshot = Object.assign({
       names: { plural: pluralize(name) }
     }, resource);
@@ -263,6 +258,7 @@ class HTTPServer extends Fabric.Oracle {
    * @param {Function} handler HTTP handler (req, res, next)
    */
   _addRoute (method, path, handler) {
+    console.log('PREPARING ROUTE:', path);
     this.customRoutes.push({ method, path, handler });
   }
 
@@ -305,6 +301,11 @@ class HTTPServer extends Fabric.Oracle {
       fs.mkdirSync('stores');
     }
 
+    for (let name in server.config.resources) {
+      let resource = server.config.resources[name];
+      await server.define(name, resource);
+    }
+
     await server.app.start();
 
     // configure router
@@ -319,6 +320,24 @@ class HTTPServer extends Fabric.Oracle {
     // TODO: render page
     server.express.options('/', server._handleOptionsRequest.bind(server));
     server.express.get('/', server._handleIndexRequest.bind(server));
+
+    for (let name in server.config.resources) {
+      let def = server.config.resources[name];
+      let resource = new Fabric.Resource(def);
+      console.log('resource:', resource);
+
+      server._addRoute('GET', `${resource.routes.view}`, function (req, res, next) {
+        let output = server.app._loadHTML(resource.render());
+        console.log('getting:', req.path, 'got:', output);
+        return res.send(server.app._renderWith(output));
+      });
+
+      server._addRoute('GET', `${resource.routes.list}`, function (req, res, next) {
+        let output = server.app._loadHTML(resource.render());
+        console.log('getting:', req.path, 'got:', output);
+        return res.send(server.app._renderWith(output));
+      });
+    }
 
     // handle custom routes.
     // TODO: abolish this garbage in favor of resources.

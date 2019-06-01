@@ -1,6 +1,7 @@
 'use strict';
 
 const Collection = require('./collection');
+const Resource = require('@fabric/core/lib/resource');
 
 class ResourceList extends Collection {
   constructor (settings = {}) {
@@ -9,7 +10,7 @@ class ResourceList extends Collection {
     this.settings = Object.assign({
       handle: 'fabric-resource-list',
       path: '/resources'
-    });
+    }, settings);
 
     return this;
   }
@@ -18,15 +19,9 @@ class ResourceList extends Collection {
     let html = `<${this.settings.handle}>`;
 
     for (let name in this.state) {
-      let Resource = this.state[name];
-      console.log('resource:', name, Resource);
-      console.log('state:', this.state);
-      let instance = new Resource({
-        name: name,
-        handle: name,
-        definition: Resource
-      });
-      html += `<${instance.handle} name="${name}">${instance.render()}</${instance.handle}>`;
+      let template = this.state[name];
+      let resource = new Resource(template);
+      html += resource.render();
     }
 
     html += `</${this.settings.handle}>`;

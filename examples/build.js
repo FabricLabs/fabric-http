@@ -11,7 +11,9 @@ async function main () {
 
   console.log('compiler:', compiler);
 
+  compiler.compileTo('assets/index.html');
   compiler.compileTo('assets/spa.html');
+
   // TODO: why isn't SPA exiting?
   process.exit();
 }

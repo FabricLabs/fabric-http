@@ -4,10 +4,14 @@ const {
   HTTP_SERVER_PORT
 } = require('../constants');
 
+const page = require('page');
 const crypto = require('crypto');
+const pluralize = require('pluralize');
 const d3 = require('d3');
 
 const Fabric = require('@fabric/core');
+const Avatar = require('./avatar');
+const Router = require('./router');
 const Component = require('./component');
 const Package = require('../package');
 
@@ -30,6 +34,8 @@ class App extends Component {
   constructor (settings = {}) {
     super(settings);
 
+    console.log('[FABRIC:HTTP]', 'creating new APP with:', settings);
+
     // settings
     this.settings = Object.assign({
       name: '@fabric/http',
@@ -43,15 +49,23 @@ class App extends Component {
 
     this.menu = new Menu();
     this.types = new ResourceList();
+    this.avatar = new Avatar();
+    this.router = new Router();
+    this.handler = page;
     this.circuit = this.settings.circuit || new Fabric.Circuit();
 
     // Add index menu item
     this.menu._addItem({ name: this.settings.name, path: '/', brand: true });
+    this.handler('/', this._refresh.bind(this));
+
+    this._addHandler('_loadIndex', function () {
+      console.log('loaded index (fake for fsm)');
+    });
 
     // properties
     this.identities = {};
     this.components = { ResourceList };
-    this.routes = {};
+    this.routes = [];
 
     if (this.settings.components.index) {
       this.components['Index'] = this.settings.components.index;
@@ -61,6 +75,14 @@ class App extends Component {
 
     for (let name in this.settings.resources) {
       let definition = this.settings.resources[name];
+      let plural = pluralize(name);
+
+      // TODO: use Fabric.Resource here
+      this.router._addFlat(`/${plural.toLowerCase()}`, definition);
+      this._addRoute({ name: plural, path: `/${plural.toLowerCase()}` });
+      this.menu._addItem({ name: plural, path: `/${plural.toLowerCase()}` });
+      this.handler(`/${plural.toLowerCase()}`, this._handleNavigation.bind(this));
+
       // TODO: use definition always?
       // need to check for ES6 class vs. passed Object from config
       if (definition.constructor) {
@@ -73,12 +95,6 @@ class App extends Component {
       }
     }
 
-    console.log('types:', this.types);
-
-    for (let name in this.types.state) {
-      this.menu._addItem(this.types.state[name]);
-    }
-
     this.resources = {};
     this.elements = {};
 
@@ -86,6 +102,12 @@ class App extends Component {
     this.status = 'ready';
 
     return this;
+  }
+
+  get page () {
+    return new Fabric.Resource({
+      name: 'BlankPage'
+    });
   }
 
   get version () {
@@ -99,6 +121,14 @@ class App extends Component {
 
   _route (path) {
     this.route = path;
+  }
+
+  _addRoute (definition) {
+    this.routes.push(definition);
+  }
+
+  _addHandler (name, method) {
+    this.circuit.methods[name] = method;
   }
 
   _checkIntegrity (data, integrity) {
@@ -116,6 +146,14 @@ class App extends Component {
       console.log('element:', element);
       console.log('integrity check:', valid);
     }
+  }
+
+  async _handleNavigation (ctx, next) {
+    console.log('handling navigation intent:', ctx);
+    let definition = await this.router._route(ctx.path);
+    let resource = new Fabric.Resource(definition);
+    let content = resource.render();
+    this._renderContent(content);
   }
 
   async _generateIdentity () {
@@ -148,6 +186,94 @@ class App extends Component {
     };
   }
 
+  _refresh () {
+    let element = document.querySelector('#content');
+    let resource = new Fabric.Resource();
+    element.innerHTML = this._loadHTML(resource.render());
+    return this;
+  }
+
+  _renderContent (html) {
+    let element = document.querySelector('#content');
+    element.innerHTML = html;
+    return element;
+  }
+
+  _loadHTML (html) {
+    let blob = JSON.stringify(this.state, null, '  ');
+    let verification = crypto.createHash('sha256').update(blob).digest('hex');
+    return `<fabric-application route="${this.route}" integrity="${this.integrity}">
+  <fabric-grid>
+    <fabric-grid-row id="menu">${this.menu.render()}</fabric-grid-row>
+    <fabric-grid-row id="details" class="ui container">
+      <img src="${this.avatar.toDataURI()}" class="bordered" />
+      <h1><a href="/">${this.settings.name}</a></h1>
+      <p>${this.settings.synopsis}</p>
+      <fabric-channel></fabric-channel>
+      <nav data-bind="controls">
+        <button data-action="_generateIdentity" class="ui button">create new identity</button>
+        <button data-action="_toggleFullscreen" class="ui button">fullscreen</button>
+      </nav>
+      <div>
+        <p><code>Version:</code> <code>${this.settings.version}</code></p>
+        <p><code>Clock:</code> <code data-bind="/clock">${this.state.clock}</code></p>
+        <p><strong>Source:</strong> <a href="https://github.com/FabricLabs/web">fabric:github.com/FabricLabs/web</a>
+      </div>
+    </fabric-grid-row>
+    <fabric-grid-row id="settings" class="ui container">
+      <h3>Settings</h3>
+      <application-settings type="application/json"><code>${JSON.stringify(this.settings, null, '  ')}</code></application-settings>
+      <h3>Resources</h3>
+      ${this.types.render()}
+      <h3>Circuit</h3>
+      ${this.circuit.render()}
+      <h3>State <small><code>${verification}</code></small></h3>
+      <pre><code>${blob}</code></pre>
+    </fabric-grid-row>
+    <fabric-grid-row id="router" class="ui container">
+      <fabric-router>
+        <fabric-grid-row>
+          <input type="text" name="address" value="${this.path}" />
+        </fabric-grid-row>
+        <fabric-grid-row id="content">${html}</fabric-grid-row>
+      </fabric-router>
+    </fabric-grid-row>
+    <fabric-grid-row id="composite" class="ui container">
+      <noscript>
+        <h3>JavaScript Renderer Available</h3>
+        <p>If you're reading this, you should consider enabling JavaScript for full effect.</p>
+      </noscript>
+      <fabric-column id="canvas">
+        <fabric-canvas></fabric-canvas>
+      </fabric-column>
+      <fabric-column id="peers">
+        <fabric-peer-list></fabric-peer-list>
+      </fabric-column>
+    </fabric-grid-row>
+  </fabric-grid>
+  <!-- [0]: README [dot] md -->
+  <!--
+  > # RPG \`@fabric/rpg\`
+  > ## STOP HERE AND READ ME FIRST!
+  > Before continuing, let us be the first to welcome you to the Source.  While it
+  > might be confusing at first, there's a lot you can learn if you make the time.
+  > Use this URI:
+  > > https://www.roleplaygateway.com/
+  > From there, links like \`hub.roleplaygateway.com\` might "pop up" from time to
+  > time.  With a bit of navigating around, you can earn credit for your progress.
+  > Continue:
+  > > https://chat.roleplaygateway.com/
+  > Offline:
+  > > https://www.roleplaygateway.com/medals/beta-tester
+  > Remember: never be afraid to explore!  Curiosity might have killed the cat, but
+  > that's why he had nine lives.
+  > Good luck, have fun (\`gl;hf o/\`), and enjoy!
+  >                                          — the RPG team
+  -->
+  <script type="text/javascript" src="/scripts/index.min.js" defer></script>
+</fabric-application>`;
+  }
+
   async _toggleFullscreen () {
     // TODO: implement fullscreen from RPG
   }
@@ -162,51 +288,10 @@ class App extends Component {
       return this.elements['Index'].render();
     }
 
-    return `<fabric-application route="${this.route}" integrity="${this.integrity}">
-  <fabric-grid>
-    <fabric-grid-row id="menu">${this.menu.render()}</fabric-grid-row>
-    <fabric-grid-row id="details" class="ui container">
-      <h1><a href="/">${this.settings.name}</a></h1>
-      <p>${this.settings.synopsis}</p>
-      <fabric-channel></fabric-channel>
-      <nav data-bind="controls">
-        <button data-action="_generateIdentity" class="ui button">create new identity</button>
-        <button data-action="_toggleFullscreen" class="ui button">fullscreen</button>
-      </nav>
-      <div>
-        <p><code>Version:</code> <code>${this.settings.version}</code></p>
-        <p><code>Tick:</code> <code data-bind="/tick">${this.state.tick}</code></p>
-        <p><strong>Source:</strong> <a href="https://github.com/FabricLabs/web">fabric:github.com/FabricLabs/web</a>
-      </div>
-    </fabric-grid-row>
-    <fabric-grid-row id="settings" class="ui container">
-      <h3>Settings</h3>
-      <application-settings type="application/json"><code>${JSON.stringify(this.settings, null, '  ')}</code></application-settings>
-      <h3>Resources</h3>
-      ${this.types.render()}
-      <h3>Circuit</h3>
-      ${this.circuit.render()}
-      <h3>State</h3>
-      <pre><code>${JSON.stringify(this.state, null, '  ')}</code></pre>
-    </fabric-grid-row>
-    <fabric-grid-row id="router" class="ui container">
-      <fabric-router></fabric-router>
-    </fabric-grid-row>
-    <fabric-grid-row id="content" class="ui container">
-      <noscript>
-        <h3>JavaScript Renderer Available</h3>
-        <p>If you're reading this, you should consider enabling JavaScript for full effect.</p>
-      </noscript>
-      <fabric-column id="canvas">
-          <fabric-canvas></fabric-canvas>
-      </fabric-column>
-      <fabric-column id="peers">
-        <fabric-peer-list></fabric-peer-list>
-      </fabric-column>
-    </fabric-grid-row>
-  </fabric-grid>
-  <script type="text/javascript" src="/scripts/index.min.js" defer></script>
-</fabric-application>`;
+    let page = this.page.render();
+    let html = this._loadHTML(page);
+
+    return html;
   }
 
   /**
@@ -219,6 +304,7 @@ class App extends Component {
 
     // await this.fabric.start();
     await this.circuit.start();
+    await this.router.start();
 
     return true;
   }

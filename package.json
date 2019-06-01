@@ -7,7 +7,7 @@
     "build:docs": "jsdoc types components README.md -d docs",
     "build:coverage": "nyc report --reporter=html npm run test",
     "build:scripts": "webpack scripts/index.js",
-    "compile": "npm run build:scripts && node examples/build.js",
+    "compile": "node examples/build.js && npm run build:scripts",
     "coverage": "nyc npm run test",
     "docs": "npm run build:docs && ecstatic docs",
     "report:coverage": "nyc report --reporter=text-lcov > coverage.lcov && codecov",
@@ -36,6 +36,7 @@
   "dependencies": {
     "@fabric/core": "FabricLabs/fabric#pruning",
     "body-parser": "^1.18.3",
+    "canvas": "^2.5.0",
     "d3": "^5.9.2",
     "d3-graphviz": "^2.6.1",
     "express": "^4.16.4",
@@ -44,7 +45,7 @@
     "page": "^1.11.4",
     "peer": "^0.2.10",
     "pluralize": "^7.0.0",
-    "ws": "^6.1.4"
+    "ws": "^6.2.1"
   },
   "devDependencies": {
     "codecov": "^3.2.0",
@@ -53,7 +54,9 @@
     "nyc": "^13.3.0",
     "semistandard": "^13.0.1",
     "webpack": "^4.32.0",
-    "webpack-cli": "^3.3.2"
+    "webpack-assets-manifest": "^3.1.1",
+    "webpack-cli": "^3.3.2",
+    "webpack-dev-middleware": "^3.7.0"
   },
   "nyc": {
     "report-dir": "reports/coverage",

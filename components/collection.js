@@ -10,7 +10,7 @@ class Collection extends Component {
       handle: 'fabric-collection',
       items: 'item',
       path: '/collections/:id'
-    });
+    }, settings);
 
     return this;
   }

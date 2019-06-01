@@ -18,6 +18,10 @@ textarea {
   height: 10em;
 }
 
+.bordered {
+  border: 1px solid black;
+}
+
 # Semantic Overrides
 .ui.menu .item img.logo {
   margin-right: 1.5em;

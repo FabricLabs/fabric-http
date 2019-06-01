@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>@fabric/maki &middot; @fabric/web</title>
+  <link rel="stylesheet" type="text/css" href="/styles/screen.css" />
+</head>
+<body data-bind="66d3ffbab538c1abd31141ffcc0fee38088619a30fd50c956b35f769d2f20065"><fabric-application route="/" integrity="sha256-RBNvo1WzZ4oRRq0W9+hknpT7T8If536DEMBg9hyq/4o=">
+  <fabric-grid>
+    <fabric-grid-row id="details">
+      <h1><a href="/">@fabric/maki</a></h1>
+      <p>Making beautiful apps a breeze.</p>
+      <fabric-channel></fabric-channel>
+      <nav data-bind="controls">
+        <button data-action="generate-identity">create new identity</button>
+        <button data-action="toggle-fullscreen">fullscreen</button>
+      </nav>
+      <div>
+        <p><code>Version:</code> <code>undefined</code></p>
+        <p><strong>Source:</strong> <a href="https://github.com/FabricLabs/web">fabric:github.com/FabricLabs/web</a>
+      </div>
+    </fabric-grid-row>
+    <fabric-grid-row id="settings">
+      <h3>Settings</h3>
+      <application-settings type="application/json"><code>{"name":"@fabric/maki","synopsis":"Making beautiful apps a breeze.","handle":"html","language":"en","components":{},"offline":false}</code></application-settings>
+      <h3>Resources</h3>
+      <fabric-resource-list></fabric-resource-list>
+      <h3>Circuit</h3>
+      <fabric-circuit>
+  <fabric-code-snippet data-bind="45c2876dd8b930ce7a68e0f30f34f247ed06f79d270a7aa04f3bcb0beb79e1e9" data-integrity="sha256-RcKHbdi5MM56aODzDzTyR+0G950nCnqgTzvLC+t54ek=">digraph "fsm" {
+  "init";
+}</fabric-code-snippet>
+  <fabric-canvas>
+    <fabric-grid>
+      <fabric-grid-row>
+        <textarea data-bind="45c2876dd8b930ce7a68e0f30f34f247ed06f79d270a7aa04f3bcb0beb79e1e9" placeholder="Purity contract here...">digraph "fsm" {
+  "init";
+}</textarea>
+      </fabric-grid-row>
+      <fabric-grid-row>
+        <button data-action="_step">step</button>
+      </fabric-grid-row>
+      <fabric-grid-row>
+        <fabric-svg id="svg"></fabric-svg>
+      </fabric-grid-row>
+      <fabric-grid-row>
+        <canvas id="canvas" data-bind="45c2876dd8b930ce7a68e0f30f34f247ed06f79d270a7aa04f3bcb0beb79e1e9"></canvas>
+      </fabric-grid-row>
+  </fabric-canvas>
+</fabric-circuit>
+    </fabric-grid-row>
+    <fabric-grid-row id="router">
+      <fabric-router></fabric-router>
+    </fabric-grid-row>
+    <fabric-grid-row id="content">
+      <noscript>
+        <h3>JavaScript Renderer Available</h3>
+        <p>If you're reading this, you should consider enabling JavaScript for full effect.</p>
+      </noscript>
+      <fabric-column id="canvas">
+          <fabric-canvas></fabric-canvas>
+      </fabric-column>
+      <fabric-column id="peers">
+        <fabric-peer-list></fabric-peer-list>
+      </fabric-column>
+    </fabric-grid-row>
+  </fabric-grid>
+  <script type="text/javascript" src="/scripts/index.min.js" defer></script>
+</fabric-application></body>
+</html>

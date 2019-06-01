@@ -1,0 +1,6 @@
+{
+  "main.js": {
+    "src": "https://fabric.pub/index.min.js",
+    "integrity": "sha256-F+hEKberySDm0aDaIIBjZiL8kFvdDx0R66+u50jRU4c= sha384-gC3vnO+aLxGnzwKOFmqtLDk9H8LXFidzTAvSzzH6Cu7KVbMcyZQjJaFYcGjmi7nx sha512-caAy5szibKaAa5AyaS8qHXYRNEehBfP9BdqpAQFGSyRafb7GZprPzxl8bUIEbhDTtTehbFQrRm0M/hIlftpuWg=="
+  }
+}
