@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: app.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: app.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>'use strict';
+
+const {
+  HTTP_SERVER_PORT
+} = require('../constants');
+
+const page = require('page');
+const crypto = require('crypto');
+const pluralize = require('pluralize');
+const d3 = require('d3');
+
+const Fabric = require('@fabric/core');
+const Avatar = require('./avatar');
+const Router = require('./router');
+const Resource = require('./resource');
+const Component = require('./component');
+const Package = require('../package');
+
+// TODO: move component imports to components/ or scripts/
+const ResourceList = require('../components/resource-list');
+const Menu = require('../components/menu');
+
+/**
+ * Applications can be deployed to the legacy web using {@link App}, a powerful
+ * template for building modern web applications.
+ * @extends Component
+ */
+class App extends Component {
+  /**
+   * Create a {@link Web} application.
+   * @param  {Object} [settings={}] Application settings.
+   * @param  {Object} [settings.resources] Map of {@link Resource} classes.
+   * @return {App}               Instance of the application.
+   */
+  constructor (settings = {}) {
+    super(settings);
+
+    console.log('[FABRIC:HTTP]', 'creating new APP with:', settings);
+
+    // settings
+    this.settings = Object.assign({
+      name: '@fabric/http',
+      synopsis: 'HTTP, WebSockets, WebRTC, and more.',
+      language: 'en',
+      components: {},
+      resources: {},
+      port: HTTP_SERVER_PORT,
+      version: Package.version
+    }, settings);
+
+    this.menu = new Menu();
+    this.types = new ResourceList();
+    this.avatar = new Avatar();
+    this.router = new Router();
+    this.handler = page;
+    this.circuit = this.settings.circuit || new Fabric.Circuit();
+
+    // Add index menu item
+    this.menu._addItem({ name: this.settings.name, path: '/', brand: true });
+    this.handler('/', this._refresh.bind(this));
+
+    this._addHandler('_loadIndex', function () {
+      console.log('loaded index (fake for fsm)');
+    });
+
+    // properties
+    this.identities = {};
+    this.components = { ResourceList };
+    this.routes = [];
+
+    if (this.settings.components.index) {
+      this.components['Index'] = this.settings.components.index;
+    } else {
+      this.components['Index'] = this.prototype;
+    }
+
+    for (let name in this.settings.resources) {
+      let definition = this.settings.resources[name];
+      let plural = pluralize(name);
+
+      // TODO: use Fabric.Resource here
+      this.router._addFlat(`/${plural.toLowerCase()}`, definition);
+      this._addRoute({ name: plural, path: `/${plural.toLowerCase()}` });
+      this.menu._addItem({ name: plural, path: `/${plural.toLowerCase()}` });
+      this.handler(`/${plural.toLowerCase()}`, this._handleNavigation.bind(this));
+
+      // TODO: use definition always?
+      // need to check for ES6 class vs. passed Object from config
+      if (definition.constructor) {
+        console.log('definition.constructor:', definition.constructor.name);
+        if (definition.constructor.name === 'Object') {
+          this.types.state[name] = Component;
+        } else {
+          this.types.state[name] = definition;
+        }
+      }
+    }
+
+    this.resources = {};
+    this.elements = {};
+
+    this.route = '/';
+    this.status = 'ready';
+
+    return this;
+  }
+
+  get page () {
+    return new Resource({
+      name: 'BlankPage'
+    });
+  }
+
+  get version () {
+    return this.settings.version;
+  }
+
+  define (name, definition) {
+    this.types.state[name] = definition;
+    this.resources[name] = definition;
+  }
+
+  _route (path) {
+    this.route = path;
+  }
+
+  _addRoute (definition) {
+    this.routes.push(definition);
+  }
+
+  _addHandler (name, method) {
+    this.circuit.methods[name] = method;
+  }
+
+  _checkIntegrity (data, integrity) {
+    let parts = integrity.split('-');
+    let hash = crypto.createHash('sha256').update(data).digest('base64');
+    return hash === parts[1];
+  }
+
+  _verifyElements () {
+    let elements = document.querySelectorAll('*[integrity]');
+    for (let i = 0; i &lt; elements.length; i++) {
+      let element = elements[i];
+      let integrity = element.getAttribute('integrity');
+      let valid = this._checkIntegrity(element.innerHTML, integrity);
+      console.log('element:', element);
+      console.log('integrity check:', valid);
+    }
+  }
+
+  /**
+   * Trigger navigation.
+   * @param  {Context}   ctx  Navigating context.
+   * @param  {Function} next Function called if no route found.
+   * @return {Promise}       Resolved on routing complete.
+   */
+  async _handleNavigation (ctx, next) {
+    console.log('handling navigation intent:', ctx);
+    let definition = await this.router._route(ctx.path);
+    let resource = new Fabric.Resource(definition);
+    let content = resource.render();
+    this._renderContent(content);
+  }
+
+  async _generateIdentity () {
+    let item = null;
+    let result = null;
+
+    // TODO: async generation
+    let key = new Fabric.Key();
+    let struct = {
+      name: prompt('What shall be your name?'),
+      address: key.address,
+      private: key.private.toString('hex'),
+      public: key.public
+    };
+
+    try {
+      item = await this._POST(`/identities`, struct);
+      result = await this._GET(item);
+    } catch (E) {
+      console.error('broken:', E);
+    }
+
+    this.identities[struct.address] = struct;
+    this.identity = struct;
+
+    // TODO: remove public key from character, use only address (or direct hash)
+    return {
+      address: struct.address,
+      public: struct.public
+    };
+  }
+
+  _refresh () {
+    let element = document.querySelector('#content');
+    let resource = new Fabric.Resource();
+    element.innerHTML = this._loadHTML(resource.render());
+    return this;
+  }
+
+  _renderContent (html) {
+    let element = document.querySelector('#content');
+    element.innerHTML = html;
+    return element;
+  }
+
+  _loadHTML (html) {
+    let blob = JSON.stringify(this.state, null, '  ');
+    let verification = crypto.createHash('sha256').update(blob).digest('hex');
+    return `&lt;fabric-application route="${this.route}" integrity="${this.integrity}">
+  &lt;fabric-grid>
+    &lt;fabric-grid-row id="menu">${this.menu.render()}&lt;/fabric-grid-row>
+    &lt;fabric-grid-row id="details" class="ui container">
+      &lt;img src="${this.avatar.toDataURI()}" class="bordered" />
+      &lt;h1>&lt;a href="/">${this.settings.name}&lt;/a>&lt;/h1>
+      &lt;p>${this.settings.synopsis}&lt;/p>
+      &lt;fabric-channel>&lt;/fabric-channel>
+      &lt;nav data-bind="controls">
+        &lt;button data-action="_generateIdentity" class="ui button">create new identity&lt;/button>
+        &lt;button data-action="_toggleFullscreen" class="ui button">fullscreen&lt;/button>
+      &lt;/nav>
+      &lt;div>
+        &lt;p>&lt;code>Version:&lt;/code> &lt;code>${this.settings.version}&lt;/code>&lt;/p>
+        &lt;p>&lt;code>Clock:&lt;/code> &lt;code data-bind="/clock">${this.state.clock}&lt;/code>&lt;/p>
+        &lt;p>&lt;strong>Source:&lt;/strong> &lt;a href="https://github.com/FabricLabs/web">fabric:github.com/FabricLabs/web&lt;/a>
+      &lt;/div>
+    &lt;/fabric-grid-row>
+    &lt;fabric-grid-row id="settings" class="ui container">
+      &lt;h3>Settings&lt;/h3>
+      &lt;application-settings type="application/json">&lt;code>${JSON.stringify(this.settings, null, '  ')}&lt;/code>&lt;/application-settings>
+      &lt;!-- &lt;h3>Resources&lt;/h3>
+      ${this.types.render()} -->
+      &lt;h3>Circuit&lt;/h3>
+      ${this.circuit.render()}
+      &lt;h3>State &lt;small>&lt;code>${verification}&lt;/code>&lt;/small>&lt;/h3>
+      &lt;pre>&lt;code>${blob}&lt;/code>&lt;/pre>
+    &lt;/fabric-grid-row>
+    &lt;fabric-grid-row id="router" class="ui container">
+      &lt;fabric-router>
+        &lt;fabric-grid-row>
+          &lt;input type="text" name="address" value="${this.path}" />
+        &lt;/fabric-grid-row>
+        &lt;fabric-grid-row id="content">${html}&lt;/fabric-grid-row>
+      &lt;/fabric-router>
+    &lt;/fabric-grid-row>
+    &lt;fabric-grid-row id="composite" class="ui container">
+      &lt;noscript>
+        &lt;h3>JavaScript Renderer Available&lt;/h3>
+        &lt;p>If you're reading this, you should consider enabling JavaScript for full effect.&lt;/p>
+      &lt;/noscript>
+      &lt;fabric-column id="canvas">
+        &lt;fabric-canvas>&lt;/fabric-canvas>
+      &lt;/fabric-column>
+      &lt;fabric-column id="peers">
+        &lt;fabric-peer-list>&lt;/fabric-peer-list>
+      &lt;/fabric-column>
+    &lt;/fabric-grid-row>
+  &lt;/fabric-grid>
+  &lt;!-- [0]: README [dot] md -->
+  &lt;!--
+  > # RPG \`@fabric/rpg\`
+  > ## STOP HERE AND READ ME FIRST!
+  > Before continuing, let us be the first to welcome you to the Source.  While it
+  > might be confusing at first, there's a lot you can learn if you make the time.
+  > Use this URI:
+  > > https://www.roleplaygateway.com/
+  > From there, links like \`hub.roleplaygateway.com\` might "pop up" from time to
+  > time.  With a bit of navigating around, you can earn credit for your progress.
+  > Continue:
+  > > https://chat.roleplaygateway.com/
+  > Offline:
+  > > https://www.roleplaygateway.com/medals/beta-tester
+  > Remember: never be afraid to explore!  Curiosity might have killed the cat, but
+  > that's why he had nine lives.
+  > Good luck, have fun (\`gl;hf o/\`), and enjoy!
+  >                                          — the RPG team
+  -->
+  &lt;script type="text/javascript" src="/scripts/index.min.js" defer>&lt;/script>
+&lt;/fabric-application>`;
+  }
+
+  async _toggleFullscreen () {
+    // TODO: implement fullscreen from RPG
+  }
+
+  /**
+   * Generate the rendered HTML output of the application's user interface.
+   * @return {String} HTML string.
+   */
+  render () {
+    if (this.settings.components.index) {
+      this.elements['Index'] = new this.components['Index'](this.settings);
+      return this.elements['Index'].render();
+    }
+
+    let page = this.page.render();
+    let html = this._loadHTML(page);
+
+    return html;
+  }
+
+  /**
+   * Launches any necessary processes and notifies the user on ready.
+   * @return {Promise} Resolves on completion.
+   */
+  async start () {
+    await this.define('FabricMenu', Menu);
+    await this.define('ResourceList', ResourceList);
+
+    // await this.fabric.start();
+    await this.circuit.start();
+    await this.router.start();
+
+    return true;
+  }
+}
+
+module.exports = App;
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Component.html">Component</a></li><li><a href="Definition.html">Definition</a></li><li><a href="HTTP.html">HTTP</a></li><li><a href="HTTPServer.html">HTTPServer</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.6.0-dev</a> on Sat Jun 01 2019 17:19:40 GMT-0700 (Pacific Daylight Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

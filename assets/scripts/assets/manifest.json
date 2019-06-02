@@ -1,6 +1,6 @@
 {
   "main.js": {
     "src": "https://fabric.pub/index.min.js",
-    "integrity": "sha256-F+hEKberySDm0aDaIIBjZiL8kFvdDx0R66+u50jRU4c= sha384-gC3vnO+aLxGnzwKOFmqtLDk9H8LXFidzTAvSzzH6Cu7KVbMcyZQjJaFYcGjmi7nx sha512-caAy5szibKaAa5AyaS8qHXYRNEehBfP9BdqpAQFGSyRafb7GZprPzxl8bUIEbhDTtTehbFQrRm0M/hIlftpuWg=="
+    "integrity": "sha256-DTNvd/9iq7Bqag7PswEgFxQjPK3Yex6W4xjMJmQR4mI= sha384-jxuHOTM/0z9eghjpLBdxY8YnnOO9+V85Efl1lxYhLdHx4Kup7OTlvW1n4Chau1lv sha512-oqNkoujOow/KVF3e6MS/+xRKgClz6wUvpJvipizM/fWPTy/DvVzPz7vlC/ETAtX+UnVwRh2138MC52kgrZHcSQ=="
   }
 }
