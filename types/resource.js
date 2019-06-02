@@ -20,7 +20,7 @@ class Resource extends Fabric.Resource {
   }
 
   renderComponent (name) {
-    return this.components[name].render();
+    return this.components[name].renderState(this.state);
   }
 
   render () {

@@ -4,7 +4,8 @@ const {
   HTTP_HOST
 } = require('../constants');
 
-const Agent = require('peerjs');
+// TODO: investigate peerjs history, why .default now?  Node 10?
+const Agent = require('peerjs').default;
 
 const Fabric = require('@fabric/core');
 const Peer = require('./peer');
@@ -14,7 +15,7 @@ class Swarm extends Fabric.Service {
     super(configuration);
     this.config = Object.assign({
       port: 9999,
-      secure: true
+      secure: false // true for release!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     }, configuration);
     this.agent = null;
     this.connections = {};
@@ -22,7 +23,7 @@ class Swarm extends Fabric.Service {
   }
 
   identify (id) {
-    this.id = id;
+    this.name = id;
     this.agent = new Agent(id, {
       host: HTTP_HOST,
       path: '/services/peering',

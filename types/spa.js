@@ -1,8 +1,6 @@
 'use strict';
 
-
 const App = require('./app');
-const page = require('page');
 const crypto = require('crypto');
 
 /**
@@ -35,6 +33,11 @@ class SPA extends App {
     }); */
 
     this.routes = [];
+    this.bindings = {
+      'click': this._handleClick.bind(this)
+    };
+
+    this.title = `${this.settings.synopsis} &middot; ${this.settings.name}`;
 
     return this;
   }
@@ -49,6 +52,15 @@ class SPA extends App {
     }
   }
 
+  _handleClick (e) {
+    console.log('SPA CLICK EVENT:', e);
+  }
+
+  _setTitle (title) {
+    this.title = `${title} &middot; ${this.settings.name}`;
+    document.querySelector('title').innerHTML = this.title;
+  }
+
   _renderWith (html) {
     let hash = crypto.createHash('sha256').update(html).digest('hex');
 
@@ -56,8 +68,8 @@ class SPA extends App {
 <html lang="${this.settings.language}"${(this.settings.offline) ? 'manifest="cache.manifest"' : ''}>
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-  <title>${this.settings.synopsis} &middot; ${this.settings.name}</title>
-  <link rel="manifest" href="/assets/manifest.json">
+  <title>${this.title}</title>
+  <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" type="text/css" href="/styles/screen.css" />
   <link rel="stylesheet" type="text/css" href="/styles/semantic.css" />
 </head>

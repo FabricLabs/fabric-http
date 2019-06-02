@@ -5,6 +5,7 @@ const path = require('path');
 
 // Plugins
 const WebpackAssetsManifest = require('webpack-assets-manifest');
+const ServiceWorkerWebpackPlugin = require('serviceworker-webpack-plugin');
 
 module.exports = {
   mode: 'development',
@@ -24,10 +25,14 @@ module.exports = {
       }
     }),
     new WebpackAssetsManifest({
-      publicPath: 'https://fabric.pub',
+      publicPath: '/scripts',
       integrity: true,
-      output: 'assets/manifest.json',
+      output: '../assets/manifest.json',
       merge: true
+    }),
+    new ServiceWorkerWebpackPlugin({
+      entry: path.join(__dirname, 'scripts/worker.js'),
+      filename: '../worker.js'
     })
   ]
 };

@@ -21,6 +21,7 @@ class Component extends Fabric.State {
     }, settings);
 
     this.state = settings;
+    this.element = null;
 
     return this;
   }
@@ -44,10 +45,47 @@ class Component extends Fabric.State {
     return `sha256-${hash}`;
   }
 
-  render () {
-    let content = `<code integrity="${this.integrity}">${this.data}</code>`;
+  _toElement () {
+    let element = document.createElement(this.settings.handle);
+    element.innerHTML = this._getInnerHTML(this.state);
+    return element;
+  }
+
+  _loadHTML (content) {
     let hash = crypto.createHash('sha256').update(content).digest('base64');
     return `<${this.settings.handle} integrity="sha256-${hash}">${content}</${this.settings.handle}>`;
+  }
+
+  _getInnerHTML (state) {
+    return JSON.stringify(state || this.state);
+  }
+
+  _renderState (state) {
+    // TODO: render Template here
+    // cc: @melnx @lel @lllllll:fabric.pub
+    let content = this._getInnerHTML(state);
+    return this._loadHTML(content);
+  }
+
+  refresh () {
+    if (this.element) {
+      this.element.innerHTML = this._getInnerHTML(this.state);
+    }
+  }
+
+  bind (element) {
+    if (this.element) {
+      // TODO: unbind old handlers
+    }
+
+    this.element = element;
+    this.element.addEventListener('refresh', this.refresh.bind(this));
+
+    return this;
+  }
+
+  render () {
+    return this._renderState(this.state);
   }
 }
 

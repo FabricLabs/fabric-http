@@ -12,6 +12,8 @@ const d3 = require('d3');
 const Fabric = require('@fabric/core');
 const Avatar = require('./avatar');
 const Router = require('./router');
+const Resource = require('./resource');
+const Identity = require('./identity');
 const Component = require('./component');
 const Package = require('../package');
 
@@ -42,7 +44,9 @@ class App extends Component {
       synopsis: 'HTTP, WebSockets, WebRTC, and more.',
       language: 'en',
       components: {},
+      identities: {},
       resources: {},
+      peers: {},
       port: HTTP_SERVER_PORT,
       version: Package.version
     }, settings);
@@ -51,6 +55,10 @@ class App extends Component {
     this.types = new ResourceList();
     this.avatar = new Avatar();
     this.router = new Router();
+    this.secrets = new Fabric.Store({
+      path: 'stores/secrets'
+    });
+
     this.handler = page;
     this.circuit = this.settings.circuit || new Fabric.Circuit();
 
@@ -64,6 +72,7 @@ class App extends Component {
 
     // properties
     this.identities = {};
+    this.peers = {};
     this.components = { ResourceList };
     this.routes = [];
 
@@ -105,7 +114,7 @@ class App extends Component {
   }
 
   get page () {
-    return new Fabric.Resource({
+    return new Resource({
       name: 'BlankPage'
     });
   }
@@ -148,17 +157,41 @@ class App extends Component {
     }
   }
 
+  /**
+   * Trigger navigation.
+   * @param  {Context}   ctx  Navigating context.
+   * @param  {Function} next Function called if no route found.
+   * @return {Promise}       Resolved on routing complete.
+   */
   async _handleNavigation (ctx, next) {
     console.log('handling navigation intent:', ctx);
     let definition = await this.router._route(ctx.path);
     let resource = new Fabric.Resource(definition);
     let content = resource.render();
+    this._setTitle(resource.name);
     this._renderContent(content);
+  }
+
+  async _restoreIdentity () {
+    let identities = null;
+
+    try {
+      identities = await this.secrets._GET(`/identities`);
+    } catch (E) {
+      console.error('Could not load history:', E);
+    }
+
+    if (!identities || !identities.length) {
+      return this._createIdentity();
+    }
+
+    return new Identity(identities[0]);
   }
 
   async _generateIdentity () {
     let item = null;
     let result = null;
+    let link = null;
 
     // TODO: async generation
     let key = new Fabric.Key();
@@ -169,12 +202,22 @@ class App extends Component {
       public: key.public
     };
 
-    try {
-      item = await this._POST(`/identities`, struct);
-      result = await this._GET(item);
-    } catch (E) {
-      console.error('broken:', E);
+    let existing = await this._getIdentityByName(struct.name);
+    console.log('existing check:', existing);
+
+    if (!existing) {
+      try {
+        let id = await this.secrets._POST(`/identities`, struct);
+        link = id;
+      } catch (E) {
+        console.error('broken:', E);
+      }
+    } else {
+      link = existing;
     }
+
+    // TODO: verify login here
+    // TODO: encrypt local storage with password
 
     this.identities[struct.address] = struct;
     this.identity = struct;
@@ -184,6 +227,17 @@ class App extends Component {
       address: struct.address,
       public: struct.public
     };
+  }
+
+  async _getIdentityByName (name) {
+    let candidates = Object.keys(this.identities).map((x) => {
+      return this.identities[x];
+    }).filter((x) => {
+      return x.name === name;
+    });
+
+    console.log('candidates:', candidates);
+    return candidates[0] || null;
   }
 
   _refresh () {
@@ -221,10 +275,10 @@ class App extends Component {
       </div>
     </fabric-grid-row>
     <fabric-grid-row id="settings" class="ui container">
-      <h3>Settings</h3>
+      <!-- <h3>Settings</h3>
       <application-settings type="application/json"><code>${JSON.stringify(this.settings, null, '  ')}</code></application-settings>
       <h3>Resources</h3>
-      ${this.types.render()}
+      ${this.types.render()} -->
       <h3>Circuit</h3>
       ${this.circuit.render()}
       <h3>State <small><code>${verification}</code></small></h3>
@@ -257,16 +311,19 @@ class App extends Component {
   > ## STOP HERE AND READ ME FIRST!
   > Before continuing, let us be the first to welcome you to the Source.  While it
   > might be confusing at first, there's a lot you can learn if you make the time.
+  >
   > Use this URI:
   > > https://www.roleplaygateway.com/
+  >
   > From there, links like \`hub.roleplaygateway.com\` might "pop up" from time to
   > time.  With a bit of navigating around, you can earn credit for your progress.
-  > Continue:
-  > > https://chat.roleplaygateway.com/
-  > Offline:
-  > > https://www.roleplaygateway.com/medals/beta-tester
+  >
+  > - Continue: https://chat.roleplaygateway.com/
+  > - Offline: https://www.roleplaygateway.com/medals/beta-tester
+  >
   > Remember: never be afraid to explore!  Curiosity might have killed the cat, but
   > that's why he had nine lives.
+  >
   > Good luck, have fun (\`gl;hf o/\`), and enjoy!
   >                                          — the RPG team
   -->
