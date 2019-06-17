@@ -1,7 +1,10 @@
 'use strict';
 
-const App = require('./app');
 const crypto = require('crypto');
+
+const App = require('./app');
+const Router = require('./router');
+
 
 /**
  * Fully-managed HTML application.
@@ -32,6 +35,8 @@ class SPA extends App {
       type: 'module'
     }); */
 
+    this.router = new Router();
+
     this.routes = [];
     this.bindings = {
       'click': this._handleClick.bind(this)
@@ -39,6 +44,12 @@ class SPA extends App {
 
     this.title = `${this.settings.synopsis} &middot; ${this.settings.name}`;
 
+    return this;
+  }
+
+  async start () {
+    super.start();
+    await this.router.start();
     return this;
   }
 

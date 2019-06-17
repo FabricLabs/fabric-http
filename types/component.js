@@ -6,7 +6,7 @@ const Fabric = require('@fabric/core');
 /**
  * Generic component.
  */
-class Component extends Fabric.State {
+class Component extends Fabric.Service {
   /**
    * Create a component.
    * @param  {Object} [settings={}] Settings for the component.

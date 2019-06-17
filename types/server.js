@@ -193,8 +193,19 @@ class HTTPServer extends Fabric.Oracle {
 
     // send result
     socket.send(JSON.stringify({
+      '@type': 'VerAck',
+      '@version': 1
+    }));
+
+    socket.send(JSON.stringify({
+      '@type': 'Inventory',
+      '@parent': this.app.id,
+      '@version': 1
+    }));
+
+    socket.send(JSON.stringify({
       '@type': 'State',
-      '@data': server.rpg['@data'],
+      '@data': this.app.state,
       '@version': 1
     }));
 
@@ -244,6 +255,7 @@ class HTTPServer extends Fabric.Oracle {
   }
 
   _verifyClient (info, done) {
+    console.log('[HTTP:SERVER]', '_verifyClient', info);
     if (!this.config.sessions) return done();
     this.sessions(info.req, {}, () => {
       // TODO: reject unknown (!info.req.session.identity)
@@ -368,7 +380,8 @@ class HTTPServer extends Fabric.Oracle {
     // attach a WebSocket handler
     this.wss = new WebSocket.Server({
       server: server.http,
-      verifyClient: this._verifyClient.bind(this)
+      // TODO: validate entire verification chain
+      // verifyClient: this._verifyClient.bind(this)
     });
 
     // set up the WebSocket connection handler

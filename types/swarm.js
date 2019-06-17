@@ -1,7 +1,7 @@
 'use strict';
 
 const {
-  HTTP_HOST
+  HTTP_SERVER_PORT
 } = require('../constants');
 
 // TODO: investigate peerjs history, why .default now?  Node 10?
@@ -14,8 +14,8 @@ class Swarm extends Fabric.Service {
   constructor (configuration = {}) {
     super(configuration);
     this.config = Object.assign({
-      port: 9999,
-      secure: false // true for release!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      port: HTTP_SERVER_PORT,
+      secure: true
     }, configuration);
     this.agent = null;
     this.connections = {};
@@ -25,7 +25,7 @@ class Swarm extends Fabric.Service {
   identify (id) {
     this.name = id;
     this.agent = new Agent(id, {
-      host: HTTP_HOST,
+      host: 'localhost',
       path: '/services/peering',
       port: this.config.port,
       secure: this.config.secure
@@ -56,6 +56,7 @@ class Swarm extends Fabric.Service {
   start () {
     this.status = 'ready';
     this.emit('ready');
+    return this;
   }
 
   _broadcast (msg) {

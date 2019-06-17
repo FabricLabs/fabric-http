@@ -12,6 +12,7 @@ const d3 = require('d3');
 const Fabric = require('@fabric/core');
 const Avatar = require('./avatar');
 const Router = require('./router');
+const Browser = require('./browser');
 const Resource = require('./resource');
 const Identity = require('./identity');
 const Component = require('./component');
@@ -43,6 +44,7 @@ class App extends Component {
       name: '@fabric/http',
       synopsis: 'HTTP, WebSockets, WebRTC, and more.',
       language: 'en',
+      namespace: 'maki',
       components: {},
       identities: {},
       resources: {},
@@ -55,6 +57,7 @@ class App extends Component {
     this.types = new ResourceList();
     this.avatar = new Avatar();
     this.router = new Router();
+    this.browser = new Browser();
     this.secrets = new Fabric.Store({
       path: 'stores/secrets'
     });
@@ -64,7 +67,7 @@ class App extends Component {
 
     // Add index menu item
     this.menu._addItem({ name: this.settings.name, path: '/', brand: true });
-    this.handler('/', this._refresh.bind(this));
+    this.handler('/', this._loadIndex.bind(this));
 
     this._addHandler('_loadIndex', function () {
       console.log('loaded index (fake for fsm)');
@@ -74,34 +77,27 @@ class App extends Component {
     this.identities = {};
     this.peers = {};
     this.components = { ResourceList };
+    this.resources = {};
     this.routes = [];
-
-    if (this.settings.components.index) {
-      this.components['Index'] = this.settings.components.index;
-    } else {
-      this.components['Index'] = this.prototype;
-    }
 
     for (let name in this.settings.resources) {
       let definition = this.settings.resources[name];
       let plural = pluralize(name);
 
-      // TODO: use Fabric.Resource here
-      this.router._addFlat(`/${plural.toLowerCase()}`, definition);
-      this._addRoute({ name: plural, path: `/${plural.toLowerCase()}` });
-      this.menu._addItem({ name: plural, path: `/${plural.toLowerCase()}` });
-      this.handler(`/${plural.toLowerCase()}`, this._handleNavigation.bind(this));
+      this.define(name, definition);
 
-      // TODO: use definition always?
-      // need to check for ES6 class vs. passed Object from config
-      if (definition.constructor) {
-        console.log('definition.constructor:', definition.constructor.name);
-        if (definition.constructor.name === 'Object') {
-          this.types.state[name] = Component;
-        } else {
-          this.types.state[name] = definition;
-        }
+      // this.router._addFlat(`/${plural.toLowerCase()}`, definition);
+      this.router._addRoute(`/${plural.toLowerCase()}/:id`, definition.components.view);
+      this.router._addRoute(`/${plural.toLowerCase()}`, definition.components.list);
+
+      // add menu items & handler
+      if (!definition.hidden) {
+        this.menu._addItem({ name: plural, path: `/${plural.toLowerCase()}` });
       }
+
+      // page.js router...
+      this.handler(`/${plural.toLowerCase()}`, this._handleNavigation.bind(this));
+      this.handler(`/${plural.toLowerCase()}/:id`, this._handleNavigation.bind(this));
     }
 
     this.resources = {};
@@ -124,6 +120,7 @@ class App extends Component {
   }
 
   define (name, definition) {
+    this.router.define(name, definition);
     this.types.state[name] = definition;
     this.resources[name] = definition;
   }
@@ -146,6 +143,12 @@ class App extends Component {
     return hash === parts[1];
   }
 
+  _defineElement (handle, definition) {
+    console.log('[MAKI:APP]', 'defining component (as element):', handle, definition);
+    console.log('current components', this.components);
+    this.components[handle] = definition;
+  }
+
   _verifyElements () {
     let elements = document.querySelectorAll('*[integrity]');
     for (let i = 0; i < elements.length; i++) {
@@ -157,6 +160,14 @@ class App extends Component {
     }
   }
 
+  async _loadIndex (ctx) {
+    let Index = this.components[this.settings.components.index];
+    let resource = new Index(this.state);
+    let content = resource.render();
+    this._setTitle(resource.name);
+    this._renderContent(content);
+  }
+
   /**
    * Trigger navigation.
    * @param  {Context}   ctx  Navigating context.
@@ -165,9 +176,17 @@ class App extends Component {
    */
   async _handleNavigation (ctx, next) {
     console.log('handling navigation intent:', ctx);
-    let definition = await this.router._route(ctx.path);
-    let resource = new Fabric.Resource(definition);
+    let route = await this.router._route(ctx.path);
+    console.log('[WEB:APP]', '_handleNavigation', route);
+    console.log('the type:', this.components[route.component]);
+    let Type = this.components[route.component];
+    let resource = new Type(this.state);
     let content = resource.render();
+
+    // TODO: externalize navigation??? eval...
+    /* let resource = new Fabric.Resource(definition);
+    let content = resource.components.list.render(); */
+
     this._setTitle(resource.name);
     this._renderContent(content);
   }
@@ -182,7 +201,7 @@ class App extends Component {
     }
 
     if (!identities || !identities.length) {
-      return this._createIdentity();
+      return this._generateIdentity();
     }
 
     return new Identity(identities[0]);
@@ -240,58 +259,37 @@ class App extends Component {
     return candidates[0] || null;
   }
 
+  _setTitle (title) {
+    this.title = `${title} &middot; ${this.settings.name}`;
+    document.querySelector('title').innerHTML = this.title;
+  }
+
   _refresh () {
-    let element = document.querySelector('#content');
+    let element = document.querySelector('#browser-content');
     let resource = new Fabric.Resource();
     element.innerHTML = this._loadHTML(resource.render());
     return this;
   }
 
   _renderContent (html) {
-    let element = document.querySelector('#content');
+    let element = document.querySelector('#browser-content');
     element.innerHTML = html;
     return element;
   }
 
+  // TODO: write Purity-based version, use in production
   _loadHTML (html) {
     let blob = JSON.stringify(this.state, null, '  ');
     let verification = crypto.createHash('sha256').update(blob).digest('hex');
     return `<fabric-application route="${this.route}" integrity="${this.integrity}">
   <fabric-grid>
     <fabric-grid-row id="menu">${this.menu.render()}</fabric-grid-row>
-    <fabric-grid-row id="details" class="ui container">
+    <fabric-grid-row id="details" class="ui container" style="display: none;">
       <img src="${this.avatar.toDataURI()}" class="bordered" />
       <h1><a href="/">${this.settings.name}</a></h1>
       <p>${this.settings.synopsis}</p>
-      <fabric-channel></fabric-channel>
-      <nav data-bind="controls">
-        <button data-action="_generateIdentity" class="ui button">create new identity</button>
-        <button data-action="_toggleFullscreen" class="ui button">fullscreen</button>
-      </nav>
-      <div>
-        <p><code>Version:</code> <code>${this.settings.version}</code></p>
-        <p><code>Clock:</code> <code data-bind="/clock">${this.state.clock}</code></p>
-        <p><strong>Source:</strong> <a href="https://github.com/FabricLabs/web">fabric:github.com/FabricLabs/web</a>
-      </div>
     </fabric-grid-row>
-    <fabric-grid-row id="settings" class="ui container">
-      <!-- <h3>Settings</h3>
-      <application-settings type="application/json"><code>${JSON.stringify(this.settings, null, '  ')}</code></application-settings>
-      <h3>Resources</h3>
-      ${this.types.render()} -->
-      <h3>Circuit</h3>
-      ${this.circuit.render()}
-      <h3>State <small><code>${verification}</code></small></h3>
-      <pre><code>${blob}</code></pre>
-    </fabric-grid-row>
-    <fabric-grid-row id="router" class="ui container">
-      <fabric-router>
-        <fabric-grid-row>
-          <input type="text" name="address" value="${this.path}" />
-        </fabric-grid-row>
-        <fabric-grid-row id="content">${html}</fabric-grid-row>
-      </fabric-router>
-    </fabric-grid-row>
+    <fabric-grid-row id="browser" class="ui main container">${this.browser.render()}</fabric-grid-row>
     <fabric-grid-row id="composite" class="ui container">
       <noscript>
         <h3>JavaScript Renderer Available</h3>
@@ -303,6 +301,33 @@ class App extends Component {
       <fabric-column id="peers">
         <fabric-peer-list></fabric-peer-list>
       </fabric-column>
+    </fabric-grid-row>
+    <fabric-grid-row class="ui inverted vertical footer segment">
+      <div class="ui container">
+        <h2>Debug Information</h2>
+        <fabric-grid-row>
+          <fabric-channel></fabric-channel>
+          <nav data-bind="controls">
+            <button data-action="_generateIdentity" class="ui button">create new identity</button>
+            <button data-action="_toggleFullscreen" class="ui button">fullscreen</button>
+          </nav>
+          <div>
+            <p><code>Version:</code> <code>${this.settings.version}</code></p>
+            <p><code>Clock:</code> <code data-bind="/clock">${this.state.clock}</code></p>
+            <p><strong>Source:</strong> <a href="https://github.com/FabricLabs/web">fabric:github.com/FabricLabs/web</a>
+          </div>
+        </fabric-grid-row>
+        <fabric-grid-row id="settings">
+          <!-- <h3>Settings</h3>
+          <application-settings type="application/json"><code>${JSON.stringify(this.settings, null, '  ')}</code></application-settings>
+          <h3>Resources</h3>
+          ${this.types.render()} -->
+          <h3>Circuit</h3>
+          ${this.circuit.render()}
+          <h3>State <small><code>${verification}</code></small></h3>
+          <pre><code>${blob}</code></pre>
+        </fabric-grid-row>
+      </div>
     </fabric-grid-row>
   </fabric-grid>
   <!-- [0]: README [dot] md -->
@@ -358,6 +383,15 @@ class App extends Component {
   async start () {
     await this.define('FabricMenu', Menu);
     await this.define('ResourceList', ResourceList);
+
+    for (let name in this.resources) {
+      let definition = this.resources[name];
+      if (definition.data) {
+        await this.set(`/${definition.names.plural}`, definition.data);
+      }
+    }
+
+    await this.commit();
 
     // await this.fabric.start();
     await this.circuit.start();
