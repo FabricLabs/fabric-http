@@ -21,7 +21,7 @@ class Maki extends Fabric.Program {
 
   /**
    * Generate an HTML string representing the current state of the app.
-   * @return {[type]} [description]
+   * @return {String} HTML-encoded string representing the application.
    */
   render () {
     return `<maki-application>

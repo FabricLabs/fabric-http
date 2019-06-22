@@ -57,7 +57,7 @@ class Component extends Fabric.Service {
   }
 
   _getInnerHTML (state) {
-    return JSON.stringify(state || this.state);
+    return `<code class="unconfigured" data-name="_getInnerHTML">${JSON.stringify(state || this.state)}</code>`;
   }
 
   _renderState (state) {

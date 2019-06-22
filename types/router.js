@@ -1,6 +1,7 @@
 'use strict';
 
 const Fabric = require('@fabric/core');
+const pluralize = require('pluralize');
 const pathToRegExp = require('path-to-regexp');
 
 /**
@@ -48,6 +49,17 @@ class Router extends Fabric.Service {
     return result;
   }
 
+  route (msg) {
+    console.log('[MAKI:ROUTER]', 'ROUTING THE FOLLOWING MESSAGE', msg, this.routes);
+    let route = this._route(msg);
+    console.log('THE ROUTE:', route);
+    this.current = msg;
+    return Object.assign({
+      fee: this.settings.fee,
+      route: route
+    });
+  }
+
   _addRoute (route, component) {
     this.routes[component] = {
       path: route,
@@ -55,6 +67,20 @@ class Router extends Fabric.Service {
     };
     // this.router.use(route.path, this._handleRoutableRequest.bind(this));
     return this.routes[route.name];
+  }
+
+  _route (path) {
+    for (let name in this.routes) {
+      let route = this.routes[name];
+      let match = route.regex.exec(path);
+      if (match) {
+        return {
+          resource: route.resource,
+          component: name
+        };
+      }
+    }
+    return null;
   }
 
   /**
@@ -72,37 +98,35 @@ class Router extends Fabric.Service {
     return this.members[target];
   }
 
-  async _route (path) {
-    for (let name in this.routes) {
-      let route = this.routes[name];
-      let match = route.regex.exec(path);
-      if (match) {
-        return {
-          resource: route.resource,
-          component: name
-        };
-      }
-    }
-    return null;
-  }
-
   async _handleRoutableRequest (event) {
     return this.router.route(event);
-  }
-
-  async route (msg) {
-    this.current = msg;
-    return Object.assign({
-      fee: this.settings.fee,
-      route: this.routes[msg]
-    });
   }
 
   async start () {
     console.log('[FABRIC:HTTP]', 'ROUTER()', 'starting...');
     this.status = 'started';
+
+    console.log('our routes:', this.routes);
+
+    for (let name in this.routes) {
+      let route = new Fabric.Entity(this.routes[name].path);
+      this.state.channels[route.id] = Object.assign({
+        path: this.routes[name].path,
+        members: [],
+        messages: []
+      });
+    }
+
     this.commit();
+
     console.log('[FABRIC:HTTP]', 'ROUTER()', 'started!', this.state);
+
+    return this;
+  }
+
+  async stop () {
+    console.log('[FABRIC:HTTP]', 'ROUTER()', 'stopping...', this);
+    this.status = 'stopping';
     return this;
   }
 }
