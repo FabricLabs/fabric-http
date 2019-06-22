@@ -412,6 +412,7 @@ class HTTPServer extends Fabric.Oracle {
   async stop () {
     let server = this;
     await server.http.close();
+    await server.app.stop();
     server.emit('stopped');
     return server;
   }

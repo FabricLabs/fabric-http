@@ -5,7 +5,6 @@ const crypto = require('crypto');
 const App = require('./app');
 const Router = require('./router');
 
-
 /**
  * Fully-managed HTML application.
  * @extends App
@@ -47,6 +46,13 @@ class SPA extends App {
     return this;
   }
 
+  define (name, definition) {
+    this.router.define(name, definition);
+    this.types.state[name] = definition;
+    this.resources[name] = definition;
+    return this;
+  }
+
   async start () {
     super.start();
     await this.router.start();
@@ -59,7 +65,7 @@ class SPA extends App {
 
   route (path) {
     for (let i = 0; i < this.routes.length; i++) {
-      
+      console.log('[MAKI:SPA]', 'testing route:', this.routes[i]);
     }
   }
 
