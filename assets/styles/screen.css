@@ -3,6 +3,11 @@
   padding: 0;
 }
 
+#browser-content {
+  margin-top: 1em;
+  padding: 1em;
+}
+
 fabric-grid-row {
   display: block;
 }
@@ -10,6 +15,16 @@ fabric-grid-row {
 fabric-svg {
   width: 800px;
   height: 600px;
+}
+
+.window {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+}
+
+.window .main.container {
+  flex: 1;
 }
 
 textarea {
@@ -30,6 +45,7 @@ textarea {
 #details,
 .main.container {
   margin-top: 7em;
+  padding-bottom: 1em;
 }
 
 .wireframe {

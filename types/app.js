@@ -98,7 +98,7 @@ class App extends Component {
 
       // add menu items & handler
       if (!definition.hidden) {
-        this.menu._addItem({ name: plural, path: `/${plural.toLowerCase()}` });
+        this.menu._addItem({ name: plural, path: `/${plural.toLowerCase()}`, icon: definition.icon });
       }
 
       // page.js router...
@@ -412,7 +412,14 @@ class App extends Component {
     for (let name in this.resources) {
       let definition = this.resources[name];
       if (definition.data) {
-        await this.set(`/${definition.names.plural}`, definition.data);
+        // TODO: move this to `types/resource.js`
+        if (!definition.names) {
+          definition.names = {
+            singular: name,
+            plural: pluralize(name)
+          };
+        }
+        await this.set(`/${definition.names.plural.toLowerCase()}`, definition.data);
       }
     }
 

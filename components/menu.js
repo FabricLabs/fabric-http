@@ -33,18 +33,29 @@ class Menu extends Collection {
 
   render () {
     let html = `<${this.settings.handle} class="ui fixed inverted menu">
-  <div class="ui container">`;
+      <div class="ui container">`;
 
     for (let i = 0; i < this.items.length; i++) {
       let item = this.items[i];
-      html += `<a href="${item.path}" class="item${(item.brand || false) ? ' brand' : ''}">${item.name}</a>`;
+
+      html += `<a href="${item.path}" class="item${(item.brand || false) ? ' brand' : ''}">`;
+
+      if (item.icon) {
+        html += `<i class="${item.icon} icon"></i>`;
+      }
+
+      html += `${item.name}</a>`;
     }
+
+    html += `<div class="right menu">`;
+    html += `<fabric-wallet-card class="item" />`;
 
     if (this.indicator) {
-      html += `<div class="right menu">${this.indicator.render()}</div>`;
+      html += `<div>${this.indicator.render()}</div>`;
     }
+    html += `</div>`;
 
-    html += `  </div></${this.settings.handle}>`;
+    html += `</div></${this.settings.handle}>`;
 
     return html;
   }
