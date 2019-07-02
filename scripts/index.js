@@ -8,8 +8,8 @@ const {
 const D3GraphViz = require('d3-graphviz');
 
 // TODO: switch core to types
-const Service = require('@fabric/core/lib/service');
-const Circuit = require('@fabric/core/lib/circuit');
+const Service = require('@fabric/core/types/service');
+const Circuit = require('@fabric/core/types/circuit');
 const App = require('../types/app');
 
 async function main () {

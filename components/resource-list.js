@@ -1,7 +1,7 @@
 'use strict';
 
 const Collection = require('./collection');
-const Resource = require('@fabric/core/lib/resource');
+const Resource = require('@fabric/core/types/resource');
 
 class ResourceList extends Collection {
   constructor (settings = {}) {

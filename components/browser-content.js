@@ -13,7 +13,7 @@ class BrowserContent {
   }
 
   _getInnerHTML () {
-    return `<fabric-sample><h1>Waiting for data...</h1><p>The application is loading.  Unless you've enabled JavaScript or are using the Fabric Browser, this message should not remain visible for long.</p></fabric-sample>`;
+    return `<fabric-sample class="ui segment loading"><h1>Waiting for data...</h1><p>The application is loading.  Unless you've enabled JavaScript or are using the Fabric Browser, this message should not remain visible for long.</p></fabric-sample>`;
   }
 
   render () {

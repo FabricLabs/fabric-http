@@ -47,7 +47,7 @@ class Menu extends Collection {
       html += `${item.name}</a>`;
     }
 
-    html += `<div class="right menu">`;
+    html += `<div class="right menu" id="identity-menu">`;
     html += `<fabric-wallet-card class="item" />`;
 
     if (this.indicator) {

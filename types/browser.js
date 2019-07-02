@@ -1,6 +1,6 @@
 'use strict';
 
-// TODO: move to @fabric/core/lib/service
+// TODO: move to @fabric/core/types/service
 const pluralize = require('pluralize');
 const pointer = require('json-pointer');
 
@@ -33,12 +33,12 @@ class Browser extends Fabric.Service {
 
     this.address = '/'; // start page
     this.introduction = new Introduction(this.settings);
-    // TODO: move to @fabric/core/lib/service
+    // TODO: move to @fabric/core/types/service
     this.router = new Router(this.settings);
     this.searchbox = new SearchBox(this.settings);
     this.target = null;
 
-    // TODO: move to @fabric/core/lib/service
+    // TODO: move to @fabric/core/types/service
     for (let name in this.settings.resources) {
       let definition = this.settings.resources[name];
       let plural = pluralize(name);

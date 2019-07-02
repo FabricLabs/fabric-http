@@ -378,7 +378,10 @@ class App extends Component {
                                              — the RPG team
     -->
   </footer>
-  <script type="text/javascript" src="/scripts/index.min.js" defer></script>
+  <div id="ephemeral-content"></div>
+  <!-- TODO: rollup semantic into build process -->
+  <!-- <script type="text/javascript" src="/scripts/semantic.min.js"></script> -->
+  <script type="text/javascript" src="/scripts/index.min.js"></script>
 </fabric-application>`;
   }
 
@@ -406,6 +409,8 @@ class App extends Component {
    * @return {Promise} Resolves on completion.
    */
   async start () {
+    let script = null;
+
     await this.define('FabricMenu', Menu);
     await this.define('ResourceList', ResourceList);
 
@@ -429,6 +434,19 @@ class App extends Component {
     await this.circuit.start();
     await this.browser.start();
     await this.router.start();
+
+    try {
+      // temporary measure for demo
+      // TODO: fix with webpack/maki
+      script = document.createElement('script');
+      script.setAttribute('src', '/scripts/semantic.js');
+
+      setTimeout(function () {
+        document.querySelector('#ephemeral-content').appendChild(script);
+      }, 1000);
+    } catch (E) {
+      console.error('[FABRIC:APP]', 'Could not create app:', E);
+    }
 
     return true;
   }
