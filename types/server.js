@@ -45,6 +45,7 @@ class HTTPServer extends Fabric.Oracle {
       port: HTTP_SERVER_PORT,
       resources: {},
       components: {},
+      services: {},
       seed: Math.random(),
       sessions: false,
       verbose: false

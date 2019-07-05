@@ -24,7 +24,9 @@ class Component extends HTMLElement {
     }, settings);
 
     this.fabric = new Fabric();
-    this.state = {};
+    this.state = {
+      methods: {}
+    };
 
     return this;
   }
@@ -35,6 +37,10 @@ class Component extends HTMLElement {
 
   get title () {
     return this.settings.title;
+  }
+
+  get methods () {
+    return Object.keys(this.state.methods);
   }
 
   attributeChangedCallback (name, old, value) {
@@ -48,6 +54,14 @@ class Component extends HTMLElement {
   disconnectedCallback () {
     console.log('[MAKI:COMPONENT]', 'Component removed from page:', this);
     // TODO: remove event listeners, close connections, etc.
+  }
+
+  _registerMethod (name, method) {
+    this.state.methods[name] = method.bind(this);
+
+    if (window && window.app && window.app.circuit) {
+      window.app.circuit._registerMethod(name, this.state.methods[name]);
+    }
   }
 
   _handleLocalChange (patches) {
