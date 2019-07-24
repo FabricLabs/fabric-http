@@ -59,7 +59,14 @@ class ChannelList extends Component {
 
     element._setContent(creator.outerHTML);
     element.settings.title = 'Create a Channel';
-    element.settings.description = 'Provide an address to open a channel with and an <strong>amount</strong> to bond as deposit.  <strong>Fees will paid using this deposit.</strong>';
+    element.settings.description = `<div class="ui messages"><div class="ui message">
+      <h4 class="ui header">Getting Started</h4>
+      <p class="description">Provide an address to open a channel with an <strong>amount</strong> to bond as deposit.  <strong>Fees will paid using this deposit.</strong></p>
+    </div>
+    <div class="ui message">
+      <h5 class="ui header">What fees?</h5>
+      <p>Actions in Fabric are bonded to <strong>deposits</strong>, which are lost when contracts are violated.  Only sign messages from counterparties you trust, and <strong>always remember to verify!</strong></p>
+    </div></div>`;
     element.settings.actions[1] = {
       action: '_submitModalForm',
       title: 'Start Channel',
@@ -86,11 +93,17 @@ class ChannelList extends Component {
     let html = `<div class="ui segment">`;
     html += '<div class="ui buttons"><div class="ui right labeled icon button" data-action="_showChannelCreationPrompt">open channel <i class="icon add"></i></div></div>';
     html += '<h3>Channels</h3>';
-    html += `<table class="ui celled table">
+    html += `<table class="ui small celled sortable table">
   <thead>
     <tr>
-      <th>#</th>
-      <th>Hash</th>
+      <th>Name</th>
+      <th>Status</th>
+      <th>Input (hash)</th>
+      <th>Source</th>
+      <th>Deposit Amount</th>
+      <th>Limit</th>
+      <th>Risk (max)</th>
+      <th>Symbol</th>
       <th>Raw</th>
     </tr>
   </thead>
@@ -99,8 +112,14 @@ class ChannelList extends Component {
     for (let i = 0; i < this.state.channels.length; i++) {
       let channel = this.state.channels[i];
       html += `<tr>
-  <td>${channel.id}</td>
-  <td>${channel.hash}</td>
+  <td><a href="/channels/${channel.address}"><small class="subtle">#</small>${channel.name}</a></td>
+  <td><div class="ui label">${channel.status || ''}</div></td>
+  <td><code>${channel.address}</code></td>
+  <td>${channel.source}</td>
+  <td>${channel.amount}</td>
+  <td>${channel.limit}</td>
+  <td>${(channel.limit / channel.amount) * 100}%</td>
+  <td>${channel.symbol}</td>
   <td>${channel.raw}</td>
 </tr>`;
     }

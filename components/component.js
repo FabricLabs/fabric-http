@@ -23,9 +23,16 @@ class Component extends HTMLElement {
       handle: 'fabric-component'
     }, settings);
 
+    this.element = document.createElement(this.settings.handle);
     this.fabric = new Fabric();
+    this.remote = new Fabric.Remote({
+      host: window.host,
+      port: window.port
+    });
+
     this.state = {
-      methods: {}
+      methods: {},
+      handlers: {}
     };
 
     return this;
@@ -49,11 +56,49 @@ class Component extends HTMLElement {
 
   connectedCallback () {
     console.log('[MAKI:COMPONENT]', 'Component added to page:', this);
+    let html = this._getInnerHTML();
+
+    this.setAttribute('data-integrity', Fabric.sha256(html));
+    this.setAttribute('data-fingerprint', this.fingerprint);
+    // this.innerHTML = html;
+    this.innerHTML = html + '';
+
+    /* let binding = this.getAttribute('data-bind');
+
+    if (binding) {
+      // TODO: use Fabric.Remote
+      fetch(`fabric:${binding}`)
+        .then((response) => response.text())
+        .then((responseText) => {
+          this.render(JSON.parse(responseText));
+        })
+        .catch((error) => {
+          console.error(error);
+        });
+    } */
+
+    // Reflect.construct(HTMLElement, [], this.constructor);
+    return this;
   }
 
   disconnectedCallback () {
     console.log('[MAKI:COMPONENT]', 'Component removed from page:', this);
     // TODO: remove event listeners, close connections, etc.
+  }
+
+  _getElement () {
+    return this.element;
+  }
+
+  _registerHandler (name, method) {
+    this.state.handlers[name] = method.bind(this);
+
+    switch (name) {
+      case 'submit':
+        let listener = document.addEventListener(name, method);
+        console.log('listener created:', listener);
+        break;
+    }
   }
 
   _registerMethod (name, method) {
@@ -102,6 +147,15 @@ class Component extends HTMLElement {
   commit () {
     let id = this.fingerprint();
     return id;
+  }
+
+  _getInnerHTML (state) {
+    if (!state) state = this.state;
+    return `<code integrity="${this.integrity}">${JSON.stringify(this.state)}</code>`;
+  }
+
+  render () {
+    return `<${this.settings.handle}>${this._getInnerHTML()}</${this.settings.handle}>`;
   }
 
   async _GET (path) {

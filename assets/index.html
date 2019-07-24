@@ -7,108 +7,95 @@
   <link rel="stylesheet" type="text/css" href="/styles/screen.css" />
   <link rel="stylesheet" type="text/css" href="/styles/semantic.css" />
 </head>
-<body data-bind="8515bb0f0292eae40e94857b8b3a460bed1a7621cec5b91d243c9bab27ade2f3"><fabric-application route="/" integrity="sha256-RBNvo1WzZ4oRRq0W9+hknpT7T8If536DEMBg9hyq/4o=">
-  <fabric-grid>
-    <fabric-grid-row id="menu"><fabric-menu class="ui fixed inverted menu">
-      <div class="ui container"><a href="/" class="item brand">@fabric/http</a></div></fabric-menu></fabric-grid-row>
-    <fabric-grid-row id="details" class="ui container" style="display: none;">
-      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAYAAABw4pVUAAAABmJLR0QA/wD/AP+gvaeTAAAAPklEQVR4nO3BMQEAAADCoPVPbQsvoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgKcBnKQAAaZ1lY4AAAAASUVORK5CYII=" class="bordered" />
-      <h1><a href="/">@fabric/maki</a></h1>
-      <p>Making beautiful apps a breeze.</p>
-    </fabric-grid-row>
-    <fabric-grid-row id="browser" class="ui container"><fabric-grid><fabric-grid-row id="browser-content"><fabric-introduction></fabric-introduction></fabric-grid-row>
-      </fabric-grid></fabric-grid-row>
-    <fabric-grid-row id="composite" class="ui container">
-      <noscript>
-        <h3>JavaScript Renderer Available</h3>
-        <p>If you're reading this, you should consider enabling JavaScript for full effect.</p>
-      </noscript>
-      <fabric-column id="canvas">
-        <fabric-canvas></fabric-canvas>
-      </fabric-column>
-      <fabric-column id="peers">
-        <fabric-peer-list></fabric-peer-list>
-      </fabric-column>
-    </fabric-grid-row>
-    <fabric-grid-row class="ui inverted vertical footer segment">
-      <div class="ui container">
-        <h2>Debug Information</h2>
-        <fabric-grid-row>
-          <fabric-channel></fabric-channel>
-          <nav data-bind="controls">
-            <button data-action="_generateIdentity" class="ui button">create new identity</button>
-            <button data-action="_toggleFullscreen" class="ui button">fullscreen</button>
-          </nav>
-          <div>
-            <p><code>Version:</code> <code>undefined</code></p>
-            <p><code>Clock:</code> <code data-bind="/clock">undefined</code></p>
-            <p><strong>Source:</strong> <a href="https://github.com/FabricLabs/web">fabric:github.com/FabricLabs/web</a>
+<body class="ui inverted" data-bind="bb191d42781cb704a1181e9155dca83d35b645f441e785c4dd7fa57337963337">
+  <fabric-application route="/" integrity="sha256-RBNvo1WzZ4oRRq0W9+hknpT7T8If536DEMBg9hyq/4o=" class="window">
+    <header>
+      <fabric-grid-row id="menu">
+        <fabric-menu class="ui fixed inverted menu">
+          <div class="ui container"><a href="/" class="item brand">@fabric/http</a>
+            <div class="right menu" id="identity-menu">
+              <fabric-wallet-card class="item"></fabric-wallet-card>
+            </div>
           </div>
-        </fabric-grid-row>
-        <fabric-grid-row id="settings">
-          <!-- <h3>Settings</h3>
-          <application-settings type="application/json"><code>{
-  "name": "@fabric/maki",
-  "synopsis": "Making beautiful apps a breeze.",
-  "handle": "html",
-  "language": "en",
-  "components": {},
-  "offline": false
-}</code></application-settings>
-          <h3>Resources</h3>
-          <fabric-resource-list></fabric-resource-list> -->
-          <h3>Circuit</h3>
-          <fabric-circuit>
-  <fabric-code-snippet data-bind="45c2876dd8b930ce7a68e0f30f34f247ed06f79d270a7aa04f3bcb0beb79e1e9" data-integrity="sha256-RcKHbdi5MM56aODzDzTyR+0G950nCnqgTzvLC+t54ek=">digraph "fsm" {
-  "init";
-}</fabric-code-snippet>
-  <fabric-canvas>
-    <fabric-grid>
-      <fabric-grid-row>
-        <textarea data-bind="45c2876dd8b930ce7a68e0f30f34f247ed06f79d270a7aa04f3bcb0beb79e1e9" placeholder="Purity contract here...">digraph "fsm" {
-  "init";
-}</textarea>
+        </fabric-menu>
       </fabric-grid-row>
-      <fabric-grid-row>
-        <button data-action="_step">step</button>
+      <fabric-grid-row id="details" class="ui container" style="display: none;">
+        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAYAAABw4pVUAAAABmJLR0QA/wD/AP+gvaeTAAAAPklEQVR4nO3BMQEAAADCoPVPbQsvoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgKcBnKQAAaZ1lY4AAAAASUVORK5CYII=" class="bordered" />
+        <h1><a href="/">@fabric/maki</a></h1>
+        <p>Making beautiful apps a breeze.</p>
       </fabric-grid-row>
-      <fabric-grid-row>
-        <fabric-svg id="svg"></fabric-svg>
-      </fabric-grid-row>
-      <fabric-grid-row>
-        <canvas id="output" data-bind="output"></canvas>
-        <canvas id="canvas" data-bind="45c2876dd8b930ce7a68e0f30f34f247ed06f79d270a7aa04f3bcb0beb79e1e9"></canvas>
-      </fabric-grid-row>
-  </fabric-canvas>
-</fabric-circuit>
-          <h3>State <small><code>44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a</code></small></h3>
-          <pre><code>{}</code></pre>
-        </fabric-grid-row>
-      </div>
+    </header>
+    <fabric-grid-row id="browser" class="ui main container">
+      <fabric-browser address="/">
+        <fabric-grid rows="3" columns="3">
+          <fabric-grid-row>
+            <div class="ui left attached icon buttons">
+              <button data-action="_navigateBack" class="ui button" title="back"><i class="icon left chevron"></i></button>
+              <button data-action="_navigateForward" class="ui button" title="forward" disabled><i class="icon right chevron"></i></button>
+            </div>
+            <div class="ui search input">
+              <input type="text" name="address" value="/" class="prompt" />
+            </div>
+            <div class="ui right attached icon buttons">
+              <button data-action="_reloadContent" class="ui button" title="refresh"><i class="icon refresh"></i></button>
+            </div>
+            <button data-action="_saveToLibrary" class="ui button" title="save"><i class="icon star"></i></button>
+          </fabric-grid-row>
+          <fabric-browser-content id="browser-content">
+            <fabric-sample class="ui segment loading">
+              <h1>Waiting for data...</h1>
+              <p>The application is loading. Unless you've enabled JavaScript or are using the Fabric Browser, this message should not remain visible for long.</p>
+            </fabric-sample>
+          </fabric-browser-content>
+        </fabric-grid>
+      </fabric-browser>
     </fabric-grid-row>
-  </fabric-grid>
-  <!-- [0]: README [dot] md -->
-  <!--
-  > # RPG `@fabric/rpg`
-  > ## STOP HERE AND READ ME FIRST!
-  > Before continuing, let us be the first to welcome you to the Source.  While it
-  > might be confusing at first, there's a lot you can learn if you make the time.
-  >
-  > Use this URI:
-  > > https://www.roleplaygateway.com/
-  >
-  > From there, links like `hub.roleplaygateway.com` might "pop up" from time to
-  > time.  With a bit of navigating around, you can earn credit for your progress.
-  >
-  > - Continue: https://chat.roleplaygateway.com/
-  > - Offline: https://www.roleplaygateway.com/medals/beta-tester
-  >
-  > Remember: never be afraid to explore!  Curiosity might have killed the cat, but
-  > that's why he had nine lives.
-  >
-  > Good luck, have fun (`gl;hf o/`), and enjoy!
-  >                                          — the RPG team
-  -->
-  <script type="text/javascript" src="/scripts/index.min.js" defer></script>
-</fabric-application></body>
+    <footer>
+      <fabric-grid-row class="ui inverted vertical footer segment">
+        <div class="ui container">
+          <h2>Debug Information</h2>
+          <fabric-grid-row>
+            <fabric-channel></fabric-channel>
+            <nav data-bind="controls">
+              <button data-action="_generateIdentity" class="ui button">create new identity</button>
+              <button data-action="_toggleFullscreen" class="ui button">fullscreen</button>
+            </nav>
+            <div>
+              <p><code>Version:</code> <code>undefined</code></p>
+              <p><code>Clock:</code> <code data-bind="/clock">undefined</code></p>
+              <p><strong>Source:</strong> <a href="https://github.com/FabricLabs/web">fabric:github.com/FabricLabs/web</a>
+            </div>
+          </fabric-grid-row>
+        </div>
+      </fabric-grid-row>
+      <!-- [0]: README [dot] md -->
+      <!--
+    # RPG `@fabric/rpg`
+    ## STOP HERE AND READ ME FIRST!
+    Before continuing, let us be the first to welcome you to THE SOURCE.  While it
+    might be confusing at first, there's a lot you can learn if you make the time.
+
+    Use this URI:
+    https://www.roleplaygateway.com/
+
+    From there, links like `hub.roleplaygateway.com` might "pop up" from time to
+    time.  With a bit of navigating around, you can earn credit for your progress.
+
+    - Continue: https://chat.roleplaygateway.com/
+    - Offline: https://www.roleplaygateway.com/medals/beta-tester
+
+    Remember: never be afraid to explore!  Curiosity might have killed the cat, but
+    that's why he had nine lives.
+
+    Good luck, have fun (`gl;hf o/`), and enjoy!
+
+                                             — the RPG team
+    -->
+    </footer>
+    <div id="ephemeral-content"></div>
+    <!-- TODO: rollup semantic into build process -->
+    <!-- <script type="text/javascript" src="/scripts/semantic.min.js"></script> -->
+    <script type="text/javascript" src="/scripts/index.min.js"></script>
+  </fabric-application>
+</body>
 </html>

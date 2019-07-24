@@ -30,13 +30,13 @@ class MakiWallet extends Fabric.Service {
       transactions: []
     };
 
-    this.watcher = setInterval(this._logWatchAddresses.bind(this), 1000);
+    // this.watcher = setInterval(this._logWatchAddresses.bind(this), 1000);
 
     return this;
   }
 
   _logWatchAddresses () {
-    console.log('[FABRIC:WALLET]', 'watching:', this.state.addresses);
+    console.log('[MAKI:WALLET]', 'watching:', this.state.addresses);
   }
 
   _getDepositAddress () {
@@ -108,7 +108,7 @@ class MakiWallet extends Fabric.Service {
 
   async stop () {
     await super.stop();
-    clearInterval(this.watcher);
+    if (this.watcher) clearInterval(this.watcher);
     return this;
   }
 }

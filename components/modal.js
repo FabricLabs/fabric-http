@@ -44,25 +44,55 @@ class Modal extends Component {
     super.connectedCallback();
     console.log('[MAKI:MODAL]', 'connected!');
 
+    $(this).addClass('ui modal');
+
     window.app.circuit._registerMethod('_closeModal', this._closeModal.bind(this));
     window.app.circuit._registerMethod('_submitModalForm', this._submitModalForm.bind(this));
   }
 
+  /**
+   * Submit a form contained within the modal's content window.
+   * @param  {Event} event Event from application.
+   * @return {Component}       Instance of the component.
+   */
   submit (event) {
     console.log('SUBMIT!', event, this);
+    let self = this;
     let form = this.querySelector('.content .content form');
-    let data = $(form).serialize();
-    console.log('got data:', data);
+    let fields = $(form).serializeArray();
+    let data = {};
 
+    this.status = 'submitting';
+
+    for (let i = 0; i < fields.length; i++) {
+      data[fields[i].name] = fields[i].value;
+    }
+
+    // TODO: call child method
     let action = form.getAttribute('data-action');
     let target = form.getAttribute('action');
 
-    console.log('action:', action);
-    console.log('target:', target);
+    window.app._POST(target, data).then(function (result) {
+      console.log('[MAKI:MODAL]', 'submitted, result:', result);
+      self.status = 'queueing';
+      self._closeModal();
+    });
+
+    return this;
+  }
+
+  _openModal (event) {
+    this.status = 'opening';
+    $(this).modal('show');
+    this.status = 'open';
   }
 
   _closeModal (event) {
-    return $('.ui.modal').modal('hide');
+    this.status = 'closing';
+    $('.ui.modal').modal('hide');
+    this.status = 'closed';
+    $('maki-modal').remove();
+    return this;
   }
 
   _submitModalForm (event) {
@@ -72,6 +102,10 @@ class Modal extends Component {
     window.app.modal.submit();
   }
 
+  /**
+   * Sets the content of the modal.
+   * @param {Modal} content String of HTML to add as content.
+   */
   _setContent (content) {
     this.settings.content = content;
     this.innerHTML = this._getInnerHTML();

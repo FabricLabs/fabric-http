@@ -110,7 +110,13 @@ class Browser extends Fabric.Service {
     if (!this.target) return false;
 
     this.target.appendChild(element);
-    element.innerHTML = element._getInnerHTML();
+
+    try {
+      element.innerHTML = element._getInnerHTML();
+    } catch (E) {
+      console.error('Could not set inner HTML:', E);
+      console.log('Child was:', element);
+    }
 
     return this;
   }
@@ -134,8 +140,10 @@ class Browser extends Fabric.Service {
   }
 
   _getInnerHTML () {
-    let content = new BrowserContent();
+    let content = new BrowserContent(this.state);
     let html = `<fabric-grid rows="3" columns="3">`;
+
+    content.className += ' ui container';
 
     if (this.settings.controls) {
       html += `<fabric-grid-row>
@@ -154,7 +162,9 @@ class Browser extends Fabric.Service {
     }
 
     // html += `<fabric-browser-content id="browser-content">dummy content... ${JSON.stringify(this.router.route(this.address).route)}</fabric-browser-content>`;
-    html += content.render();
+    html += `<div class="browser">`;
+    html += `${content.render()}`;
+    html += `</div>`;
 
     html += `</fabric-grid>`;
 

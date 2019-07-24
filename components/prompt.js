@@ -1,10 +1,11 @@
 'use strict';
 
-const Component = require('./component');
+// const Component = require('./component');
 
-class Prompt extends Component {
+class Prompt {
   constructor (settings = {}) {
-    super(settings);
+    // super(settings);
+
     this.settings = Object.assign({
       question: 'How can we help?',
       field: 'query',
@@ -13,22 +14,45 @@ class Prompt extends Component {
       placeholder: 'Search documents, users, or ideas',
       content: null
     }, settings);
+
     return this;
   }
 
-  _submitPrompt (event) {
+  attachedCallback () {
+    console.log('[MAKI:PROMPT]', 'attached to document!');
+    window.app._registerMethod('_submitPrompt', this._submitPrompt.bind(this));
+  }
+
+  async _submitPrompt (event) {
     event.preventDefault();
 
-    console.log('[MAKI:PROMPT]', 'Submitting prompt with event:', event);
+    console.log('[MAKI:PROMPT]', 'Submit event:', event);
+    console.log('[MAKI:PROMPT]', 'Submit prompt:', prompt);
 
-    return this;
+    let core = $(prompt);
+    let form = $(core.children()[0]);
+    let parts = qs.parse(form.serialize());
+
+    console.log('[MAKI:PROMPT]', 'Submit core parts:', parts);
+
+    let depositor = Object.assign({}, parts);
+    let posted = await window.app.exchange._POST('/depositors', depositor);
+
+    console.log('depositor:', depositor);
+    console.log('posted:', posted);
+
+    // console.log('[EXCHANGE:PROMPT]', 'Submit serialized:', core.children()[0].serialize());
   }
 
   _getInnerHTML () {
-    let html = `<form class="ui form" method="POST" data-action="_submitPrompt">
-      <div class="field">
-        <p>${this.settings.question}</p>
-      </div>`;
+    let html = `<form class="ui form" method="POST" data-action="_submitPrompt">`;
+
+    if (this.settings.question) {
+      html += `
+        <div class="field">
+          <p>${this.settings.question}</p>
+        </div>`;
+    }
 
     if (this.settings.content) {
       html += this.settings.content;
