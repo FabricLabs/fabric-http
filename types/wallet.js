@@ -24,7 +24,7 @@ class Wallet extends Fabric.Service {
 
     this.settings = Object.assign({
       name: 'default',
-      network: 'testnet'
+      network: 'regtest'
     }, settings);
 
     this.database = new WalletDB({
@@ -38,6 +38,9 @@ class Wallet extends Fabric.Service {
     this.master = null;
     this.seed = null;
 
+    this.words = Mnemonic.getWordlist('english').words;
+    this.mnemonic = new Mnemonic();
+
     this.status = 'closed';
 
     return this;
@@ -49,6 +52,16 @@ class Wallet extends Fabric.Service {
 
   _getDepositAddress () {
     return this.address;
+  }
+
+  _getSeed () {
+    return this.seed;
+  }
+
+  _getAccountByIndex (index = 0) {
+    return {
+      address: this.account.deriveReceive(index).getAddress('string')
+    };
   }
 
   async _handleWalletBalance (balance) {
@@ -86,6 +99,8 @@ class Wallet extends Fabric.Service {
   }
 
   async _load (settings = {}) {
+    let self = this;
+
     this.status = 'loading';
 
     await this.database.open();
@@ -93,6 +108,7 @@ class Wallet extends Fabric.Service {
     this.wallet = await this.database.create();
     this.account = await this.wallet.getAccount('default');
     this.address = await this.account.receiveAddress();
+    this.seed = this.wallet.master.mnemonic.phrase;
 
     this.status = 'loaded';
 

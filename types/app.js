@@ -17,13 +17,15 @@ const Router = require('./router');
 const Browser = require('./browser');
 const Resource = require('./resource');
 const Identity = require('./identity');
+const Wallet = require('./wallet');
 const Component = require('./component');
 const Package = require('../package');
 
 // TODO: move component imports to components/ or scripts/
-const MakiIntroduction = require('../components/introduction');
+const Introduction = require('../components/introduction');
 const ResourceList = require('../components/resource-list');
 const Menu = require('../components/menu');
+const Prompt = require('../components/prompt');
 
 /**
  * Applications can be deployed to the legacy web using {@link App}, a powerful
@@ -46,7 +48,7 @@ class App extends Component {
     this.settings = Object.assign({
       name: '@fabric/http',
       synopsis: 'HTTP, WebSockets, WebRTC, and more.',
-      controls: true,
+      controls: false,
       language: 'en',
       namespace: 'maki',
       components: {
@@ -63,11 +65,31 @@ class App extends Component {
     this.types = new ResourceList();
     this.avatar = new Avatar();
     this.router = new Router();
+    this.wallet = new Wallet();
     this.browser = new Browser(this.settings);
+
+    this.state = {
+      methods: {},
+      channels: {},
+      components: {},
+      resources: {},
+      messages: {}
+    };
+
+    this.modal = null;
     this.target = null;
+    this.identity = null;
+    this.history = [];
 
     this.secrets = new Fabric.Store({
       path: 'stores/secrets'
+    });
+
+    this.wallets = new Fabric.Collection({
+      name: 'Wallet',
+      listeners: {
+        'changes': this._handleWalletChanges.bind(this)
+      }
     });
 
     this.handler = page;
@@ -108,7 +130,7 @@ class App extends Component {
 
     // Some default Components, available to all
     // TODO: expose this as the Library, namespace `alexandria`
-    this.define('Introduction', MakiIntroduction);
+    this.define('Introduction', Introduction);
 
     this.route = '/';
     this.status = 'ready';
@@ -124,6 +146,10 @@ class App extends Component {
 
   get version () {
     return this.settings.version;
+  }
+
+  connectedCallback () {
+    super.connectedCallback();
   }
 
   define (name, definition) {
@@ -151,7 +177,6 @@ class App extends Component {
   }
 
   _defineElement (handle, definition) {
-    this.log('[MAKI:APP]', 'defining element:', handle, definition);
 
     this.components[handle] = definition;
 
@@ -160,6 +185,10 @@ class App extends Component {
     } catch (E) {
       console.error('[MAKI:APP]', 'Could not define Custom Element:', E, handle, definition);
     }
+  }
+
+  _setIdentity (identity) {
+    this.identity = identity;
   }
 
   _verifyElements () {
@@ -236,6 +265,10 @@ class App extends Component {
     }
   }
 
+  async _handleWalletChanges (event) {
+    console.log('WALLET CHANGES:', event);
+  }
+
   async _restoreIdentity () {
     let identities = null;
 
@@ -304,6 +337,12 @@ class App extends Component {
     return candidates[0] || null;
   }
 
+  async _registerWallet (input) {
+    let wallet = await this.wallets.create(input);
+    console.log('[MAKI:APP]', 'wallet registered:', wallet);
+    return wallet;
+  }
+
   _setTitle (title) {
     this.title = `${title} &middot; ${this.settings.name}`;
     document.querySelector('title').innerHTML = this.title;
@@ -326,16 +365,16 @@ class App extends Component {
   _loadHTML (html) {
     let blob = JSON.stringify(this.state, null, '  ');
     let verification = crypto.createHash('sha256').update(blob).digest('hex');
-    return `<fabric-application route="${this.route}" integrity="${this.integrity}" class="window">
+    let content = ``;
+    content += `<fabric-application route="${this.route}" integrity="${this.integrity}" class="window">
   <header>
-    <fabric-grid-row id="menu">${this.menu.render()}</fabric-grid-row>
     <fabric-grid-row id="details" class="ui container" style="display: none;">
-      <img src="${this.avatar.toDataURI()}" class="bordered" />
+      <img src="" class="bordered" />
       <h1><a href="/">${this.settings.name}</a></h1>
       <p>${this.settings.synopsis}</p>
     </fabric-grid-row>
   </header>
-  <fabric-grid-row id="browser" class="ui main container">${this.browser.render()}</fabric-grid-row>
+  <fabric-grid-row id="browser">${this.browser.render()}</fabric-grid-row>
   <footer>
     <fabric-grid-row class="ui inverted vertical footer segment">
       <div class="ui container">
@@ -380,9 +419,10 @@ class App extends Component {
   </footer>
   <div id="ephemeral-content"></div>
   <!-- TODO: rollup semantic into build process -->
-  <!-- <script type="text/javascript" src="/scripts/semantic.min.js"></script> -->
+  <script type="text/javascript" src="/scripts/semantic.min.js"></script>
   <script type="text/javascript" src="/scripts/index.min.js"></script>
 </fabric-application>`;
+    return content;
   }
 
   async _toggleFullscreen () {
@@ -409,7 +449,7 @@ class App extends Component {
    * @return {Promise} Resolves on completion.
    */
   async start () {
-    let script = null;
+    if (typeof window !== 'undefined' && window.app) await window.app.stop();
 
     await this.define('FabricMenu', Menu);
     await this.define('ResourceList', ResourceList);
@@ -434,19 +474,6 @@ class App extends Component {
     await this.circuit.start();
     await this.browser.start();
     await this.router.start();
-
-    try {
-      // temporary measure for demo
-      // TODO: fix with webpack/maki
-      script = document.createElement('script');
-      script.setAttribute('src', '/scripts/semantic.js');
-
-      setTimeout(function () {
-        document.querySelector('#ephemeral-content').appendChild(script);
-      }, 1000);
-    } catch (E) {
-      console.error('[FABRIC:APP]', 'Could not create app:', E);
-    }
 
     return true;
   }

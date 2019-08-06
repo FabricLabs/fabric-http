@@ -8,6 +8,10 @@ class Sidebar extends Component {
     this.settings = Object.assign({}, settings);
     return this;
   }
+
+  connectedCallback () {
+    super.connectedCallback();
+  }
 }
 
 module.exports = Sidebar;

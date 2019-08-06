@@ -121,7 +121,7 @@ class Modal extends Component {
     }
 
     html += '</div>';
-    html += `<div class="actions">`;
+    html += `<div class="ui actions fluid buttons">`;
 
     for (let i = 0; i < this.settings.actions.length; i++) {
       let action = this.settings.actions[i];

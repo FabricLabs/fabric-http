@@ -6,6 +6,7 @@
   "scripts": {
     "build:docs": "jsdoc types components README.md -d docs",
     "build:coverage": "nyc report --reporter=html npm run test",
+    "build:fast": "node examples/build.js && npm run build:scripts",
     "build:scripts": "webpack scripts/index.js",
     "compile": "node examples/build.js && npm run build:scripts",
     "coverage": "nyc npm run test",
@@ -35,6 +36,7 @@
   "homepage": "https://github.com/FabricLabs/web#readme",
   "dependencies": {
     "@fabric/core": "FabricLabs/fabric#pruning",
+    "bcoin": "^1.0.2",
     "body-parser": "^1.18.3",
     "canvas": "^2.5.0",
     "d3": "^5.9.2",
@@ -46,6 +48,8 @@
     "jade-parser": "0.0.9",
     "jquery": "^3.4.1",
     "js-beautify": "^1.10.0",
+    "jsdoc": "FabricLabs/jsdoc#fabric",
+    "level": "5",
     "lightning-client": "^0.5.2-beta.8",
     "metascraper": "^3.12.1",
     "page": "^1.11.4",

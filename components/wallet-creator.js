@@ -2,9 +2,16 @@
 
 const Component = require('./component');
 const Wallet = require('../types/wallet');
-const TrezorConnect = require('trezor-connect').default;
 
+/**
+ * Simple user interface for creating a {@link Wallet}.
+ */
 class WalletCreator extends Component {
+  /**
+   * Create an instance of the Wallet Creator.
+   * @param  {Object} [settings={}] [description]
+   * @return {Component}            Instance of the component.
+   */
   constructor (settings = {}) {
     super(settings);
 
@@ -15,7 +22,8 @@ class WalletCreator extends Component {
 
     this.wallet = new Wallet();
     this.state = {
-      clock: 0
+      clock: 0,
+      wallets: []
     };
 
     return this;
@@ -69,17 +77,12 @@ class WalletCreator extends Component {
           <p><div class="ui loading button">Generating...</div><p>
         </div>`;
 
-
-        console.log('wallet:', wallet);
-        // console.log('wallet toObject:', wallet.toObject());
-
         wallet._load().then(function (data) {
-          console.log('wallet loaded:', data);
           let memory = {
             address: wallet.account.receiveAddress(),
             seed: wallet.wallet.master.mnemonic.phrase
           };
-          console.log('wallet memory:', memory);
+
           window.app._POST('/wallets', memory).then(function (data) {
             console.log('data:', data);
             wallet.set('/wallets', [window.app.get(data)]);
@@ -135,10 +138,9 @@ class WalletCreator extends Component {
     this.status = 'advancing';
 
     let steps = this.querySelector('maki-steps');
-    let element = document.querySelector('.maki-step[data-step="0"]');
-    let content = element.querySelector('.content');
 
-    this.state.clock = 2;
+    steps.state.clock = 2;
+    steps.connectedCallback();
 
     this.status = 'labeling';
   }
@@ -157,6 +159,7 @@ class WalletCreator extends Component {
     console.log('content:', content);
 
     let old = content.innerHTML;
+
     content.innerHTML = `<h4>Generating key...</h4>
       <button class="ui loading button">generating...</button>`;
 
@@ -165,7 +168,7 @@ class WalletCreator extends Component {
       let seed = self.wallet._getSeed();
 
       if (seed) {
-        self.state.clock = 1;
+        steps.state.clock = 1;
 
         let target = document.querySelector('.maki-step[data-step="1"]');
         let message = target.querySelector('.content');
@@ -174,6 +177,8 @@ class WalletCreator extends Component {
           <p>Write this down and store it somewhere safe & secure.  <strong>Your funds will be permanently lost without this.</p>
           <code>${seed}</code>
           <button class="ui fluid right labeled icon button" data-action="_advanceToLabeling">I've saved this, move forward<i class="right chevron icon"></i></button>`;
+
+        steps.connectedCallback();
       } else {
         content.innerHTML = old;
       }
@@ -226,25 +231,41 @@ class WalletCreator extends Component {
     steps.innerHTML = steps._getInnerHTML();
   }
 
-  async _publishIdentity (event) {
+  async _publishIdentityAndCommitWallet (event) {
     event.preventDefault();
+
+    $('.ui.modal').addClass('loading');
+
     let modal = document.querySelector('maki-modal');
     let account = this.wallet._getAccountByIndex(0);
+    let identity = await this._publishIdentity(event);
+    let wallet = await window.app._registerWallet({ account });
+
+
+    modal._closeModal();
+  }
+
+  async _publishIdentity (event) {
+    event.preventDefault();
+
+    let modal = document.querySelector('maki-modal');
+    let account = this.wallet._getAccountByIndex(0);
+    let identity = null;
 
     try {
-      let identity = await window.app._registerActor({
-        id: account.address,
-        address: account.address
-      });
+      let data = { id: account.address, address: account.address };
+      let actor = await window.app._registerActor(data);
+      let link = await window.app._POST('/identities', data);
+      identity = Object.assign({
+        link: link
+      }, data);
 
-      console.log('actor created:', identity);
-
-      window.app._setIdentity(identity);
-
-      modal._closeModal();
+      window.app._setIdentity(data);
     } catch (E) {
       console.error('Could not create identity:', E);
     }
+
+    return identity;
   }
 
   connectedCallback () {
@@ -261,6 +282,7 @@ class WalletCreator extends Component {
     window.app.circuit._registerMethod('_confirmSeedPhrase', this._confirmSeedPhrase.bind(this));
     window.app.circuit._registerMethod('_advanceToLabeling', this._advanceToLabeling.bind(this));
     window.app.circuit._registerMethod('_publishIdentity', this._publishIdentity.bind(this));
+    window.app.circuit._registerMethod('_publishIdentityAndCommitWallet', this._publishIdentityAndCommitWallet.bind(this));
 
     let steps = this.querySelector('maki-steps');
     let progress = this.querySelector('maki-progress');
@@ -297,17 +319,12 @@ class WalletCreator extends Component {
           <form class="ui form">
             <div class="field">
               <label for="name">Name</label>
-              <input type="text" name="name" placeholder="Label for this wallet (local only)" class="required input" /><button data-action="_publishIdentity" class="ui fluid right labeled green icon button">Save & Open <i class="icon right chevron"></i></button>
+              <input type="text" name="name" placeholder="Label for this wallet (local only)" class="required input" /><button data-action="_publishIdentityAndCommitWallet" class="ui fluid right labeled green icon button">Save & Open <i class="icon right chevron"></i></button>
             </div>
           </form>
         </div>`
       }
     ];
-
-    TrezorConnect.manifest({
-        email: 'labs@fabric.pub',
-        appUrl: 'https://fabric.pub'
-    });
 
     steps.innerHTML = steps._getInnerHTML();
   }
