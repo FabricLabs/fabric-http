@@ -19,7 +19,7 @@ const Resource = require('./resource');
 const Identity = require('./identity');
 const Wallet = require('./wallet');
 const Component = require('./component');
-const Package = require('../package');
+const Package = require(`${__dirname}/package`);
 
 // TODO: move component imports to components/ or scripts/
 const Introduction = require('../components/introduction');
