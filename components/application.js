@@ -27,8 +27,6 @@ class Application extends App {
     this.authority = null;
     this.identity = null;
     this.identities = {};
-    // TODO: eliminate the use of this map
-    this.networkPlayers = {};
 
     this['@data'] = Object.assign({
       handle: 'rpg-app',
@@ -255,7 +253,7 @@ class Application extends App {
       return null;
     }
 
-    this.menu.bind(document.querySelector('#menu'));
+    // this.menu.bind(document.querySelector('#menu'));
     this.identity = await this._restoreIdentity();
 
     console.log('[APP:DEBUG]', 'identity (in start):', this.identity);

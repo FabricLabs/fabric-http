@@ -1,6 +1,6 @@
 'use strict';
 
-// const Component = require('./component');
+// const Component = require('../types/component');
 
 class BrowserContent {
   constructor (settings = {}) {

@@ -1,6 +1,6 @@
 'use strict';
 
-const Component = require('@fabric/http/types/component');
+const Component = require('./component');
 
 class PeerView extends Component {
   constructor (settings = {}) {
