@@ -4,14 +4,19 @@
 const pluralize = require('pluralize');
 const pointer = require('json-pointer');
 
+// TODO: describe constants in README or equivalent
 const {
   BROWSER_TARGET
 } = require('../constants');
 
+// Internal components for networking, etc.
 const Fabric = require('@fabric/core');
 const Router = require('./router');
+
+// Components for the User Interface
 const BrowserContent = require('../components/browser-content');
 const Introduction = require('../components/introduction');
+const Sidebar = require('../components/sidebar');
 const SearchBox = require('../components/search-box');
 
 class Browser extends Fabric.Service {
@@ -38,6 +43,13 @@ class Browser extends Fabric.Service {
     this.searchbox = new SearchBox(this.settings);
     this.target = null;
 
+    // SIDEBAR!!!
+    this.sidebar = new Sidebar({
+      items: [
+        { name: 'RPG', link: '/' }
+      ]
+    });
+
     // TODO: move to @fabric/core/types/service
     for (let name in this.settings.resources) {
       let definition = this.settings.resources[name];
@@ -46,6 +58,7 @@ class Browser extends Fabric.Service {
       // this.router._addFlat(`/${plural.toLowerCase()}`, definition);
       this.router._addRoute(`/${plural.toLowerCase()}/:id`, definition.components.view);
       this.router._addRoute(`/${plural.toLowerCase()}`, definition.components.list);
+      this.sidebar._addItem({ name: plural, link: `/${plural.toLowerCase()}`, icon: definition.icon || '' });
     }
 
     this.router._addRoute(`/`, this.settings.components.index);
@@ -141,6 +154,7 @@ class Browser extends Fabric.Service {
 
   _getInnerHTML () {
     let content = new BrowserContent(this.state);
+    let sidebar = new Sidebar(this.sidebar.state);
     let html = `<fabric-grid rows="3" columns="3">`;
 
     content.className += ' ui container';
@@ -161,9 +175,23 @@ class Browser extends Fabric.Service {
 </fabric-grid-row>`;
     }
 
+    // start the grid
+    html += `<div class="ui grid">`;
+
+    // first column, the content
+    html += `<div class="twelve wide column">`;
     // html += `<fabric-browser-content id="browser-content">dummy content... ${JSON.stringify(this.router.route(this.address).route)}</fabric-browser-content>`;
     html += `<div class="browser">`;
     html += `${content.render()}`;
+    html += `</div>`;
+    html += `</div>`;
+
+    // second column, the sidebar
+    html += `<div class="four wide column">`;
+    html += `${sidebar.render()}`;
+    html += `</div>`;
+
+    // end of grid
     html += `</div>`;
 
     html += `</fabric-grid>`;

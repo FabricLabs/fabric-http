@@ -1,6 +1,6 @@
 'use strict';
 
-const Component = require('./component');
+const Component = require('@fabric/core/types/component');
 
 // Components
 const Prompt = require('./prompt');
@@ -13,7 +13,7 @@ class WalletList extends Component {
 
     this.settings = Object.assign({
       title: 'Wallets',
-      handle: 'maki-wallet-list'
+      handle: 'fabric-wallet-list'
     }, settings);
 
     this.wallets = [];
@@ -120,6 +120,7 @@ class WalletList extends Component {
     html += `</tbody>
       </table>`;
     html += '</div>';
+
     return html;
   }
 }

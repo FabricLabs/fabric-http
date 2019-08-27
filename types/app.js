@@ -158,6 +158,14 @@ class App extends Component {
     this.resources[name] = definition;
   }
 
+  dispatch (name, data = {}) {
+    console.log('[WEB:APP]', 'dispatching:', name, data);
+    this.emit('call', {
+      type: name,
+      data: data
+    });
+  }
+
   _route (path) {
     this.route = path;
   }
@@ -168,6 +176,10 @@ class App extends Component {
 
   _addHandler (name, method) {
     this.circuit.methods[name] = method;
+  }
+
+  _registerMethod (name, method) {
+    return this._addHandler(name, method);
   }
 
   _checkIntegrity (data, integrity) {

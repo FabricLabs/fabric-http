@@ -1,13 +1,13 @@
 'use strict';
 
 const Fabric = require('@fabric/core');
-// const Component = require('./component');
+const Component = require('../types/component');
 
 /**
  * Manage keys and track their balances.
  * @type {Object}
  */
-class WalletCard extends Fabric.Service {
+class WalletCard extends Component {
   /**
    * Create an instance of a {@link Wallet}.
    * @param  {Object} [settings={}] Configure the wallet.
@@ -18,7 +18,8 @@ class WalletCard extends Fabric.Service {
 
     this.settings = Object.assign({
       name: 'default',
-      network: 'testnet'
+      network: 'testnet',
+      handle: 'fabric-wallet-card'
     }, settings);
 
     this.account = null;
@@ -94,6 +95,10 @@ class WalletCard extends Fabric.Service {
 
   async start () {
     return this._load();
+  }
+
+  _getInnerHTML () {
+    return `<div class="ui card"><div class="content"><h3 class="ui header">${this.title}</h3></div><div class="extra content"><div class="ui large transparent disabled left icon input"><i class="bitcoin icon"></i> <input type="text" value="0.00000000" disabled /></div></div></div>`;
   }
 }
 
