@@ -25,7 +25,6 @@ const Package = require('../package');
 const Introduction = require('../components/introduction');
 const ResourceList = require('../components/resource-list');
 const Menu = require('../components/menu');
-const Prompt = require('../components/prompt');
 
 /**
  * Applications can be deployed to the legacy web using {@link App}, a powerful
@@ -36,6 +35,7 @@ class App extends Component {
   /**
    * Create a {@link Web} application.
    * @param  {Object} [settings={}] Application settings.
+   * @param  {Circuit} [settings.circuit] Instance of an existing {@link Circuit}.
    * @param  {Object} [settings.resources] Map of {@link Resource} classes.
    * @return {App}               Instance of the application.
    */
@@ -56,6 +56,11 @@ class App extends Component {
       },
       identities: {},
       resources: {},
+      seeds: [
+        'hub.fabric.pub:9999',
+        'chat.roleplaygateway.com:9999',
+        'hub.roleplaygateway.com:9999'
+      ],
       peers: {},
       port: HTTP_SERVER_PORT,
       version: Package.version
@@ -153,9 +158,11 @@ class App extends Component {
   }
 
   define (name, definition) {
-    this.router.define(name, definition);
+    let route = this.router.define(name, definition);
+    console.log('[WEB:APP]', 'Defining', name, route);
     this.types.state[name] = definition;
     this.resources[name] = definition;
+    this.state[pluralize(name).toLowerCase()] = definition.data || {};
   }
 
   dispatch (name, data = {}) {
@@ -189,7 +196,6 @@ class App extends Component {
   }
 
   _defineElement (handle, definition) {
-
     this.components[handle] = definition;
 
     try {
@@ -350,6 +356,15 @@ class App extends Component {
     return candidates[0] || null;
   }
 
+  async _handleCall (event) {
+    console.log('[WEB:APP]', 'call received:', event);
+    if (this.methods && this.methods[event.type] instanceof Function) {
+      return this.methods[event.type](event.data || {});
+    } else {
+      return false;
+    }
+  }
+
   async _registerWallet (input) {
     let wallet = await this.wallets.create(input);
     console.log('[MAKI:APP]', 'wallet registered:', wallet);
@@ -398,6 +413,7 @@ class App extends Component {
   <div id="ephemeral-content"></div>
   <!-- TODO: rollup semantic into build process -->
   <script type="text/javascript" src="/scripts/semantic.min.js"></script>
+  <!-- <script type="text/javascript" src="/scripts/index.min.js"></script> -->
   <script type="text/javascript" src="/scripts/rpg.min.js"></script>
 </fabric-application>`;
     return content;
@@ -447,6 +463,8 @@ class App extends Component {
     }
 
     await this.commit();
+
+    this.on('call', this._handleCall.bind(this));
 
     // await this.fabric.start();
     await this.circuit.start();

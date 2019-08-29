@@ -337,7 +337,6 @@ class HTTPServer extends Fabric.Oracle {
     for (let name in server.config.resources) {
       let def = server.config.resources[name];
       let resource = new Fabric.Resource(def);
-      console.log('resource:', resource);
 
       server._addRoute('GET', `${resource.routes.view}`, function (req, res, next) {
         let output = server.app._loadHTML(resource.render());
