@@ -8,7 +8,7 @@ class WalletView extends Component {
 
     this.settings = Object.assign({
       title: 'Wallet View',
-      handle: 'maki-wallet-view'
+      handle: 'fabric-wallet-view'
     }, settings);
 
     this.state = {

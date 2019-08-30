@@ -1,6 +1,6 @@
 'use strict';
 
-const Component = require('@fabric/core/types/component');
+const Component = require('./component');
 
 // Components
 const Prompt = require('./prompt');

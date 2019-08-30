@@ -17,7 +17,7 @@ class WalletCreator extends Component {
 
     this.settings = Object.assign({
       input: null,
-      handle: 'maki-wallet-creator'
+      handle: 'fabric-wallet-creator'
     }, settings);
 
     this.wallet = new Wallet();
