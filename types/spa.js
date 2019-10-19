@@ -53,12 +53,6 @@ class SPA extends App {
     return this;
   }
 
-  async start () {
-    super.start();
-    await this.router.start();
-    return this;
-  }
-
   register () {
     return this;
   }
@@ -86,7 +80,7 @@ class SPA extends App {
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
   <title>${this.title}</title>
-  <link rel="manifest" href="/manifest.json">
+  <!-- <link rel="manifest" href="/manifest.json"> -->
   <link rel="stylesheet" type="text/css" href="/styles/screen.css" />
   <link rel="stylesheet" type="text/css" href="/styles/semantic.css" />
 </head>
@@ -105,6 +99,18 @@ class SPA extends App {
     // definition = customElements.define(name, SPA);
 
     return this._renderWith(body);
+  }
+
+  async stop () {
+    await this.router.stop();
+    super.stop();
+    return this;
+  }
+
+  async start () {
+    super.start();
+    await this.router.start();
+    return this;
   }
 }
 
