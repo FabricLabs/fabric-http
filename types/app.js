@@ -5,6 +5,11 @@ const {
   BROWSER_TARGET
 } = require('../constants');
 
+// Import the current working directory as a package...
+// TODO: refine and document why this is done, if it is
+// still being done at the time of launch
+const upstream = require(`${process.cwd()}/package`);
+
 const page = require('page');
 const crypto = require('crypto');
 const pluralize = require('pluralize');
@@ -19,7 +24,6 @@ const Resource = require('./resource');
 const Identity = require('./identity');
 const Wallet = require('./wallet');
 const Component = require('./component');
-const Package = require(`${__dirname}/package`);
 
 // TODO: move component imports to components/ or scripts/
 const Introduction = require('../components/introduction');
@@ -63,7 +67,7 @@ class App extends Component {
       ],
       peers: {},
       port: HTTP_SERVER_PORT,
-      version: Package.version
+      version: upstream.version
     }, settings);
 
     this.menu = new Menu();
