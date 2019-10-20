@@ -16,7 +16,7 @@ const Router = require('./router');
 // Components for the User Interface
 const BrowserContent = require('../components/browser-content');
 const Introduction = require('../components/introduction');
-const Sidebar = require('../components/sidebar');
+// const Sidebar = require('../components/sidebar');
 const SearchBox = require('../components/search-box');
 
 class Browser extends Fabric.Service {
@@ -44,11 +44,11 @@ class Browser extends Fabric.Service {
     this.target = null;
 
     // SIDEBAR!!!
-    this.sidebar = new Sidebar({
+    /* this.sidebar = new Sidebar({
       items: [
         { name: 'RPG', link: '/' }
       ]
-    });
+    }); */
 
     // TODO: move to @fabric/core/types/service
     for (let name in this.settings.resources) {
@@ -58,7 +58,7 @@ class Browser extends Fabric.Service {
       // this.router._addFlat(`/${plural.toLowerCase()}`, definition);
       this.router._addRoute(`/${plural.toLowerCase()}/:id`, definition.components.view);
       this.router._addRoute(`/${plural.toLowerCase()}`, definition.components.list);
-      this.sidebar._addItem({ name: plural, link: `/${plural.toLowerCase()}`, icon: definition.icon || '' });
+      // this.sidebar._addItem({ name: plural, link: `/${plural.toLowerCase()}`, icon: definition.icon || '' });
     }
 
     this.router._addRoute(`/`, this.settings.components.index);
@@ -154,7 +154,7 @@ class Browser extends Fabric.Service {
 
   _getInnerHTML () {
     let content = new BrowserContent(this.state);
-    let sidebar = new Sidebar(this.sidebar.state);
+    // let sidebar = new Sidebar(this.sidebar.state);
     let html = `<fabric-grid rows="3" columns="3">`;
 
     content.className += ' ui container';
@@ -188,7 +188,8 @@ class Browser extends Fabric.Service {
 
     // second column, the sidebar
     html += `<div class="four wide column">`;
-    html += `${sidebar.render()}`;
+    // html += `${sidebar.render()}`;
+    html += `<span>sidebar would be here</span>`;
     html += `</div>`;
 
     // end of grid
