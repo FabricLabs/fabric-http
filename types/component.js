@@ -1,12 +1,13 @@
 'use strict';
 
 const crypto = require('crypto');
-const Fabric = require('@fabric/core');
+const Service = require('@fabric/core/types/service');
+// const Fabric = require('@fabric/core');
 
 /**
  * Generic component.
  */
-class Component extends Fabric.Service {
+class Component extends Service {
   /**
    * Create a component.
    * @param  {Object} [settings={}] Settings for the component.
@@ -45,6 +46,19 @@ class Component extends Fabric.Service {
     return `sha256-${hash}`;
   }
 
+  _bind (element) {
+    if (this.element) {
+      // TODO: unbind old handlers
+    }
+
+    this.element = element;
+    this.element.addEventListener('refresh', this.refresh.bind(this));
+
+    this.render();
+
+    return this;
+  }
+
   _toElement () {
     let element = document.createElement(this.settings.handle);
     element.innerHTML = this._getInnerHTML(this.state);
@@ -73,18 +87,12 @@ class Component extends Fabric.Service {
     }
   }
 
-  bind (element) {
-    if (this.element) {
-      // TODO: unbind old handlers
-    }
-
-    this.element = element;
-    this.element.addEventListener('refresh', this.refresh.bind(this));
-
-    return this;
+  register () {
+    customElements.define(this.settings.handle, Component, { extends: 'div' });
   }
 
   render () {
+    this.element.innerHTML = this._getInnerHTML();
     return this._renderState(this.state);
   }
 }
