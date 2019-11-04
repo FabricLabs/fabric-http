@@ -1,7 +1,7 @@
 'use strict';
 
 const EventEmitter = require('events').EventEmitter;
-const Key = require('@fabric/core').Key;
+const Key = require('@fabric/core/types/key');
 
 class Peer extends EventEmitter {
   constructor (configuration = {}) {

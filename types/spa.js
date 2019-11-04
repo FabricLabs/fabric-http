@@ -1,7 +1,9 @@
 'use strict';
 
+// core dependencies
 const crypto = require('crypto');
 
+// Requisite Types
 const App = require('./app');
 const Router = require('./router');
 

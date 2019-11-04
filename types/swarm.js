@@ -7,10 +7,11 @@ const {
 // TODO: investigate peerjs history, why .default now?  Node 10?
 const Agent = require('peerjs').default;
 
-const Fabric = require('@fabric/core');
+const Service = require('@fabric/core/types/service');
+const State = require('@fabric/core/types/state');
 const Peer = require('./peer');
 
-class Swarm extends Fabric.Service {
+class Swarm extends Service {
   constructor (configuration = {}) {
     super(configuration);
     this.config = Object.assign({
@@ -99,7 +100,7 @@ class Swarm extends Fabric.Service {
   _onMessage (msg) {
     console.log('[INBOUND]', 'message:', msg);
 
-    let vector = new Fabric.State({
+    let vector = new State({
       actor: `/actors/${msg['@actor']}`,
       target: `/messages`,
       object: msg['@data']

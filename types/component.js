@@ -53,10 +53,15 @@ class Component extends Service {
 
     this.element = element;
     this.element.addEventListener('refresh', this.refresh.bind(this));
+    this.element.addEventListener('message', this._handleComponentMessage.bind(this));
 
     this.render();
 
     return this;
+  }
+
+  _handleComponentMessage (msg) {
+    console.log('[FABRIC:COMPONENT]', 'Element emitted message:', msg);
   }
 
   _toElement () {
