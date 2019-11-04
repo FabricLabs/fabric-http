@@ -1,7 +1,7 @@
 'use strict';
 
 const Canvas = require('canvas');
-const Fabric = require('@fabric/core');
+const Key = require('@fabric/core/types/key');
 
 class Avatar {
   constructor (settings = {}) {
@@ -11,7 +11,7 @@ class Avatar {
       height: 100,
       handle: 'fabric-web-avatar'
     }, settings);
-    this.key = new Fabric.Key();
+    this.key = new Key();
     this.canvas = Canvas.createCanvas(this.settings.width, this.settings.height);
     this.context = this.canvas.getContext('2d');
     return this;

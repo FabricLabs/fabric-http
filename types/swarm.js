@@ -14,10 +14,19 @@ const Peer = require('./peer');
 class Swarm extends Service {
   constructor (configuration = {}) {
     super(configuration);
-    this.config = Object.assign({
+
+    this.settings = this.config = Object.assign({
       port: HTTP_SERVER_PORT,
-      secure: true
+      secure: true,
+      seeds: [
+        "fabric.pub:9999",
+        "api.roleplaygateway.com:9999",
+        "hub.roleplaygateway.com:9999",
+        "chat.roleplaygateway.com:9999",
+        "hub.verse.pub:9999"
+      ]
     }, configuration);
+
     this.agent = null;
     this.connections = {};
     this.peers = [];
@@ -55,7 +64,11 @@ class Swarm extends Service {
   }
 
   start () {
-    this.status = 'ready';
+    this.status = 'starting';
+    for (let i = 0; i < this.settings.seeds.length; i++) {
+      let seed = this.settings.seeds[i];
+    }
+    this.status = 'started';
     this.emit('ready');
     return this;
   }

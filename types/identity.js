@@ -1,8 +1,8 @@
 'use strict';
 
-const Fabric = require('@fabric/core');
+const Key = require('@fabric/core/types/key');
 
-class Identity extends Fabric.Key {
+class Identity extends Key {
   constructor (settings = {}) {
     super(settings);
     return this;
