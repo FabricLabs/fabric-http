@@ -4,7 +4,7 @@
   "description": "tools for serving the legacy web with Fabric",
   "main": "types/web.js",
   "scripts": {
-    "build:docs": "jsdoc types components README.md -d docs",
+    "build:docs": "jsdoc -c jsdoc.json types components/*.js README.md -d docs",
     "build:coverage": "nyc report --reporter=html npm run test",
     "build:fast": "node examples/build.js && npm run build:scripts",
     "build:scripts": "webpack scripts/index.js",
