@@ -43,7 +43,6 @@
     "d3-graphviz": "^2.6.1",
     "express": "^4.16.4",
     "express-session": "^1.15.6",
-    "fomantic-ui": "^2.7.6",
     "jade-lexer": "0.0.9",
     "jade-parser": "0.0.9",
     "jquery": "^3.4.1",
