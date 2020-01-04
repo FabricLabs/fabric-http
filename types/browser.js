@@ -25,7 +25,7 @@ class Browser extends Fabric.Service {
 
     this.settings = Object.assign({
       name: '@fabric/browser',
-      path: 'stores/browser',
+      path: './stores/browser',
       width: 640,
       height: 480,
       depth: 5,
@@ -236,14 +236,18 @@ class Browser extends Fabric.Service {
   }
 
   async start () {
-    await super.start();
-    await this.router.start();
+    try {
+      // await super.start();
+      await this.router.start();
+    } catch (E) {
+      console.error('[FABRIC:BROWSER]', 'Threw Exception:', E);
+    }
     return this;
   }
 
   async stop () {
     await this.router.stop();
-    await super.stop();
+    // await super.stop();
     return this;
   }
 }

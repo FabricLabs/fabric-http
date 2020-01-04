@@ -29,8 +29,6 @@ class Router extends Fabric.Service {
     this.routes = {};
     this.page = null;
 
-    this.commit();
-
     return this;
   }
 
@@ -103,10 +101,14 @@ class Router extends Fabric.Service {
   }
 
   async start () {
-    console.log('[FABRIC:HTTP]', 'ROUTER()', 'starting...');
-    this.status = 'started';
+    if (this.settings.verbosity >= 4) console.log('[FABRIC:HTTP]', 'ROUTER()', 'starting...');
+    this.status = 'starting';
 
-    console.log('our routes:', this.routes);
+    try {
+      await this.store.start();
+    } catch (E) {
+      console.error('Could not start router:', E);
+    }
 
     for (let name in this.routes) {
       let route = new Fabric.Entity(this.routes[name].path);
@@ -117,16 +119,26 @@ class Router extends Fabric.Service {
       });
     }
 
-    this.commit();
+    this.status = 'started';
 
-    console.log('[FABRIC:HTTP]', 'ROUTER()', 'started!', this.state);
+    if (this.settings.verbosity >= 4) console.log('[FABRIC:HTTP]', 'ROUTER()', 'started!', this.state);
 
     return this;
   }
 
   async stop () {
-    console.log('[FABRIC:HTTP]', 'ROUTER()', 'stopping...', this);
+    if (this.settings.verbosity >= 4) console.log('[FABRIC:HTTP]', 'ROUTER()', 'Stopping...');
+
     this.status = 'stopping';
+
+    try {
+      await this.store.stop();
+    } catch (E) {
+      console.error('Could not stop router:', E);
+    }
+
+    this.status = 'stopped';
+
     return this;
   }
 }

@@ -318,7 +318,11 @@ class HTTPServer extends Fabric.Oracle {
   }
 
   async start () {
+    if (this.settings.verbosity >= 4) console.trace('[HTTP:SERVER]', 'Starting...');
+
     let server = this;
+
+    this.status = 'starting';
 
     if (!fs.existsSync('stores')) {
       fs.mkdirSync('stores');
@@ -329,7 +333,11 @@ class HTTPServer extends Fabric.Oracle {
       await server.define(name, resource);
     }
 
-    await server.app.start();
+    try {
+      await server.app.start();
+    } catch (E) {
+      console.error('Could not start server app:', E);
+    }
 
     // configure router
     // TODO: defer to an in-memory datastore for requested files
@@ -416,8 +424,11 @@ class HTTPServer extends Fabric.Oracle {
     // TODO: test?
     await server.http.listen(this.config.port, this.config.host);
 
+    this.status = 'started';
+
     // commit to our results
-    this.commit();
+    // await this.commit();
+
     this.emit('ready');
 
     // inform the user
@@ -432,14 +443,21 @@ class HTTPServer extends Fabric.Oracle {
       // console.log('[FABRIC:WEB]', 'or set up a TLS server to encrypt traffic to and from this node.');
     }
 
+    if (this.settings.verbosity >= 4) console.trace('[HTTP:SERVER]', 'Started!');
+
     return server;
   }
 
   async stop () {
+    if (this.settings.verbosity >= 4) console.trace('[HTTP:SERVER]', 'Stopping...');
     let server = this;
+    this.status = 'stopping';
     await server.http.close();
     await server.app.stop();
+    this.status = 'stopped';
     server.emit('stopped');
+
+    if (this.settings.verbosity >= 4) console.trace('[HTTP:SERVER]', 'Stopped!');
     return server;
   }
 }

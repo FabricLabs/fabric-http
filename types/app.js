@@ -44,7 +44,7 @@ class App extends Component {
   constructor (settings = {}) {
     super(settings);
 
-    console.log('[FABRIC:HTTP]', 'creating new APP with:', settings);
+    if (this.settings.verbosity >= 4) console.trace('[FABRIC:HTTP]', 'creating new APP with:', settings);
 
     // settings
     this.settings = Object.assign({
@@ -63,6 +63,7 @@ class App extends Component {
         'chat.roleplaygateway.com:9999',
         'hub.roleplaygateway.com:9999'
       ],
+      path: './stores/fabric-app',
       peers: {},
       port: HTTP_SERVER_PORT
     }, settings);
@@ -70,9 +71,11 @@ class App extends Component {
     this.menu = new Menu();
     this.types = new ResourceList();
     this.avatar = new Avatar();
-    this.router = new Router();
+    this.router = new Router(this.settings);
     this.wallet = new Wallet();
-    this.browser = new Browser(this.settings);
+    this.browser = new Browser(Object.assign({}, this.settings, {
+      path: './stores/fabric-browser'
+    }));
 
     this.state = {
       methods: {},
@@ -168,7 +171,7 @@ class App extends Component {
 
   define (name, definition) {
     let route = this.router.define(name, definition);
-    console.log('[WEB:APP]', 'Defining', name, route);
+    if (this.settings.verbosity >= 4) console.log('[WEB:APP]', 'Defining', name, route);
     this.types.state[name] = definition;
     this.resources[name] = definition;
     this.state[pluralize(name).toLowerCase()] = definition.data || {};
@@ -423,7 +426,7 @@ class App extends Component {
   </footer>
   <div id="ephemeral-content"></div>
   <!-- TODO: rollup semantic into build process -->
-  <script type="text/javascript" src="/scripts/semantic.min.js"></script>
+  <!-- <script type="text/javascript" src="/scripts/semantic.min.js"></script> -->
   <!-- <script type="text/javascript" src="/scripts/index.min.js"></script> -->
   <script type="text/javascript" src="/scripts/rpg.min.js"></script>
 </fabric-application>`;
@@ -456,6 +459,12 @@ class App extends Component {
   async start () {
     if (typeof window !== 'undefined' && window.app) await window.app.stop();
 
+    try {
+      await this.store.start();
+    } catch (E) {
+      console.error('Could not open store:', E);
+    }
+
     await this.define('FabricMenu', Menu);
     await this.define('ResourceList', ResourceList);
 
@@ -473,14 +482,16 @@ class App extends Component {
       }
     }
 
-    await this.commit();
-
     this.on('call', this._handleCall.bind(this));
 
     // await this.fabric.start();
-    await this.circuit.start();
-    await this.browser.start();
-    await this.router.start();
+    try {
+      await this.circuit.start();
+      await this.browser.start();
+      await this.router.start();
+    } catch (E) {
+      console.error('Could not start, Exception:', E);
+    }
 
     return true;
   }
@@ -489,6 +500,7 @@ class App extends Component {
     await this.router.stop();
     await this.browser.stop();
     await this.circuit.stop();
+    await this.store.stop();
 
     return true;
   }
