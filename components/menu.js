@@ -4,7 +4,7 @@ const Identity = require('../types/identity');
 
 const Collection = require('./collection');
 const IdentityItem = require('./identity-item');
-const Wallet = require('./wallet');
+// const Wallet = require('./wallet');
 
 class Menu extends Collection {
   constructor (settings = {}) {
@@ -18,7 +18,7 @@ class Menu extends Collection {
     this.items = [];
     this.identity = null;
     this.indicator = null;
-    this.wallet = new Wallet();
+    // this.wallet = new Wallet();
 
     return this;
   }

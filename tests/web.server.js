@@ -1,9 +1,9 @@
 'use strict';
 
+// Test
 const assert = require('assert');
-// const expect = require('chai').expect;
 
-// Web
+// Types
 const HTTPServer = require('../types/server');
 const HTTPClient = require('../types/client');
 
@@ -13,10 +13,8 @@ describe('@fabric/web', function () {
       assert.equal(typeof HTTPServer, 'function');
     });
 
-    it('should start smoothly', async function () {
-      let server = new HTTPServer({
-        verbosity: 5
-      });
+    it('should start (and stop) smoothly', async function () {
+      let server = new HTTPServer();
 
       try {
         await server.start();

@@ -20,7 +20,7 @@ const Router = require('./router');
 const Browser = require('./browser');
 const Resource = require('./resource');
 const Identity = require('./identity');
-const Wallet = require('./wallet');
+// const Wallet = require('./wallet');
 const Component = require('./component');
 
 // TODO: move component imports to components/ or scripts/
@@ -72,7 +72,7 @@ class App extends Component {
     this.types = new ResourceList();
     this.avatar = new Avatar();
     this.router = new Router(this.settings);
-    this.wallet = new Wallet();
+    // this.wallet = new Wallet();
     this.browser = new Browser(Object.assign({}, this.settings, {
       path: './stores/fabric-browser'
     }));

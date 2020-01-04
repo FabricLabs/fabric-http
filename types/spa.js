@@ -104,14 +104,31 @@ class SPA extends App {
   }
 
   async stop () {
-    await this.router.stop();
+    if (this.settings.verbosity >= 4) console.log('[HTTP:SPA]', 'Stopping...');
+
+    try {
+      await this.router.stop();
+    } catch (E) {
+      console.error('Could not stop SPA router:', E);
+    }
+
     // super.stop();
+
+    if (this.settings.verbosity >= 4) console.log('[HTTP:SPA]', 'Stopped!');
     return this;
   }
 
   async start () {
+    if (this.settings.verbosity >= 4) console.log('[HTTP:SPA]', 'Starting...');
     // super.start();
-    await this.router.start();
+
+    try {
+      await this.router.start();
+    } catch (E) {
+      console.error('Could not start SPA router:', E);
+    }
+
+    if (this.settings.verbosity >= 4) console.log('[HTTP:SPA]', 'Started!');
     return this;
   }
 }

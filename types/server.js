@@ -13,10 +13,11 @@ const express = require('express');
 const session = require('express-session');
 const parsers = require('body-parser');
 const pluralize = require('pluralize');
+const stoppable = require('stoppable');
 
 // Core components
 const Fabric = require('@fabric/core');
-const App = require('./app');
+// const App = require('./app');
 const Client = require('./client');
 const Component = require('./component');
 const SPA = require('./spa');
@@ -81,7 +82,7 @@ class HTTPServer extends Fabric.Oracle {
   }
 
   static get App () {
-    return App;
+    return SPA;
   }
 
   static get Client () {
@@ -409,7 +410,7 @@ class HTTPServer extends Fabric.Oracle {
     server.express.options('/*', server._handleRoutableRequest.bind(server));
 
     // create the HTTP server
-    server.http = http.createServer(server.express);
+    server.http = stoppable(http.createServer(server.express), 0);
 
     // attach a WebSocket handler
     this.wss = new WebSocket.Server({
@@ -452,8 +453,19 @@ class HTTPServer extends Fabric.Oracle {
     if (this.settings.verbosity >= 4) console.trace('[HTTP:SERVER]', 'Stopping...');
     let server = this;
     this.status = 'stopping';
-    await server.http.close();
-    await server.app.stop();
+
+    try {
+      await server.http.stop();
+    } catch (E) {
+      console.error('Could not stop HTTP listener:', E);
+    }
+
+    try {
+      await server.app.stop();
+    } catch (E) {
+      console.error('Could not stop server app:', E);
+    }
+
     this.status = 'stopped';
     server.emit('stopped');
 
