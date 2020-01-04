@@ -12,7 +12,7 @@ const beautify = require('js-beautify');
 // const d3 = require('d3');
 
 const Fabric = require('@fabric/core');
-const Stash = require('@fabric/core/types/stash');
+// const Stash = require('@fabric/core/types/stash');
 
 // Internal Types
 const Avatar = require('./avatar');
