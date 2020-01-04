@@ -1,6 +1,6 @@
 'use strict';
 
-const Component = require('../types/component');
+const Component = require('../components/component');
 // const Collection = require('@fabric/core/types/collection');
 
 class Sidebar extends Component {

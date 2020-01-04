@@ -84,7 +84,7 @@ class SPA extends App {
   <title>${this.title}</title>
   <!-- <link rel="manifest" href="/manifest.json"> -->
   <link rel="stylesheet" type="text/css" href="/styles/screen.css" />
-  <link rel="stylesheet" type="text/css" href="/styles/semantic.css" />
+  <!-- <link rel="stylesheet" type="text/css" href="/styles/semantic.css" /> -->
 </head>
 <body data-bind="${hash}">${html}</body>
 </html>`;
@@ -105,12 +105,12 @@ class SPA extends App {
 
   async stop () {
     await this.router.stop();
-    super.stop();
+    // super.stop();
     return this;
   }
 
   async start () {
-    super.start();
+    // super.start();
     await this.router.start();
     return this;
   }

@@ -35,7 +35,7 @@
   },
   "homepage": "https://github.com/FabricLabs/web#readme",
   "dependencies": {
-    "@fabric/core": "FabricLabs/fabric#fabric-0.1.0-develop",
+    "@fabric/core": "FabricLabs/fabric#prepare-release-0.1.0",
     "bcoin": "^1.0.2",
     "body-parser": "^1.18.3",
     "canvas": "^2.5.0",

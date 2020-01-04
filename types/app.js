@@ -5,11 +5,6 @@ const {
   BROWSER_TARGET
 } = require('../constants');
 
-// Import the current working directory as a package...
-// TODO: refine and document why this is done, if it is
-// still being done at the time of launch
-const upstream = require(`${process.cwd()}/package`);
-
 const page = require('page');
 const crypto = require('crypto');
 const pluralize = require('pluralize');
@@ -17,6 +12,9 @@ const beautify = require('js-beautify');
 // const d3 = require('d3');
 
 const Fabric = require('@fabric/core');
+const Stash = require('@fabric/core/types/stash');
+
+// Internal Types
 const Avatar = require('./avatar');
 const Router = require('./router');
 const Browser = require('./browser');
@@ -66,8 +64,7 @@ class App extends Component {
         'hub.roleplaygateway.com:9999'
       ],
       peers: {},
-      port: HTTP_SERVER_PORT,
-      version: upstream.version
+      port: HTTP_SERVER_PORT
     }, settings);
 
     this.menu = new Menu();
@@ -89,6 +86,14 @@ class App extends Component {
     this.target = null;
     this.identity = null;
     this.history = [];
+
+    this.stash = new Fabric.Store({
+      path: 'stores/stash'
+    });
+
+    this.stash.on('patches', function (patches) {
+      console.log('[HTTP:APP]', 'heard patches!', patches);
+    });
 
     this.secrets = new Fabric.Store({
       path: 'stores/secrets'
@@ -387,7 +392,9 @@ class App extends Component {
   }
 
   _renderContent (html) {
-    if (!this.target) this.target = document.querySelectorAll(BROWSER_TARGET);
+    // TODO: enable multi-view composition?
+    // NOTE: this means to iterate over all bound targets, instead of the first one...
+    if (!this.target) this.target = document.querySelector(BROWSER_TARGET);
     if (!this.target) return console.log('COULD NOT ACQUIRE TARGET:', document);
     this.target.innerHTML = html;
     return this.target;

@@ -53,7 +53,10 @@ class HTTPServer extends Fabric.Oracle {
 
     this.connections = {};
     this.definitions = {};
-    this.app = new SPA(this.config);
+
+    this.app = new SPA(Object.assign({}, this.config, {
+      path: './stores/server-application'
+    }));
 
     /* this.compiler = webpack({
       // webpack options
@@ -97,7 +100,7 @@ class HTTPServer extends Fabric.Oracle {
    * Define a {@link Type} by name.
    * @param  {String} name       Human-friendly name of the type.
    * @param  {Definition} definition Configuration object for the type.
-   * @return {HTTPServer}            [description]
+   * @return {HTTPServer}            Instance of the configured server.
    */
   async define (name, definition) {
     let resource = await super.define(name, definition);
@@ -229,8 +232,15 @@ class HTTPServer extends Fabric.Oracle {
     }
   }
 
+  /**
+   * Special handler for first-page requests.
+   * @param {HTTPRequest} req Incoming request.
+   * @param {HTTPResponse} res Outgoing response.
+   */
   _handleIndexRequest (req, res) {
+    console.log('[HTTP:SERVER]', 'Handling request for Index...');
     let html = this.app.render();
+    console.log('[HTTP:SERVER]', 'Generated HTML:', html);
     res.set('Content-Type', 'text/html');
     res.send(`${html}`);
   }
@@ -322,6 +332,8 @@ class HTTPServer extends Fabric.Oracle {
     await server.app.start();
 
     // configure router
+    // TODO: defer to an in-memory datastore for requested files
+    // NOTE: disable this line to compile on-the-fly
     server.express.use(express.static('assets'));
 
     // configure sessions & parsers
@@ -332,6 +344,8 @@ class HTTPServer extends Fabric.Oracle {
 
     // TODO: render page
     server.express.options('/', server._handleOptionsRequest.bind(server));
+    // TODO: enable this route by disabling or moving the static asset handler above
+    // NOTE: see `server.express.use(express.static('assets'));`
     server.express.get('/', server._handleIndexRequest.bind(server));
 
     for (let name in server.config.resources) {
@@ -339,15 +353,27 @@ class HTTPServer extends Fabric.Oracle {
       let resource = new Fabric.Resource(def);
 
       server._addRoute('GET', `${resource.routes.view}`, function (req, res, next) {
-        let output = server.app._loadHTML(resource.render());
-        console.log('getting:', req.path, 'got:', output);
-        return res.send(server.app._renderWith(output));
+        res.format({
+          json: function () {
+            return next();
+          },
+          html: function () {
+            let output = server.app._loadHTML(resource.render());
+            return server.app._renderWith(output);
+          }
+        });
       });
 
       server._addRoute('GET', `${resource.routes.list}`, function (req, res, next) {
-        let output = server.app._loadHTML(resource.render());
-        console.log('getting:', req.path, 'got:', output);
-        return res.send(server.app._renderWith(output));
+        res.format({
+          json: function () {
+            return next();
+          },
+          html: function () {
+            let output = server.app._loadHTML(resource.render());
+            return server.app._renderWith(output);
+          }
+        });
       });
     }
 

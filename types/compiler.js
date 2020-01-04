@@ -4,15 +4,28 @@ const fs = require('fs');
 const crypto = require('crypto');
 const beautify = require('js-beautify').html;
 
+/**
+ * Builder for {@link Fabric}-based applications.
+ */
 class Compiler {
+  /**
+   * 
+   * @param {Object} [settings] Map of settings.
+   * @param {Mixed} [settings.document] Document to use.
+   */
   constructor (settings = {}) {
     this.settings = Object.assign({
-      document: settings.document
+      document: null
     }, settings);
 
     return this;
   }
 
+  /**
+   * Build a {@link String} representing the HTML-encoded Document.
+   * @param {Mixed} input Input data to use for local rendering.
+   * @returns {String}
+   */
   compile (data) {
     return this.settings.document.render();
   }

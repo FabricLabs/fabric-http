@@ -14,10 +14,24 @@ describe('@fabric/web', function () {
     });
 
     it('should start smoothly', async function () {
-      let server = new HTTPServer();
-      await server.start();
+      let server = new HTTPServer({
+        verbosity: 5
+      });
+
+      try {
+        await server.start();
+      } catch (E) {
+        console.error('Could not start:', E);
+      }
+
+      try {
+        await server.stop();
+      } catch (E) {
+        console.error('Could not stop:', E);
+      }
+
       assert.ok(server);
-      await server.stop();
+      assert.equal(server.status, 'stopped');
     });
 
     xit('can serve a simple GET request', async function () {
