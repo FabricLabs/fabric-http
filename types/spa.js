@@ -7,6 +7,9 @@ const crypto = require('crypto');
 const App = require('./app');
 const Router = require('./router');
 
+// Fabric Types
+const Store = require('@fabric/core/types/store');
+
 /**
  * Fully-managed HTML application.
  * @extends App
@@ -36,7 +39,8 @@ class SPA extends App {
       type: 'module'
     }); */
 
-    this.router = new Router();
+    this.router = new Router(this.settings);
+    this.store = new Store(this.settings);
 
     this.routes = [];
     this.bindings = {
@@ -52,7 +56,7 @@ class SPA extends App {
     this.router.define(name, definition);
     this.types.state[name] = definition;
     this.resources[name] = definition;
-    return this;
+    return this.resources[name];
   }
 
   register () {
@@ -112,15 +116,32 @@ class SPA extends App {
       console.error('Could not stop SPA router:', E);
     }
 
-    // super.stop();
+    try {
+      await this.store.stop();
+    } catch (E) {
+      console.error('Could not stop SPA store:', E);
+    }
 
+    // await super.stop();
     if (this.settings.verbosity >= 4) console.log('[HTTP:SPA]', 'Stopped!');
     return this;
   }
 
   async start () {
     if (this.settings.verbosity >= 4) console.log('[HTTP:SPA]', 'Starting...');
-    // super.start();
+    // await super.start();
+
+    try {
+      await this.store.start();
+    } catch (E) {
+      console.error('Could not start SPA store:', E);
+    }
+
+    for (let name in this.settings.resources) {
+      let definition = this.settings.resources[name];
+      let resource = await this.define(name, definition);
+      // console.log('[AUDIT]', 'Created resource:', resource);
+    }
 
     try {
       await this.router.start();

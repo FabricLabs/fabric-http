@@ -10,42 +10,55 @@ const TEST_HOST = 'example.com';
 const TEST_AUTHORITY = 'localhost';
 const TEST_CONFIG = {
   authority: TEST_AUTHORITY,
+  persistent: false,
   secure: false,
-  port: 9999
+  port: 9999,
+  resources: {
+    'Example': {
+      name: 'Example',
+      components: {
+        list: 'example-list',
+        view: 'example-view',
+      },
+      routes: {
+        list: '/examples',
+        view: '/examples/:id'
+      }
+    }
+  }
 };
 
 const authority = new HTTPServer(TEST_CONFIG);
 
 describe('@fabric/web/types/client', function () {
-  before(function () {
-    return authority.start();
-  });
-
-  after(function () {
-    return authority.stop();
-  });
-
   describe('Client', function () {
     it('should expose a constructor', function () {
       assert.equal(typeof HTTPClient, 'function');
     });
 
     it('can retrieve content from a local server', async function () {
-      let client = new HTTPClient(TEST_CONFIG);
-      let result = await client._GET('/');
-      // TODO: test result contents
+      const server = new HTTPServer(TEST_CONFIG);
+      const client = new HTTPClient(TEST_CONFIG);
+      await server.start();
+      const result = await client._GET('/');
+      await server.stop();
+
       // console.log('result:', result.toString());
       assert.ok(result);
     });
 
     it('can post content to a local server', async function () {
-      let client = new HTTPClient(TEST_CONFIG);
-      let before = await client._GET('/examples');
-      let result = await client._POST('/examples', { id: 'test', foo: 'bar' });
-      let after = await client._GET('/examples');
-      // TODO: fix cleanup
-      // assert.deepEqual(before, []);
-      // assert.deepEqual(after, [{ id: 'test', foo: 'bar' }]);
+      const server = new HTTPServer(TEST_CONFIG);
+      const client = new HTTPClient(TEST_CONFIG);
+      await server.start();
+
+      const before = await client._GET('/examples');
+      const result = await client._POST('/examples', { id: 'test', foo: 'bar' });
+      const after = await client._GET('/examples');
+      await server.stop();
+
+      assert.deepEqual(before, []);
+      assert.deepEqual(after, [{ id: 'test', foo: 'bar' }]);
       assert.ok(result);
     });
 

@@ -6,9 +6,11 @@ const {
 } = require('../constants');
 
 // trusted community modules
-const fs = require('fs');
+// const fs = require('fs');
 const http = require('http');
-const crypto = require('crypto');
+// const crypto = require('crypto');
+// TODO: remove Express entirely...
+// NOTE: current blockers include PeerServer...
 const express = require('express');
 const session = require('express-session');
 const parsers = require('body-parser');
@@ -18,8 +20,8 @@ const stoppable = require('stoppable');
 // Core components
 const Fabric = require('@fabric/core');
 // const App = require('./app');
-const Client = require('./client');
-const Component = require('./component');
+// const Client = require('./client');
+// const Component = require('./component');
 const SPA = require('./spa');
 
 // Dependencies
@@ -39,7 +41,7 @@ class HTTPServer extends Fabric.Oracle {
   constructor (settings = {}) {
     super(settings);
 
-    this.config = Object.assign({
+    this.settings = Object.assign({
       name: 'FabricHTTPServer',
       host: '0.0.0.0',
       path: './stores/server',
@@ -55,7 +57,7 @@ class HTTPServer extends Fabric.Oracle {
     this.connections = {};
     this.definitions = {};
 
-    this.app = new SPA(Object.assign({}, this.config, {
+    this.app = new SPA(Object.assign({}, this.settings, {
       path: './stores/server-application'
     }));
 
@@ -69,32 +71,17 @@ class HTTPServer extends Fabric.Oracle {
     this.sessions = session({
       resave: true,
       saveUninitialized: false,
-      secret: this.config.seed
+      secret: this.settings.seed
     });
 
     this.coordinator = new PeerServer(this.express, {
       path: '/services/peering'
     });
 
+    this.collections = [];
     this.customRoutes = [];
 
     return this;
-  }
-
-  static get App () {
-    return SPA;
-  }
-
-  static get Client () {
-    return Client;
-  }
-
-  static get Component () {
-    return Component;
-  }
-
-  static get SPA () {
-    return SPA;
   }
 
   /**
@@ -110,6 +97,7 @@ class HTTPServer extends Fabric.Oracle {
     }, resource);
 
     this.definitions[name] = snapshot;
+    this.collections.push(snapshot.routes.list);
 
     return this;
   }
@@ -253,10 +241,10 @@ class HTTPServer extends Fabric.Oracle {
   }
 
   _logRequest (req, res, next) {
-    if (!this.config.verbose) return next();
+    if (!this.settings.verbose) return next();
     // TODO: switch to this.log
     console.log([
-      `${req.host}:${this.config.port}`,
+      `${req.host}:${this.settings.port}`,
       req.hostname,
       req.user,
       `"${req.method} ${req.path} HTTP/${req.httpVersion}"`,
@@ -268,7 +256,7 @@ class HTTPServer extends Fabric.Oracle {
 
   _verifyClient (info, done) {
     console.log('[HTTP:SERVER]', '_verifyClient', info);
-    if (!this.config.sessions) return done();
+    if (!this.settings.sessions) return done();
     this.sessions(info.req, {}, () => {
       // TODO: reject unknown (!info.req.session.identity)
       done();
@@ -282,7 +270,7 @@ class HTTPServer extends Fabric.Oracle {
    * @param {Function} handler HTTP handler (req, res, next)
    */
   _addRoute (method, path, handler) {
-    console.log('PREPARING ROUTE:', path);
+    if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Adding route:', path);
     this.customRoutes.push({ method, path, handler });
   }
 
@@ -325,13 +313,10 @@ class HTTPServer extends Fabric.Oracle {
 
     this.status = 'starting';
 
-    if (!fs.existsSync('stores')) {
-      fs.mkdirSync('stores');
-    }
-
-    for (let name in server.config.resources) {
-      let resource = server.config.resources[name];
-      await server.define(name, resource);
+    for (let name in server.settings.resources) {
+      let definition = server.settings.resources[name];
+      let resource = await server.define(name, definition);
+      // console.log('[AUDIT]', 'Created resource:', resource);
     }
 
     try {
@@ -357,8 +342,8 @@ class HTTPServer extends Fabric.Oracle {
     // NOTE: see `server.express.use(express.static('assets'));`
     server.express.get('/', server._handleIndexRequest.bind(server));
 
-    for (let name in server.config.resources) {
-      let def = server.config.resources[name];
+    for (let name in server.settings.resources) {
+      let def = server.settings.resources[name];
       let resource = new Fabric.Resource(def);
 
       server._addRoute('GET', `${resource.routes.view}`, function (req, res, next) {
@@ -423,7 +408,7 @@ class HTTPServer extends Fabric.Oracle {
     this.wss.on('connection', this._handleWebSocket.bind(this));
 
     // TODO: test?
-    await server.http.listen(this.config.port, this.config.host);
+    await server.http.listen(this.settings.port, this.settings.host);
 
     this.status = 'started';
 
@@ -433,7 +418,7 @@ class HTTPServer extends Fabric.Oracle {
     this.emit('ready');
 
     // inform the user
-    if (this.config.verbose) {
+    if (this.settings.verbose) {
       let address = server.http.address();
       console.log('address:', address);
       if (!address) console.error('could not get address:', server.http);
@@ -471,6 +456,28 @@ class HTTPServer extends Fabric.Oracle {
 
     if (this.settings.verbosity >= 4) console.trace('[HTTP:SERVER]', 'Stopped!');
     return server;
+  }
+
+  async _GET (path) {
+    let result = await this.app.store._GET(path);
+    if (!result && this.collections.includes(path)) result = [];
+    return result;
+  }
+
+  async _PUT (path, data) {
+    return this.app.store._PUT(path, data);
+  }
+
+  async _POST (path, data) {
+    return this.app.store._POST(path, data);
+  }
+
+  async _PATCH (path, data) {
+    return this.app.store._PATCH(path, data);
+  }
+
+  async _DELETE (path) {
+    return this.app.store._DELETE(path, data);
   }
 }
 

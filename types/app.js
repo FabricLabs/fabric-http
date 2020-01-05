@@ -44,7 +44,7 @@ class App extends Component {
   constructor (settings = {}) {
     super(settings);
 
-    if (this.settings.verbosity >= 4) console.trace('[FABRIC:HTTP]', 'creating new APP with:', settings);
+    if (this.settings.verbosity >= 4) console.log('[FABRIC:HTTP]', 'creating new APP with:', settings);
 
     // settings
     this.settings = Object.assign({
@@ -90,9 +90,9 @@ class App extends Component {
     this.identity = null;
     this.history = [];
 
-    this.stash = new Fabric.Store({
+    this.stash = new Fabric.Store(Object.assign({}, this.settings, {
       path: 'stores/stash'
-    });
+    }));
 
     this.stash.on('patches', function (patches) {
       console.log('[HTTP:APP]', 'heard patches!', patches);

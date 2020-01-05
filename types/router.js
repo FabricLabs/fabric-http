@@ -104,12 +104,6 @@ class Router extends Fabric.Service {
     if (this.settings.verbosity >= 4) console.log('[FABRIC:HTTP]', 'ROUTER()', 'starting...');
     this.status = 'starting';
 
-    try {
-      await this.store.start();
-    } catch (E) {
-      console.error('Could not start router:', E);
-    }
-
     for (let name in this.routes) {
       let route = new Fabric.Entity(this.routes[name].path);
       this.state.channels[route.id] = Object.assign({
@@ -120,25 +114,14 @@ class Router extends Fabric.Service {
     }
 
     this.status = 'started';
-
     if (this.settings.verbosity >= 4) console.log('[FABRIC:HTTP]', 'ROUTER()', 'started!', this.state);
-
     return this;
   }
 
   async stop () {
     if (this.settings.verbosity >= 4) console.log('[FABRIC:HTTP]', 'ROUTER()', 'Stopping...');
-
     this.status = 'stopping';
-
-    try {
-      await this.store.stop();
-    } catch (E) {
-      console.error('Could not stop router:', E);
-    }
-
     this.status = 'stopped';
-
     return this;
   }
 }
