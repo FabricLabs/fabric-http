@@ -285,6 +285,7 @@ class HTTPServer extends Fabric.Oracle {
         return next();
       case 'GET':
         let mem = await this._GET(req.path);
+        if (!mem) return res.status(404).end();
         return res.send(mem);
       case 'PUT':
         let obj = await this._PUT(req.path, req.body);
@@ -307,15 +308,13 @@ class HTTPServer extends Fabric.Oracle {
   }
 
   async start () {
-    if (this.settings.verbosity >= 4) console.trace('[HTTP:SERVER]', 'Starting...');
-
-    let server = this;
-
-    this.status = 'starting';
+    if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Starting...');
+    const server = this;
+    server.status = 'starting';
 
     for (let name in server.settings.resources) {
-      let definition = server.settings.resources[name];
-      let resource = await server.define(name, definition);
+      const definition = server.settings.resources[name];
+      const resource = await server.define(name, definition);
       // console.log('[AUDIT]', 'Created resource:', resource);
     }
 
@@ -342,10 +341,13 @@ class HTTPServer extends Fabric.Oracle {
     // NOTE: see `server.express.use(express.static('assets'));`
     server.express.get('/', server._handleIndexRequest.bind(server));
 
+    // TODO: consolidate into earlier loop
+    // NOTE: reconcile this against tests...
     for (let name in server.settings.resources) {
-      let def = server.settings.resources[name];
-      let resource = new Fabric.Resource(def);
+      const def = server.settings.resources[name];
+      const resource = new Fabric.Resource(def);
 
+      // TODO: re-bind this
       server._addRoute('GET', `${resource.routes.view}`, function (req, res, next) {
         res.format({
           json: function () {
@@ -358,6 +360,7 @@ class HTTPServer extends Fabric.Oracle {
         });
       });
 
+      // TODO: re-bind this
       server._addRoute('GET', `${resource.routes.list}`, function (req, res, next) {
         res.format({
           json: function () {
@@ -429,13 +432,13 @@ class HTTPServer extends Fabric.Oracle {
       // console.log('[FABRIC:WEB]', 'or set up a TLS server to encrypt traffic to and from this node.');
     }
 
-    if (this.settings.verbosity >= 4) console.trace('[HTTP:SERVER]', 'Started!');
+    if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Started!');
 
     return server;
   }
 
   async stop () {
-    if (this.settings.verbosity >= 4) console.trace('[HTTP:SERVER]', 'Stopping...');
+    if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Stopping...');
     let server = this;
     this.status = 'stopping';
 
@@ -454,12 +457,14 @@ class HTTPServer extends Fabric.Oracle {
     this.status = 'stopped';
     server.emit('stopped');
 
-    if (this.settings.verbosity >= 4) console.trace('[HTTP:SERVER]', 'Stopped!');
+    if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Stopped!');
     return server;
   }
 
   async _GET (path) {
+    if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling GET to', path);
     let result = await this.app.store._GET(path);
+    if (this.settings.verbosity >= 5) console.log('[HTTP:SERVER]', 'Retrieved:', result);
     if (!result && this.collections.includes(path)) result = [];
     return result;
   }
@@ -469,14 +474,17 @@ class HTTPServer extends Fabric.Oracle {
   }
 
   async _POST (path, data) {
+    if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling POST to', path, data);
     return this.app.store._POST(path, data);
   }
 
   async _PATCH (path, data) {
+    if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling PATCH to', path, data);
     return this.app.store._PATCH(path, data);
   }
 
   async _DELETE (path) {
+    if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling DELETE to', path);
     return this.app.store._DELETE(path, data);
   }
 }

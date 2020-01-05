@@ -10,9 +10,7 @@ const TEST_HOST = 'example.com';
 const TEST_AUTHORITY = 'localhost';
 const TEST_CONFIG = {
   authority: TEST_AUTHORITY,
-  persistent: false,
-  secure: false,
-  port: 9999,
+  verbosity: 2,
   resources: {
     'Example': {
       name: 'Example',
@@ -25,7 +23,10 @@ const TEST_CONFIG = {
         view: '/examples/:id'
       }
     }
-  }
+  },
+  persistent: false,
+  secure: false,
+  port: 9999
 };
 
 const authority = new HTTPServer(TEST_CONFIG);
@@ -40,6 +41,7 @@ describe('@fabric/web/types/client', function () {
       const server = new HTTPServer(TEST_CONFIG);
       const client = new HTTPClient(TEST_CONFIG);
       await server.start();
+
       const result = await client._GET('/');
       await server.stop();
 
@@ -62,32 +64,46 @@ describe('@fabric/web/types/client', function () {
       assert.ok(result);
     });
 
-    xit('can create content on a local server', async function () {
-      let client = new HTTPClient(TEST_CONFIG);
-      let before = await client._GET('/examples/test');
-      let result = await client._PUT('/examples/test', { id: 'test', foo: 'qux' });
-      let after = await client._GET('/examples/test');
-      // TODO: fix cleanup
-      // assert.deepEqual(before, {});
+    it('can create content on a local server', async function () {
+      const server = new HTTPServer(TEST_CONFIG);
+      const client = new HTTPClient(TEST_CONFIG);
+      await server.start();
+
+      const before = await client._GET('/examples/test');
+      const result = await client._PUT('/examples/test', { id: 'test', foo: 'qux' });
+      const after = await client._GET('/examples/test');
+      await server.stop();
+
+      assert.deepEqual(before, null);
       assert.deepEqual(after, { id: 'test', foo: 'qux' });
       assert.ok(result);
     });
 
-    xit('can update content on a local server', async function () {
-      let client = new HTTPClient(TEST_CONFIG);
-      let before = await client._GET('/examples/test');
-      let result = await client._PATCH('/examples/test', { foo: 'baz' });
-      let after = await client._GET('/examples/test');
-      assert.deepEqual(before, { id: 'test', foo: 'qux' });
+    it('can update content on a local server', async function () {
+      const server = new HTTPServer(TEST_CONFIG);
+      const client = new HTTPClient(TEST_CONFIG);
+      await server.start();
+
+      const before = await client._GET('/examples/test');
+      const during = await client._PUT('/examples/test', { id: 'test', foo: 'qux' });
+      const result = await client._PATCH('/examples/test', { foo: 'baz' });
+      const after = await client._GET('/examples/test');
+      await server.stop();
+
+      assert.deepEqual(before, null);
+      assert.deepEqual(during, { id: 'test', foo: 'qux' });
       assert.deepEqual(after, { id: 'test', foo: 'baz' });
       assert.ok(result);
     });
 
     xit('can delete content on a local server', async function () {
+      const server = new HTTPServer(TEST_CONFIG);
       let client = new HTTPClient(TEST_CONFIG);
+      await server.start();
       let before = await client._GET('/examples/test');
       let result = await client._DELETE('/examples/test');
       let after = await client._GET('/examples/test');
+      await server.stop();
       assert.deepEqual(before, { id: 'test', foo: 'baz' });
       assert.deepEqual(after, {});
       assert.equal(result, null);
