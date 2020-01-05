@@ -1,0 +1,12 @@
+{
+  "name": "@fabric/http",
+  "scope": "/",
+  "start_url": "/",
+  "display": "minimal-ui",
+  "orientation": "landscape",
+  "background_color": "#333",
+  "main.js": {
+    "src": "scripts/index.min.js",
+    "integrity": "sha256-r1rIhbjOQh0PuU3tUQRpQyK4OFnBA7cDmZw/T9j+79c= sha384-AxklqXPmrhjjS+bexb2u0q3YeiSLxsDrEfBLvH6TuC/wLiAxBT8uqV7Ad6CN26cR sha512-JDFmO5uQnCgW1s4qSvx3XkjVlFlOmkPWeU5TKfdeHZ223/ALswDXzrsGOMCsvuPFdawcRK9Dgi+bHrOVwPp8LQ=="
+  }
+}

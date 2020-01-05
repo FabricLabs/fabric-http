@@ -1,0 +1,88 @@
+{
+  "name": "@fabric/http",
+  "version": "0.1.0-dev",
+  "description": "tools for serving the legacy web with Fabric",
+  "main": "types/web.js",
+  "scripts": {
+    "build:docs": "jsdoc -c jsdoc.json types components/*.js README.md -d docs",
+    "build:coverage": "npm run coverage && nyc report --reporter=html",
+    "build:fast": "node examples/build.js && npm run build:scripts",
+    "build:scripts": "webpack scripts/index.js",
+    "compile": "node examples/build.js && npm run build:scripts",
+    "coverage": "nyc npm run test",
+    "docs": "npm run build:docs && ecstatic docs",
+    "report:coverage": "npm run coverage && nyc report --reporter=text-lcov > reports/coverage.lcov && codecov",
+    "review:coverage": "npm run build:coverage && ecstatic reports/coverage",
+    "start": "npm run compile && node examples/server.js",
+    "static": "npm run build:scripts && ecstatic assets",
+    "test": "mocha tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FabricLabs/web.git"
+  },
+  "keywords": [
+    "http",
+    "web",
+    "fabric",
+    "bitcoin",
+    "blockchain"
+  ],
+  "author": "Eric Martindale",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/FabricLabs/web/issues"
+  },
+  "homepage": "https://github.com/FabricLabs/web#readme",
+  "dependencies": {
+    "@fabric/core": "FabricLabs/fabric#develop",
+    "bcoin": "^1.0.2",
+    "body-parser": "^1.18.3",
+    "canvas": "^2.5.0",
+    "d3": "^5.9.2",
+    "d3-graphviz": "^2.6.1",
+    "express": "^4.16.4",
+    "express-session": "^1.15.6",
+    "jade-lexer": "0.0.9",
+    "jade-parser": "0.0.9",
+    "jquery": "^3.4.1",
+    "js-beautify": "^1.10.0",
+    "jsdoc": "FabricLabs/jsdoc#fabric",
+    "level": "5",
+    "lightning-client": "^0.5.2-beta.8",
+    "metascraper": "^3.12.1",
+    "page": "^1.11.4",
+    "path-to-regexp": "^3.0.0",
+    "peer": "^0.2.10",
+    "peerjs": "^1.0.0",
+    "pluralize": "^7.0.0",
+    "stoppable": "^1.1.0",
+    "ws": "^6.2.1"
+  },
+  "devDependencies": {
+    "codecov": "^3.2.0",
+    "ecstatic": "^3.3.1",
+    "gulp": "^4.0.2",
+    "mocha": "^6.0.2",
+    "nyc": "^13.3.0",
+    "semistandard": "^13.0.1",
+    "webpack": "^4.32.0",
+    "webpack-assets-manifest": "^3.1.1",
+    "webpack-cli": "^3.3.2",
+    "webpack-dev-middleware": "^3.7.0"
+  },
+  "nyc": {
+    "report-dir": "./reports/coverage",
+    "temp-dir": "./reports/nyc",
+    "exclude": [
+      "docs",
+      "tests"
+    ]
+  },
+  "semistandard": {
+    "ignore": [
+      "docs",
+      "tests"
+    ]
+  }
+}
