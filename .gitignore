@@ -62,3 +62,6 @@ typings/
 
 # datastores
 stores
+
+# config
+config.json

@@ -1,6 +1,6 @@
 'use strict';
 
-const Fabric = require('@fabric/core');
+const Remote = require('@fabric/core/types/remote');
 
 // dependencies
 const scrape = require('metascraper');
@@ -15,7 +15,7 @@ class HTTPClient {
     }, settings);
 
     // TODO: remove import requirement, use local definition
-    this.client = new Fabric.Remote({
+    this.client = new Remote({
       host: this.config.authority,
       secure: this.config.secure,
       port: this.config.port
@@ -44,7 +44,7 @@ class HTTPClient {
 
   async crawl (address) {
     let url = new URL(address);
-    let remote = new Fabric.Remote({ host: url.hostname });
+    let remote = new Remote({ host: url.hostname });
     let content = await remote._GET(url.pathname);
     let metadata = await scrape({
       url: address,
