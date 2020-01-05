@@ -5,13 +5,13 @@
   "main": "types/web.js",
   "scripts": {
     "build:docs": "jsdoc -c jsdoc.json types components/*.js README.md -d docs",
-    "build:coverage": "nyc report --reporter=html npm run test",
+    "build:coverage": "npm run coverage && nyc report --reporter=html",
     "build:fast": "node examples/build.js && npm run build:scripts",
     "build:scripts": "webpack scripts/index.js",
     "compile": "node examples/build.js && npm run build:scripts",
     "coverage": "nyc npm run test",
     "docs": "npm run build:docs && ecstatic docs",
-    "report:coverage": "nyc report --reporter=text-lcov > coverage.lcov && codecov",
+    "report:coverage": "npm run coverage && nyc report --reporter=text-lcov > reports/coverage.lcov && codecov",
     "review:coverage": "npm run build:coverage && ecstatic reports/coverage",
     "start": "npm run compile && node examples/server.js",
     "static": "npm run build:scripts && ecstatic assets",
@@ -72,7 +72,8 @@
     "webpack-dev-middleware": "^3.7.0"
   },
   "nyc": {
-    "report-dir": "reports/coverage",
+    "report-dir": "./reports/coverage",
+    "temp-dir": "./reports/nyc",
     "exclude": [
       "docs",
       "tests"
