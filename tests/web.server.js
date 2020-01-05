@@ -7,7 +7,7 @@ const assert = require('assert');
 const HTTPServer = require('../types/server');
 const HTTPClient = require('../types/client');
 
-describe('@fabric/web', function () {
+describe('@fabric/web/types/server', function () {
   describe('Server', function () {
     it('should expose a constructor', function () {
       assert.equal(typeof HTTPServer, 'function');

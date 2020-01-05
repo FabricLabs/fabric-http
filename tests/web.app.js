@@ -3,7 +3,7 @@
 const assert = require('assert');
 const App = require('../types/app');
 
-describe('@fabric/web', function () {
+describe('@fabric/web/types/app', function () {
   describe('App', function () {
     it('should expose a constructor', function () {
       assert.equal(typeof App, 'function');
