@@ -137,6 +137,8 @@ class SPA extends App {
       console.error('Could not start SPA store:', E);
     }
 
+    if (this.settings.verbosity >= 4) console.log('[HTTP:SPA]', 'Defining resources...');
+
     for (let name in this.settings.resources) {
       let definition = this.settings.resources[name];
       let resource = await this.define(name, definition);
