@@ -1,6 +1,7 @@
 'use strict';
 
 const Fabric = require('@fabric/core');
+const FabricElement = require('../types/element');
 
 const crypto = require('crypto');
 const pointer = require('json-pointer');
@@ -9,7 +10,7 @@ const pointer = require('json-pointer');
  * The {@link Component} element is a generic class for creating interactive DOM
  * elements, usually for later composition in an {@link App}.
  */
-class Component extends HTMLElement {
+class Component extends FabricElement {
   /**
    * Create a new {@link Fabric} {@link Component}.
    * @param  {Object} [settings={}] Settings for the {@link Component}.
@@ -48,6 +49,30 @@ class Component extends HTMLElement {
 
   get methods () {
     return Object.keys(this.state.methods);
+  }
+
+  set state (state) {
+    if (!state) throw new Error('State must be provided.');
+    this._state = state;
+  }
+
+  get state () {
+    return Object.assign({}, this._state);
+  }
+
+  init (state = {}) {
+    // Assign Settings
+    this.settings = Object.assign({
+      handle: 'starforge-component'
+    }, state);
+
+    // Assign State
+    this._state = {
+      handlers: {}
+    };
+
+    this._registerHandler('click', this.click.bind(this));
+    // this.addEventListener('click', this.click.bind(this));
   }
 
   attributeChangedCallback (name, old, value) {
@@ -90,13 +115,23 @@ class Component extends HTMLElement {
     return this.element;
   }
 
+  /**
+   * Attach a handler to an event.
+   * @param {String} name Name of the event to listen for.
+   * @param {Function} method Function to execute.
+   */
   _registerHandler (name, method) {
     this.state.handlers[name] = method.bind(this);
 
     switch (name) {
+      default:
+        console.warn('[MAKI:COMPONENT]', 'Unknown method for handler:', name);
+        break;
+      case 'click':
       case 'submit':
-        let listener = document.addEventListener(name, method);
-        console.log('listener created:', listener);
+        // let listener = document.addEventListener(name, method);
+        // console.log('listener created:', listener);
+        let local = this.addEventListener(name, method);
         break;
     }
   }
