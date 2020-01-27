@@ -97,7 +97,9 @@ class Component extends Service {
   }
 
   render () {
-    this.element.innerHTML = this._getInnerHTML();
+    if (this.element) {
+      this.element.innerHTML = this._getInnerHTML();
+    }
     return this._renderState(this.state);
   }
 }

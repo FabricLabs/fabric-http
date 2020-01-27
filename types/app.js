@@ -148,6 +148,7 @@ class App extends Component {
     // Some default Components, available to all
     // TODO: expose this as the Library, namespace `alexandria`
     this.define('Introduction', Introduction);
+    this._defineElement('maki-introduction', Introduction);
 
     this.route = '/';
     this.status = 'ready';
@@ -247,6 +248,7 @@ class App extends Component {
 
   async _loadIndex (ctx) {
     let Index = this.components[this.settings.components.index];
+    if (!Index) throw new Error(`Could not find component: ${this.settings.components.index}`);
     let resource = new Index(this.state);
     let content = resource.render();
     this._setTitle(resource.name);

@@ -18,6 +18,7 @@ const BrowserContent = require('../components/browser-content');
 const Introduction = require('../components/introduction');
 // const Sidebar = require('../components/sidebar');
 const SearchBox = require('../components/search-box');
+const Welcome = require('../components/welcome');
 
 class Browser extends Fabric.Service {
   constructor (settings = {}) {
@@ -55,6 +56,7 @@ class Browser extends Fabric.Service {
       let definition = this.settings.resources[name];
       let plural = pluralize(name);
 
+      // TODO: allow `components` property to be unset
       // this.router._addFlat(`/${plural.toLowerCase()}`, definition);
       this.router._addRoute(`/${plural.toLowerCase()}/:id`, definition.components.view);
       this.router._addRoute(`/${plural.toLowerCase()}`, definition.components.list);
@@ -62,6 +64,10 @@ class Browser extends Fabric.Service {
     }
 
     this.router._addRoute(`/`, this.settings.components.index);
+
+    this._state = {
+      viewing: 'fabric-welcome'
+    };
 
     return this;
   }
