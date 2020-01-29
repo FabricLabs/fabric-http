@@ -56,6 +56,14 @@ class Browser extends Fabric.Service {
       let definition = this.settings.resources[name];
       let plural = pluralize(name);
 
+      if (!definition.components) definition.components = {};
+      if (!definition.components.view) definition.components.view = 'fabric-resource-view';
+      if (!definition.components.list) definition.components.list = 'fabric-resource-list';
+
+      if (!definition.routes) definition.routes = {};
+      if (!definition.routes.view) definition.routes.view = `/${plural.toLowerCase()}/:id`;
+      if (!definition.routes.list) definition.routes.list = `/${plural.toLowerCase()}`;
+
       // TODO: allow `components` property to be unset
       // this.router._addFlat(`/${plural.toLowerCase()}`, definition);
       this.router._addRoute(`/${plural.toLowerCase()}/:id`, definition.components.view);
@@ -193,10 +201,12 @@ class Browser extends Fabric.Service {
     html += `</div>`;
 
     // second column, the sidebar
-    html += `<div class="four wide column">`;
-    // html += `${sidebar.render()}`;
-    html += `<span>sidebar would be here</span>`;
-    html += `</div>`;
+    if (this.settings.sidebar) {
+      html += `<div class="four wide column">`;
+      // html += `${sidebar.render()}`;
+      html += `<span>sidebar would be here</span>`;
+      html += `</div>`;
+    }
 
     // end of grid
     html += `</div>`;

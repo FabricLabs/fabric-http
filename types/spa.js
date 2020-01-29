@@ -81,6 +81,7 @@ class SPA extends App {
   _renderWith (html) {
     let hash = crypto.createHash('sha256').update(html).digest('hex');
 
+    // TODO: move CSS to inline from webpack
     return `<!DOCTYPE html>
 <html lang="${this.settings.language}"${(this.settings.offline) ? 'manifest="cache.manifest"' : ''}>
 <head>
@@ -88,7 +89,7 @@ class SPA extends App {
   <title>${this.title}</title>
   <!-- <link rel="manifest" href="/manifest.json"> -->
   <link rel="stylesheet" type="text/css" href="/styles/screen.css" />
-  <!-- <link rel="stylesheet" type="text/css" href="/styles/semantic.css" /> -->
+  <link rel="stylesheet" type="text/css" href="/styles/semantic.css" />
 </head>
 <body data-bind="${hash}">${html}</body>
 </html>`;
