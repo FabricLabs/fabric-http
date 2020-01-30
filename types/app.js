@@ -110,7 +110,6 @@ class App extends Component {
       }
     });
 
-    this.handler = page;
     this.circuit = this.settings.circuit || new Fabric.Circuit();
 
     // Add index menu item
@@ -157,7 +156,12 @@ class App extends Component {
     return this;
   }
 
+  get handler () {
+    return page;
+  }
+
   get page () {
+    // TODO: return current page
     return new Resource({
       name: 'BlankPage'
     });
