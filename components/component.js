@@ -16,8 +16,8 @@ class Component extends FabricElement {
    * @param  {Object} [settings={}] Settings for the {@link Component}.
    * @return {Component}               Instance of the {@link Component}.
    */
-  constructor (settings = {}) {
-    super(settings);
+  init (settings = {}) {
+    super.init(settings);
 
     this.settings = Object.assign({
       title: 'Fabric Component',
@@ -25,7 +25,7 @@ class Component extends FabricElement {
     }, settings);
 
     this.element = document.createElement(this.settings.handle);
-    this.fabric = new Fabric();
+    // this.fabric = new Fabric();
     this.remote = new Fabric.Remote({
       host: window.host,
       port: window.port
@@ -54,6 +54,7 @@ class Component extends FabricElement {
   set state (state) {
     if (!state) throw new Error('State must be provided.');
     this._state = state;
+    this._redraw(this._state);
   }
 
   get state () {
@@ -109,6 +110,11 @@ class Component extends FabricElement {
   disconnectedCallback () {
     console.log('[MAKI:COMPONENT]', 'Component removed from page:', this);
     // TODO: remove event listeners, close connections, etc.
+  }
+
+  integrity (data = '') {
+    // TODO: cache and skip
+    return `sha256-${crypto.createHash('sha256').update(data).digest('base64')}`;
   }
 
   _getElement () {
@@ -173,9 +179,8 @@ class Component extends FabricElement {
    */
   _redraw (state = {}) {
     if (!state) state = this.state;
-    console.log('[MAKI:COMPONENT]', 'redrawing with state:', state);
+    if (this.settings.verbosity >= 5) console.log('[MAKI:COMPONENT]', 'redrawing with state:', state);
     this.innerHTML = this._getInnerHTML(state);
-    console.log('this innerHTML', this.innerHTML);
     return this;
   }
 
@@ -190,7 +195,9 @@ class Component extends FabricElement {
   }
 
   render () {
-    return `<${this.settings.handle}>${this._getInnerHTML()}</${this.settings.handle}>`;
+    let content = this._getInnerHTML();
+    let hash = Fabric.sha256(content);
+    return `<${this.settings.handle} integrity="${this.integrity(content)}" data-hash="${hash}">${content}</${this.settings.handle}>`;
   }
 
   async _GET (path) {

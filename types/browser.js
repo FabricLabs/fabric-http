@@ -31,6 +31,7 @@ class Browser extends Fabric.Service {
       height: 480,
       depth: 5,
       handle: 'fabric-browser',
+      title: 'Browser',
       controls: false,
       components: {
         index: 'fabric-introduction'
@@ -193,7 +194,7 @@ class Browser extends Fabric.Service {
     html += `<div class="ui grid">`;
 
     // first column, the content
-    html += `<div class="twelve wide column">`;
+    html += `<div class="${(this.settings.sidebar) ? 'twelve' : 'sixteen'} wide column">`;
     // html += `<fabric-browser-content id="browser-content">dummy content... ${JSON.stringify(this.router.route(this.address).route)}</fabric-browser-content>`;
     html += `<div class="browser">`;
     html += `${content.render()}`;
