@@ -115,7 +115,7 @@ class App extends Component {
     // Add index menu item
     // this.menu._addItem({ name: this.settings.name, path: '/', brand: true });
     this.router._addRoute('/', this.settings.components.index);
-    this.handler('/', this._loadIndex.bind(this));
+    this.handler('/', this._handleNavigation.bind(this));
 
     // properties
     this.identities = {};

@@ -24,14 +24,15 @@ class Component extends FabricElement {
       handle: 'fabric-component'
     }, settings);
 
-    this.element = document.createElement(this.settings.handle);
+    // this.element = document.createElement(this.settings.handle);
     // this.fabric = new Fabric();
+    this._boundFunctions = {};
     this.remote = new Fabric.Remote({
       host: window.host,
       port: window.port
     });
 
-    this.state = {
+    this._state = {
       methods: {},
       handlers: {}
     };
@@ -61,7 +62,7 @@ class Component extends FabricElement {
     return Object.assign({}, this._state);
   }
 
-  init (state = {}) {
+  /* init (state = {}) {
     // Assign Settings
     this.settings = Object.assign({
       handle: 'starforge-component'
@@ -74,7 +75,7 @@ class Component extends FabricElement {
 
     this._registerHandler('click', this.click.bind(this));
     // this.addEventListener('click', this.click.bind(this));
-  }
+  } */
 
   attributeChangedCallback (name, old, value) {
     console.log('[MAKI:COMPONENT]', 'Component notified a change:', name, 'changed to:', value, `(was ${old})`);
@@ -82,14 +83,15 @@ class Component extends FabricElement {
 
   connectedCallback () {
     console.log('[MAKI:COMPONENT]', 'Component added to page:', this);
-    let html = this._getInnerHTML();
+    const state = (typeof window !== 'undefined' && window.app) ? window.app.state : this.state;
+    const html = this._getInnerHTML(state);
 
     this.setAttribute('data-integrity', Fabric.sha256(html));
     this.setAttribute('data-fingerprint', this.fingerprint);
     // this.innerHTML = html;
     this.innerHTML = html + '';
 
-    /* let binding = this.getAttribute('data-bind');
+    let binding = this.getAttribute('data-bind');
 
     if (binding) {
       // TODO: use Fabric.Remote
@@ -101,7 +103,7 @@ class Component extends FabricElement {
         .catch((error) => {
           console.error(error);
         });
-    } */
+    }
 
     // Reflect.construct(HTMLElement, [], this.constructor);
     return this;
@@ -109,7 +111,9 @@ class Component extends FabricElement {
 
   disconnectedCallback () {
     console.log('[MAKI:COMPONENT]', 'Component removed from page:', this);
-    // TODO: remove event listeners, close connections, etc.
+    for (let name in this._boundFunctions) {
+      this.removeEventListener('message', this._boundFunctions[name]);
+    }
   }
 
   integrity (data = '') {
@@ -190,7 +194,7 @@ class Component extends FabricElement {
   }
 
   _getInnerHTML (state) {
-    if (!state) state = this.state;
+    if (!state) state = (typeof window !== 'undefined') ? window.app.state : this.state;
     return `<code integrity="${this.integrity}">${JSON.stringify(this.state)}</code>`;
   }
 
