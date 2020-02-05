@@ -15,6 +15,10 @@ class BrowserContent {
     return this;
   }
 
+  init () {
+    console.log('[BROWSER:CONTENT]', 'init()');
+  }
+
   _getInnerHTML () {
     let html = ``;
     html += `<div class="ui segment loading">`;

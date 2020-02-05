@@ -73,10 +73,7 @@ class Browser extends Fabric.Service {
     }
 
     this.router._addRoute(`/`, this.settings.components.index);
-
-    this._state = {
-      viewing: 'fabric-welcome'
-    };
+    this._state = (typeof window !== 'undefined' && window.app) ? window.app.state : {};
 
     return this;
   }
@@ -123,7 +120,8 @@ class Browser extends Fabric.Service {
   }
 
   _flush () {
-    if (!this.target) return true;
+    if (!this.target) this.target = document.querySelector(BROWSER_TARGET);
+    if (!this.target) return false;
 
     while (this.target.firstChild) {
       this.target.removeChild(this.target.firstChild);
@@ -154,11 +152,13 @@ class Browser extends Fabric.Service {
   }
 
   _setElement (element) {
-    console.log('[FABRIC:BROWSER]', 'setting element:', element);
-
+    if (this.settings.verbosity >= 4) console.log('[FABRIC:BROWSER]', 'setting element:', element);
     this._flush();
     this._appendElement(element);
+    this._setTitle(this.settings.title);
+    element._redraw(this.state);
 
+    // TODO: initialize element?
     return this;
   }
 
@@ -167,8 +167,9 @@ class Browser extends Fabric.Service {
     document.querySelector('title').innerHTML = this.title;
   }
 
-  _getInnerHTML () {
-    let content = new BrowserContent(this.state);
+  _getInnerHTML (state) {
+    if (!state) state = (typeof window !== 'undefined' && window.app) ? window.app.state : this.state;
+    let content = new BrowserContent(state);
     // let sidebar = new Sidebar(this.sidebar.state);
     let html = `<fabric-grid rows="3" columns="3">`;
 

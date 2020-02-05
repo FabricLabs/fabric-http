@@ -1,5 +1,19 @@
 'use strict';
 
+const {
+  BROWSER_TARGET
+} = require('../constants');
+
+const config = {
+  title: '@fabric/http',
+  synopsis: 'Making beautiful apps a breeze.',
+  description: 'Legacy web support for Fabric.',
+  handle: 'html',
+  language: 'en',
+  components: {},
+  offline: false
+};
+
 // core dependencies
 const crypto = require('crypto');
 const page = require('page');
@@ -7,6 +21,7 @@ const pluralize = require('pluralize');
 
 // Requisite Types
 const App = require('./app');
+const Browser = require('./browser');
 const Router = require('./router');
 
 // Fabric Types
@@ -28,15 +43,7 @@ class SPA extends App {
   constructor (settings = {}) {
     super(settings);
 
-    this.settings = Object.assign({
-      title: '@fabric/http',
-      synopsis: 'Making beautiful apps a breeze.',
-      description: 'Legacy web support for Fabric.',
-      handle: 'html',
-      language: 'en',
-      components: {},
-      offline: false
-    }, settings);
+    this.settings = Object.assign(config, settings);
 
     // TODO: enable Web Worker integration
     /* this.worker = new Worker('./worker', {
@@ -54,8 +61,25 @@ class SPA extends App {
     return this;
   }
 
+  init (settings = {}) {
+    this.browser = new Browser(this.settings);
+    this.store = new Store({ path: './stores/spa' });
+    this.settings = Object.assign({}, this.settings, settings);
+    this._state = (window.app && window.app.state) ? window.app.state : {};
+  }
+
   get handler () {
     return page;
+  }
+
+  set state (state) {
+    if (!state) throw new Error('State must be provided.');
+    this._state = state;
+    this._redraw(this._state);
+  }
+
+  get state () {
+    return Object.assign({}, this._state);
   }
 
   define (name, definition) {
@@ -81,13 +105,15 @@ class SPA extends App {
   }
 
   async _handleNavigation (ctx) {
-    let route = this.router.route(ctx.path);
-    let Element = this.components[route.route.component];
-    if (!Element) throw new Error(`Could not find component: ${route.route.component}`);
-    let resource = new Element(this.state);
-    let content = resource.render();
-    this._setTitle(resource.name);
-    this._renderContent(content);
+    let address = await this.browser.route(ctx.path);
+    let element = document.createElement(address.route.component);
+
+    this.target = element;
+
+    this.browser._setAddress(ctx.path);
+    this.browser._setElement(element);
+
+    element.state = (typeof window !== 'undefined' && window.app) ? window.app.state : this.state; 
   }
 
   async _loadIndex (ctx) {
@@ -102,6 +128,22 @@ class SPA extends App {
   _setTitle (title) {
     this.title = `${title} &middot; ${this.settings.name}`;
     document.querySelector('title').innerHTML = this.title;
+  }
+
+  _redraw (state = {}) {
+    if (!state) state = this.state;
+    if (this.settings && this.settings.verbosity >= 5) console.log('[HTTP:SPA]', 'redrawing with state:', state);
+    this.innerHTML = this._getInnerHTML(state);
+    return this;
+  }
+
+  _renderContent (html) {
+    // TODO: enable multi-view composition?
+    // NOTE: this means to iterate over all bound targets, instead of the first one...
+    if (!this.target) this.target = document.querySelector(BROWSER_TARGET);
+    if (!this.target) return console.log('COULD NOT ACQUIRE TARGET:', document);
+    this.target.innerHTML = html;
+    return this.target;
   }
 
   _renderWith (html) {
@@ -158,10 +200,16 @@ class SPA extends App {
     if (this.settings.verbosity >= 4) console.log('[HTTP:SPA]', 'Starting...');
     // await super.start();
 
-    try {
-      await this.store.start();
-    } catch (E) {
-      console.error('Could not start SPA store:', E);
+    this.on('error', (error) => {
+      console.log('got error:', error);
+    });
+
+    if (this.settings.persistent) {
+      try {
+        await this.store.start();
+      } catch (E) {
+        console.error('Could not start SPA store:', E);
+      }
     }
 
     if (this.settings.verbosity >= 4) console.log('[HTTP:SPA]', 'Defining resources...');
@@ -192,9 +240,10 @@ class SPA extends App {
       console.error('Could not start SPA router:', E);
     }
 
+    // Set page title
     this.title = `${this.settings.synopsis} &middot; ${this.settings.name}`;
-    if (this.settings.verbosity >= 4) console.log('[HTTP:SPA]', 'Started!');
 
+    if (this.settings.verbosity >= 4) console.log('[HTTP:SPA]', 'Started!');
     return this;
   }
 }
