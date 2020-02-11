@@ -326,10 +326,12 @@ class HTTPServer extends Oracle {
         for (let i in this.routes) {
           let route = this.routes[i];
           if (req.path.match(route.route)) {
-            result = await this.stores[route.resource].get(route.path);
+            result = await this.stores[route.resource].get(req.path);
             break;
           }
         }
+
+        if (result) break;
 
         let content = await this._GET(req.path);
         result = content;
