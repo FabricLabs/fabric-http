@@ -100,6 +100,12 @@ class SPA extends App {
     }
   }
 
+  disconnectedCallback () {
+    for (let name in this._boundFunctions) {
+      this.removeEventListener('message', this._boundFunctions[name]);
+    }
+  }
+
   _handleClick (e) {
     console.log('SPA CLICK EVENT:', e);
   }
@@ -160,6 +166,8 @@ class SPA extends App {
   <link rel="stylesheet" type="text/css" href="/styles/semantic.css" />
 </head>
 <body data-bind="${hash}">${html}</body>
+<script type="text/javascript" src="/scripts/jquery-3.4.1.js"></script>
+<script type="text/javascript" src="/scripts/semantic.js"></script>
 </html>`;
   }
 

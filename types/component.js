@@ -24,6 +24,10 @@ class Component extends Service {
     this.state = settings;
     this.element = null;
 
+    // Healthy Cleanup
+    this._boundFunctions = {};
+    this._listeners = {};
+
     return this;
   }
 
@@ -45,7 +49,6 @@ class Component extends Service {
     let hash = crypto.createHash('sha256').update(this.data).digest('base64');
     return `sha256-${hash}`;
   }
-
 
   attributeChangedCallback (name, old, value) {
     console.log('[MAKI:COMPONENT]', 'Component notified a change:', name, 'changed to:', value, `(was ${old})`);
@@ -80,7 +83,10 @@ class Component extends Service {
 
   disconnectedCallback () {
     console.log('[MAKI:COMPONENT]', 'Component removed from page:', this);
-    // TODO: remove event listeners, close connections, etc.
+
+    for (let name in this._boundFunctions) {
+      this.removeEventListener('message', this._boundFunctions[name]);
+    }
   }
 
   _bind (element) {
