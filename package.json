@@ -36,6 +36,7 @@
   "homepage": "https://github.com/FabricLabs/web#readme",
   "dependencies": {
     "@fabric/core": "FabricLabs/fabric#peering",
+    "bcoin": "FabricLabs/bcoin#optional-http",
     "body-parser": "^1.18.3",
     "canvas": "^2.5.0",
     "d3": "^5.9.2",
