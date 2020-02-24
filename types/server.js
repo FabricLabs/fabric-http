@@ -269,7 +269,7 @@ class HTTPServer extends Oracle {
   }
 
   _logMiddleware (req, res, next) {
-    if (!this.settings.verbose) return next();
+    if (!this.settings.verbosity < 2) return next();
     // TODO: switch to this.log
     console.log([
       `${req.host}:${this.settings.port}`,
