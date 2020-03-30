@@ -21,10 +21,12 @@ const pluralize = require('pluralize');
 
 // Requisite Types
 const App = require('./app');
+const Bridge = require('./bridge');
 const Browser = require('./browser');
 const Router = require('./router');
 
 // Fabric Types
+const Message = require('@fabric/core/types/message');
 const Circuit = require('@fabric/core/types/circuit');
 const Store = require('@fabric/core/types/store');
 
@@ -41,6 +43,7 @@ class SPA extends App {
    * @return {App}               Instance of the application.
    */
   constructor (settings = {}) {
+    if (settings && settings.verbosity >= 5) console.log('[WEB:SPA]', 'Constructing SPA with settings:', settings);
     super(settings);
 
     this.settings = Object.assign(config, settings);
@@ -50,6 +53,7 @@ class SPA extends App {
       type: 'module'
     }); */
 
+    this.bridge = new Bridge(this.settings);
     this.router = new Router(this.settings);
     this.store = new Store(this.settings);
 
@@ -62,8 +66,10 @@ class SPA extends App {
   }
 
   init (settings = {}) {
+    if (settings && settings.verbosity >= 5) console.trace('[WEB:SPA]', 'Calling init() with settings:', settings);
+    this.bridge = new Bridge(this.settings);
     this.browser = new Browser(this.settings);
-    this.store = new Store({ path: './stores/spa' });
+    this.store = new Store(Object.assign({}, this.settings, { path: './stores/spa' }));
     this.settings = Object.assign({}, this.settings, settings);
     this._state = (window.app && window.app.state) ? window.app.state : {};
   }
@@ -83,8 +89,9 @@ class SPA extends App {
   }
 
   define (name, definition) {
+    // if (this.settings.verbosity >= 5) console.log('[WEB:SPA]', 'Defining for router:', name, definition);
     let route = this.router.define(name, definition);
-    if (this.settings.verbosity >= 5) console.log('[WEB:SPA]', 'Defining', name, route);
+    // if (this.settings.verbosity >= 5) console.log('[WEB:SPA]', 'Defined:', name, route);
     this.types.state[name] = definition;
     this.resources[name] = definition;
     return this.resources[name];
@@ -188,6 +195,12 @@ class SPA extends App {
     if (this.settings.verbosity >= 4) console.log('[HTTP:SPA]', 'Stopping...');
 
     try {
+      await this.bridge.stop();
+    } catch (E) {
+      console.error('Could not stop SPA bridge:', E);
+    }
+
+    try {
       await this.router.stop();
     } catch (E) {
       console.error('Could not stop SPA router:', E);
@@ -204,6 +217,42 @@ class SPA extends App {
     return this;
   }
 
+  async _handleBridgeMessage (msg) {
+    if (this.settings.verbosity >= 4) console.log('[HTTP:SPA]', 'Handling message from Bridge:', msg);
+    if (!msg.type && msg['@type']) msg.type = msg['@type'];
+    if (!msg.data && msg['@data']) msg.data = msg['@data'];
+
+    switch (msg.type) {
+      default:
+        console.warn('[HTTP:SPA]', 'Unhandled message type (origin: bridge)', msg.type);
+        break;
+      case 'Receipt':
+        console.log('Receipt for your message:', msg);
+        break;
+      case 'Pong':
+        console.log('Received pong:', msg.data);
+        let time = new Date(msg.data / 1000);
+        console.log('time:', time, time.toISOString());
+      case 'Ping':
+        const now = Date.now();
+        const message = Message.fromVector(['Pong', now.toString()]);
+        const pong = JSON.stringify(message.toObject());
+        this.bridge.send(pong);
+        break;
+      case 'State':
+        console.log('RAD STATE:', msg);
+        this.state = msg.data;
+        break;
+      case 'Transaction':
+        // this._applyChanges(message['@data']['changes']);
+        this.state = msg['data']['state'];
+        break;
+      case 'GenericMessage':
+        console.warn('[AUDIT]', 'GENERIC MESSAGE:', msg);
+        break;
+    }
+  }
+
   async start () {
     if (this.settings.verbosity >= 4) console.log('[HTTP:SPA]', 'Starting...');
     // await super.start();
@@ -211,6 +260,8 @@ class SPA extends App {
     this.on('error', (error) => {
       console.log('got error:', error);
     });
+
+    this.bridge.on('message', this._handleBridgeMessage.bind(this));
 
     if (this.settings.persistent) {
       try {
@@ -246,6 +297,12 @@ class SPA extends App {
       await this.router.start();
     } catch (E) {
       console.error('Could not start SPA router:', E);
+    }
+
+    try {
+      this.bridge.start();
+    } catch (exception) {
+      console.error('Could not connect to bridge:', exception);
     }
 
     // Set page title

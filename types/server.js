@@ -2,7 +2,9 @@
 
 const {
   HTTP_SERVER_PORT,
-  HTTPS_SERVER_PORT
+  HTTPS_SERVER_PORT,
+  MAXIMUM_PING,
+  WEBSOCKET_KEEPALIVE
 } = require('../constants');
 
 // trusted community modules
@@ -15,6 +17,7 @@ const express = require('express');
 const session = require('express-session');
 // TODO: check with Riddle about this
 const parsers = require('body-parser');
+const monitor = require('fast-json-patch');
 const extractor = require('express-bearer-token');
 const pluralize = require('pluralize');
 const stoppable = require('stoppable');
@@ -26,6 +29,7 @@ const pathToRegexp = require('path-to-regexp').pathToRegexp;
 const Oracle = require('@fabric/core/types/oracle');
 const Collection = require('@fabric/core/types/collection');
 const Resource = require('@fabric/core/types/resource');
+const Message = require('@fabric/core/types/message');
 const State = require('@fabric/core/types/state');
 // const App = require('./app');
 // const Client = require('./client');
@@ -84,6 +88,8 @@ class HTTPServer extends Oracle {
       secret: this.settings.seed
     });
 
+    this._state = {};
+    this.observer = monitor.observe(this.state);
     this.coordinator = new PeerServer(this.express, {
       path: '/services/peering'
     });
@@ -91,6 +97,47 @@ class HTTPServer extends Oracle {
     this.collections = [];
     this.routes = [];
     this.customRoutes = [];
+
+    return this;
+  }
+
+  get state () {
+    return this._state;
+  }
+
+  set state (value) {
+    this._state = value;
+  }
+
+  async commit () {
+    ++this.clock;
+
+    this['@parent'] = this.id;
+    this['@preimage'] = this.toString();
+    this['@constructor'] = this.constructor;
+
+    if (this.observer) {
+      this['@changes'] = monitor.generate(this.observer);
+    }
+
+    this['@id'] = this.id;
+
+    if (this['@changes'] && this['@changes'].length) {
+      const message = {
+        '@type': 'Transaction',
+        '@data': {
+          'changes': this['@changes'],
+          'state': this.state
+        }
+      };
+
+      this.emit('changes', this['@changes']);
+      this.emit('state', this.state);
+      this.emit('message', message);
+
+      // Broadcast to connected peers
+      this.broadcast(message);
+    }
 
     return this;
   }
@@ -109,6 +156,7 @@ class HTTPServer extends Oracle {
     let snapshot = Object.assign({
       names: { plural: pluralize(name) }
     }, resource);
+    let address = snapshot.routes.list.split('/')[1];
 
     this.stores[name] = store;
     this.definitions[name] = snapshot;
@@ -126,13 +174,27 @@ class HTTPServer extends Oracle {
       resource: name
     });
 
+    // TODO: document pathing
+    this.state[address] = {};
+
     if (this.settings.verbosity >= 4) console.log('[WEB:SERVER]', 'Routes:', this.routes);
     return this;
   }
 
+  broadcast (message) {
+    let peers = Object.keys(this.connections);
+    for (let i = 0; i < peers.length; i++) {
+      try {
+        this.connections[peers[i]].send(JSON.stringify(message));
+      } catch (E) {
+        console.error('Could not send message to peer:', E);
+      }
+    }
+  }
+
   trust (source) {
     source.on('message', function (msg) {
-      console.log('[RPG:SERVER]', 'trusted source:', source.constructor.name, 'sent message:', msg);
+      console.log('[HTTP:SERVER]', 'trusted source:', source.constructor.name, 'sent message:', msg);
     });
   }
 
@@ -149,58 +211,116 @@ class HTTPServer extends Oracle {
     // TODO: check security of common defaults for `sec-websocket-key` params
     // Chrome?  Firefox?  Safari?  Opera?  What defaults do they use?
     let buffer = Buffer.from(request.headers['sec-websocket-key'], 'base64');
+    let handle = buffer.toString('hex');
     let player = new State({
       connection: buffer.toString('hex'),
       entropy: buffer.toString('hex')
     });
+
+    socket._resetKeepAlive = function () {
+      clearInterval(socket._heartbeat);
+      socket._heartbeat = setInterval(function () {
+        let now = Date.now();
+        let message = Message.fromVector(['Ping', now.toString()]);
+        // TODO: refactor _sendTo to accept Message type
+        let ping = JSON.stringify(message.toObject());
+
+        try {
+          server._sendTo(handle, ping);
+        } catch (exception) {
+          console.error('could not ping peer:', handle, exception);
+        }
+      }, WEBSOCKET_KEEPALIVE);
+    };
+
+    socket._timeout = null;
+    socket._resetKeepAlive();
 
     // Clean up memory when the connection has been safely closed (ideal case).
     socket.on('close', function () {
       delete server.connections[player['@data'].connection];
     });
 
-    // TODO: set up heartbeat
-    // socket.heartbeat = setInterval([...]);
-
     // TODO: message handler on base class
     socket.on('message', async function handler (msg) {
-      console.log('websocket incoming message:', msg);
+      console.log('[SERVER:WEBSOCKET]', 'incoming message:', typeof msg, msg);
+
+      let message = null;
+      let type = null;
+
+      if (msg.type && msg.data) {
+        console.log('spec:', {
+          type: msg.type,
+          data: msg.data
+        });
+      }
+
+      try {
+        message = Message.fromRaw(msg);
+        type = message.type;
+      } catch (exception) {
+        console.error('could not parse message:', exception);
+      }
+
+      if (!message) {
+        // Fall back to JSON parsing
+        try {
+          if (msg instanceof Buffer) {
+            msg = msg.toString('utf8');
+          }
+
+          message = JSON.parse(msg);
+          type = message['@type'];
+        } catch (E) {
+          console.error('could not parse message:', typeof msg, msg, E);
+          // TODO: disconnect from peer
+          console.warn('you should disconnect from this peer:', handle);
+        }
+      }
+
+      switch (type) {
+        default:
+          console.log('[SERVER]', 'unhandled type:', type);
+          break;
+        case 'GET':
+          let answer = await server._GET(message['@data']['path']);
+          console.log('answer:', answer);
+          return answer;
+        case 'POST':
+          let link = await server._POST(message['@data']['path'], message['@data']['value']);
+          console.log('[SERVER]', 'posted link:', link);
+          break;
+        case 'PATCH':
+          let result = await server._PATCH(message['@data']['path'], message['@data']['value']);
+          console.log('[SERVER]', 'patched:', result);
+          break;
+        case 'Ping':
+          let now = Date.now();
+          let local = Message.fromVector(['Pong', now.toString()]);
+          let pong = JSON.stringify(local.toObject());
+          return server._sendTo(handle, pong);
+        case 'Pong':
+          socket._resetKeepAlive();
+          return;
+          break;
+        case 'Call':
+          server.emit('call', {
+            method: message['@data'].data.method,
+            params: message['@data'].data.params
+          });
+          break;
+      }
+
+      // TODO: enable relays
+      // server._relayFrom(handle, msg);
 
       // always send a receipt of acknowledgement
       socket.send(JSON.stringify({
         '@type': 'Receipt',
-        '@actor': buffer.toString('hex'),
-        '@data': msg,
+        '@actor': handle,
+        '@data': message,
         '@version': 1
       }));
-
-      try {
-        let message = JSON.parse(msg);
-        let type = message['@type'];
-
-        switch (type) {
-          default:
-            console.log('[SERVER]', 'unhandled type:', type);
-            break;
-          case 'GET':
-            let answer = await server._GET(message['@data']['path']);
-            console.log('answer:', answer);
-            return answer;
-          case 'POST':
-            let link = await server._POST(message['@data']['path'], message['@data']['value']);
-            console.log('[SERVER]', 'posted link:', link);
-            break;
-          case 'PATCH':
-            let result = await server._PATCH(message['@data']['path'], message['@data']['value']);
-            console.log('[SERVER]', 'patched:', result);
-            break;
-        }
-
-        server._relayFrom(buffer.toString('hex'), msg);
-      } catch (E) {
-        console.error('could not parse message:', E);
-        console.log('you should disconnect from this peer:', buffer.toString('hex'));
-      }
     });
 
     // set up an oracle, which listens to patches from server
@@ -233,6 +353,13 @@ class HTTPServer extends Oracle {
     return socket;
   }
 
+  _sendTo (actor, msg) {
+    console.log('[SERVER:WEBSOCKET]', 'sending message to actor', actor, msg);
+    let target = this.connections[actor];
+    if (!target) throw new Error('No such target.');
+    let result = target.send(msg);
+  }
+
   _relayFrom (actor, msg) {
     let peers = Object.keys(this.connections).filter(key => {
       return key !== actor;
@@ -256,7 +383,7 @@ class HTTPServer extends Oracle {
    */
   _handleIndexRequest (req, res) {
     console.log('[HTTP:SERVER]', 'Handling request for Index...');
-    let html = this.app.render();
+    let html = this.app.render(this.state);
     console.log('[HTTP:SERVER]', 'Generated HTML:', html);
     res.set('Content-Type', 'text/html');
     res.send(`${html}`);
@@ -264,6 +391,8 @@ class HTTPServer extends Oracle {
 
   _handleOptionsRequest (req, res) {
     res.send({
+      name: this.settings.name,
+      description: this.settings.description,
       resources: this.definitions
     });
   }
@@ -311,7 +440,19 @@ class HTTPServer extends Oracle {
     next();
   }
 
+  async _applyChanges (ops) {
+    try {
+      monitor.applyPatch(this.state, ops);
+      await this.commit();
+    } catch (E) {
+      this.error('Error applying changes:', E);
+    }
+
+    return this;
+  }
+
   async _handleRoutableRequest (req, res, next) {
+    if (this.settings.verbosity >= 5) console.log('[HTTP:SERVER]', 'Handling routable request:', req.method, req.path);
     const server = this;
     let result = null;
     let route = null;
@@ -379,9 +520,11 @@ class HTTPServer extends Oracle {
         return res.send(result);
       },
       html: function () {
-        // let output = server.app._loadHTML(resource.render(result));
         // TODO: re-enable for HTML
-        // res.send(server.app._renderWith(output));
+        // let output = server.app._loadHTML(resource.render(result));
+        // return res.send(server.app._renderWith(output));
+
+        // TODO: re-write above code, render app with data
         res.header('Content-Type', 'application/json');
         return res.send(result);
       }
