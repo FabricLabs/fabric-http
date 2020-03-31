@@ -1,6 +1,6 @@
 'use strict';
 
-const Canvas = require('canvas');
+// const Canvas = require('canvas');
 const Key = require('@fabric/core/types/key');
 
 class Avatar {
@@ -12,8 +12,8 @@ class Avatar {
       handle: 'fabric-web-avatar'
     }, settings);
     this.key = new Key();
-    this.canvas = Canvas.createCanvas(this.settings.width, this.settings.height);
-    this.context = this.canvas.getContext('2d');
+    // this.canvas = Canvas.createCanvas(this.settings.width, this.settings.height);
+    // this.context = this.canvas.getContext('2d');
     return this;
   }
 

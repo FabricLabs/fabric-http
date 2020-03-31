@@ -28,9 +28,10 @@ const pathToRegexp = require('path-to-regexp').pathToRegexp;
 // Core components
 const Oracle = require('@fabric/core/types/oracle');
 const Collection = require('@fabric/core/types/collection');
-const Resource = require('@fabric/core/types/resource');
+// const Resource = require('@fabric/core/types/resource');
 const Message = require('@fabric/core/types/message');
 const State = require('@fabric/core/types/state');
+
 // const App = require('./app');
 // const Client = require('./client');
 // const Component = require('./component');
