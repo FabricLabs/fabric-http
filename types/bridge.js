@@ -2,7 +2,6 @@
 
 // TODO: audit this library
 const WebSocket = require('isomorphic-ws');
-const toBuffer = require('blob-to-buffer');
 const URL = require('url');
 
 // Types
