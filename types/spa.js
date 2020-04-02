@@ -43,10 +43,19 @@ class SPA extends App {
    * @return {App}               Instance of the application.
    */
   constructor (settings = {}) {
-    if (settings && settings.verbosity >= 5) console.log('[WEB:SPA]', 'Constructing SPA with settings:', settings);
     super(settings);
 
-    this.settings = Object.assign(config, settings);
+    // Assist in debugging
+    if (settings.verbosity >= 4) console.log('[WEB:SPA]', 'Creating instance with constructor settings:', settings);
+
+    // Assign defaults
+    this.settings = Object.assign({
+      authority: 'localhost.localdomain:9999',
+      persistent: true,
+      // TODO: enable by default?
+      websockets: false,
+      secure: false
+    }, config, settings);
 
     // TODO: enable Web Worker integration
     /* this.worker = new Worker('./worker', {
@@ -299,10 +308,12 @@ class SPA extends App {
       console.error('Could not start SPA router:', E);
     }
 
-    try {
-      this.bridge.start();
-    } catch (exception) {
-      console.error('Could not connect to bridge:', exception);
+    if (this.settings.websockets) {
+      try {
+        this.bridge.start();
+      } catch (exception) {
+        console.error('Could not connect to bridge:', exception);
+      }
     }
 
     // Set page title

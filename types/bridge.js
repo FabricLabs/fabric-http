@@ -17,6 +17,7 @@ class Bridge extends Service {
     this.settings = Object.assign({
       authority: 'localhost',
       port: 9999,
+      path: './stores/bridge',
       reconnect: true
     }, this.settings, settings);
 
@@ -57,10 +58,10 @@ class Bridge extends Service {
   }
  
   async start () {
-    await super.start();
-
+    // TODO: reconsider inheriting from Service
+    // await super.start();
     if (this.settings && this.settings.hubs && this.settings.hubs.length) {
-      if (this.settings.verbosity >= 4) console.log('[WEB:BRIDGE]', 'Connecting to Hubs:', this.settings.hubs);
+      if (this.settings.verbosity >= 4) console.log('[HTTP:BRIDGE]', 'Connecting to Hubs:', this.settings.hubs);
       for (let i = 0; i < this.settings.hubs.length; i++) {
         try {
           let hub = this.settings.hubs[i];
@@ -72,7 +73,7 @@ class Bridge extends Service {
           });
 
           let options = await remote._OPTIONS('/');
-          if (this.settings.verbosity >= 4) console.log('[WEB:BRIDGE]', 'Got options from Remote:', options);
+          if (this.settings.verbosity >= 4) console.log('[HTTP:BRIDGE]', 'Got options from Remote:', options);
 
           this._remotes.push(remote);
         } catch (exception) {
@@ -90,7 +91,7 @@ class Bridge extends Service {
   }
 
   async send (msg) {
-    if (this.settings.verbosity >= 4) console.log('[WEB:BRIDGE]', 'Sending input to WebSocket:', typeof msg, msg);
+    if (this.settings.verbosity >= 4) console.log('[HTTP:BRIDGE]', 'Sending input to WebSocket:', typeof msg, msg);
     this.websocket.send(msg);
   }
 
@@ -123,18 +124,18 @@ class Bridge extends Service {
   }
 
   async _handleSuccessfulConnection () {
-    if (this.settings.verbosity >= 2) console.log('[WEB:BRIDGE]', 'Successful connection...');
+    if (this.settings.verbosity >= 2) console.log('[HTTP:BRIDGE]', 'Successful connection...');
     const now = Date.now();
     const message = Message.fromVector(['Ping', now.toString()]);
     const ping = JSON.stringify(message.toObject());
     console.log('ping:', typeof ping, ping);
-    if (this.settings.verbosity >= 5) console.log('[WEB:BRIDGE]', 'Message To Send:', typeof message, message, message.asRaw());
+    // if (this.settings.verbosity >= 5) console.log('[HTTP:BRIDGE]', 'Message To Send:', typeof message, message, message.asRaw());
     this.websocket.send(message.asRaw());
   }
 
   async _handleHostMessage (msg) {
-    if (this.settings.verbosity >= 2) console.log('[WEB:BRIDGE]', 'Host message:', msg);
-    // if (this.settings.verbosity >= 2) console.log('[WEB:BRIDGE]', 'Host message data:', typeof msg.data, msg.data);
+    // if (this.settings.verbosity >= 4) console.log('[HTTP:BRIDGE]', 'Host message:', msg);
+    // if (this.settings.verbosity >= 2) console.log('[HTTP:BRIDGE]', 'Host message data:', typeof msg.data, msg.data);
     let message = null;
 
     if (!msg.type && msg['@type']) msg.type = msg['@type'];
@@ -143,7 +144,7 @@ class Bridge extends Service {
     try {
       message = JSON.parse(msg.data);
     } catch (exception) {
-      if (this.settings.verbosity >= 3) console.error('[WEB:BRIDGE]', 'Could not parse message data as JSON:', msg.data);
+      if (this.settings.verbosity >= 3) console.error('[HTTP:BRIDGE]', 'Could not parse message data as JSON:', msg.data);
     }
 
     // TODO: binary parsing
@@ -151,7 +152,7 @@ class Bridge extends Service {
       try {
         message = Message.fromRaw(msg.data);
       } catch (exception) {
-        if (this.settings.verbosity >= 3) console.error('[WEB:BRIDGE]', 'Could not parse message data as binary:', msg.data, exception);
+        if (this.settings.verbosity >= 3) console.error('[HTTP:BRIDGE]', 'Could not parse message data as binary:', msg.data, exception);
       }
 
     }
@@ -161,7 +162,7 @@ class Bridge extends Service {
   }
 
   async _handleConnectionClose () {
-    if (this.settings.verbosity >= 2) console.log('[WEB:BRIDGE]', 'Connection closed.');
+    if (this.settings.verbosity >= 2) console.log('[HTTP:BRIDGE]', 'Connection closed.');
     const bridge = this;
 
     bridge.websocket = null;

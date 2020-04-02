@@ -53,8 +53,11 @@ class HTTPServer extends Oracle {
   constructor (settings = {}) {
     super(settings);
 
+    // Assign defaults
     this.settings = Object.assign({
       name: 'FabricHTTPServer',
+      description: 'Service delivering a Fabric application across the HTTP protocol.',
+      // TODO: document host as listening on all interfaces by default
       host: '0.0.0.0',
       path: './stores/server',
       port: HTTP_SERVER_PORT,
@@ -62,9 +65,9 @@ class HTTPServer extends Oracle {
       resources: {},
       components: {},
       services: {},
+      // TODO: replace with crypto random
       seed: Math.random(),
-      sessions: false,
-      verbose: false
+      sessions: false
     }, settings);
 
     this.connections = {};
@@ -112,15 +115,15 @@ class HTTPServer extends Oracle {
   async commit () {
     ++this.clock;
 
-    this['@parent'] = this.id;
-    this['@preimage'] = this.toString();
+    this['@id'] = this.id;
+    // TODO: define parent path
+    // this['@parent'] = this.id;
+    // this['@preimage'] = this.toString();
     this['@constructor'] = this.constructor;
 
     if (this.observer) {
       this['@changes'] = monitor.generate(this.observer);
     }
-
-    this['@id'] = this.id;
 
     if (this['@changes'] && this['@changes'].length) {
       const message = {
@@ -149,14 +152,18 @@ class HTTPServer extends Oracle {
    * @return {HTTPServer}            Instance of the configured server.
    */
   async define (name, definition) {
-    if (this.settings.verbosity >= 4) console.log('[WEB:SERVER]', 'Defining:', name, definition);
-
-    let store = new Collection(definition);
+    if (this.settings.verbosity >= 5) console.log('[HTTP:SERVER]', 'Defining:', name, definition);
     let resource = await super.define(name, definition);
     let snapshot = Object.assign({
+      name: name,
       names: { plural: pluralize(name) }
     }, resource);
+
     let address = snapshot.routes.list.split('/')[1];
+    let store = new Collection(snapshot);
+
+    if (this.settings.verbosity >= 6) console.log('[HTTP:SERVER]', 'Collection as store:', store);
+    if (this.settings.verbosity >= 6) console.log('[HTTP:SERVER]', 'Snapshot:', snapshot);
 
     this.stores[name] = store;
     this.definitions[name] = snapshot;
@@ -454,9 +461,20 @@ class HTTPServer extends Oracle {
   async _handleRoutableRequest (req, res, next) {
     if (this.settings.verbosity >= 5) console.log('[HTTP:SERVER]', 'Handling routable request:', req.method, req.path);
     const server = this;
+
+    // Prepare variables
     let result = null;
     let route = null;
     let resource = null;
+
+    for (let i in this.routes) {
+      let local = this.routes[i];
+      if (req.path.match(local.route)) {
+        route = local;
+        resource = local.resource;
+        break;
+      }
+    }
 
     switch (req.method.toUpperCase()) {
       // Discard unhandled methods
@@ -467,38 +485,34 @@ class HTTPServer extends Oracle {
         if (!existing) return res.status(404).end();
         break;
       case 'GET':
-        for (let i in this.routes) {
-          let local = this.routes[i];
-          if (req.path.match(local.route)) {
-            result = await this.stores[local.resource].get(req.path);
-            route = local;
-            resource = local.resource;
-            break;
-          }
+        if (resource) {
+          result = await this.stores[resource].get(req.path);
         }
 
+        // If a result was found, use it by breaking immediately
         if (result) break;
 
-        let content = await this._GET(req.path);
-        result = content;
-        if (!result) return res.status(404).end();
+        // No result found, call _GET locally
+        result = await this._GET(req.path);
+        // let content = await this.stores[resource].get(req.path);
         break;
       case 'PUT':
         result = await this._PUT(req.path, req.body);
         break;
       case 'POST':
-        for (let i in this.routes) {
-          let local = this.routes[i];
-          if (req.path.match(local.route)) {
-            result = await this.stores[local.resource].create(req.body);
-            route = local;
-            resource = local.resource;
-            break;
-          }
+        if (resource) {
+          result = await this.stores[resource].create(req.body);
         }
 
         if (!result) return res.status(500).end();
-        let link = await this._POST(req.path, result);
+
+        // Call parent method (2 options)
+        // Option 1 (original): Assigns the direct result
+        // let link = await this._POST(req.path, result);
+        // Option 2 (testing): Assigns the raw body
+        let link = await this._POST(req.path, req.body);
+
+        // POST requests return a 303 header with a pointer to the object
         return res.redirect(303, link);
       case 'PATCH':
         let patch = await this._PATCH(req.path, req.body);
@@ -514,7 +528,19 @@ class HTTPServer extends Oracle {
         });
     }
 
-    res.format({
+    // If no result found, return 404
+    if (!result) {
+      return res.status(404).send({
+        status: 'error',
+        message: 'Document not found.',
+        request: {
+          method: req.method.toUpperCase(),
+          path: req.path
+        }
+      });
+    }
+
+    return res.format({
       json: function () {
         res.header('Content-Type', 'application/json');
         return res.send(result);
@@ -609,18 +635,20 @@ class HTTPServer extends Oracle {
     this.wss.on('connection', this._handleWebSocket.bind(this));
 
     if (this.settings.listen) {
-    // TODO: test?
+      server.http.on('listening', notifyReady);
       await server.http.listen(this.settings.port, this.settings.host);
     } else {
       console.warn('[HTTP:SERVER]', 'Listening is disabled.  Only events will be emitted!');
+      notifyReady();
     }
 
-    this.status = 'started';
+    function notifyReady () {
+      server.status = 'started';
+      server.emit('ready');
+    }
 
     // commit to our results
     // await this.commit();
-
-    this.emit('ready');
 
     // TODO: include somewhere
     // console.log('[FABRIC:WEB]', 'You should consider changing the `host` property in your config,');
