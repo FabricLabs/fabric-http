@@ -72,6 +72,7 @@ class HTTPServer extends Oracle {
 
     this.connections = {};
     this.definitions = {};
+    this.methods = {};
     this.stores = {};
 
     this.app = new SPA(Object.assign({}, this.settings, {
@@ -153,7 +154,9 @@ class HTTPServer extends Oracle {
    */
   async define (name, definition) {
     if (this.settings.verbosity >= 5) console.log('[HTTP:SERVER]', 'Defining:', name, definition);
-    let resource = await super.define(name, definition);
+    const server = this;
+    const resource = await super.define(name, definition);
+
     let snapshot = Object.assign({
       name: name,
       names: { plural: pluralize(name) }
@@ -169,6 +172,29 @@ class HTTPServer extends Oracle {
     this.definitions[name] = snapshot;
     this.collections.push(snapshot.routes.list);
 
+    this.stores[name].on('message', async (message) => {
+      switch (message['@type']) {
+        default:
+          console.warn('[HTTP:SERVER]', 'Unhandled message type:', message['@type']);
+          break;
+        case 'Transaction':
+          await server._applyChanges(message['@data'].changes);
+          break;
+      }
+
+      server.broadcast({
+        '@type': 'StateUpdate',
+        '@data': server.state
+      });
+    });
+
+    this.stores[name].on('commit', (commit) => {
+      server.broadcast({
+        '@type': 'StateUpdate',
+        '@data': server.state
+      });
+    });
+
     this.routes.push({
       path: snapshot.routes.view,
       route: pathToRegexp(snapshot.routes.view),
@@ -181,8 +207,12 @@ class HTTPServer extends Oracle {
       resource: name
     });
 
+    // Also define on app
+    await this.app.define(name, definition);
+
     // TODO: document pathing
     this.state[address] = {};
+    this.app.state[address] = {};
 
     if (this.settings.verbosity >= 4) console.log('[WEB:SERVER]', 'Routes:', this.routes);
     return this;
@@ -203,6 +233,21 @@ class HTTPServer extends Oracle {
     source.on('message', function (msg) {
       console.log('[HTTP:SERVER]', 'trusted source:', source.constructor.name, 'sent message:', msg);
     });
+  }
+
+  _registerMethod (name, method) {
+    this.methods[name] = method.bind(this);
+  }
+
+  _handleAppMessage (msg) {
+    console.trace('[HTTP:SERVER]', 'Internal app emitted message:', msg);
+  }
+
+  _handleCall (call) {
+    if (!call.method) throw new Error('Call requires "method" parameter.');
+    if (!call.params) throw new Error('Call requires "params" parameter.');
+    if (!this.methods[call.method]) throw new Error(`Method "${call.method}" has not been registered.`);
+    this.methods[call.method].apply(this, call.params);
   }
 
   /**
@@ -347,13 +392,13 @@ class HTTPServer extends Oracle {
 
     socket.send(JSON.stringify({
       '@type': 'Inventory',
-      '@parent': this.app.id,
+      '@parent': server.app.id,
       '@version': 1
     }));
 
     socket.send(JSON.stringify({
       '@type': 'State',
-      '@data': this.app.state,
+      '@data': server.app.state,
       '@version': 1
     }));
 
@@ -562,16 +607,14 @@ class HTTPServer extends Oracle {
     const server = this;
     server.status = 'starting';
 
+    if (!server.settings.resources || !server.settings.resources.length) {
+      console.warn('[HTTP:SERVER]', 'No Resources have been defined for this server.  Please provide a "resources" map in the configuration.');
+    }
+
     for (let name in server.settings.resources) {
       const definition = server.settings.resources[name];
       const resource = await server.define(name, definition);
-      if (server.settings.verbosity >= 5) console.log('[AUDIT]', 'Created resource:', resource);
-    }
-
-    try {
-      await server.app.start();
-    } catch (E) {
-      console.error('Could not start server app:', E);
+      if (server.settings.verbosity >= 6) console.log('[AUDIT]', 'Created resource:', resource);
     }
 
     // configure router
@@ -625,14 +668,37 @@ class HTTPServer extends Oracle {
     server.http = stoppable(http.createServer(server.express), 0);
 
     // attach a WebSocket handler
-    this.wss = new WebSocket.Server({
+    server.wss = new WebSocket.Server({
       server: server.http,
       // TODO: validate entire verification chain
       // verifyClient: this._verifyClient.bind(this)
     });
 
     // set up the WebSocket connection handler
-    this.wss.on('connection', this._handleWebSocket.bind(this));
+    server.wss.on('connection', server._handleWebSocket.bind(server));
+
+    // Handle messages from internal app
+    server.app.on('snapshot', server._handleAppMessage.bind(server));
+    server.app.on('message', server._handleAppMessage.bind(server));
+    server.app.on('commit', server._handleAppMessage.bind(server));
+
+    // Handle interna call requests
+    server.on('call', server._handleCall.bind(server));
+
+    // TODO: convert to bound functions
+    server.on('commit', async function (msg) {
+      console.log('[HTTP:SERVER]', 'Internal commit:', msg);
+    });
+
+    server.on('message', async function (msg) {
+      console.log('[HTTP:SERVER]', 'Internal message:', msg);
+    });
+
+    try {
+      await server.app.start();
+    } catch (E) {
+      console.error('Could not start server app:', E);
+    }
 
     if (this.settings.listen) {
       server.http.on('listening', notifyReady);

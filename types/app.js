@@ -78,13 +78,16 @@ class App extends Component {
       path: './stores/fabric-browser'
     }));
 
-    this.state = {
+    // TODO: define these elsewhere!
+    // These are internal components, should be on prototype.
+    /* this.state = {
       methods: {},
       channels: {},
       components: {},
       resources: {},
       messages: {}
-    };
+    }; */
+    this._state = {};
 
     this.modal = null;
     this.target = null;
@@ -165,6 +168,14 @@ class App extends Component {
     return new Resource({
       name: 'BlankPage'
     });
+  }
+
+  get state () {
+    return this._state;
+  }
+
+  set state (value) {
+    return this._state = value;
   }
 
   get version () {
