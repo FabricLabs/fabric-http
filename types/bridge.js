@@ -86,8 +86,8 @@ class Bridge extends Service {
   }
 
   async stop () {
-    await super.stop();
     this.settings.reconnect = false;
+    await super.stop();
   }
 
   async send (msg) {
@@ -131,6 +131,7 @@ class Bridge extends Service {
     console.log('ping:', typeof ping, ping);
     // if (this.settings.verbosity >= 5) console.log('[HTTP:BRIDGE]', 'Message To Send:', typeof message, message, message.asRaw());
     this.websocket.send(message.asRaw());
+    this.emit('connected');
   }
 
   async _handleHostMessage (msg) {
