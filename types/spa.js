@@ -28,6 +28,7 @@ const Router = require('./router');
 // Fabric Types
 const Message = require('@fabric/core/types/message');
 const Circuit = require('@fabric/core/types/circuit');
+const Resource = require('@fabric/core/types/resource');
 const Store = require('@fabric/core/types/store');
 
 /**
@@ -98,11 +99,26 @@ class SPA extends App {
   }
 
   define (name, definition) {
-    // if (this.settings.verbosity >= 5) console.log('[WEB:SPA]', 'Defining for router:', name, definition);
+    // TODO: check for async compatibility in HTTP.App
+    super.define(name, definition);
+
+    let resource = new Resource(definition);
+    let snapshot = Object.assign({
+      name: name,
+      names: { plural: pluralize(name) }
+    }, resource);
+
+    let address = snapshot.routes.list.split('/')[1];
+
+    // TODO: reconcile with server.define
+    // if (this.settings.verbosity >= 5) console.log('[WEB:SPA]', 'Defining for SPA:', name, definition);
     let route = this.router.define(name, definition);
     // if (this.settings.verbosity >= 5) console.log('[WEB:SPA]', 'Defined:', name, route);
     this.types.state[name] = definition;
     this.resources[name] = definition;
+
+    this.state[address] = {};
+
     return this.resources[name];
   }
 
@@ -138,14 +154,32 @@ class SPA extends App {
     element.state = (typeof window !== 'undefined' && window.app) ? window.app.state : this.state; 
   }
 
-  async _loadIndex (ctx) {
+  /* async _loadIndex (ctx) {
+    console.log('[WEB:SPA]','loading index, app:', this);
+    console.log('[WEB:SPA]','loading index, app.settings:', this.settings);
+    console.log('[WEB:SPA]','loading index, ctx:', ctx);
+    console.log('[WEB:SPA]','all components:', Object.keys(this.components));
+    console.log('[WEB:SPA]','Seeking for index:', this.settings.components.index);
+    let address = await this.browser.route(ctx.path);
     let Index = this.components[this.settings.components.index];
     if (!Index) throw new Error(`Could not find component: ${this.settings.components.index}`);
     let resource = new Index(this.state);
     let content = resource.render();
-    this._setTitle(resource.name);
-    this._renderContent(content);
-  }
+    // this._setTitle(resource.name);
+    // this._renderContent(content);
+
+    let element = document.createElement(address.route.component);
+    console.log('created element:', element);
+
+    this.target = element;
+
+    this.browser._setAddress(ctx.path);
+    this.browser._setElement(element);
+
+    for (let name in this.state) {
+      element.state[name] = this.state[name];
+    }
+  } */
 
   _setTitle (title) {
     this.title = `${title} &middot; ${this.settings.name}`;
@@ -154,8 +188,9 @@ class SPA extends App {
 
   _redraw (state = {}) {
     if (!state) state = this.state;
-    if (this.settings && this.settings.verbosity >= 5) console.log('[HTTP:SPA]', 'redrawing with state:', state);
+    // if (this.settings && this.settings.verbosity >= 5) console.log('[HTTP:SPA]', 'redrawing with state:', state);
     this.innerHTML = this._getInnerHTML(state);
+    // this.init(state);
     return this;
   }
 
@@ -253,8 +288,8 @@ class SPA extends App {
         this.state = msg.data;
         break;
       case 'Transaction':
-        // this._applyChanges(message['@data']['changes']);
-        this.state = msg['data']['state'];
+        this._applyChanges(msg['@data']['changes']);
+        await this.commit();
         break;
       case 'GenericMessage':
         console.warn('[AUDIT]', 'GENERIC MESSAGE:', msg);

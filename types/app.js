@@ -191,7 +191,7 @@ class App extends Component {
     if (this.settings.verbosity >= 4) console.log('[WEB:APP]', 'Defining', name, route);
     this.types.state[name] = definition;
     this.resources[name] = definition;
-    this.state[pluralize(name).toLowerCase()] = definition.data || {};
+    this._state[pluralize(name).toLowerCase()] = definition.data || {};
   }
 
   dispatch (name, data = {}) {
