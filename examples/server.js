@@ -1,12 +1,11 @@
 'use strict';
 
 
+const settings = require('../settings/default');
 const Server = require('../types/server');
 
 async function main () {
-  const server = new Server({
-    verbosity: 5
-  });
+  const server = new Server(settings);
 
   await server.define('Example', {
     components: {

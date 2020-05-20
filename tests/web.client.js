@@ -12,7 +12,7 @@ const TEST_HOST = 'example.com';
 const TEST_AUTHORITY = 'localhost';
 const TEST_CONFIG = {
   authority: TEST_AUTHORITY,
-  verbosity: 5,
+  verbosity: 2,
   resources: {
     'Example': {
       name: 'Example',
