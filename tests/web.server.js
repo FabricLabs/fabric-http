@@ -7,7 +7,6 @@ const assert = require('assert');
 
 // Dependencies
 const WebSocket = require('ws');
-const log = require('why-is-node-running');
 
 // Types
 const HTTPServer = require('../types/server');
