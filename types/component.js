@@ -56,7 +56,7 @@ class Component extends Service {
 
   connectedCallback () {
     console.log('[MAKI:COMPONENT]', 'Component added to page:', this);
-    let html = this._getInnerHTML();
+    let html = this._getInnerHTML(this.state);
 
     this.setAttribute('data-integrity', Fabric.sha256(html));
     this.setAttribute('data-fingerprint', this.fingerprint);
