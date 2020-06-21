@@ -14,7 +14,7 @@
       }
     }
   },
-  "persistent": false,
+  "persistent": true,
   "secure": false,
   "port": 9999
 }

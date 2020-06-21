@@ -41,6 +41,7 @@ class SPA extends App {
    * @param  {Object} [settings={}] Settings for the application.
    * @param  {String} [settings.name="@fabric/maki"] Name of the app.
    * @param  {Boolean} [settings.offline=true] Hint offline mode to browsers.
+   * @param  {Object} [components] Map of Web Components for the application to utilize.
    * @return {App}               Instance of the application.
    */
   constructor (settings = {}) {
@@ -51,11 +52,13 @@ class SPA extends App {
 
     // Assign defaults
     this.settings = Object.assign({
+      name: "@fabric/maki",
       authority: 'localhost.localdomain:9999',
       persistent: true,
       // TODO: enable by default?
       websockets: false,
-      secure: false
+      secure: false, // TODO: default to secure (i.e., TLS on all connections)
+      components: {}
     }, config, settings);
 
     // TODO: enable Web Worker integration
@@ -75,6 +78,7 @@ class SPA extends App {
     return this;
   }
 
+  // TODO: reconcile with super(), document use of constructor vs. CustomElements
   init (settings = {}) {
     if (settings && settings.verbosity >= 5) console.trace('[WEB:SPA]', 'Calling init() with settings:', settings);
     this.bridge = new Bridge(this.settings);
@@ -99,6 +103,7 @@ class SPA extends App {
   }
 
   define (name, definition) {
+    if (this.settings.verbosity >= 5) console.trace('[WEB:SPA]', 'Defining for SPA:', name, definition);
     // TODO: check for async compatibility in HTTP.App
     super.define(name, definition);
 
@@ -120,6 +125,20 @@ class SPA extends App {
     this.state[address] = {};
 
     return this.resources[name];
+  }
+
+  // TODO: document this vs. @fabric/core/types/app
+  _defineElement (handle, definition) {
+    this.components[handle] = definition;
+
+    // TODO: custom elements polyfill
+    if (typeof customElements !== 'undefined') {
+      try {
+        customElements.define(handle, definition);
+      } catch (E) {
+        console.error('[MAKI:APP]', 'Could not define Custom Element:', E, handle, definition);
+      }
+    }
   }
 
   register () {
@@ -239,18 +258,21 @@ class SPA extends App {
     if (this.settings.verbosity >= 4) console.log('[HTTP:SPA]', 'Stopping...');
 
     try {
+      if (this.settings.verbosity >= 5) console.log('[HTTP:SPA]', 'Stopping bridge...');
       await this.bridge.stop();
     } catch (E) {
       console.error('Could not stop SPA bridge:', E);
     }
 
     try {
+      if (this.settings.verbosity >= 5) console.log('[HTTP:SPA]', 'Stopping router...');
       await this.router.stop();
     } catch (E) {
       console.error('Could not stop SPA router:', E);
     }
 
     try {
+      if (this.settings.verbosity >= 5) console.log('[HTTP:SPA]', 'Stopping store...');
       await this.store.stop();
     } catch (E) {
       console.error('Could not stop SPA store:', E);
@@ -302,22 +324,25 @@ class SPA extends App {
     // await super.start();
 
     this.on('error', (error) => {
-      console.log('got error:', error);
+      console.error('got error:', error);
     });
 
     this.bridge.on('message', this._handleBridgeMessage.bind(this));
 
     if (this.settings.persistent) {
       try {
+        if (this.settings.verbosity >= 5) console.log('[HTTP:SPA]', 'Starting bridge...');
         await this.store.start();
       } catch (E) {
         console.error('Could not start SPA store:', E);
       }
     }
 
-    if (this.settings.verbosity >= 4) console.log('[HTTP:SPA]', 'Defining resources...');
+    if (this.settings.verbosity >= 4) console.log('[HTTP:SPA]', 'Defining resources from settings...');
 
+    /* Resources */
     for (let name in this.settings.resources) {
+      if (this.settings.verbosity >= 4) console.log('[HTTP:SPA]', 'Defining Resource:', name);
       let definition = this.settings.resources[name];
       let plural = pluralize(name);
       let resource = await this.define(name, definition);
@@ -337,7 +362,17 @@ class SPA extends App {
       this.handler(`/${plural.toLowerCase()}/:id`, this._handleNavigation.bind(this));
     }
 
+    /* Components */
+    for (let name in this.settings.components) {
+      if (this.settings.verbosity >= 4) console.log('[HTTP:SPA]', 'Defining Component:', name);
+      let definition = this.settings.components[name];
+      // TODO: consider async _defineElement (define at `function _defineElement`)
+      let component = this._defineElement(name, definition);
+    }
+
+    /* Services */
     try {
+      if (this.settings.verbosity >= 5) console.log('[HTTP:SPA]', 'Starting router...');
       await this.router.start();
     } catch (E) {
       console.error('Could not start SPA router:', E);
@@ -345,12 +380,14 @@ class SPA extends App {
 
     if (this.settings.websockets) {
       try {
+        if (this.settings.verbosity >= 5) console.log('[HTTP:SPA]', 'Starting bridge...');
         this.bridge.start();
       } catch (exception) {
         console.error('Could not connect to bridge:', exception);
       }
     }
 
+    /* HTML-specific traits */
     // Set page title
     this.title = `${this.settings.synopsis} &middot; ${this.settings.name}`;
 

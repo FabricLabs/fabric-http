@@ -30,10 +30,12 @@ const Oracle = require('@fabric/core/types/oracle');
 const Collection = require('@fabric/core/types/collection');
 const Resource = require('@fabric/core/types/resource');
 const Message = require('@fabric/core/types/message');
+const Entity = require('@fabric/core/types/entity');
 const State = require('@fabric/core/types/state');
 // const App = require('./app');
 // const Client = require('./client');
 // const Component = require('./component');
+const Browser = require('./browser');
 const SPA = require('./spa');
 
 // Dependencies
@@ -75,6 +77,7 @@ class HTTPServer extends Oracle {
     this.methods = {};
     this.stores = {};
 
+    this.browser = new Browser(this.settings);
     this.app = new SPA(Object.assign({}, this.settings, {
       path: './stores/server-application'
     }));
@@ -171,6 +174,7 @@ class HTTPServer extends Oracle {
     this.stores[name] = store;
     this.definitions[name] = snapshot;
     this.collections.push(snapshot.routes.list);
+    this.keys.add(snapshot.routes.list);
 
     this.stores[name].on('message', async (message) => {
       switch (message['@type']) {
@@ -214,7 +218,7 @@ class HTTPServer extends Oracle {
     this.state[address] = {};
     this.app.state[address] = {};
 
-    if (this.settings.verbosity >= 4) console.log('[WEB:SERVER]', 'Routes:', this.routes);
+    // if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Routes:', this.routes);
     return this;
   }
 
@@ -290,6 +294,7 @@ class HTTPServer extends Oracle {
 
     // Clean up memory when the connection has been safely closed (ideal case).
     socket.on('close', function () {
+      clearInterval(socket._heartbeat);
       delete server.connections[player['@data'].connection];
     });
 
@@ -526,45 +531,46 @@ class HTTPServer extends Oracle {
       default:
         return next();
       case 'HEAD':
-        let existing = await this._GET(req.path);
+        let existing = await server._GET(req.path);
         if (!existing) return res.status(404).end();
         break;
       case 'GET':
         if (resource) {
-          result = await this.stores[resource].get(req.path);
+          result = await server.stores[resource].get(req.path);
         }
 
+        // TODO: re-optimize querying from memory (i.e., don't touch disk / restore)
         // If a result was found, use it by breaking immediately
-        if (result) break;
+        // if (result) break;
 
         // No result found, call _GET locally
-        result = await this._GET(req.path);
-        // let content = await this.stores[resource].get(req.path);
+        result = await server._GET(req.path);
+        // let content = await server.stores[resource].get(req.path);
         break;
       case 'PUT':
-        result = await this._PUT(req.path, req.body);
+        result = await server._PUT(req.path, req.body);
         break;
       case 'POST':
         if (resource) {
-          result = await this.stores[resource].create(req.body);
+          result = await server.stores[resource].create(req.body);
         }
 
         if (!result) return res.status(500).end();
 
         // Call parent method (2 options)
         // Option 1 (original): Assigns the direct result
-        // let link = await this._POST(req.path, result);
+        // let link = await server._POST(req.path, result);
         // Option 2 (testing): Assigns the raw body
-        let link = await this._POST(req.path, req.body);
+        let link = await server._POST(req.path, req.body);
 
         // POST requests return a 303 header with a pointer to the object
         return res.redirect(303, link);
       case 'PATCH':
-        let patch = await this._PATCH(req.path, req.body);
+        let patch = await server._PATCH(req.path, req.body);
         result = patch;
         break;
       case 'DELETE':
-        await this._DELETE(req.path);
+        await server._DELETE(req.path);
         return res.sendStatus(204);
       case 'OPTIONS':
         return res.send({
@@ -607,8 +613,8 @@ class HTTPServer extends Oracle {
     const server = this;
     server.status = 'starting';
 
-    if (!server.settings.resources || !server.settings.resources.length) {
-      console.warn('[HTTP:SERVER]', 'No Resources have been defined for this server.  Please provide a "resources" map in the configuration.');
+    if (!server.settings.resources || !Object.keys(server.settings.resources).length) {
+      console.trace('[HTTP:SERVER]', 'No Resources have been defined for this server.  Please provide a "resources" map in the configuration.');
     }
 
     for (let name in server.settings.resources) {
@@ -724,6 +730,19 @@ class HTTPServer extends Oracle {
     return server;
   }
 
+  async flush () {
+    // console.log('[HTTP:SERVER]', 'flush requested:', this.keys);
+
+    for (let item of this.keys) {
+      // console.log('...flushing:', item);
+      try {
+        await this._DELETE(item);
+      } catch (E) {
+        console.error(E);
+      }
+    }
+  }
+
   async stop () {
     if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Stopping...');
     let server = this;
@@ -759,12 +778,14 @@ class HTTPServer extends Oracle {
   async _PUT (path, data) {
     if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling PUT to', path, data);
     let result = await this.app.store._PUT(path, data);
+    if (!result) console.log('wat...........');
     return result;
   }
 
   async _POST (path, data) {
-    if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling POST to', path, data);
-    return this.app.store._POST(path, data);
+    if (this.settings.verbosity >= 4) console.trace('[HTTP:SERVER]', 'Handling POST to', path, data);
+    let result = await this.app.store._POST(path, data);
+    return result;
   }
 
   async _PATCH (path, data) {
@@ -774,7 +795,7 @@ class HTTPServer extends Oracle {
 
   async _DELETE (path) {
     if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling DELETE to', path);
-    return this.app.store._DELETE(path, data);
+    return this.app.store._DELETE(path);
   }
 }
 

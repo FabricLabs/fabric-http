@@ -9,31 +9,11 @@ const HTTPClient = require('../types/client');
 const HTTPServer = require('../types/server');
 
 const TEST_HOST = 'example.com';
-const TEST_AUTHORITY = 'localhost';
-const TEST_CONFIG = {
-  authority: TEST_AUTHORITY,
-  verbosity: 2,
-  resources: {
-    'Example': {
-      name: 'Example',
-      components: {
-        list: 'example-list',
-        view: 'example-view',
-      },
-      routes: {
-        list: '/examples',
-        view: '/examples/:id'
-      }
-    }
-  },
-  persistent: false,
-  secure: false,
-  port: 9999
-};
+const TEST_CONFIG = require('../settings/test');
 
 const authority = new HTTPServer(TEST_CONFIG);
 
-describe('@fabric/web/types/client', function () {
+describe('@fabric/http/types/client', function () {
   describe('Client', function () {
     it('should expose a constructor', function () {
       assert.equal(typeof HTTPClient, 'function');

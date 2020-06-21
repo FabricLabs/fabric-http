@@ -13,7 +13,7 @@ const TEST_CONFIG = require('../settings/test');
 
 const authority = new HTTPServer(TEST_CONFIG);
 
-describe('@fabric/web/types/bridge', function () {
+describe('@fabric/http/types/bridge', function () {
   describe('Bridge', function () {
     it('should expose a constructor', function () {
       assert.equal(typeof HTTPBridge, 'function');
