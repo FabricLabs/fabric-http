@@ -1,6 +1,7 @@
 'use strict';
 
-require('debug-trace')({ always: true });
+// Configuration
+const TEST_CONFIG = require('../settings/test');
 
 // Test
 const assert = require('assert');
@@ -11,7 +12,6 @@ const WebSocket = require('ws');
 // Types
 const HTTPServer = require('../types/server');
 const HTTPClient = require('../types/client');
-const TEST_CONFIG = require('../settings/test');
 
 describe('@fabric/http/types/server', function () {
   describe('Server', function () {
@@ -210,7 +210,6 @@ describe('@fabric/http/types/server', function () {
         });
 
         socket.on('message', async function onMessage (msg) {
-          console.log('message received:', msg);
           let message = null;
 
           try {
@@ -224,7 +223,7 @@ describe('@fabric/http/types/server', function () {
               console.warn('Unhandled message type from WebSocket:', message['@type']);
               break;
             case 'StateUpdate':
-              console.log('got StateUpdate message:', message);
+              // console.log('got StateUpdate message:', message);
               break;
           }
         });
