@@ -10,6 +10,7 @@ const {
 // trusted community modules
 // const fs = require('fs');
 const http = require('http');
+const merge = require('lodash.merge');
 // const crypto = require('crypto');
 // TODO: remove Express entirely...
 // NOTE: current blockers include PeerServer...
@@ -56,7 +57,7 @@ class HTTPServer extends Oracle {
     super(settings);
 
     // Assign defaults
-    this.settings = Object.assign({
+    this.settings = merge({
       name: 'FabricHTTPServer',
       description: 'Service delivering a Fabric application across the HTTP protocol.',
       // TODO: document host as listening on all interfaces by default
@@ -176,10 +177,27 @@ class HTTPServer extends Oracle {
     this.collections.push(snapshot.routes.list);
     this.keys.add(snapshot.routes.list);
 
+    this.stores[name].on('error', async (error) => {
+      console.error('[HTTP:SERVER]', '[ERROR]', error);
+    });
+
+    this.stores[name].on('warning', async (warning) => {
+      console.warn('[HTTP:SERVER]', 'Warning:', warning);
+    });
+
     this.stores[name].on('message', async (message) => {
       switch (message['@type']) {
         default:
           console.warn('[HTTP:SERVER]', 'Unhandled message type:', message['@type']);
+          break;
+        case 'Create':
+          let entity = new Entity({
+            '@type': name,
+            '@data': message['@data']
+          });
+
+          console.log('[HTTP:SERVER]', `Resource "${name}" created:`, entity.data);
+          server.emit('message', entity.data);
           break;
         case 'Transaction':
           await server._applyChanges(message['@data'].changes);
@@ -536,7 +554,11 @@ class HTTPServer extends Oracle {
         break;
       case 'GET':
         if (resource) {
-          result = await server.stores[resource].get(req.path);
+          try {
+            result = await server.stores[resource].get(req.path);
+          } catch (exception) {
+            console.warn('[HTTP:SERVER]', 'Warning:', exception);
+          }
         }
 
         // TODO: re-optimize querying from memory (i.e., don't touch disk / restore)

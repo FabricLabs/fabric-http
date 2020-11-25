@@ -52,6 +52,7 @@
     "jsdoc": "FabricLabs/jsdoc#fabric",
     "level": "5",
     "lightning-client": "^0.5.2-beta.8",
+    "lodash.merge": "^4.6.2",
     "metascraper": "^3.12.1",
     "page": "^1.11.4",
     "path-to-regexp": "^6.1.0",

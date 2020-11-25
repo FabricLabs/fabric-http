@@ -1,8 +1,7 @@
 'use strict';
 
-
 const settings = require('../settings/default');
-const Server = require('../types/server');
+const Server = require('@fabric/http/types/server');
 
 async function main () {
   const server = new Server(settings);
