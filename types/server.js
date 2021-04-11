@@ -50,7 +50,9 @@ const PeerServer = require('peer').ExpressPeerServer;
 class HTTPServer extends Oracle {
   /**
    * Create an instance of the HTTP server.
-   * @param  {Object} [settings={}] Configuration values.
+   * @param {Object} [settings] Configuration values.
+   * @param {String} [settings.name="FabricHTTPServer"] User-friendly name of this server.
+   * @param {Number} [settings.port=9999] Port to listen for HTTP connections on.
    * @return {HTTPServer} Fully-configured instance of the HTTP server.
    */
   constructor (settings = {}) {
@@ -67,7 +69,11 @@ class HTTPServer extends Oracle {
       listen: true,
       resources: {},
       components: {},
-      services: {},
+      services: {
+        "audio": {
+          address: "/devices/audio"
+        }
+      },
       // TODO: replace with crypto random
       seed: Math.random(),
       sessions: false
