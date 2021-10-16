@@ -7,11 +7,9 @@ const {
   WEBSOCKET_KEEPALIVE
 } = require('../constants');
 
-// trusted community modules
-// const fs = require('fs');
+// Dependencies
 const http = require('http');
 const merge = require('lodash.merge');
-// const crypto = require('crypto');
 // TODO: remove Express entirely...
 // NOTE: current blockers include PeerServer...
 const express = require('express');
@@ -26,13 +24,15 @@ const stoppable = require('stoppable');
 // Pathing
 const pathToRegexp = require('path-to-regexp').pathToRegexp;
 
-// Core components
+// Fabric Types
 const Oracle = require('@fabric/core/types/oracle');
 const Collection = require('@fabric/core/types/collection');
 const Resource = require('@fabric/core/types/resource');
 const Message = require('@fabric/core/types/message');
 const Entity = require('@fabric/core/types/entity');
 const State = require('@fabric/core/types/state');
+
+// Internal Components
 // const App = require('./app');
 // const Client = require('./client');
 // const Component = require('./component');
@@ -95,6 +95,7 @@ class HTTPServer extends Oracle {
 
     this.wss = null;
     this.http = null;
+
     this.express = express();
     this.sessions = session({
       resave: true,
@@ -513,7 +514,7 @@ class HTTPServer extends Oracle {
    * @param {Function} handler HTTP handler (req, res, next)
    */
   _addRoute (method, path, handler) {
-    if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Adding route:', path);
+    this.emit('debug', `[HTTP:SERVER] Adding route: ${path}`);
     this.customRoutes.push({ method, path, handler });
   }
 
