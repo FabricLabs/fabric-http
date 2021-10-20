@@ -25,9 +25,10 @@ const stoppable = require('stoppable');
 const pathToRegexp = require('path-to-regexp').pathToRegexp;
 
 // Fabric Types
-const Oracle = require('@fabric/core/types/oracle');
+// const Oracle = require('@fabric/core/types/oracle');
 const Collection = require('@fabric/core/types/collection');
-const Resource = require('@fabric/core/types/resource');
+// const Resource = require('@fabric/core/types/resource');
+const Service = require('@fabric/core/types/service');
 const Message = require('@fabric/core/types/message');
 const Entity = require('@fabric/core/types/entity');
 const State = require('@fabric/core/types/state');
@@ -47,13 +48,14 @@ const PeerServer = require('peer').ExpressPeerServer;
  * The primary web server.
  * @extends Oracle
  */
-class HTTPServer extends Oracle {
+// class FabricHTTPServer extends Oracle {
+class FabricHTTPServer extends Service {
   /**
    * Create an instance of the HTTP server.
    * @param {Object} [settings] Configuration values.
    * @param {String} [settings.name="FabricHTTPServer"] User-friendly name of this server.
    * @param {Number} [settings.port=9999] Port to listen for HTTP connections on.
-   * @return {HTTPServer} Fully-configured instance of the HTTP server.
+   * @return {FabricHTTPServer} Fully-configured instance of the HTTP server.
    */
   constructor (settings = {}) {
     super(settings);
@@ -70,8 +72,8 @@ class HTTPServer extends Oracle {
       resources: {},
       components: {},
       services: {
-        "audio": {
-          address: "/devices/audio"
+        audio: {
+          address: '/devices/audio'
         }
       },
       // TODO: replace with crypto random
@@ -84,10 +86,10 @@ class HTTPServer extends Oracle {
     this.methods = {};
     this.stores = {};
 
-    this.browser = new Browser(this.settings);
-    this.app = new SPA(Object.assign({}, this.settings, {
+    // this.browser = new Browser(this.settings);
+    /* this.app = new SPA(Object.assign({}, this.settings, {
       path: './stores/server-application'
-    }));
+    })); */
 
     /* this.compiler = webpack({
       // webpack options
@@ -116,6 +118,10 @@ class HTTPServer extends Oracle {
     return this;
   }
 
+  get link () {
+    return `http://${this.settings.host}:${this.settings.port}`;
+  }
+
   get state () {
     return this._state;
   }
@@ -141,8 +147,8 @@ class HTTPServer extends Oracle {
       const message = {
         '@type': 'Transaction',
         '@data': {
-          'changes': this['@changes'],
-          'state': this.state
+          changes: this['@changes'],
+          state: this.state
         }
       };
 
@@ -161,20 +167,20 @@ class HTTPServer extends Oracle {
    * Define a {@link Type} by name.
    * @param  {String} name       Human-friendly name of the type.
    * @param  {Definition} definition Configuration object for the type.
-   * @return {HTTPServer}            Instance of the configured server.
+   * @return {FabricHTTPServer}            Instance of the configured server.
    */
   async define (name, definition) {
     if (this.settings.verbosity >= 5) console.log('[HTTP:SERVER]', 'Defining:', name, definition);
     const server = this;
     const resource = await super.define(name, definition);
 
-    let snapshot = Object.assign({
+    const snapshot = Object.assign({
       name: name,
       names: { plural: pluralize(name) }
     }, resource);
 
-    let address = snapshot.routes.list.split('/')[1];
-    let store = new Collection(snapshot);
+    const address = snapshot.routes.list.split('/')[1];
+    const store = new Collection(snapshot);
 
     if (this.settings.verbosity >= 6) console.log('[HTTP:SERVER]', 'Collection as store:', store);
     if (this.settings.verbosity >= 6) console.log('[HTTP:SERVER]', 'Snapshot:', snapshot);
@@ -193,12 +199,10 @@ class HTTPServer extends Oracle {
     });
 
     this.stores[name].on('message', async (message) => {
+      let entity = null;
       switch (message['@type']) {
-        default:
-          console.warn('[HTTP:SERVER]', 'Unhandled message type:', message['@type']);
-          break;
         case 'Create':
-          let entity = new Entity({
+          entity = new Entity({
             '@type': name,
             '@data': message['@data']
           });
@@ -208,6 +212,9 @@ class HTTPServer extends Oracle {
           break;
         case 'Transaction':
           await server._applyChanges(message['@data'].changes);
+          break;
+        default:
+          console.warn('[HTTP:SERVER]', 'Unhandled message type:', message['@type']);
           break;
       }
 
@@ -286,14 +293,14 @@ class HTTPServer extends Oracle {
    * @return {WebSocket} Returns the connected socket.
    */
   _handleWebSocket (socket, request) {
-    // console.log('incoming WebSocket:', socket);
-    let server = this;
+    const server = this;
+    server.emit('debug', `Handling WebSocket: ${Object.keys(socket)}`);
 
     // TODO: check security of common defaults for `sec-websocket-key` params
     // Chrome?  Firefox?  Safari?  Opera?  What defaults do they use?
-    let buffer = Buffer.from(request.headers['sec-websocket-key'], 'base64');
-    let handle = buffer.toString('hex');
-    let player = new State({
+    const buffer = Buffer.from(request.headers['sec-websocket-key'], 'base64');
+    const handle = buffer.toString('hex');
+    const player = new State({
       connection: buffer.toString('hex'),
       entropy: buffer.toString('hex')
     });
@@ -301,10 +308,10 @@ class HTTPServer extends Oracle {
     socket._resetKeepAlive = function () {
       clearInterval(socket._heartbeat);
       socket._heartbeat = setInterval(function () {
-        let now = Date.now();
-        let message = Message.fromVector(['Ping', now.toString()]);
+        const now = Date.now();
+        const message = Message.fromVector(['Ping', now.toString()]);
         // TODO: refactor _sendTo to accept Message type
-        let ping = JSON.stringify(message.toObject());
+        const ping = JSON.stringify(message.toObject());
 
         try {
           server._sendTo(handle, ping);
@@ -648,7 +655,7 @@ class HTTPServer extends Oracle {
 
     for (let name in server.settings.resources) {
       const definition = server.settings.resources[name];
-      const resource = await server.define(name, definition);
+      const resource = await server._defineResource(name, definition);
       if (server.settings.verbosity >= 6) console.log('[AUDIT]', 'Created resource:', resource);
     }
 
@@ -713,9 +720,11 @@ class HTTPServer extends Oracle {
     server.wss.on('connection', server._handleWebSocket.bind(server));
 
     // Handle messages from internal app
-    server.app.on('snapshot', server._handleAppMessage.bind(server));
-    server.app.on('message', server._handleAppMessage.bind(server));
-    server.app.on('commit', server._handleAppMessage.bind(server));
+    if (server.app) {
+      server.app.on('snapshot', server._handleAppMessage.bind(server));
+      server.app.on('message', server._handleAppMessage.bind(server));
+      server.app.on('commit', server._handleAppMessage.bind(server));
+    }
 
     // Handle interna call requests
     server.on('call', server._handleCall.bind(server));
@@ -729,10 +738,12 @@ class HTTPServer extends Oracle {
       console.log('[HTTP:SERVER]', 'Internal message:', msg);
     });
 
-    try {
-      await server.app.start();
-    } catch (E) {
-      console.error('Could not start server app:', E);
+    if (server.app) {
+      try {
+        await server.app.start();
+      } catch (E) {
+        console.error('Could not start server app:', E);
+      }
     }
 
     if (this.settings.listen) {
@@ -828,4 +839,4 @@ class HTTPServer extends Oracle {
   }
 }
 
-module.exports = HTTPServer;
+module.exports = FabricHTTPServer;
