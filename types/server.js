@@ -37,8 +37,8 @@ const State = require('@fabric/core/types/state');
 // const App = require('./app');
 // const Client = require('./client');
 // const Component = require('./component');
-const Browser = require('./browser');
-const SPA = require('./spa');
+// const Browser = require('./browser');
+// const SPA = require('./spa');
 
 // Dependencies
 const WebSocket = require('ws');
@@ -785,7 +785,7 @@ class FabricHTTPServer extends Service {
 
   async stop () {
     if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Stopping...');
-    let server = this;
+    const server = this;
     this.status = 'stopping';
 
     try {
@@ -794,10 +794,12 @@ class FabricHTTPServer extends Service {
       console.error('Could not stop HTTP listener:', E);
     }
 
-    try {
-      await server.app.stop();
-    } catch (E) {
-      console.error('Could not stop server app:', E);
+    if (server.app) {
+      try {
+        await server.app.stop();
+      } catch (E) {
+        console.error('Could not stop server app:', E);
+      }
     }
 
     this.status = 'stopped';
