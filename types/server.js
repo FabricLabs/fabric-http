@@ -810,6 +810,7 @@ class FabricHTTPServer extends Service {
   }
 
   async _GET (path) {
+    if (!this.app || !this.app.store) return null;
     if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling GET to', path);
     let result = await this.app.store._GET(path);
     if (this.settings.verbosity >= 5) console.log('[HTTP:SERVER]', 'Retrieved:', result);
