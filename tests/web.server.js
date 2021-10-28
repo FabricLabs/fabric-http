@@ -37,7 +37,7 @@ describe('@fabric/http/types/server', function () {
       }
 
       assert.ok(server);
-      assert.equal(server.status, 'stopped');
+      assert.equal(server.status, 'STOPPED');
     });
 
     it('can serve a simple GET request', async function () {

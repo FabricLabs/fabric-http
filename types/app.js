@@ -492,17 +492,19 @@ class App extends Component {
   async start () {
     if (typeof window !== 'undefined' && window.app) await window.app.stop();
 
-    try {
-      await this.store.start();
-    } catch (E) {
-      console.error('Could not open store:', E);
+    if (this.store) {
+      try {
+        await this.store.start();
+      } catch (E) {
+        console.error('Could not open store:', E);
+      }
     }
 
     await this.define('FabricMenu', Menu);
     await this.define('ResourceList', ResourceList);
 
-    for (let name in this.resources) {
-      let definition = this.resources[name];
+    for (const name in this.resources) {
+      const definition = this.resources[name];
       if (definition.data) {
         // TODO: move this to `types/resource.js`
         if (!definition.names) {
@@ -533,7 +535,7 @@ class App extends Component {
     await this.router.stop();
     await this.browser.stop();
     await this.circuit.stop();
-    await this.store.stop();
+    if (this.store) await this.store.stop();
 
     return true;
   }

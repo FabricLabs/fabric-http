@@ -490,7 +490,7 @@ class FabricHTTPServer extends Service {
     if (!this.settings.verbosity < 2) return next();
     // TODO: switch to this.log
     console.log([
-      `${req.host}:${this.settings.port}`,
+      `${req.hostname}:${this.settings.port}`,
       req.hostname,
       req.user,
       `"${req.method} ${req.path} HTTP/${req.httpVersion}"`,
@@ -686,7 +686,7 @@ class FabricHTTPServer extends Service {
     // handle custom routes.
     // TODO: abolish this garbage in favor of resources.
     for (let i = 0; i < server.customRoutes.length; i++) {
-      let route = server.customRoutes[i];
+      const route = server.customRoutes[i];
       switch (route.method.toLowerCase()) {
         case 'get':
         case 'put':
@@ -755,7 +755,7 @@ class FabricHTTPServer extends Service {
     }
 
     function notifyReady () {
-      server.status = 'started';
+      server.status = 'STARTED';
       server.emit('ready');
     }
 
@@ -827,8 +827,7 @@ class FabricHTTPServer extends Service {
 
   async _POST (path, data) {
     if (this.settings.verbosity >= 4) console.trace('[HTTP:SERVER]', 'Handling POST to', path, data);
-    let result = await this.app.store._POST(path, data);
-    return result;
+    return this.app.store._POST(path, data);
   }
 
   async _PATCH (path, data) {

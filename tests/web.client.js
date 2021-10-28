@@ -1,7 +1,6 @@
 'use strict';
 
-require('debug-trace')({ always: true });
-
+// Dependencies
 const assert = require('assert');
 
 // Web Client
