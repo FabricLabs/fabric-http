@@ -46,9 +46,8 @@ const PeerServer = require('peer').ExpressPeerServer;
 
 /**
  * The primary web server.
- * @extends Oracle
+ * @extends Service
  */
-// class FabricHTTPServer extends Oracle {
 class FabricHTTPServer extends Service {
   /**
    * Create an instance of the HTTP server.
@@ -87,6 +86,7 @@ class FabricHTTPServer extends Service {
     this.stores = {};
 
     // this.browser = new Browser(this.settings);
+    // TODO: compile & boot (load state) SPA (React + Redux?)
     /* this.app = new SPA(Object.assign({}, this.settings, {
       path: './stores/server-application'
     })); */
@@ -472,7 +472,13 @@ class FabricHTTPServer extends Service {
    */
   _handleIndexRequest (req, res) {
     console.log('[HTTP:SERVER]', 'Handling request for Index...');
-    let html = this.app.render(this.state);
+    let html = '';
+
+    if (this.app) {
+      html = this.app.render(this.state);
+    } else {
+      html = '<fabric-application><fabric-card>Failed to load, as no application was available.</fabric-card></fabric-application>';
+    }
     console.log('[HTTP:SERVER]', 'Generated HTML:', html);
     res.set('Content-Type', 'text/html');
     res.send(`${html}`);
@@ -819,10 +825,9 @@ class FabricHTTPServer extends Service {
   }
 
   async _PUT (path, data) {
+    if (!this.app || !this.app.store) return null;
     if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling PUT to', path, data);
-    let result = await this.app.store._PUT(path, data);
-    if (!result) console.log('wat...........');
-    return result;
+    return this.app.store._PUT(path, data);
   }
 
   async _POST (path, data) {
@@ -831,6 +836,7 @@ class FabricHTTPServer extends Service {
   }
 
   async _PATCH (path, data) {
+    if (!this.app || !this.app.store) return null;
     if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling PATCH to', path, data);
     return this.app.store._PATCH(path, data);
   }
