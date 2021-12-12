@@ -4,11 +4,13 @@ const {
   HTTP_SERVER_PORT,
   HTTPS_SERVER_PORT,
   MAXIMUM_PING,
+  P2P_SESSION_ACK,
   WEBSOCKET_KEEPALIVE
 } = require('../constants');
 
 // Dependencies
 const http = require('http');
+const crypto = require('crypto');
 const merge = require('lodash.merge');
 // TODO: remove Express entirely...
 // NOTE: current blockers include PeerServer...
@@ -421,23 +423,29 @@ class FabricHTTPServer extends Service {
     server.connections[player['@data'].connection] = socket;
     // server.players[player['@data'].connection] = player;
 
+    const ack = Message.fromVector([P2P_SESSION_ACK, crypto.randomBytes(32).toString('hex')]);
+    const raw = ack.toBuffer();
+    socket.send(raw);
+
     // send result
-    socket.send(JSON.stringify({
+    /* socket.send(JSON.stringify({
       '@type': 'VerAck',
       '@version': 1
-    }));
+    })); */
 
-    socket.send(JSON.stringify({
-      '@type': 'Inventory',
-      '@parent': server.app.id,
-      '@version': 1
-    }));
+    if (this.app) {
+      socket.send(JSON.stringify({
+        '@type': 'Inventory',
+        '@parent': server.app.id,
+        '@version': 1
+      }));
 
-    socket.send(JSON.stringify({
-      '@type': 'State',
-      '@data': server.app.state,
-      '@version': 1
-    }));
+      socket.send(JSON.stringify({
+        '@type': 'State',
+        '@data': server.app.state,
+        '@version': 1
+      }));
+    }
 
     return socket;
   }
@@ -508,6 +516,8 @@ class FabricHTTPServer extends Service {
 
   _headerMiddleware (req, res, next) {
     res.header('X-Powered-By', '@fabric/http');
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', 'content-type');
     return next();
   }
 
@@ -762,7 +772,9 @@ class FabricHTTPServer extends Service {
 
     function notifyReady () {
       server.status = 'STARTED';
-      server.emit('ready');
+      server.emit('ready', {
+        id: server.id
+      });
     }
 
     // commit to our results

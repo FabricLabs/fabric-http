@@ -1,5 +1,9 @@
 'use strict';
 
+const {
+  P2P_SESSION_ACK
+} = require('@fabric/core/constants');
+
 // engine
 const TICK_INTERVAL = 1000;
 const SESSION_SEED = '79084a7963fc1761e8f6871d6aa704c4922316030af4aa5a076dde35fc0b6857';
