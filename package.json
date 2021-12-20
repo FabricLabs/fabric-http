@@ -35,7 +35,7 @@
   },
   "homepage": "https://github.com/FabricLabs/web#readme",
   "dependencies": {
-    "@fabric/core": "martindale/fabric#swaps-develop",
+    "@fabric/core": "FabricLabs/fabric#swaps-develop",
     "body-parser": "^1.18.3",
     "canvas": "^2.5.0",
     "d3": "^5.9.2",
