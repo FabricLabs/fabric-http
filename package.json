@@ -1,6 +1,6 @@
 {
   "name": "@fabric/http",
-  "version": "0.1.0-dev",
+  "version": "0.1.0-RC1",
   "description": "tools for serving the legacy web with Fabric",
   "main": "types/web.js",
   "scripts": {
