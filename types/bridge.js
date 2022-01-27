@@ -4,10 +4,12 @@
 const WebSocket = require('isomorphic-ws');
 const URL = require('url');
 
-// Types
+// Fabric Types
 const Service = require('@fabric/core/types/service');
 const Message = require('@fabric/core/types/message');
-const Remote = require('@fabric/core/types/remote');
+
+// Internal Types
+const Remote = require('./remote');
 
 class Bridge extends Service {
   constructor (settings = {}) {

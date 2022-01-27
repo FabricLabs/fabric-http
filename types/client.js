@@ -1,6 +1,6 @@
 'use strict';
 
-const Remote = require('@fabric/core/types/remote');
+const Remote = require('./remote');
 
 // dependencies
 const scrape = require('metascraper');
