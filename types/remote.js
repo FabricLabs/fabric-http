@@ -42,10 +42,11 @@ class Remote extends Actor {
       authority: 'localhost',
       entropy: Math.random(),
       secure: true,
+      host: 'hub.fabric.pub',
       port: 443
     }, config);
 
-    this.host = this.settings.authority;
+    this.host = this.settings.host || this.settings.authority;
     this.secure = this.settings.secure;
     this.socket = null;
 
