@@ -76,11 +76,11 @@ class Remote extends Actor {
     return this.isArrayBufferSupported ? this.arrayBufferToBufferAsArgument : this.arrayBufferToBufferCycle;
   }
     
-  arrayBufferToBufferAsArgument(ab) {
+  arrayBufferToBufferAsArgument (ab) {
     return new Buffer(ab);
   }
 
-  arrayBufferToBufferCycle(ab) {
+  arrayBufferToBufferCycle (ab) {
     var buffer = new Buffer(ab.byteLength);
     var view = new Uint8Array(ab);
     for (var i = 0; i < buffer.length; ++i) {
@@ -92,6 +92,7 @@ class Remote extends Actor {
   async _handleSocketClose (message) {
     this._state.status = 'CLOSED';
     console.log('[FABRIC:REMOTE]', 'Socket close:', message);
+    this.connect();
   }
 
   async _handleSocketError (message) {
@@ -290,6 +291,14 @@ class Remote extends Actor {
   }
 
   async send (message) {
+    const msg = Message.fromVector(['GenericMessage', JSON.stringify(message)]);
+    const raw = msg.toRaw();
+    const actor = new Actor({ content: raw.toString('hex') });
+    this.socket.send(raw);
+    return actor.id;
+  }
+
+  async sendAsJSON (message) {
     this.socket.send({
       content: message
     });

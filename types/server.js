@@ -27,6 +27,7 @@ const stoppable = require('stoppable');
 const pathToRegexp = require('path-to-regexp').pathToRegexp;
 
 // Fabric Types
+const Actor = require('@fabric/core/types/actor');
 // const Oracle = require('@fabric/core/types/oracle');
 const Collection = require('@fabric/core/types/collection');
 // const Resource = require('@fabric/core/types/resource');
@@ -268,6 +269,8 @@ class FabricHTTPServer extends Service {
   }
 
   trust (source) {
+    super.trust(source);
+
     source.on('message', function (msg) {
       console.log('[HTTP:SERVER]', 'trusted source:', source.constructor.name, 'sent message:', msg);
     });
@@ -361,13 +364,18 @@ class FabricHTTPServer extends Service {
           }
 
           message = JSON.parse(msg);
-          type = message['@type'];
+          type = message['@type'] || message.type;
         } catch (E) {
           console.error('could not parse message:', typeof msg, msg, E);
           // TODO: disconnect from peer
           console.warn('you should disconnect from this peer:', handle);
         }
       }
+
+      const obj = message.toObject();
+      const actor = new Actor(obj);
+
+      let local = null;
 
       switch (type) {
         default:
@@ -387,9 +395,29 @@ class FabricHTTPServer extends Service {
           break;
         case 'Ping':
           let now = Date.now();
-          let local = Message.fromVector(['Pong', now.toString()]);
+          local = Message.fromVector(['Pong', now.toString()]);
           let pong = JSON.stringify(local.toObject());
           return server._sendTo(handle, pong);
+        case 'GenericMessage':
+          local = Message.fromVector(['GenericMessage', JSON.stringify({
+            type: 'GenericMessageReceipt',
+            content: actor.id
+          })]);
+
+          let msg = null;
+
+          try {
+            msg = JSON.parse(obj.data);
+          } catch (exception) {}
+
+          if (msg) {
+            server.emit('call', msg.data || {
+              method: 'GenericMessage',
+              params: [msg.data]
+            });
+          }
+
+          break;
         case 'Pong':
           socket._resetKeepAlive();
           return;
@@ -501,7 +529,7 @@ class FabricHTTPServer extends Service {
   }
 
   _logMiddleware (req, res, next) {
-    if (!this.settings.verbosity < 2) return next();
+    // if (!this.settings.verbosity < 2) return next();
     // TODO: switch to this.log
     console.log([
       `${req.hostname}:${this.settings.port}`,
