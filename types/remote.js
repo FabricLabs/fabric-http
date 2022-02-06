@@ -40,6 +40,7 @@ class Remote extends Actor {
 
     this.settings = Object.assign({
       authority: 'localhost',
+      backoff: 2,
       entropy: Math.random(),
       secure: true,
       host: 'hub.fabric.pub',
@@ -52,6 +53,8 @@ class Remote extends Actor {
 
     this.endpoint = `${(this.secure) ? 'wss' : 'ws'}:${this.host}:${this.port}/`;
 
+    this._nextReconnect = 0;
+    this._reconnectAttempts = 0;
     this._state = {
       status: 'PAUSED',
       messages: [],
@@ -93,7 +96,9 @@ class Remote extends Actor {
   async _handleSocketClose (message) {
     this._state.status = 'CLOSED';
     console.log('[FABRIC:REMOTE]', 'Socket close:', message);
-    this.connect();
+    this._reconnectAttempts++;
+    this._reconnector = setTimeout(this.connect.bind(this), this._nextReconnect);
+    this._nextReconnect = Math.pow(this.settings.backoff, this._reconnectAttempts) * 1000 * Math.random();
   }
 
   async _handleSocketError (message) {
@@ -115,6 +120,9 @@ class Remote extends Actor {
   }
 
   async _handleSocketOpen (message) {
+    this._nextReconnect = 0;
+    this._reconnectAttempts = 0;
+    if (this._reconnector) clearTimeout(this._reconnector);
     this._state.status = 'CONNECTED';
     this.emit('ready');
   }
