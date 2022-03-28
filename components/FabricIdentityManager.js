@@ -59,7 +59,7 @@ class FabricIdentityManager extends FabricComponent {
     });
   }
 
-  previoustStep () {
+  previousStep () {
     const { step } = this.state;
     this.setState({
       step: step - 1
