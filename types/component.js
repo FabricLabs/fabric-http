@@ -1,4 +1,5 @@
-'use strict';
+// Defaults
+import * as state from '../settings/state';
 
 const crypto = require('crypto');
 const Service = require('@fabric/core/types/service');
@@ -147,4 +148,22 @@ class Component extends Service {
   }
 }
 
-module.exports = Component;
+export default FabricComponent;
+
+// TODO: debug why this can't be used on this parent class...
+// ```
+// TypeError: Class extends value #<Object> is not a constructor or null
+// Module.<anonymous>
+// src/components/FabricIdentityManager.js:19
+//   16 | import IdentityPicker from './IdentityPicker';
+//   17 | import SeedEntryForm from './SeedEntryForm';
+//   18 | 
+// > 19 | class FabricIdentityManager extends FabricComponent {
+//   20 |   constructor (props) {
+//   21 |     super(props);
+//   22 | 
+// ```
+// export default connect(FabricStateMapper)(FabricComponent);
+//
+// ...
+// End of @fabric/core/types/component
