@@ -1,7 +1,7 @@
 'use strict';
 
 // TODO: evaluate why have to climb tree?
-const playnet = require('../../node_modules/@fabric/core/settings/playnet');
+const playnet = require('@fabric/core/settings/playnet');
 
 module.exports = {
   seed: null,
