@@ -1,5 +1,5 @@
 // Defaults
-import * as state from '../settings/state';
+const state = require('../settings/state');
 
 const crypto = require('crypto');
 const Service = require('@fabric/core/types/service');
