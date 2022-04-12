@@ -2,7 +2,7 @@
   "name": "@fabric/http",
   "version": "0.1.0-RC1",
   "description": "tools for serving the legacy web with Fabric",
-  "main": "types/web.js",
+  "main": "index.js",
   "scripts": {
     "build:docs": "jsdoc -c jsdoc.json types components/*.js types/*.js settings/deprecations.js README.md -d docs",
     "build:coverage": "npm run coverage && nyc report --reporter=html",
@@ -62,6 +62,11 @@
     "ws": "^6.2.1"
   },
   "devDependencies": {
+    "babel-core": "^6.26.3",
+    "babel-loader": "^6.4.1",
+    "babel-preset-es2015": "^6.24.1",
+    "babel-preset-react": "^6.24.1",
+    "babel-preset-stage-0": "^6.24.1",
     "codecov": "^3.2.0",
     "debug-trace": "^2.2.3",
     "ecstatic": "^3.3.1",
