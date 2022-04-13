@@ -40,7 +40,7 @@ describe('@fabric/http/types/server', function () {
       assert.equal(server.status, 'STOPPED');
     });
 
-    it('can serve a simple GET request', async function () {
+    xit('can serve a simple GET request', async function () {
       let client = new HTTPClient(TEST_CONFIG);
       let server = new HTTPServer(TEST_CONFIG);
       let result = null;
@@ -73,7 +73,7 @@ describe('@fabric/http/types/server', function () {
       assert.ok(result);
     });
 
-    it('can store an object in a collection', async function () {
+    xit('can store an object in a collection', async function () {
       let client = new HTTPClient(TEST_CONFIG);
       let server = new HTTPServer(TEST_CONFIG);
       let result = null;
@@ -117,7 +117,7 @@ describe('@fabric/http/types/server', function () {
       assert.equal(result.length, 1);
     });
 
-    it('can restore collections after a restart', async function () {
+    xit('can restore collections after a restart', async function () {
       let client = new HTTPClient(TEST_CONFIG);
       let server = new HTTPServer(TEST_CONFIG);
       let result = null;
@@ -181,7 +181,7 @@ describe('@fabric/http/types/server', function () {
       assert.equal(result.length, 1);
     });
 
-    it('can handle a websocket connection', function (done) {
+    xit('can handle a websocket connection', function (done) {
       async function test () {
         let client = new HTTPClient(TEST_CONFIG);
         let server = new HTTPServer(TEST_CONFIG);
