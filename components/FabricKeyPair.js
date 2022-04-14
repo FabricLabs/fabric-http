@@ -4,14 +4,7 @@ import React, { Component } from 'react';
 
 // Components
 import {
-  Button,
-  // Container,
-  Dropdown,
-  Form,
-  // Grid,
-  Icon
-  // Menu,
-  // Segment
+  Form
 } from 'semantic-ui-react';
 
 // Fabric Types

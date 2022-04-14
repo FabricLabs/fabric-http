@@ -6,14 +6,9 @@ import FabricComponent from '../types/component';
 // Components
 import {
   Button,
-  // Card,
-  // Container,
   Icon,
-  // Item,
-  // Grid,
   Menu,
-  Modal,
-  // Segment
+  Modal
 } from 'semantic-ui-react';
 
 import SeedEntryForm from './SeedEntryForm';

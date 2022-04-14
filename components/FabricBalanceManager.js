@@ -7,18 +7,13 @@ import FabricComponent from '../types/component';
 
 // Components
 import {
-  Button,
   Card,
-  // Card,
-  // Container,
   Header,
   Icon,
-  // Grid,
   Label,
-  // Menu,
-  // Segment,
   Table
 } from 'semantic-ui-react';
+
 import FabricIdentityManager from './FabricIdentityManager';
 
 class BalanceManager extends FabricComponent {

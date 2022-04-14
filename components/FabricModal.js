@@ -3,17 +3,9 @@
 // Components
 import {
   Button,
-  // Container,
-  Dropdown,
-  Form,
-  // Grid,
   Header,
-  Icon,
   Image,
-  Input,
-  // Menu,
-  Modal,
-  // Segment
+  Modal
 } from 'semantic-ui-react';
 
 // Fabric Types

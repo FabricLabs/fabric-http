@@ -2,15 +2,8 @@ import FabricComponent from '../types/component';
 
 // Components
 import {
-  Button,
-  // Card,
-  // Container,
   Icon,
-  // Grid,
   Header,
-  // Label,
-  // Menu,
-  // Segment,
   Table,
   Card
 } from 'semantic-ui-react';
