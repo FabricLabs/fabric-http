@@ -8,7 +8,7 @@
     "build:docs": "jsdoc -c jsdoc.json types components/*.js types/*.js settings/deprecations.js README.md -d docs",
     "build:coverage": "npm run coverage && nyc report --reporter=html",
     "build:fast": "node examples/build.js && npm run build:scripts",
-    "build:scripts": "webpack scripts/index.js",
+    "build:scripts": "rollup -c",
     "compile": "node examples/build.js && npm run build:scripts",
     "coverage": "nyc npm run test",
     "docs": "npm run build:docs && ecstatic docs",
@@ -36,7 +36,7 @@
   },
   "homepage": "https://github.com/FabricLabs/web#readme",
   "dependencies": {
-    "@fabric/core": "FabricLabs/fabric#swaps-develop",
+    "@fabric/core": "FabricLabs/fabric#portal-staging",
     "body-parser": "^1.18.3",
     "canvas": "^2.5.0",
     "d3": "^5.9.2",
