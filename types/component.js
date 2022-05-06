@@ -8,7 +8,7 @@ const Service = require('@fabric/core/types/service');
 /**
  * Generic component.
  */
-class Component extends Service {
+class FabricComponent extends Service {
   /**
    * Create a component.
    * @param  {Object} [settings={}] Settings for the component.

@@ -288,7 +288,7 @@ class FabricHTTPServer extends Service {
     if (!call.method) throw new Error('Call requires "method" parameter.');
     if (!call.params) throw new Error('Call requires "params" parameter.');
     if (!this.methods[call.method]) throw new Error(`Method "${call.method}" has not been registered.`);
-    this.methods[call.method].apply(this, call.params);
+    return this.methods[call.method].apply(this, call.params);
   }
 
   /**
