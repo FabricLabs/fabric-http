@@ -44,8 +44,6 @@
     "express-bearer-token": "^2.4.0",
     "express-session": "^1.15.6",
     "isomorphic-ws": "^4.0.1",
-    "jade-lexer": "0.0.9",
-    "jade-parser": "0.0.9",
     "jquery": "^3.4.1",
     "js-beautify": "^1.10.0",
     "jsdoc": "FabricLabs/jsdoc#fabric",
