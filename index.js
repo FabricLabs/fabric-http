@@ -1,8 +1,4 @@
-const components = require('./components/index.js');
-
-export const NAME = '@fabric/http';
-
 module.exports = {
-  components: components,
-  name: NAME
+  Client: require('./types/client'),
+  Server: require('./types/server')
 };
