@@ -118,6 +118,8 @@ class FabricHTTPServer extends Service {
     this.routes = [];
     this.customRoutes = [];
 
+    this.keys = new Set();
+
     return this;
   }
 
@@ -817,7 +819,7 @@ class FabricHTTPServer extends Service {
   }
 
   async flush () {
-    // console.log('[HTTP:SERVER]', 'flush requested:', this.keys);
+    this.emit('debug', `Flush requested for keys: ${this.keys}`);
 
     for (let item of this.keys) {
       // console.log('...flushing:', item);
