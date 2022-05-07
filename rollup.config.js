@@ -18,7 +18,7 @@ export default [
     ]
   },
   {
-    input: 'index.js',
+    input: 'module.js',
     output: [
       {
         file: 'assets/fabric.http.js',
