@@ -3,8 +3,9 @@
   "version": "0.1.0-RC1",
   "description": "tools for serving the legacy web with Fabric",
   "main": "index.js",
-  "module": "builds/esm/fabric.http.js",
+  "module": "module.js",
   "scripts": {
+    "build": "npm test && npm run build:scripts",
     "build:docs": "jsdoc -c jsdoc.json types components/*.js types/*.js settings/deprecations.js README.md -d docs",
     "build:coverage": "npm run coverage && nyc report --reporter=html",
     "build:fast": "node examples/build.js && npm run build:scripts",

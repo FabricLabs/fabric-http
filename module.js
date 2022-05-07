@@ -1,8 +1,8 @@
-const components = require('./components/index.js');
+import * as components from './components/index.js';
 
 export const NAME = '@fabric/http';
 
-module.exports = {
+export default {
   components: components,
   name: NAME
 };
