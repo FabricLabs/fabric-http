@@ -1,5 +1,5 @@
 import * as components from './components/index.js';
-import * as types from './index.js';
+// import * as types from './index.js';
 
 export const NAME = '@fabric/http';
 
@@ -14,5 +14,5 @@ export const NAME = '@fabric/http';
 export default {
   components: components,
   name: NAME,
-  types: types
+  // types: types
 };
