@@ -1,0 +1,4542 @@
+[
+  {
+    "type": "0",
+    "path": "0x80000000",
+    "coin": "Bitcoin"
+  },
+  {
+    "type": "1",
+    "path": "0x80000001",
+    "coin": "Testnet (all coins)"
+  },
+  {
+    "type": "2",
+    "path": "0x80000002",
+    "coin": "Litecoin"
+  },
+  {
+    "type": "3",
+    "path": "0x80000003",
+    "coin": "Dogecoin"
+  },
+  {
+    "type": "4",
+    "path": "0x80000004",
+    "coin": "Reddcoin"
+  },
+  {
+    "type": "5",
+    "path": "0x80000005",
+    "coin": "Dash (ex Darkcoin)"
+  },
+  {
+    "type": "6",
+    "path": "0x80000006",
+    "coin": "Peercoin"
+  },
+  {
+    "type": "7",
+    "path": "0x80000007",
+    "coin": "Namecoin"
+  },
+  {
+    "type": "8",
+    "path": "0x80000008",
+    "coin": "Feathercoin"
+  },
+  {
+    "type": "9",
+    "path": "0x80000009",
+    "coin": "Counterparty"
+  },
+  {
+    "type": "10",
+    "path": "0x8000000a",
+    "coin": "Blackcoin"
+  },
+  {
+    "type": "11",
+    "path": "0x8000000b",
+    "coin": "NuShares"
+  },
+  {
+    "type": "12",
+    "path": "0x8000000c",
+    "coin": "NuBits"
+  },
+  {
+    "type": "13",
+    "path": "0x8000000d",
+    "coin": "Mazacoin"
+  },
+  {
+    "type": "14",
+    "path": "0x8000000e",
+    "coin": "Viacoin"
+  },
+  {
+    "type": "15",
+    "path": "0x8000000f",
+    "coin": "ClearingHouse"
+  },
+  {
+    "type": "16",
+    "path": "0x80000010",
+    "coin": "Rubycoin"
+  },
+  {
+    "type": "17",
+    "path": "0x80000011",
+    "coin": "Groestlcoin"
+  },
+  {
+    "type": "18",
+    "path": "0x80000012",
+    "coin": "Digitalcoin"
+  },
+  {
+    "type": "19",
+    "path": "0x80000013",
+    "coin": "Cannacoin"
+  },
+  {
+    "type": "20",
+    "path": "0x80000014",
+    "coin": "DigiByte"
+  },
+  {
+    "type": "21",
+    "path": "0x80000015",
+    "coin": "Open Assets"
+  },
+  {
+    "type": "22",
+    "path": "0x80000016",
+    "coin": "Monacoin"
+  },
+  {
+    "type": "23",
+    "path": "0x80000017",
+    "coin": "Clams"
+  },
+  {
+    "type": "24",
+    "path": "0x80000018",
+    "coin": "Primecoin"
+  },
+  {
+    "type": "25",
+    "path": "0x80000019",
+    "coin": "Neoscoin"
+  },
+  {
+    "type": "26",
+    "path": "0x8000001a",
+    "coin": "Jumbucks"
+  },
+  {
+    "type": "27",
+    "path": "0x8000001b",
+    "coin": "ziftrCOIN"
+  },
+  {
+    "type": "28",
+    "path": "0x8000001c",
+    "coin": "Vertcoin"
+  },
+  {
+    "type": "29",
+    "path": "0x8000001d",
+    "coin": "NXT"
+  },
+  {
+    "type": "30",
+    "path": "0x8000001e",
+    "coin": "Burst"
+  },
+  {
+    "type": "31",
+    "path": "0x8000001f",
+    "coin": "MonetaryUnit"
+  },
+  {
+    "type": "32",
+    "path": "0x80000020",
+    "coin": "Zoom"
+  },
+  {
+    "type": "33",
+    "path": "0x80000021",
+    "coin": "Virtual Cash also known as VPNcoin"
+  },
+  {
+    "type": "34",
+    "path": "0x80000022",
+    "coin": "Canada eCoin"
+  },
+  {
+    "type": "35",
+    "path": "0x80000023",
+    "coin": "ShadowCash"
+  },
+  {
+    "type": "36",
+    "path": "0x80000024",
+    "coin": "ParkByte"
+  },
+  {
+    "type": "37",
+    "path": "0x80000025",
+    "coin": "Pandacoin"
+  },
+  {
+    "type": "38",
+    "path": "0x80000026",
+    "coin": "StartCOIN"
+  },
+  {
+    "type": "39",
+    "path": "0x80000027",
+    "coin": "MOIN"
+  },
+  {
+    "type": "40",
+    "path": "0x80000028",
+    "coin": "Expanse"
+  },
+  {
+    "type": "41",
+    "path": "0x80000029",
+    "coin": "Einsteinium"
+  },
+  {
+    "type": "42",
+    "path": "0x8000002a",
+    "coin": "Decred"
+  },
+  {
+    "type": "43",
+    "path": "0x8000002b",
+    "coin": "NEM"
+  },
+  {
+    "type": "44",
+    "path": "0x8000002c",
+    "coin": "Particl"
+  },
+  {
+    "type": "45",
+    "path": "0x8000002d",
+    "coin": "Argentum (dead)"
+  },
+  {
+    "type": "46",
+    "path": "0x8000002e",
+    "coin": "Libertas"
+  },
+  {
+    "type": "47",
+    "path": "0x8000002f",
+    "coin": "Posw coin"
+  },
+  {
+    "type": "48",
+    "path": "0x80000030",
+    "coin": "Shreeji"
+  },
+  {
+    "type": "49",
+    "path": "0x80000031",
+    "coin": "Global Currency Reserve (GCRcoin)"
+  },
+  {
+    "type": "50",
+    "path": "0x80000032",
+    "coin": "Novacoin"
+  },
+  {
+    "type": "51",
+    "path": "0x80000033",
+    "coin": "Asiacoin"
+  },
+  {
+    "type": "52",
+    "path": "0x80000034",
+    "coin": "BitcoinDark"
+  },
+  {
+    "type": "53",
+    "path": "0x80000035",
+    "coin": "Dopecoin"
+  },
+  {
+    "type": "54",
+    "path": "0x80000036",
+    "coin": "Templecoin"
+  },
+  {
+    "type": "55",
+    "path": "0x80000037",
+    "coin": "AIB"
+  },
+  {
+    "type": "56",
+    "path": "0x80000038",
+    "coin": "EDRCoin"
+  },
+  {
+    "type": "57",
+    "path": "0x80000039",
+    "coin": "Syscoin"
+  },
+  {
+    "type": "58",
+    "path": "0x8000003a",
+    "coin": "Solarcoin"
+  },
+  {
+    "type": "59",
+    "path": "0x8000003b",
+    "coin": "Smileycoin"
+  },
+  {
+    "type": "60",
+    "path": "0x8000003c",
+    "coin": "Ether"
+  },
+  {
+    "type": "61",
+    "path": "0x8000003d",
+    "coin": "Ether Classic"
+  },
+  {
+    "type": "62",
+    "path": "0x8000003e",
+    "coin": "Pesobit"
+  },
+  {
+    "type": "63",
+    "path": "0x8000003f",
+    "coin": "Landcoin (dead)"
+  },
+  {
+    "type": "64",
+    "path": "0x80000040",
+    "coin": "Open Chain"
+  },
+  {
+    "type": "65",
+    "path": "0x80000041",
+    "coin": "Bitcoinplus"
+  },
+  {
+    "type": "66",
+    "path": "0x80000042",
+    "coin": "Internet of People"
+  },
+  {
+    "type": "67",
+    "path": "0x80000043",
+    "coin": "Nexus"
+  },
+  {
+    "type": "68",
+    "path": "0x80000044",
+    "coin": "InsaneCoin"
+  },
+  {
+    "type": "69",
+    "path": "0x80000045",
+    "coin": "OKCash"
+  },
+  {
+    "type": "70",
+    "path": "0x80000046",
+    "coin": "BritCoin"
+  },
+  {
+    "type": "71",
+    "path": "0x80000047",
+    "coin": "Compcoin"
+  },
+  {
+    "type": "72",
+    "path": "0x80000048",
+    "coin": "Crown"
+  },
+  {
+    "type": "73",
+    "path": "0x80000049",
+    "coin": "BelaCoin"
+  },
+  {
+    "type": "74",
+    "path": "0x8000004a",
+    "coin": "ICON"
+  },
+  {
+    "type": "75",
+    "path": "0x8000004b",
+    "coin": "FujiCoin"
+  },
+  {
+    "type": "76",
+    "path": "0x8000004c",
+    "coin": "MIX"
+  },
+  {
+    "type": "77",
+    "path": "0x8000004d",
+    "coin": "Verge Currency"
+  },
+  {
+    "type": "78",
+    "path": "0x8000004e",
+    "coin": "Electronic Gulden"
+  },
+  {
+    "type": "79",
+    "path": "0x8000004f",
+    "coin": "ClubCoin"
+  },
+  {
+    "type": "80",
+    "path": "0x80000050",
+    "coin": "RichCoin"
+  },
+  {
+    "type": "81",
+    "path": "0x80000051",
+    "coin": "Potcoin"
+  },
+  {
+    "type": "82",
+    "path": "0x80000052",
+    "coin": "Quarkcoin"
+  },
+  {
+    "type": "83",
+    "path": "0x80000053",
+    "coin": "Terracoin"
+  },
+  {
+    "type": "84",
+    "path": "0x80000054",
+    "coin": "Gridcoin"
+  },
+  {
+    "type": "85",
+    "path": "0x80000055",
+    "coin": "Auroracoin"
+  },
+  {
+    "type": "86",
+    "path": "0x80000056",
+    "coin": "IXCoin"
+  },
+  {
+    "type": "87",
+    "path": "0x80000057",
+    "coin": "Gulden"
+  },
+  {
+    "type": "88",
+    "path": "0x80000058",
+    "coin": "BitBean"
+  },
+  {
+    "type": "89",
+    "path": "0x80000059",
+    "coin": "Bata"
+  },
+  {
+    "type": "90",
+    "path": "0x8000005a",
+    "coin": "Myriadcoin"
+  },
+  {
+    "type": "91",
+    "path": "0x8000005b",
+    "coin": "BitSend"
+  },
+  {
+    "type": "92",
+    "path": "0x8000005c",
+    "coin": "Unobtanium"
+  },
+  {
+    "type": "93",
+    "path": "0x8000005d",
+    "coin": "MasterTrader"
+  },
+  {
+    "type": "94",
+    "path": "0x8000005e",
+    "coin": "GoldBlocks"
+  },
+  {
+    "type": "95",
+    "path": "0x8000005f",
+    "coin": "Saham"
+  },
+  {
+    "type": "96",
+    "path": "0x80000060",
+    "coin": "Chronos"
+  },
+  {
+    "type": "97",
+    "path": "0x80000061",
+    "coin": "Ubiquoin"
+  },
+  {
+    "type": "98",
+    "path": "0x80000062",
+    "coin": "Evotion"
+  },
+  {
+    "type": "99",
+    "path": "0x80000063",
+    "coin": "SaveTheOcean"
+  },
+  {
+    "type": "100",
+    "path": "0x80000064",
+    "coin": "BigUp"
+  },
+  {
+    "type": "101",
+    "path": "0x80000065",
+    "coin": "GameCredits"
+  },
+  {
+    "type": "102",
+    "path": "0x80000066",
+    "coin": "Dollarcoins"
+  },
+  {
+    "type": "103",
+    "path": "0x80000067",
+    "coin": "Zayedcoin"
+  },
+  {
+    "type": "104",
+    "path": "0x80000068",
+    "coin": "Dubaicoin"
+  },
+  {
+    "type": "105",
+    "path": "0x80000069",
+    "coin": "Stratis"
+  },
+  {
+    "type": "106",
+    "path": "0x8000006a",
+    "coin": "Shilling"
+  },
+  {
+    "type": "107",
+    "path": "0x8000006b",
+    "coin": "MarsCoin"
+  },
+  {
+    "type": "108",
+    "path": "0x8000006c",
+    "coin": "Ubiq"
+  },
+  {
+    "type": "109",
+    "path": "0x8000006d",
+    "coin": "Pesetacoin"
+  },
+  {
+    "type": "110",
+    "path": "0x8000006e",
+    "coin": "Neurocoin"
+  },
+  {
+    "type": "111",
+    "path": "0x8000006f",
+    "coin": "ARK"
+  },
+  {
+    "type": "112",
+    "path": "0x80000070",
+    "coin": "UltimateSecureCashMain"
+  },
+  {
+    "type": "113",
+    "path": "0x80000071",
+    "coin": "Hempcoin"
+  },
+  {
+    "type": "114",
+    "path": "0x80000072",
+    "coin": "Linx"
+  },
+  {
+    "type": "115",
+    "path": "0x80000073",
+    "coin": "Ecoin"
+  },
+  {
+    "type": "116",
+    "path": "0x80000074",
+    "coin": "Denarius"
+  },
+  {
+    "type": "117",
+    "path": "0x80000075",
+    "coin": "Pinkcoin"
+  },
+  {
+    "type": "118",
+    "path": "0x80000076",
+    "coin": "Atom"
+  },
+  {
+    "type": "119",
+    "path": "0x80000077",
+    "coin": "Pivx"
+  },
+  {
+    "type": "120",
+    "path": "0x80000078",
+    "coin": "Flashcoin"
+  },
+  {
+    "type": "121",
+    "path": "0x80000079",
+    "coin": "Zencash"
+  },
+  {
+    "type": "122",
+    "path": "0x8000007a",
+    "coin": "Putincoin"
+  },
+  {
+    "type": "123",
+    "path": "0x8000007b",
+    "coin": "BitZeny"
+  },
+  {
+    "type": "124",
+    "path": "0x8000007c",
+    "coin": "Unify"
+  },
+  {
+    "type": "125",
+    "path": "0x8000007d",
+    "coin": "StealthCoin"
+  },
+  {
+    "type": "126",
+    "path": "0x8000007e",
+    "coin": "Breakout Coin"
+  },
+  {
+    "type": "127",
+    "path": "0x8000007f",
+    "coin": "Vcash"
+  },
+  {
+    "type": "128",
+    "path": "0x80000080",
+    "coin": "Monero"
+  },
+  {
+    "type": "129",
+    "path": "0x80000081",
+    "coin": "Voxels"
+  },
+  {
+    "type": "130",
+    "path": "0x80000082",
+    "coin": "NavCoin"
+  },
+  {
+    "type": "131",
+    "path": "0x80000083",
+    "coin": "Factom Factoids"
+  },
+  {
+    "type": "132",
+    "path": "0x80000084",
+    "coin": "Factom Entry Credits"
+  },
+  {
+    "type": "133",
+    "path": "0x80000085",
+    "coin": "Zcash"
+  },
+  {
+    "type": "134",
+    "path": "0x80000086",
+    "coin": "Lisk"
+  },
+  {
+    "type": "135",
+    "path": "0x80000087",
+    "coin": "Steem"
+  },
+  {
+    "type": "136",
+    "path": "0x80000088",
+    "coin": "ZCoin"
+  },
+  {
+    "type": "137",
+    "path": "0x80000089",
+    "coin": "RSK"
+  },
+  {
+    "type": "138",
+    "path": "0x8000008a",
+    "coin": "Giftblock"
+  },
+  {
+    "type": "139",
+    "path": "0x8000008b",
+    "coin": "RealPointCoin"
+  },
+  {
+    "type": "140",
+    "path": "0x8000008c",
+    "coin": "LBRY Credits"
+  },
+  {
+    "type": "141",
+    "path": "0x8000008d",
+    "coin": "Komodo"
+  },
+  {
+    "type": "142",
+    "path": "0x8000008e",
+    "coin": "bisq Token"
+  },
+  {
+    "type": "143",
+    "path": "0x8000008f",
+    "coin": "Riecoin"
+  },
+  {
+    "type": "144",
+    "path": "0x80000090",
+    "coin": "Ripple"
+  },
+  {
+    "type": "145",
+    "path": "0x80000091",
+    "coin": "Bitcoin Cash"
+  },
+  {
+    "type": "146",
+    "path": "0x80000092",
+    "coin": "Neblio"
+  },
+  {
+    "type": "147",
+    "path": "0x80000093",
+    "coin": "ZClassic"
+  },
+  {
+    "type": "148",
+    "path": "0x80000094",
+    "coin": "Stellar Lumens"
+  },
+  {
+    "type": "149",
+    "path": "0x80000095",
+    "coin": "NoLimitCoin2"
+  },
+  {
+    "type": "150",
+    "path": "0x80000096",
+    "coin": "WhaleCoin"
+  },
+  {
+    "type": "151",
+    "path": "0x80000097",
+    "coin": "EuropeCoin"
+  },
+  {
+    "type": "152",
+    "path": "0x80000098",
+    "coin": "Diamond"
+  },
+  {
+    "type": "153",
+    "path": "0x80000099",
+    "coin": "Bytom"
+  },
+  {
+    "type": "154",
+    "path": "0x8000009a",
+    "coin": "Biocoin"
+  },
+  {
+    "type": "155",
+    "path": "0x8000009b",
+    "coin": "Whitecoin Classic"
+  },
+  {
+    "type": "156",
+    "path": "0x8000009c",
+    "coin": "Bitcoin Gold"
+  },
+  {
+    "type": "157",
+    "path": "0x8000009d",
+    "coin": "Bitcoin 2x"
+  },
+  {
+    "type": "158",
+    "path": "0x8000009e",
+    "coin": "SuperSkynet"
+  },
+  {
+    "type": "159",
+    "path": "0x8000009f",
+    "coin": "TOACoin"
+  },
+  {
+    "type": "160",
+    "path": "0x800000a0",
+    "coin": "Bitcore"
+  },
+  {
+    "type": "161",
+    "path": "0x800000a1",
+    "coin": "Adcoin"
+  },
+  {
+    "type": "162",
+    "path": "0x800000a2",
+    "coin": "Bridgecoin"
+  },
+  {
+    "type": "163",
+    "path": "0x800000a3",
+    "coin": "Ellaism"
+  },
+  {
+    "type": "164",
+    "path": "0x800000a4",
+    "coin": "Pirl"
+  },
+  {
+    "type": "165",
+    "path": "0x800000a5",
+    "coin": "Nano"
+  },
+  {
+    "type": "166",
+    "path": "0x800000a6",
+    "coin": "Vivo"
+  },
+  {
+    "type": "167",
+    "path": "0x800000a7",
+    "coin": "Firstcoin"
+  },
+  {
+    "type": "168",
+    "path": "0x800000a8",
+    "coin": "Helleniccoin"
+  },
+  {
+    "type": "169",
+    "path": "0x800000a9",
+    "coin": "BUZZ"
+  },
+  {
+    "type": "170",
+    "path": "0x800000aa",
+    "coin": "Ember"
+  },
+  {
+    "type": "171",
+    "path": "0x800000ab",
+    "coin": "Hcash"
+  },
+  {
+    "type": "172",
+    "path": "0x800000ac",
+    "coin": "HTMLCOIN"
+  },
+  {
+    "type": "173",
+    "path": "0x800000ad",
+    "coin": "Obsidian"
+  },
+  {
+    "type": "174",
+    "path": "0x800000ae",
+    "coin": "OnixCoin"
+  },
+  {
+    "type": "175",
+    "path": "0x800000af",
+    "coin": "Ravencoin"
+  },
+  {
+    "type": "176",
+    "path": "0x800000b0",
+    "coin": "GoByte"
+  },
+  {
+    "type": "177",
+    "path": "0x800000b1",
+    "coin": "BitcoinZ"
+  },
+  {
+    "type": "178",
+    "path": "0x800000b2",
+    "coin": "Poa"
+  },
+  {
+    "type": "179",
+    "path": "0x800000b3",
+    "coin": "NewYorkCoin"
+  },
+  {
+    "type": "180",
+    "path": "0x800000b4",
+    "coin": "MarteXcoin"
+  },
+  {
+    "type": "181",
+    "path": "0x800000b5",
+    "coin": "Wincoin"
+  },
+  {
+    "type": "182",
+    "path": "0x800000b6",
+    "coin": "Minexcoin"
+  },
+  {
+    "type": "183",
+    "path": "0x800000b7",
+    "coin": "Bitcoin Private"
+  },
+  {
+    "type": "184",
+    "path": "0x800000b8",
+    "coin": "Musicoin"
+  },
+  {
+    "type": "185",
+    "path": "0x800000b9",
+    "coin": "Bitcoin Atom"
+  },
+  {
+    "type": "186",
+    "path": "0x800000ba",
+    "coin": "Crave"
+  },
+  {
+    "type": "187",
+    "path": "0x800000bb",
+    "coin": "STRAKS"
+  },
+  {
+    "type": "188",
+    "path": "0x800000bc",
+    "coin": "World Bitcoin"
+  },
+  {
+    "type": "189",
+    "path": "0x800000bd",
+    "coin": "LiteCash"
+  },
+  {
+    "type": "190",
+    "path": "0x800000be",
+    "coin": "ExclusiveCoin"
+  },
+  {
+    "type": "191",
+    "path": "0x800000bf",
+    "coin": "Lynx"
+  },
+  {
+    "type": "192",
+    "path": "0x800000c0",
+    "coin": "LitecoinCash"
+  },
+  {
+    "type": "193",
+    "path": "0x800000c1",
+    "coin": "Feirm"
+  },
+  {
+    "type": "194",
+    "path": "0x800000c2",
+    "coin": "EOS"
+  },
+  {
+    "type": "195",
+    "path": "0x800000c3",
+    "coin": "Tron"
+  },
+  {
+    "type": "196",
+    "path": "0x800000c4",
+    "coin": "Kobocoin"
+  },
+  {
+    "type": "197",
+    "path": "0x800000c5",
+    "coin": "HUSH"
+  },
+  {
+    "type": "198",
+    "path": "0x800000c6",
+    "coin": "Bananos"
+  },
+  {
+    "type": "199",
+    "path": "0x800000c7",
+    "coin": "ETF"
+  },
+  {
+    "type": "200",
+    "path": "0x800000c8",
+    "coin": "Omni"
+  },
+  {
+    "type": "201",
+    "path": "0x800000c9",
+    "coin": "BitcoinFile"
+  },
+  {
+    "type": "202",
+    "path": "0x800000ca",
+    "coin": "Uniform Fiscal Object"
+  },
+  {
+    "type": "203",
+    "path": "0x800000cb",
+    "coin": "Cryptonodes"
+  },
+  {
+    "type": "204",
+    "path": "0x800000cc",
+    "coin": "Bytecoin"
+  },
+  {
+    "type": "205",
+    "path": "0x800000cd",
+    "coin": "Ringo"
+  },
+  {
+    "type": "206",
+    "path": "0x800000ce",
+    "coin": "PlatON"
+  },
+  {
+    "type": "207",
+    "path": "0x800000cf",
+    "coin": "everiToken"
+  },
+  {
+    "type": "208",
+    "path": "0x800000d0",
+    "coin": "ATN"
+  },
+  {
+    "type": "209",
+    "path": "0x800000d1",
+    "coin": "Bismuth"
+  },
+  {
+    "type": "210",
+    "path": "0x800000d2",
+    "coin": "NEETCOIN"
+  },
+  {
+    "type": "211",
+    "path": "0x800000d3",
+    "coin": "BopoChain"
+  },
+  {
+    "type": "212",
+    "path": "0x800000d4",
+    "coin": "Utrum"
+  },
+  {
+    "type": "213",
+    "path": "0x800000d5",
+    "coin": "Alias"
+  },
+  {
+    "type": "214",
+    "path": "0x800000d6",
+    "coin": "Monkey Project"
+  },
+  {
+    "type": "215",
+    "path": "0x800000d7",
+    "coin": "BoxyCoin"
+  },
+  {
+    "type": "216",
+    "path": "0x800000d8",
+    "coin": "Flo"
+  },
+  {
+    "type": "217",
+    "path": "0x800000d9",
+    "coin": "Megacoin"
+  },
+  {
+    "type": "218",
+    "path": "0x800000da",
+    "coin": "BitCloud"
+  },
+  {
+    "type": "219",
+    "path": "0x800000db",
+    "coin": "Artax"
+  },
+  {
+    "type": "220",
+    "path": "0x800000dc",
+    "coin": "ANON"
+  },
+  {
+    "type": "221",
+    "path": "0x800000dd",
+    "coin": "LitecoinZ"
+  },
+  {
+    "type": "222",
+    "path": "0x800000de",
+    "coin": "Bitcoin Green"
+  },
+  {
+    "type": "223",
+    "path": "0x800000df",
+    "coin": "Internet Computer (DFINITY)"
+  },
+  {
+    "type": "224",
+    "path": "0x800000e0",
+    "coin": "Smartcash"
+  },
+  {
+    "type": "225",
+    "path": "0x800000e1",
+    "coin": "XUEZ"
+  },
+  {
+    "type": "226",
+    "path": "0x800000e2",
+    "coin": "Helium"
+  },
+  {
+    "type": "227",
+    "path": "0x800000e3",
+    "coin": "Webchain"
+  },
+  {
+    "type": "228",
+    "path": "0x800000e4",
+    "coin": "Actinium"
+  },
+  {
+    "type": "229",
+    "path": "0x800000e5",
+    "coin": "NOS Stable Coins"
+  },
+  {
+    "type": "230",
+    "path": "0x800000e6",
+    "coin": "BitCash"
+  },
+  {
+    "type": "231",
+    "path": "0x800000e7",
+    "coin": "Help The Homeless Coin"
+  },
+  {
+    "type": "232",
+    "path": "0x800000e8",
+    "coin": "Trezarcoin"
+  },
+  {
+    "type": "233",
+    "path": "0x800000e9",
+    "coin": "Varda"
+  },
+  {
+    "type": "234",
+    "path": "0x800000ea",
+    "coin": "IOV"
+  },
+  {
+    "type": "235",
+    "path": "0x800000eb",
+    "coin": "FIO"
+  },
+  {
+    "type": "236",
+    "path": "0x800000ec",
+    "coin": "BitcoinSV"
+  },
+  {
+    "type": "237",
+    "path": "0x800000ed",
+    "coin": "DEXON"
+  },
+  {
+    "type": "238",
+    "path": "0x800000ee",
+    "coin": "Quantum Resistant Ledger"
+  },
+  {
+    "type": "239",
+    "path": "0x800000ef",
+    "coin": "ChainX"
+  },
+  {
+    "type": "240",
+    "path": "0x800000f0",
+    "coin": "Loki"
+  },
+  {
+    "type": "241",
+    "path": "0x800000f1",
+    "coin": "Imagewallet"
+  },
+  {
+    "type": "242",
+    "path": "0x800000f2",
+    "coin": "Nimiq"
+  },
+  {
+    "type": "243",
+    "path": "0x800000f3",
+    "coin": "Sovereign Coin"
+  },
+  {
+    "type": "244",
+    "path": "0x800000f4",
+    "coin": "Jibital Coin"
+  },
+  {
+    "type": "245",
+    "path": "0x800000f5",
+    "coin": "Simple Ledger Protocol"
+  },
+  {
+    "type": "246",
+    "path": "0x800000f6",
+    "coin": "Energy Web"
+  },
+  {
+    "type": "247",
+    "path": "0x800000f7",
+    "coin": "Ulord"
+  },
+  {
+    "type": "248",
+    "path": "0x800000f8",
+    "coin": "EXOS"
+  },
+  {
+    "type": "249",
+    "path": "0x800000f9",
+    "coin": "Electra"
+  },
+  {
+    "type": "250",
+    "path": "0x800000fa",
+    "coin": "Soom"
+  },
+  {
+    "type": "251",
+    "path": "0x800000fb",
+    "coin": "Redstone"
+  },
+  {
+    "type": "252",
+    "path": "0x800000fc",
+    "coin": "FreeCoin"
+  },
+  {
+    "type": "253",
+    "path": "0x800000fd",
+    "coin": "NewPowerCoin"
+  },
+  {
+    "type": "254",
+    "path": "0x800000fe",
+    "coin": "BlockStamp"
+  },
+  {
+    "type": "255",
+    "path": "0x800000ff",
+    "coin": "SmartHoldem"
+  },
+  {
+    "type": "256",
+    "path": "0x80000100",
+    "coin": "Bitcoin Nano"
+  },
+  {
+    "type": "257",
+    "path": "0x80000101",
+    "coin": "Bitcoin Core"
+  },
+  {
+    "type": "258",
+    "path": "0x80000102",
+    "coin": "Zen Protocol"
+  },
+  {
+    "type": "259",
+    "path": "0x80000103",
+    "coin": "Zest"
+  },
+  {
+    "type": "260",
+    "path": "0x80000104",
+    "coin": "ArcBlock"
+  },
+  {
+    "type": "261",
+    "path": "0x80000105",
+    "coin": "Pion"
+  },
+  {
+    "type": "262",
+    "path": "0x80000106",
+    "coin": "DreamTeam3"
+  },
+  {
+    "type": "263",
+    "path": "0x80000107",
+    "coin": "Zbux"
+  },
+  {
+    "type": "264",
+    "path": "0x80000108",
+    "coin": "Kepler"
+  },
+  {
+    "type": "265",
+    "path": "0x80000109",
+    "coin": "TokenPay"
+  },
+  {
+    "type": "266",
+    "path": "0x8000010a",
+    "coin": "ChainZilla"
+  },
+  {
+    "type": "267",
+    "path": "0x8000010b",
+    "coin": "Anker"
+  },
+  {
+    "type": "268",
+    "path": "0x8000010c",
+    "coin": "BCChain"
+  },
+  {
+    "type": "269",
+    "path": "0x8000010d",
+    "coin": "HPB"
+  },
+  {
+    "type": "270",
+    "path": "0x8000010e",
+    "coin": "ONE"
+  },
+  {
+    "type": "271",
+    "path": "0x8000010f",
+    "coin": "SBC"
+  },
+  {
+    "type": "272",
+    "path": "0x80000110",
+    "coin": "IPChain"
+  },
+  {
+    "type": "273",
+    "path": "0x80000111",
+    "coin": "Dominantchain"
+  },
+  {
+    "type": "274",
+    "path": "0x80000112",
+    "coin": "Onegram"
+  },
+  {
+    "type": "275",
+    "path": "0x80000113",
+    "coin": "Shitcoin"
+  },
+  {
+    "type": "276",
+    "path": "0x80000114",
+    "coin": "Andescoin"
+  },
+  {
+    "type": "277",
+    "path": "0x80000115",
+    "coin": "Arepacoin"
+  },
+  {
+    "type": "278",
+    "path": "0x80000116",
+    "coin": "Bolivarcoin"
+  },
+  {
+    "type": "279",
+    "path": "0x80000117",
+    "coin": "Rilcoin"
+  },
+  {
+    "type": "280",
+    "path": "0x80000118",
+    "coin": "Hathor Network"
+  },
+  {
+    "type": "281",
+    "path": "0x80000119",
+    "coin": "Factom ID"
+  },
+  {
+    "type": "282",
+    "path": "0x8000011a",
+    "coin": "BRAVO"
+  },
+  {
+    "type": "283",
+    "path": "0x8000011b",
+    "coin": "Algorand"
+  },
+  {
+    "type": "284",
+    "path": "0x8000011c",
+    "coin": "Bitcoinzero"
+  },
+  {
+    "type": "285",
+    "path": "0x8000011d",
+    "coin": "GravityCoin"
+  },
+  {
+    "type": "286",
+    "path": "0x8000011e",
+    "coin": "HEAT"
+  },
+  {
+    "type": "287",
+    "path": "0x8000011f",
+    "coin": "DigitalNote"
+  },
+  {
+    "type": "288",
+    "path": "0x80000120",
+    "coin": "FUSION"
+  },
+  {
+    "type": "289",
+    "path": "0x80000121",
+    "coin": "Capricoin"
+  },
+  {
+    "type": "290",
+    "path": "0x80000122",
+    "coin": "Bold"
+  },
+  {
+    "type": "291",
+    "path": "0x80000123",
+    "coin": "IOST"
+  },
+  {
+    "type": "292",
+    "path": "0x80000124",
+    "coin": "Tkeycoin"
+  },
+  {
+    "type": "293",
+    "path": "0x80000125",
+    "coin": "Usechain"
+  },
+  {
+    "type": "294",
+    "path": "0x80000126",
+    "coin": "BitcoinCZ"
+  },
+  {
+    "type": "295",
+    "path": "0x80000127",
+    "coin": "Iocoin"
+  },
+  {
+    "type": "296",
+    "path": "0x80000128",
+    "coin": "Asofe"
+  },
+  {
+    "type": "297",
+    "path": "0x80000129",
+    "coin": "MASS"
+  },
+  {
+    "type": "298",
+    "path": "0x8000012a",
+    "coin": "FairCoin"
+  },
+  {
+    "type": "299",
+    "path": "0x8000012b",
+    "coin": "Nekonium"
+  },
+  {
+    "type": "300",
+    "path": "0x8000012c",
+    "coin": "Genaro Network"
+  },
+  {
+    "type": "301",
+    "path": "0x8000012d",
+    "coin": "Divi Project"
+  },
+  {
+    "type": "302",
+    "path": "0x8000012e",
+    "coin": "Community"
+  },
+  {
+    "type": "303",
+    "path": "0x8000012f",
+    "coin": "EUNO"
+  },
+  {
+    "type": "304",
+    "path": "0x80000130",
+    "coin": "IoTeX"
+  },
+  {
+    "type": "305",
+    "path": "0x80000131",
+    "coin": "DeepOnion"
+  },
+  {
+    "type": "306",
+    "path": "0x80000132",
+    "coin": "8Bit"
+  },
+  {
+    "type": "307",
+    "path": "0x80000133",
+    "coin": "AToken Coin"
+  },
+  {
+    "type": "308",
+    "path": "0x80000134",
+    "coin": "Bitshares"
+  },
+  {
+    "type": "309",
+    "path": "0x80000135",
+    "coin": "Nervos CKB"
+  },
+  {
+    "type": "310",
+    "path": "0x80000136",
+    "coin": "Ultrain"
+  },
+  {
+    "type": "311",
+    "path": "0x80000137",
+    "coin": "Adshares"
+  },
+  {
+    "type": "312",
+    "path": "0x80000138",
+    "coin": "Aura"
+  },
+  {
+    "type": "313",
+    "path": "0x80000139",
+    "coin": "Zilliqa"
+  },
+  {
+    "type": "314",
+    "path": "0x8000013a",
+    "coin": "MOAC"
+  },
+  {
+    "type": "315",
+    "path": "0x8000013b",
+    "coin": "SWTC"
+  },
+  {
+    "type": "316",
+    "path": "0x8000013c",
+    "coin": "vnscoin"
+  },
+  {
+    "type": "317",
+    "path": "0x8000013d",
+    "coin": "Pl^g"
+  },
+  {
+    "type": "318",
+    "path": "0x8000013e",
+    "coin": "Matrix AI Network"
+  },
+  {
+    "type": "319",
+    "path": "0x8000013f",
+    "coin": "ECCoin"
+  },
+  {
+    "type": "320",
+    "path": "0x80000140",
+    "coin": "Rapids"
+  },
+  {
+    "type": "321",
+    "path": "0x80000141",
+    "coin": "Rapture"
+  },
+  {
+    "type": "322",
+    "path": "0x80000142",
+    "coin": "Hashgard"
+  },
+  {
+    "type": "323",
+    "path": "0x80000143",
+    "coin": "Zero"
+  },
+  {
+    "type": "324",
+    "path": "0x80000144",
+    "coin": "eBoost"
+  },
+  {
+    "type": "325",
+    "path": "0x80000145",
+    "coin": "Shard"
+  },
+  {
+    "type": "326",
+    "path": "0x80000146",
+    "coin": "Linda Coin"
+  },
+  {
+    "type": "327",
+    "path": "0x80000147",
+    "coin": "Commercium"
+  },
+  {
+    "type": "328",
+    "path": "0x80000148",
+    "coin": "Blocknet"
+  },
+  {
+    "type": "329",
+    "path": "0x80000149",
+    "coin": "AUDAX"
+  },
+  {
+    "type": "330",
+    "path": "0x8000014a",
+    "coin": "Terra"
+  },
+  {
+    "type": "331",
+    "path": "0x8000014b",
+    "coin": "zPrime"
+  },
+  {
+    "type": "332",
+    "path": "0x8000014c",
+    "coin": "Kuva Utility Note"
+  },
+  {
+    "type": "333",
+    "path": "0x8000014d",
+    "coin": "MemCoin"
+  },
+  {
+    "type": "334",
+    "path": "0x8000014e",
+    "coin": "Credits"
+  },
+  {
+    "type": "335",
+    "path": "0x8000014f",
+    "coin": "SwiftCash"
+  },
+  {
+    "type": "336",
+    "path": "0x80000150",
+    "coin": "FIX"
+  },
+  {
+    "type": "337",
+    "path": "0x80000151",
+    "coin": "CPChain"
+  },
+  {
+    "type": "338",
+    "path": "0x80000152",
+    "coin": "VirtualGoodsToken"
+  },
+  {
+    "type": "339",
+    "path": "0x80000153",
+    "coin": "DeVault"
+  },
+  {
+    "type": "340",
+    "path": "0x80000154",
+    "coin": "N8VCoin"
+  },
+  {
+    "type": "341",
+    "path": "0x80000155",
+    "coin": "OmotenashiCoin"
+  },
+  {
+    "type": "342",
+    "path": "0x80000156",
+    "coin": "BLAST"
+  },
+  {
+    "type": "343",
+    "path": "0x80000157",
+    "coin": "DECENT"
+  },
+  {
+    "type": "344",
+    "path": "0x80000158",
+    "coin": "Auxilium"
+  },
+  {
+    "type": "345",
+    "path": "0x80000159",
+    "coin": "USDP"
+  },
+  {
+    "type": "346",
+    "path": "0x8000015a",
+    "coin": "HTDF"
+  },
+  {
+    "type": "347",
+    "path": "0x8000015b",
+    "coin": "Ycash"
+  },
+  {
+    "type": "348",
+    "path": "0x8000015c",
+    "coin": "QLC Chain"
+  },
+  {
+    "type": "349",
+    "path": "0x8000015d",
+    "coin": "Icetea Blockchain"
+  },
+  {
+    "type": "350",
+    "path": "0x8000015e",
+    "coin": "ArrowChain"
+  },
+  {
+    "type": "351",
+    "path": "0x8000015f",
+    "coin": "Medium"
+  },
+  {
+    "type": "352",
+    "path": "0x80000160",
+    "coin": "Cybex"
+  },
+  {
+    "type": "353",
+    "path": "0x80000161",
+    "coin": "LTO Network"
+  },
+  {
+    "type": "354",
+    "path": "0x80000162",
+    "coin": "Polkadot"
+  },
+  {
+    "type": "355",
+    "path": "0x80000163",
+    "coin": "Aeon"
+  },
+  {
+    "type": "356",
+    "path": "0x80000164",
+    "coin": "Resistance"
+  },
+  {
+    "type": "357",
+    "path": "0x80000165",
+    "coin": "Aryacoin"
+  },
+  {
+    "type": "358",
+    "path": "0x80000166",
+    "coin": "Dapscoin"
+  },
+  {
+    "type": "359",
+    "path": "0x80000167",
+    "coin": "CasinoCoin"
+  },
+  {
+    "type": "360",
+    "path": "0x80000168",
+    "coin": "V Systems"
+  },
+  {
+    "type": "361",
+    "path": "0x80000169",
+    "coin": "Nollar"
+  },
+  {
+    "type": "362",
+    "path": "0x8000016a",
+    "coin": "NOS"
+  },
+  {
+    "type": "363",
+    "path": "0x8000016b",
+    "coin": "CPUchain"
+  },
+  {
+    "type": "364",
+    "path": "0x8000016c",
+    "coin": "Lambda Storage Chain"
+  },
+  {
+    "type": "365",
+    "path": "0x8000016d",
+    "coin": "ValueCyber"
+  },
+  {
+    "type": "366",
+    "path": "0x8000016e",
+    "coin": "Canonchain"
+  },
+  {
+    "type": "367",
+    "path": "0x8000016f",
+    "coin": "ABBC"
+  },
+  {
+    "type": "368",
+    "path": "0x80000170",
+    "coin": "HET"
+  },
+  {
+    "type": "369",
+    "path": "0x80000171",
+    "coin": "Asch"
+  },
+  {
+    "type": "370",
+    "path": "0x80000172",
+    "coin": "Vidulum"
+  },
+  {
+    "type": "371",
+    "path": "0x80000173",
+    "coin": "MediBloc"
+  },
+  {
+    "type": "372",
+    "path": "0x80000174",
+    "coin": "ZVChain"
+  },
+  {
+    "type": "373",
+    "path": "0x80000175",
+    "coin": "Vestx"
+  },
+  {
+    "type": "374",
+    "path": "0x80000176",
+    "coin": "DarkBit"
+  },
+  {
+    "type": "375",
+    "path": "0x80000177",
+    "coin": "SuperEOS"
+  },
+  {
+    "type": "376",
+    "path": "0x80000178",
+    "coin": "Maxonrow"
+  },
+  {
+    "type": "377",
+    "path": "0x80000179",
+    "coin": "ZENZO"
+  },
+  {
+    "type": "378",
+    "path": "0x8000017a",
+    "coin": "XChain"
+  },
+  {
+    "type": "379",
+    "path": "0x8000017b",
+    "coin": "SonicX"
+  },
+  {
+    "type": "380",
+    "path": "0x8000017c",
+    "coin": "Nyzo"
+  },
+  {
+    "type": "381",
+    "path": "0x8000017d",
+    "coin": "ULCoin"
+  },
+  {
+    "type": "382",
+    "path": "0x8000017e",
+    "coin": "Ryo Currency"
+  },
+  {
+    "type": "383",
+    "path": "0x8000017f",
+    "coin": "Kaleidochain"
+  },
+  {
+    "type": "384",
+    "path": "0x80000180",
+    "coin": "Stakenet"
+  },
+  {
+    "type": "385",
+    "path": "0x80000181",
+    "coin": "DogeCash"
+  },
+  {
+    "type": "386",
+    "path": "0x80000182",
+    "coin": "Bitcoin Matteo's Vision"
+  },
+  {
+    "type": "387",
+    "path": "0x80000183",
+    "coin": "Quebecoin"
+  },
+  {
+    "type": "388",
+    "path": "0x80000184",
+    "coin": "ImageCoin"
+  },
+  {
+    "type": "389",
+    "path": "0x80000185",
+    "coin": "QOS"
+  },
+  {
+    "type": "390",
+    "path": "0x80000186",
+    "coin": "PKT"
+  },
+  {
+    "type": "391",
+    "path": "0x80000187",
+    "coin": "LitecoinHD"
+  },
+  {
+    "type": "392",
+    "path": "0x80000188",
+    "coin": "CENNZnet"
+  },
+  {
+    "type": "393",
+    "path": "0x80000189",
+    "coin": "Hyper Speed Network"
+  },
+  {
+    "type": "394",
+    "path": "0x8000018a",
+    "coin": "Crypto.org Chain"
+  },
+  {
+    "type": "395",
+    "path": "0x8000018b",
+    "coin": "Umbru"
+  },
+  {
+    "type": "396",
+    "path": "0x8000018c",
+    "coin": "Free TON"
+  },
+  {
+    "type": "397",
+    "path": "0x8000018d",
+    "coin": "NEAR Protocol"
+  },
+  {
+    "type": "398",
+    "path": "0x8000018e",
+    "coin": "XPChain"
+  },
+  {
+    "type": "399",
+    "path": "0x8000018f",
+    "coin": "01coin"
+  },
+  {
+    "type": "400",
+    "path": "0x80000190",
+    "coin": "NIX"
+  },
+  {
+    "type": "401",
+    "path": "0x80000191",
+    "coin": "Utopiacoin"
+  },
+  {
+    "type": "402",
+    "path": "0x80000192",
+    "coin": "Galilel"
+  },
+  {
+    "type": "403",
+    "path": "0x80000193",
+    "coin": "Oneledger"
+  },
+  {
+    "type": "404",
+    "path": "0x80000194",
+    "coin": "XBI"
+  },
+  {
+    "type": "405",
+    "path": "0x80000195",
+    "coin": "DONU"
+  },
+  {
+    "type": "406",
+    "path": "0x80000196",
+    "coin": "Earths"
+  },
+  {
+    "type": "407",
+    "path": "0x80000197",
+    "coin": "HDDCash"
+  },
+  {
+    "type": "408",
+    "path": "0x80000198",
+    "coin": "Sugarchain"
+  },
+  {
+    "type": "409",
+    "path": "0x80000199",
+    "coin": "AileCoin"
+  },
+  {
+    "type": "410",
+    "path": "0x8000019a",
+    "coin": "TENT"
+  },
+  {
+    "type": "411",
+    "path": "0x8000019b",
+    "coin": "Tangerine Network"
+  },
+  {
+    "type": "412",
+    "path": "0x8000019c",
+    "coin": "AIN"
+  },
+  {
+    "type": "413",
+    "path": "0x8000019d",
+    "coin": "Masari"
+  },
+  {
+    "type": "414",
+    "path": "0x8000019e",
+    "coin": "Sumokoin"
+  },
+  {
+    "type": "415",
+    "path": "0x8000019f",
+    "coin": "Electroneum"
+  },
+  {
+    "type": "416",
+    "path": "0x800001a0",
+    "coin": "BYTZ"
+  },
+  {
+    "type": "417",
+    "path": "0x800001a1",
+    "coin": "Wownero"
+  },
+  {
+    "type": "418",
+    "path": "0x800001a2",
+    "coin": "XtendCash"
+  },
+  {
+    "type": "419",
+    "path": "0x800001a3",
+    "coin": "Lethean"
+  },
+  {
+    "type": "420",
+    "path": "0x800001a4",
+    "coin": "NodeHost"
+  },
+  {
+    "type": "421",
+    "path": "0x800001a5",
+    "coin": "Argoneum"
+  },
+  {
+    "type": "422",
+    "path": "0x800001a6",
+    "coin": "Conceal Network"
+  },
+  {
+    "type": "423",
+    "path": "0x800001a7",
+    "coin": "Title Network"
+  },
+  {
+    "type": "424",
+    "path": "0x800001a8",
+    "coin": "TelosCoin"
+  },
+  {
+    "type": "425",
+    "path": "0x800001a9",
+    "coin": "Aion"
+  },
+  {
+    "type": "426",
+    "path": "0x800001aa",
+    "coin": "Bitcoin Confidential"
+  },
+  {
+    "type": "427",
+    "path": "0x800001ab",
+    "coin": "KmushiCoin"
+  },
+  {
+    "type": "428",
+    "path": "0x800001ac",
+    "coin": "ZCore"
+  },
+  {
+    "type": "429",
+    "path": "0x800001ad",
+    "coin": "Ergo"
+  },
+  {
+    "type": "430",
+    "path": "0x800001ae",
+    "coin": "Criptopeso"
+  },
+  {
+    "type": "431",
+    "path": "0x800001af",
+    "coin": "Bitcoin 2"
+  },
+  {
+    "type": "432",
+    "path": "0x800001b0",
+    "coin": "XRPHD"
+  },
+  {
+    "type": "433",
+    "path": "0x800001b1",
+    "coin": "WE Coin"
+  },
+  {
+    "type": "434",
+    "path": "0x800001b2",
+    "coin": "Kusama"
+  },
+  {
+    "type": "435",
+    "path": "0x800001b3",
+    "coin": "Peepcoin"
+  },
+  {
+    "type": "436",
+    "path": "0x800001b4",
+    "coin": "NetCloth"
+  },
+  {
+    "type": "437",
+    "path": "0x800001b5",
+    "coin": "CHIPO"
+  },
+  {
+    "type": "438",
+    "path": "0x800001b6",
+    "coin": "LINK"
+  },
+  {
+    "type": "439",
+    "path": "0x800001b7",
+    "coin": "DeVault Token Protocol"
+  },
+  {
+    "type": "440",
+    "path": "0x800001b8",
+    "coin": "Bitcoin Royale"
+  },
+  {
+    "type": "441",
+    "path": "0x800001b9",
+    "coin": "AERGO"
+  },
+  {
+    "type": "442",
+    "path": "0x800001ba",
+    "coin": "Dothereum"
+  },
+  {
+    "type": "443",
+    "path": "0x800001bb",
+    "coin": "Lava"
+  },
+  {
+    "type": "444",
+    "path": "0x800001bc",
+    "coin": "Phore"
+  },
+  {
+    "type": "445",
+    "path": "0x800001bd",
+    "coin": "Vitae"
+  },
+  {
+    "type": "446",
+    "path": "0x800001be",
+    "coin": "Cocos-BCX"
+  },
+  {
+    "type": "447",
+    "path": "0x800001bf",
+    "coin": "Dinero"
+  },
+  {
+    "type": "448",
+    "path": "0x800001c0",
+    "coin": "Simplicity"
+  },
+  {
+    "type": "449",
+    "path": "0x800001c1",
+    "coin": "MYCE"
+  },
+  {
+    "type": "450",
+    "path": "0x800001c2",
+    "coin": "Solaris"
+  },
+  {
+    "type": "451",
+    "path": "0x800001c3",
+    "coin": "Klimatas"
+  },
+  {
+    "type": "452",
+    "path": "0x800001c4",
+    "coin": "DGLD"
+  },
+  {
+    "type": "453",
+    "path": "0x800001c5",
+    "coin": "Insolar"
+  },
+  {
+    "type": "454",
+    "path": "0x800001c6",
+    "coin": "EMPOW"
+  },
+  {
+    "type": "455",
+    "path": "0x800001c7",
+    "coin": "ShineBlocks"
+  },
+  {
+    "type": "456",
+    "path": "0x800001c8",
+    "coin": "Seele"
+  },
+  {
+    "type": "457",
+    "path": "0x800001c9",
+    "coin": "æternity"
+  },
+  {
+    "type": "458",
+    "path": "0x800001ca",
+    "coin": "ObsidianX"
+  },
+  {
+    "type": "459",
+    "path": "0x800001cb",
+    "coin": "Kava"
+  },
+  {
+    "type": "460",
+    "path": "0x800001cc",
+    "coin": "GLEEC"
+  },
+  {
+    "type": "461",
+    "path": "0x800001cd",
+    "coin": "Filecoin"
+  },
+  {
+    "type": "462",
+    "path": "0x800001ce",
+    "coin": "Rutanio"
+  },
+  {
+    "type": "463",
+    "path": "0x800001cf",
+    "coin": "CSDT"
+  },
+  {
+    "type": "464",
+    "path": "0x800001d0",
+    "coin": "EtherInc"
+  },
+  {
+    "type": "465",
+    "path": "0x800001d1",
+    "coin": "Zclassic Simple Ledger Protocol"
+  },
+  {
+    "type": "466",
+    "path": "0x800001d2",
+    "coin": "EtherCore"
+  },
+  {
+    "type": "467",
+    "path": "0x800001d3",
+    "coin": "DxChain Token"
+  },
+  {
+    "type": "468",
+    "path": "0x800001d4",
+    "coin": "Capricoin+"
+  },
+  {
+    "type": "469",
+    "path": "0x800001d5",
+    "coin": "Bithereum"
+  },
+  {
+    "type": "470",
+    "path": "0x800001d6",
+    "coin": "MESG"
+  },
+  {
+    "type": "471",
+    "path": "0x800001d7",
+    "coin": "FIMK"
+  },
+  {
+    "type": "472",
+    "path": "0x800001d8",
+    "coin": "Arweave"
+  },
+  {
+    "type": "473",
+    "path": "0x800001d9",
+    "coin": "Origo"
+  },
+  {
+    "type": "474",
+    "path": "0x800001da",
+    "coin": "Oasis Network"
+  },
+  {
+    "type": "475",
+    "path": "0x800001db",
+    "coin": "BARE Network"
+  },
+  {
+    "type": "476",
+    "path": "0x800001dc",
+    "coin": "GleecBTC"
+  },
+  {
+    "type": "477",
+    "path": "0x800001dd",
+    "coin": "Color Coin"
+  },
+  {
+    "type": "478",
+    "path": "0x800001de",
+    "coin": "Ring"
+  },
+  {
+    "type": "479",
+    "path": "0x800001df",
+    "coin": "Tool Global"
+  },
+  {
+    "type": "480",
+    "path": "0x800001e0",
+    "coin": "Pexa"
+  },
+  {
+    "type": "481",
+    "path": "0x800001e1",
+    "coin": "Mooncoin"
+  },
+  {
+    "type": "482",
+    "path": "0x800001e2",
+    "coin": "Ocean Protocol"
+  },
+  {
+    "type": "483",
+    "path": "0x800001e3",
+    "coin": "Bluzelle Native"
+  },
+  {
+    "type": "484",
+    "path": "0x800001e4",
+    "coin": "AMO Blockchain"
+  },
+  {
+    "type": "485",
+    "path": "0x800001e5",
+    "coin": "FreeCash"
+  },
+  {
+    "type": "486",
+    "path": "0x800001e6",
+    "coin": "LatticeX"
+  },
+  {
+    "type": "487",
+    "path": "0x800001e7",
+    "coin": "Bitcoin Bank"
+  },
+  {
+    "type": "488",
+    "path": "0x800001e8",
+    "coin": "Amoveo"
+  },
+  {
+    "type": "489",
+    "path": "0x800001e9",
+    "coin": "Counos Coin"
+  },
+  {
+    "type": "490",
+    "path": "0x800001ea",
+    "coin": "Graphene"
+  },
+  {
+    "type": "491",
+    "path": "0x800001eb",
+    "coin": "Minter Network"
+  },
+  {
+    "type": "492",
+    "path": "0x800001ec",
+    "coin": "Kunpeng Network"
+  },
+  {
+    "type": "493",
+    "path": "0x800001ed",
+    "coin": "FINL Chain"
+  },
+  {
+    "type": "494",
+    "path": "0x800001ee",
+    "coin": "Band"
+  },
+  {
+    "type": "495",
+    "path": "0x800001ef",
+    "coin": "Dropil"
+  },
+  {
+    "type": "496",
+    "path": "0x800001f0",
+    "coin": "Bluehelix Chain"
+  },
+  {
+    "type": "497",
+    "path": "0x800001f1",
+    "coin": "Scrypta"
+  },
+  {
+    "type": "498",
+    "path": "0x800001f2",
+    "coin": "Credits"
+  },
+  {
+    "type": "499",
+    "path": "0x800001f3",
+    "coin": "Rupaya"
+  },
+  {
+    "type": "500",
+    "path": "0x800001f4",
+    "coin": "Theta"
+  },
+  {
+    "type": "501",
+    "path": "0x800001f5",
+    "coin": "Solana"
+  },
+  {
+    "type": "502",
+    "path": "0x800001f6",
+    "coin": "ThoughtAI"
+  },
+  {
+    "type": "503",
+    "path": "0x800001f7",
+    "coin": "Conflux"
+  },
+  {
+    "type": "504",
+    "path": "0x800001f8",
+    "coin": "Kumacoin"
+  },
+  {
+    "type": "505",
+    "path": "0x800001f9",
+    "coin": "Provenance"
+  },
+  {
+    "type": "506",
+    "path": "0x800001fa",
+    "coin": "Casper"
+  },
+  {
+    "type": "507",
+    "path": "0x800001fb",
+    "coin": "EARTH"
+  },
+  {
+    "type": "508",
+    "path": "0x800001fc",
+    "coin": "Elrond"
+  },
+  {
+    "type": "509",
+    "path": "0x800001fd",
+    "coin": "Xaya"
+  },
+  {
+    "type": "510",
+    "path": "0x800001fe",
+    "coin": "Koto"
+  },
+  {
+    "type": "511",
+    "path": "0x800001ff",
+    "coin": "θ"
+  },
+  {
+    "type": "512",
+    "path": "0x80000200",
+    "coin": "Radiant"
+  },
+  {
+    "type": "513",
+    "path": "0x80000201",
+    "coin": "Seele-N"
+  },
+  {
+    "type": "514",
+    "path": "0x80000202",
+    "coin": "AETH"
+  },
+  {
+    "type": "515",
+    "path": "0x80000203",
+    "coin": "Idena"
+  },
+  {
+    "type": "516",
+    "path": "0x80000204",
+    "coin": "Virtual Economy Era"
+  },
+  {
+    "type": "517",
+    "path": "0x80000205",
+    "coin": "SierraCoin"
+  },
+  {
+    "type": "518",
+    "path": "0x80000206",
+    "coin": "Linkeye"
+  },
+  {
+    "type": "519",
+    "path": "0x80000207",
+    "coin": "Bitcoin Smart Contract"
+  },
+  {
+    "type": "520",
+    "path": "0x80000208",
+    "coin": "BitcoinVIP"
+  },
+  {
+    "type": "521",
+    "path": "0x80000209",
+    "coin": "Dabacus"
+  },
+  {
+    "type": "522",
+    "path": "0x8000020a",
+    "coin": "StakeCubeCoin"
+  },
+  {
+    "type": "523",
+    "path": "0x8000020b",
+    "coin": "Edgeware"
+  },
+  {
+    "type": "524",
+    "path": "0x8000020c",
+    "coin": "AmsterdamCoin"
+  },
+  {
+    "type": "525",
+    "path": "0x8000020d",
+    "coin": "GOSSIP Coin"
+  },
+  {
+    "type": "526",
+    "path": "0x8000020e",
+    "coin": "BUMO"
+  },
+  {
+    "type": "527",
+    "path": "0x8000020f",
+    "coin": "GRAM"
+  },
+  {
+    "type": "528",
+    "path": "0x80000210",
+    "coin": "Yapstone"
+  },
+  {
+    "type": "529",
+    "path": "0x80000211",
+    "coin": "Secret Network"
+  },
+  {
+    "type": "530",
+    "path": "0x80000212",
+    "coin": "Novo"
+  },
+  {
+    "type": "531",
+    "path": "0x80000213",
+    "coin": "Ghost"
+  },
+  {
+    "type": "532",
+    "path": "0x80000214",
+    "coin": "HST"
+  },
+  {
+    "type": "533",
+    "path": "0x80000215",
+    "coin": "ProjectCoin"
+  },
+  {
+    "type": "534",
+    "path": "0x80000216",
+    "coin": "YOUChain"
+  },
+  {
+    "type": "535",
+    "path": "0x80000217",
+    "coin": "Haven Protocol"
+  },
+  {
+    "type": "536",
+    "path": "0x80000218",
+    "coin": "Beyondcoin"
+  },
+  {
+    "type": "537",
+    "path": "0x80000219",
+    "coin": "Joys Digital"
+  },
+  {
+    "type": "538",
+    "path": "0x8000021a",
+    "coin": "Valorbit"
+  },
+  {
+    "type": "539",
+    "path": "0x8000021b",
+    "coin": "Flow"
+  },
+  {
+    "type": "540",
+    "path": "0x8000021c",
+    "coin": "Spacemesh Coin"
+  },
+  {
+    "type": "541",
+    "path": "0x8000021d",
+    "coin": "SCDO"
+  },
+  {
+    "type": "542",
+    "path": "0x8000021e",
+    "coin": "IQ-Cash"
+  },
+  {
+    "type": "543",
+    "path": "0x8000021f",
+    "coin": "Compendia"
+  },
+  {
+    "type": "544",
+    "path": "0x80000220",
+    "coin": "Coinevo"
+  },
+  {
+    "type": "545",
+    "path": "0x80000221",
+    "coin": "Scribe"
+  },
+  {
+    "type": "546",
+    "path": "0x80000222",
+    "coin": "Hyperion"
+  },
+  {
+    "type": "547",
+    "path": "0x80000223",
+    "coin": "BHP"
+  },
+  {
+    "type": "548",
+    "path": "0x80000224",
+    "coin": "BigBang Core"
+  },
+  {
+    "type": "549",
+    "path": "0x80000225",
+    "coin": "MarketFinance"
+  },
+  {
+    "type": "550",
+    "path": "0x80000226",
+    "coin": "XinFin.Network"
+  },
+  {
+    "type": "551",
+    "path": "0x80000227",
+    "coin": "Straightedge"
+  },
+  {
+    "type": "552",
+    "path": "0x80000228",
+    "coin": "Sumcoin"
+  },
+  {
+    "type": "553",
+    "path": "0x80000229",
+    "coin": "HuobiChain"
+  },
+  {
+    "type": "554",
+    "path": "0x8000022a",
+    "coin": "reserved"
+  },
+  {
+    "type": "555",
+    "path": "0x8000022b",
+    "coin": "Bitcoin Smart"
+  },
+  {
+    "type": "556",
+    "path": "0x8000022c",
+    "coin": "Kratos"
+  },
+  {
+    "type": "557",
+    "path": "0x8000022d",
+    "coin": "Lkrcoin"
+  },
+  {
+    "type": "558",
+    "path": "0x8000022e",
+    "coin": "Tao"
+  },
+  {
+    "type": "559",
+    "path": "0x8000022f",
+    "coin": "Whitecoin"
+  },
+  {
+    "type": "560",
+    "path": "0x80000230",
+    "coin": "DEAL"
+  },
+  {
+    "type": "561",
+    "path": "0x80000231",
+    "coin": "Nexty"
+  },
+  {
+    "type": "562",
+    "path": "0x80000232",
+    "coin": "TOP NetWork"
+  },
+  {
+    "type": "563",
+    "path": "0x80000233",
+    "coin": "Stargaze"
+  },
+  {
+    "type": "564",
+    "path": "0x80000234",
+    "coin": "Agoric"
+  },
+  {
+    "type": "565",
+    "path": "0x80000235",
+    "coin": "Coinicles"
+  },
+  {
+    "type": "566",
+    "path": "0x80000236",
+    "coin": "Irisnet"
+  },
+  {
+    "type": "567",
+    "path": "0x80000237",
+    "coin": "Nine Chronicles"
+  },
+  {
+    "type": "568",
+    "path": "0x80000238",
+    "coin": "Large Coin"
+  },
+  {
+    "type": "569",
+    "path": "0x80000239",
+    "coin": "Super Zero Protocol"
+  },
+  {
+    "type": "570",
+    "path": "0x8000023a",
+    "coin": "Beldex"
+  },
+  {
+    "type": "571",
+    "path": "0x8000023b",
+    "coin": "Counos X"
+  },
+  {
+    "type": "572",
+    "path": "0x8000023c",
+    "coin": "Saluscoin"
+  },
+  {
+    "type": "573",
+    "path": "0x8000023d",
+    "coin": "Serum"
+  },
+  {
+    "type": "574",
+    "path": "0x8000023e",
+    "coin": "Velas"
+  },
+  {
+    "type": "575",
+    "path": "0x8000023f",
+    "coin": "VIDT Datalink"
+  },
+  {
+    "type": "576",
+    "path": "0x80000240",
+    "coin": "BitcoinPoS"
+  },
+  {
+    "type": "577",
+    "path": "0x80000241",
+    "coin": "NKN"
+  },
+  {
+    "type": "578",
+    "path": "0x80000242",
+    "coin": "ILCOIN"
+  },
+  {
+    "type": "579",
+    "path": "0x80000243",
+    "coin": "Bonorum"
+  },
+  {
+    "type": "580",
+    "path": "0x80000244",
+    "coin": "PLATINCOIN"
+  },
+  {
+    "type": "581",
+    "path": "0x80000245",
+    "coin": "Dune"
+  },
+  {
+    "type": "582",
+    "path": "0x80000246",
+    "coin": "Darmacash"
+  },
+  {
+    "type": "583",
+    "path": "0x80000247",
+    "coin": "Creditcoin"
+  },
+  {
+    "type": "584",
+    "path": "0x80000248",
+    "coin": "Haidai Network"
+  },
+  {
+    "type": "585",
+    "path": "0x80000249",
+    "coin": "GoldBCR"
+  },
+  {
+    "type": "586",
+    "path": "0x8000024a",
+    "coin": "XDAG"
+  },
+  {
+    "type": "587",
+    "path": "0x8000024b",
+    "coin": "Incognito Privacy"
+  },
+  {
+    "type": "588",
+    "path": "0x8000024c",
+    "coin": "SafeCapital"
+  },
+  {
+    "type": "589",
+    "path": "0x8000024d",
+    "coin": "Theta Fuel"
+  },
+  {
+    "type": "590",
+    "path": "0x8000024e",
+    "coin": "Gentarium"
+  },
+  {
+    "type": "591",
+    "path": "0x8000024f",
+    "coin": "RentalChain"
+  },
+  {
+    "type": "592",
+    "path": "0x80000250",
+    "coin": "Grin"
+  },
+  {
+    "type": "593",
+    "path": "0x80000251",
+    "coin": "MimbleWimbleCoin"
+  },
+  {
+    "type": "594",
+    "path": "0x80000252",
+    "coin": "Dock"
+  },
+  {
+    "type": "595",
+    "path": "0x80000253",
+    "coin": "Polymesh"
+  },
+  {
+    "type": "596",
+    "path": "0x80000254",
+    "coin": "Divergenti"
+  },
+  {
+    "type": "597",
+    "path": "0x80000255",
+    "coin": "Electra Protocol"
+  },
+  {
+    "type": "598",
+    "path": "0x80000256",
+    "coin": "Apron"
+  },
+  {
+    "type": "599",
+    "path": "0x80000257",
+    "coin": "Turbo File Coin"
+  },
+  {
+    "type": "600",
+    "path": "0x80000258",
+    "coin": "Unit-e"
+  },
+  {
+    "type": "601",
+    "path": "0x80000259",
+    "coin": "Metacoin"
+  },
+  {
+    "type": "602",
+    "path": "0x8000025a",
+    "coin": "NobodyCash"
+  },
+  {
+    "type": "603",
+    "path": "0x8000025b",
+    "coin": "Xinyuehu"
+  },
+  {
+    "type": "604",
+    "path": "0x8000025c",
+    "coin": "Dynamo"
+  },
+  {
+    "type": "605",
+    "path": "0x8000025d",
+    "coin": "Buffer"
+  },
+  {
+    "type": "606",
+    "path": "0x8000025e",
+    "coin": "Stratos"
+  },
+  {
+    "type": "607",
+    "path": "0x8000025f",
+    "coin": "TON"
+  },
+  {
+    "type": "608",
+    "path": "0x80000260",
+    "coin": "TAFT"
+  },
+  {
+    "type": "609",
+    "path": "0x80000261",
+    "coin": "HYDRA"
+  },
+  {
+    "type": "610",
+    "path": "0x80000262",
+    "coin": "Noir"
+  },
+  {
+    "type": "611",
+    "path": "0x80000263",
+    "coin": "Manta Network Private Asset"
+  },
+  {
+    "type": "612",
+    "path": "0x80000264",
+    "coin": "Calamari Network Private Asset"
+  },
+  {
+    "type": "613",
+    "path": "0x80000265",
+    "coin": "Widecoin"
+  },
+  {
+    "type": "614",
+    "path": "0x80000266",
+    "coin": "Optimistic Ethereum"
+  },
+  {
+    "type": "615",
+    "path": "0x80000267",
+    "coin": "PolkaSwap"
+  },
+  {
+    "type": "616",
+    "path": "0x80000268",
+    "coin": "Validator"
+  },
+  {
+    "type": "617",
+    "path": "0x80000269",
+    "coin": "Sora"
+  },
+  {
+    "type": "618",
+    "path": "0x8000026a",
+    "coin": "SmartShare"
+  },
+  {
+    "type": "619",
+    "path": "0x8000026b",
+    "coin": "DeimosX"
+  },
+  {
+    "type": "624",
+    "path": "0x80000270",
+    "coin": "Nobility"
+  },
+  {
+    "type": "625",
+    "path": "0x80000271",
+    "coin": "Eastcoin"
+  },
+  {
+    "type": "628",
+    "path": "0x80000274",
+    "coin": "Gitopia"
+  },
+  {
+    "type": "639",
+    "path": "0x8000027f",
+    "coin": "BitSong"
+  },
+  {
+    "type": "640",
+    "path": "0x80000280",
+    "coin": "Leofcoin"
+  },
+  {
+    "type": "648",
+    "path": "0x80000288",
+    "coin": "Zarb"
+  },
+  {
+    "type": "660",
+    "path": "0x80000294",
+    "coin": "PirateCash"
+  },
+  {
+    "type": "663",
+    "path": "0x80000297",
+    "coin": "EtherGem Sapphire"
+  },
+  {
+    "type": "666",
+    "path": "0x8000029a",
+    "coin": "Achain"
+  },
+  {
+    "type": "667",
+    "path": "0x8000029b",
+    "coin": "Perkle"
+  },
+  {
+    "type": "668",
+    "path": "0x8000029c",
+    "coin": "SelfSell"
+  },
+  {
+    "type": "669",
+    "path": "0x8000029d",
+    "coin": "GateChain"
+  },
+  {
+    "type": "677",
+    "path": "0x800002a5",
+    "coin": "Yunge"
+  },
+  {
+    "type": "678",
+    "path": "0x800002a6",
+    "coin": "Voken"
+  },
+  {
+    "type": "680",
+    "path": "0x800002a8",
+    "coin": "Evrynet"
+  },
+  {
+    "type": "686",
+    "path": "0x800002ae",
+    "coin": "Karura Network"
+  },
+  {
+    "type": "688",
+    "path": "0x800002b0",
+    "coin": "CoinEx Chain"
+  },
+  {
+    "type": "698",
+    "path": "0x800002ba",
+    "coin": "Veil"
+  },
+  {
+    "type": "700",
+    "path": "0x800002bc",
+    "coin": "xDai"
+  },
+  {
+    "type": "707",
+    "path": "0x800002c3",
+    "coin": "Moneta Coin"
+  },
+  {
+    "type": "711",
+    "path": "0x800002c7",
+    "coin": "Chaincoin"
+  },
+  {
+    "type": "713",
+    "path": "0x800002c9",
+    "coin": "Katal Chain"
+  },
+  {
+    "type": "714",
+    "path": "0x800002ca",
+    "coin": "Binance"
+  },
+  {
+    "type": "715",
+    "path": "0x800002cb",
+    "coin": "Sinovate"
+  },
+  {
+    "type": "716",
+    "path": "0x800002cc",
+    "coin": "Delion"
+  },
+  {
+    "type": "725",
+    "path": "0x800002d5",
+    "coin": "MultiCash"
+  },
+  {
+    "type": "731",
+    "path": "0x800002db",
+    "coin": "Bitmark"
+  },
+  {
+    "type": "737",
+    "path": "0x800002e1",
+    "coin": "[Financial Blockchain]"
+  },
+  {
+    "type": "747",
+    "path": "0x800002eb",
+    "coin": "Centrifuge"
+  },
+  {
+    "type": "750",
+    "path": "0x800002ee",
+    "coin": "Persistence"
+  },
+  {
+    "type": "768",
+    "path": "0x80000300",
+    "coin": "Ballzcoin"
+  },
+  {
+    "type": "770",
+    "path": "0x80000302",
+    "coin": "Cosanta"
+  },
+  {
+    "type": "771",
+    "path": "0x80000303",
+    "coin": "BR"
+  },
+  {
+    "type": "777",
+    "path": "0x80000309",
+    "coin": "Bitcoin World"
+  },
+  {
+    "type": "786",
+    "path": "0x80000312",
+    "coin": "UIDD"
+  },
+  {
+    "type": "787",
+    "path": "0x80000313",
+    "coin": "Acala"
+  },
+  {
+    "type": "789",
+    "path": "0x80000315",
+    "coin": "Lamden"
+  },
+  {
+    "type": "800",
+    "path": "0x80000320",
+    "coin": "Beetle Coin"
+  },
+  {
+    "type": "801",
+    "path": "0x80000321",
+    "coin": "DSTRA"
+  },
+  {
+    "type": "808",
+    "path": "0x80000328",
+    "coin": "Qvolta"
+  },
+  {
+    "type": "811",
+    "path": "0x8000032b",
+    "coin": "Sentinel"
+  },
+  {
+    "type": "818",
+    "path": "0x80000332",
+    "coin": "VeChain Token"
+  },
+  {
+    "type": "820",
+    "path": "0x80000334",
+    "coin": "Callisto"
+  },
+  {
+    "type": "822",
+    "path": "0x80000336",
+    "coin": "BigchainDB"
+  },
+  {
+    "type": "828",
+    "path": "0x8000033c",
+    "coin": "ComputeCoin"
+  },
+  {
+    "type": "831",
+    "path": "0x8000033f",
+    "coin": "cruzbit"
+  },
+  {
+    "type": "832",
+    "path": "0x80000340",
+    "coin": "Sapphire"
+  },
+  {
+    "type": "833",
+    "path": "0x80000341",
+    "coin": "Jackpot"
+  },
+  {
+    "type": "834",
+    "path": "0x80000342",
+    "coin": "Kyanite"
+  },
+  {
+    "type": "835",
+    "path": "0x80000343",
+    "coin": "Azzure"
+  },
+  {
+    "type": "836",
+    "path": "0x80000344",
+    "coin": "CryptoFlow"
+  },
+  {
+    "type": "837",
+    "path": "0x80000345",
+    "coin": "Dash Diamond"
+  },
+  {
+    "type": "838",
+    "path": "0x80000346",
+    "coin": "Trittium"
+  },
+  {
+    "type": "839",
+    "path": "0x80000347",
+    "coin": "Ultra Clear"
+  },
+  {
+    "type": "840",
+    "path": "0x80000348",
+    "coin": "Peony"
+  },
+  {
+    "type": "841",
+    "path": "0x80000349",
+    "coin": "Beacon"
+  },
+  {
+    "type": "842",
+    "path": "0x8000034a",
+    "coin": "Monk"
+  },
+  {
+    "type": "843",
+    "path": "0x8000034b",
+    "coin": "CryptoSaga"
+  },
+  {
+    "type": "844",
+    "path": "0x8000034c",
+    "coin": "Suvereno"
+  },
+  {
+    "type": "845",
+    "path": "0x8000034d",
+    "coin": "EskaCoin"
+  },
+  {
+    "type": "846",
+    "path": "0x8000034e",
+    "coin": "OneWorld Coin"
+  },
+  {
+    "type": "847",
+    "path": "0x8000034f",
+    "coin": "PEPS Coin"
+  },
+  {
+    "type": "848",
+    "path": "0x80000350",
+    "coin": "Birake"
+  },
+  {
+    "type": "852",
+    "path": "0x80000354",
+    "coin": "Desmos"
+  },
+  {
+    "type": "853",
+    "path": "0x80000355",
+    "coin": "PRCY Coin"
+  },
+  {
+    "type": "866",
+    "path": "0x80000362",
+    "coin": "MobileCoin"
+  },
+  {
+    "type": "868",
+    "path": "0x80000364",
+    "coin": "Infinitefuture"
+  },
+  {
+    "type": "883",
+    "path": "0x80000373",
+    "coin": "ZooBC"
+  },
+  {
+    "type": "886",
+    "path": "0x80000376",
+    "coin": "AD Token"
+  },
+  {
+    "type": "888",
+    "path": "0x80000378",
+    "coin": "NEO"
+  },
+  {
+    "type": "889",
+    "path": "0x80000379",
+    "coin": "TOMO"
+  },
+  {
+    "type": "890",
+    "path": "0x8000037a",
+    "coin": "Seln"
+  },
+  {
+    "type": "896",
+    "path": "0x80000380",
+    "coin": "LKSCoin"
+  },
+  {
+    "type": "899",
+    "path": "0x80000383",
+    "coin": "eCash"
+  },
+  {
+    "type": "900",
+    "path": "0x80000384",
+    "coin": "Lumeneo"
+  },
+  {
+    "type": "904",
+    "path": "0x80000388",
+    "coin": "Helium"
+  },
+  {
+    "type": "907",
+    "path": "0x8000038b",
+    "coin": "StaFi"
+  },
+  {
+    "type": "909",
+    "path": "0x8000038d",
+    "coin": "Saage"
+  },
+  {
+    "type": "916",
+    "path": "0x80000394",
+    "coin": "Metadium"
+  },
+  {
+    "type": "917",
+    "path": "0x80000395",
+    "coin": "Findora"
+  },
+  {
+    "type": "925",
+    "path": "0x8000039d",
+    "coin": "Dipper Network"
+  },
+  {
+    "type": "931",
+    "path": "0x800003a3",
+    "coin": "THORChain (RUNE)"
+  },
+  {
+    "type": "955",
+    "path": "0x800003bb",
+    "coin": "LifetionCoin"
+  },
+  {
+    "type": "958",
+    "path": "0x800003be",
+    "coin": "KickSoccer"
+  },
+  {
+    "type": "966",
+    "path": "0x800003c6",
+    "coin": "Matic"
+  },
+  {
+    "type": "970",
+    "path": "0x800003ca",
+    "coin": "TWINS"
+  },
+  {
+    "type": "988",
+    "path": "0x800003dc",
+    "coin": "Xazab core"
+  },
+  {
+    "type": "989",
+    "path": "0x800003dd",
+    "coin": "AIOZ"
+  },
+  {
+    "type": "991",
+    "path": "0x800003df",
+    "coin": "Phoenix"
+  },
+  {
+    "type": "996",
+    "path": "0x800003e4",
+    "coin": "OKChain Token"
+  },
+  {
+    "type": "997",
+    "path": "0x800003e5",
+    "coin": "Solidum"
+  },
+  {
+    "type": "998",
+    "path": "0x800003e6",
+    "coin": "Lightning Bitcoin"
+  },
+  {
+    "type": "999",
+    "path": "0x800003e7",
+    "coin": "Bitcoin Diamond"
+  },
+  {
+    "type": "1000",
+    "path": "0x800003e8",
+    "coin": "Bitcoin New"
+  },
+  {
+    "type": "1001",
+    "path": "0x800003e9",
+    "coin": "ThunderCore"
+  },
+  {
+    "type": "1002",
+    "path": "0x800003ea",
+    "coin": "BanKitt"
+  },
+  {
+    "type": "1003",
+    "path": "0x800003eb",
+    "coin": "Nodle"
+  },
+  {
+    "type": "1007",
+    "path": "0x800003ef",
+    "coin": "Fantom"
+  },
+  {
+    "type": "1010",
+    "path": "0x800003f2",
+    "coin": "Huobi ECO Chain"
+  },
+  {
+    "type": "1011",
+    "path": "0x800003f3",
+    "coin": "Eluvio"
+  },
+  {
+    "type": "1020",
+    "path": "0x800003fc",
+    "coin": "Evrice"
+  },
+  {
+    "type": "1022",
+    "path": "0x800003fe",
+    "coin": "Radix DLT"
+  },
+  {
+    "type": "1023",
+    "path": "0x800003ff",
+    "coin": "HARMONY-ONE"
+  },
+  {
+    "type": "1024",
+    "path": "0x80000400",
+    "coin": "Ontology"
+  },
+  {
+    "type": "1026",
+    "path": "0x80000402",
+    "coin": "Kira Exchange Token"
+  },
+  {
+    "type": "1027",
+    "path": "0x80000403",
+    "coin": "Mochimo"
+  },
+  {
+    "type": "1032",
+    "path": "0x80000408",
+    "coin": "BTCR"
+  },
+  {
+    "type": "1111",
+    "path": "0x80000457",
+    "coin": "Big Bitcoin"
+  },
+  {
+    "type": "1120",
+    "path": "0x80000460",
+    "coin": "RISE"
+  },
+  {
+    "type": "1122",
+    "path": "0x80000462",
+    "coin": "CyberMiles Token"
+  },
+  {
+    "type": "1128",
+    "path": "0x80000468",
+    "coin": "Ethereum Social"
+  },
+  {
+    "type": "1129",
+    "path": "0x80000469",
+    "coin": "DeFiChain"
+  },
+  {
+    "type": "1137",
+    "path": "0x80000471",
+    "coin": "Constellation Labs"
+  },
+  {
+    "type": "1145",
+    "path": "0x80000479",
+    "coin": "Bitcoin Candy"
+  },
+  {
+    "type": "1170",
+    "path": "0x80000492",
+    "coin": "Hoo Smart Chain"
+  },
+  {
+    "type": "1234",
+    "path": "0x800004d2",
+    "coin": "Alephium"
+  },
+  {
+    "type": "1285",
+    "path": "0x80000505",
+    "coin": "Moonriver"
+  },
+  {
+    "type": "1337",
+    "path": "0x80000539",
+    "coin": "Defcoin"
+  },
+  {
+    "type": "1397",
+    "path": "0x80000575",
+    "coin": "Hycon"
+  },
+  {
+    "type": "1410",
+    "path": "0x80000582",
+    "coin": "TENT Simple Ledger Protocol"
+  },
+  {
+    "type": "1524",
+    "path": "0x800005f4",
+    "coin": "Taler"
+  },
+  {
+    "type": "1533",
+    "path": "0x800005fd",
+    "coin": "Beam"
+  },
+  {
+    "type": "1616",
+    "path": "0x80000650",
+    "coin": "AELF"
+  },
+  {
+    "type": "1618",
+    "path": "0x80000652",
+    "coin": "AUDL"
+  },
+  {
+    "type": "1620",
+    "path": "0x80000654",
+    "coin": "Atheios"
+  },
+  {
+    "type": "1642",
+    "path": "0x8000066a",
+    "coin": "Newton"
+  },
+  {
+    "type": "1657",
+    "path": "0x80000679",
+    "coin": "Btachain"
+  },
+  {
+    "type": "1688",
+    "path": "0x80000698",
+    "coin": "BitcoinX"
+  },
+  {
+    "type": "1729",
+    "path": "0x800006c1",
+    "coin": "Tezos"
+  },
+  {
+    "type": "1776",
+    "path": "0x800006f0",
+    "coin": "Liquid BTC"
+  },
+  {
+    "type": "1777",
+    "path": "0x800006f1",
+    "coin": "Biblepay"
+  },
+  {
+    "type": "1784",
+    "path": "0x800006f8",
+    "coin": "JPY Stablecoin"
+  },
+  {
+    "type": "1789",
+    "path": "0x800006fd",
+    "coin": "Vega Protocol"
+  },
+  {
+    "type": "1815",
+    "path": "0x80000717",
+    "coin": "Cardano"
+  },
+  {
+    "type": "1856",
+    "path": "0x80000743",
+    "coin": "Teslacoin"
+  },
+  {
+    "type": "1899",
+    "path": "0x8000076b",
+    "coin": "eCash token"
+  },
+  {
+    "type": "1901",
+    "path": "0x8000076d",
+    "coin": "Classica"
+  },
+  {
+    "type": "1919",
+    "path": "0x8000077f",
+    "coin": "VIPSTARCOIN"
+  },
+  {
+    "type": "1926",
+    "path": "0x80000786",
+    "coin": "City Coin"
+  },
+  {
+    "type": "1955",
+    "path": "0x800007a3",
+    "coin": "xx coin"
+  },
+  {
+    "type": "1977",
+    "path": "0x800007b9",
+    "coin": "Xuma"
+  },
+  {
+    "type": "1984",
+    "path": "0x800007c0",
+    "coin": "TurtleCoin"
+  },
+  {
+    "type": "1987",
+    "path": "0x800007c3",
+    "coin": "EtherGem"
+  },
+  {
+    "type": "1989",
+    "path": "0x800007c5",
+    "coin": "HOdlcoin"
+  },
+  {
+    "type": "1990",
+    "path": "0x800007c6",
+    "coin": "Placeholders"
+  },
+  {
+    "type": "1991",
+    "path": "0x800007c7",
+    "coin": "Sia"
+  },
+  {
+    "type": "1996",
+    "path": "0x800007cc",
+    "coin": "Mineyourtime"
+  },
+  {
+    "type": "1997",
+    "path": "0x800007cd",
+    "coin": "Polis"
+  },
+  {
+    "type": "1998",
+    "path": "0x800007ce",
+    "coin": "Monoeci"
+  },
+  {
+    "type": "1999",
+    "path": "0x800007cf",
+    "coin": "ColossusXT"
+  },
+  {
+    "type": "2000",
+    "path": "0x800007d0",
+    "coin": "GinCoin"
+  },
+  {
+    "type": "2001",
+    "path": "0x800007d1",
+    "coin": "MNPCoin"
+  },
+  {
+    "type": "2017",
+    "path": "0x800007e1",
+    "coin": "Kin"
+  },
+  {
+    "type": "2018",
+    "path": "0x800007e2",
+    "coin": "EOSClassic"
+  },
+  {
+    "type": "2019",
+    "path": "0x800007e3",
+    "coin": "GoldBean Token"
+  },
+  {
+    "type": "2020",
+    "path": "0x800007e4",
+    "coin": "PKC"
+  },
+  {
+    "type": "2021",
+    "path": "0x800007e5",
+    "coin": "Sukhavati"
+  },
+  {
+    "type": "2022",
+    "path": "0x800007e6",
+    "coin": "Xinghuo Token"
+  },
+  {
+    "type": "2048",
+    "path": "0x80000800",
+    "coin": "MCashChain"
+  },
+  {
+    "type": "2049",
+    "path": "0x80000801",
+    "coin": "TrueChain"
+  },
+  {
+    "type": "2112",
+    "path": "0x80000840",
+    "coin": "IoTE"
+  },
+  {
+    "type": "2137",
+    "path": "0x80000859",
+    "coin": "Ergon"
+  },
+  {
+    "type": "2221",
+    "path": "0x800008ad",
+    "coin": "ASK"
+  },
+  {
+    "type": "2301",
+    "path": "0x800008fd",
+    "coin": "QTUM"
+  },
+  {
+    "type": "2302",
+    "path": "0x800008fe",
+    "coin": "Metaverse"
+  },
+  {
+    "type": "2303",
+    "path": "0x800008ff",
+    "coin": "GXChain"
+  },
+  {
+    "type": "2304",
+    "path": "0x80000900",
+    "coin": "CranePay"
+  },
+  {
+    "type": "2305",
+    "path": "0x80000901",
+    "coin": "Elastos"
+  },
+  {
+    "type": "2338",
+    "path": "0x80000922",
+    "coin": "Snowblossom"
+  },
+  {
+    "type": "2570",
+    "path": "0x80000a0a",
+    "coin": "Aurora"
+  },
+  {
+    "type": "2894",
+    "path": "0x80000b4e",
+    "coin": "REOSC Ecosystem"
+  },
+  {
+    "type": "3003",
+    "path": "0x80000bbb",
+    "coin": "LUX"
+  },
+  {
+    "type": "3030",
+    "path": "0x80000bd6",
+    "coin": "Hedera HBAR"
+  },
+  {
+    "type": "3077",
+    "path": "0x80000c05",
+    "coin": "Contentos"
+  },
+  {
+    "type": "3381",
+    "path": "0x80000d35",
+    "coin": "Dynamic"
+  },
+  {
+    "type": "3383",
+    "path": "0x80000d37",
+    "coin": "Sequence"
+  },
+  {
+    "type": "3552",
+    "path": "0x80000de0",
+    "coin": "Destocoin"
+  },
+  {
+    "type": "3564",
+    "path": "0x80000dec",
+    "coin": "DeStream"
+  },
+  {
+    "type": "2718",
+    "path": "0x80000a9e",
+    "coin": "Nebulas"
+  },
+  {
+    "type": "2941",
+    "path": "0x80000b7d",
+    "coin": "Blocknode"
+  },
+  {
+    "type": "3276",
+    "path": "0x80000ccc",
+    "coin": "CodeChain"
+  },
+  {
+    "type": "3377",
+    "path": "0x80000d31",
+    "coin": "ROIcoin"
+  },
+  {
+    "type": "4040",
+    "path": "0x80000fc8",
+    "coin": "FCH Network"
+  },
+  {
+    "type": "4096",
+    "path": "0x80001000",
+    "coin": "YeeCo"
+  },
+  {
+    "type": "4218",
+    "path": "0x8000107a",
+    "coin": "IOTA"
+  },
+  {
+    "type": "4242",
+    "path": "0x80001092",
+    "coin": "Axe"
+  },
+  {
+    "type": "4343",
+    "path": "0x800010f7",
+    "coin": "Symbol"
+  },
+  {
+    "type": "5248",
+    "path": "0x80001480",
+    "coin": "FIC"
+  },
+  {
+    "type": "5353",
+    "path": "0x800014e9",
+    "coin": "Handshake"
+  },
+  {
+    "type": "5555",
+    "path": "0x800015b3",
+    "coin": "Unification"
+  },
+  {
+    "type": "5757",
+    "path": "0x8000167d",
+    "coin": "Blockstack"
+  },
+  {
+    "type": "5895",
+    "path": "0x80001707",
+    "coin": "VowChain VOW"
+  },
+  {
+    "type": "5920",
+    "path": "0x80001720",
+    "coin": "SILUBIUM"
+  },
+  {
+    "type": "6060",
+    "path": "0x800017ac",
+    "coin": "GoChain GO"
+  },
+  {
+    "type": "6174",
+    "path": "0x8000181e",
+    "coin": "My Own Internet"
+  },
+  {
+    "type": "6666",
+    "path": "0x80001a0a",
+    "coin": "Bitcoin Pizza"
+  },
+  {
+    "type": "6688",
+    "path": "0x80001a20",
+    "coin": "SAFE"
+  },
+  {
+    "type": "6969",
+    "path": "0x80001b39",
+    "coin": "TheHolyrogerCoin"
+  },
+  {
+    "type": "7091",
+    "path": "0x80001bb3",
+    "coin": "Topl"
+  },
+  {
+    "type": "7777",
+    "path": "0x80001e61",
+    "coin": "Bitvote"
+  },
+  {
+    "type": "8000",
+    "path": "0x80001f40",
+    "coin": "Skycoin"
+  },
+  {
+    "type": "8080",
+    "path": "0x80001f90",
+    "coin": "DSRV"
+  },
+  {
+    "type": "8192",
+    "path": "0x80002000",
+    "coin": "pacprotocol"
+  },
+  {
+    "type": "8217",
+    "path": "0x80002019",
+    "coin": "KLAY"
+  },
+  {
+    "type": "8339",
+    "path": "0x80002093",
+    "coin": "BitcoinQuark"
+  },
+  {
+    "type": "8444",
+    "path": "0x800020fc",
+    "coin": "Chia"
+  },
+  {
+    "type": "8520",
+    "path": "0x80002148",
+    "coin": "reserved"
+  },
+  {
+    "type": "8888",
+    "path": "0x800022b8",
+    "coin": "Super Bitcoin"
+  },
+  {
+    "type": "8964",
+    "path": "0x80002304",
+    "coin": "NULS"
+  },
+  {
+    "type": "8999",
+    "path": "0x80002327",
+    "coin": "Bitcoin Pay"
+  },
+  {
+    "type": "9000",
+    "path": "0x80002328",
+    "coin": "Avalanche"
+  },
+  {
+    "type": "9797",
+    "path": "0x80002645",
+    "coin": "Energi"
+  },
+  {
+    "type": "9888",
+    "path": "0x800026a0",
+    "coin": "Bitcoin Faith"
+  },
+  {
+    "type": "9999",
+    "path": "0x8000270f",
+    "coin": "Bitcoin God"
+  },
+  {
+    "type": "10000",
+    "path": "0x80002710",
+    "coin": "FIBOS"
+  },
+  {
+    "type": "10226",
+    "path": "0x800027f2",
+    "coin": "Raptoreum"
+  },
+  {
+    "type": "10291",
+    "path": "0x80002833",
+    "coin": "XRhodium"
+  },
+  {
+    "type": "10605",
+    "path": "0x8000296d",
+    "coin": "Lotus"
+  },
+  {
+    "type": "11111",
+    "path": "0x80002b67",
+    "coin": "Essentia One"
+  },
+  {
+    "type": "12345",
+    "path": "0x80003039",
+    "coin": "IPOS"
+  },
+  {
+    "type": "12586",
+    "path": "0x8000312a",
+    "coin": "Mina"
+  },
+  {
+    "type": "13107",
+    "path": "0x80003333",
+    "coin": "BitYuan"
+  },
+  {
+    "type": "13108",
+    "path": "0x80003334",
+    "coin": "Yuan Chain Coin"
+  },
+  {
+    "type": "15845",
+    "path": "0x80003de5",
+    "coin": "SanDeGo"
+  },
+  {
+    "type": "16181",
+    "path": "0x80003f35",
+    "coin": "Totem Live Network"
+  },
+  {
+    "type": "16754",
+    "path": "0x80004172",
+    "coin": "Ardor"
+  },
+  {
+    "type": "18000",
+    "path": "0x80004650",
+    "coin": "Meter"
+  },
+  {
+    "type": "19165",
+    "path": "0x80004add",
+    "coin": "Safecoin"
+  },
+  {
+    "type": "19167",
+    "path": "0x80004adf",
+    "coin": "Flux"
+  },
+  {
+    "type": "19169",
+    "path": "0x80004ae1",
+    "coin": "Ritocoin"
+  },
+  {
+    "type": "20036",
+    "path": "0x80004e44",
+    "coin": "ndau"
+  },
+  {
+    "type": "22504",
+    "path": "0x800057e8",
+    "coin": "PWRcoin"
+  },
+  {
+    "type": "25252",
+    "path": "0x800062a4",
+    "coin": "Bellcoin"
+  },
+  {
+    "type": "25718",
+    "path": "0x80006476",
+    "coin": "Own"
+  },
+  {
+    "type": "31102",
+    "path": "0x8000797e",
+    "coin": "EtherSocial Network"
+  },
+  {
+    "type": "31337",
+    "path": "0x80007a69",
+    "coin": "ThePower.io"
+  },
+  {
+    "type": "33416",
+    "path": "0x80008288",
+    "coin": "Trust Eth reOrigin"
+  },
+  {
+    "type": "33878",
+    "path": "0x80008456",
+    "coin": "Bitcoin Stake"
+  },
+  {
+    "type": "34952",
+    "path": "0x80008888",
+    "coin": "ByteTrade"
+  },
+  {
+    "type": "37992",
+    "path": "0x80009468",
+    "coin": "FixedTradeCoin"
+  },
+  {
+    "type": "39321",
+    "path": "0x80009999",
+    "coin": "Amabig"
+  },
+  {
+    "type": "43028",
+    "path": "0x8000a814",
+    "coin": "AXIV"
+  },
+  {
+    "type": "49262",
+    "path": "0x8000c06e",
+    "coin": "evan.network"
+  },
+  {
+    "type": "49344",
+    "path": "0x8000c0c0",
+    "coin": "STASH"
+  },
+  {
+    "type": "52752",
+    "path": "0x8000ce10",
+    "coin": "Celo"
+  },
+  {
+    "type": "65536",
+    "path": "0x80010000",
+    "coin": "Krypton World"
+  },
+  {
+    "type": "70007",
+    "path": "0x80011177",
+    "coin": "Gewel"
+  },
+  {
+    "type": "77777",
+    "path": "0x80012fd1",
+    "coin": "Wethio"
+  },
+  {
+    "type": "88888",
+    "path": "0x80015b38",
+    "coin": "c0ban"
+  },
+  {
+    "type": "99999",
+    "path": "0x8001869f",
+    "coin": "Waykichain"
+  },
+  {
+    "type": "100500",
+    "path": "0x80018894",
+    "coin": "HomeCoin"
+  },
+  {
+    "type": "101010",
+    "path": "0x80018a92",
+    "coin": "Starcoin"
+  },
+  {
+    "type": "105105",
+    "path": "0x80019a91",
+    "coin": "Strax"
+  },
+  {
+    "type": "200625",
+    "path": "0x80030fb1",
+    "coin": "Akroma"
+  },
+  {
+    "type": "200665",
+    "path": "0x80011000",
+    "coin": "GENOM"
+  },
+  {
+    "type": "246529",
+    "path": "0x8003c301",
+    "coin": "ARTIS sigma1"
+  },
+  {
+    "type": "314159",
+    "path": "0x8004cb2f",
+    "coin": "Pi Network"
+  },
+  {
+    "type": "333332",
+    "path": "0x80051614",
+    "coin": "Value Chain"
+  },
+  {
+    "type": "333333",
+    "path": "0x80051615",
+    "coin": "Pi Value Consensus"
+  },
+  {
+    "type": "424242",
+    "path": "0x80067932",
+    "coin": "x42"
+  },
+  {
+    "type": "666666",
+    "path": "0x800a2c2a",
+    "coin": "Vite"
+  },
+  {
+    "type": "888888",
+    "path": "0x800d9038",
+    "coin": "Second Exchange Alliance"
+  },
+  {
+    "type": "1171337",
+    "path": "0x8011df89",
+    "coin": "iOlite"
+  },
+  {
+    "type": "1313114",
+    "path": "0x8014095a",
+    "coin": "Ether-1"
+  },
+  {
+    "type": "1313500",
+    "path": "0x80140adc",
+    "coin": "Xerom"
+  },
+  {
+    "type": "1712144",
+    "path": "0x801a2010",
+    "coin": "LAPO"
+  },
+  {
+    "type": "3924011",
+    "path": "0x803be02b",
+    "coin": "EPIK Protocol"
+  },
+  {
+    "type": "4741444",
+    "path": "0x80485944",
+    "coin": "Hydra Token"
+  },
+  {
+    "type": "5249353",
+    "path": "0x80501949",
+    "coin": "BitcoinOre"
+  },
+  {
+    "type": "5249354",
+    "path": "0x8050194a",
+    "coin": "BitcoinHD"
+  },
+  {
+    "type": "5264462",
+    "path": "0x8050544e",
+    "coin": "PalletOne"
+  },
+  {
+    "type": "5718350",
+    "path": "0x8057414e",
+    "coin": "Wanchain"
+  },
+  {
+    "type": "5741564",
+    "path": "0x80579bfc",
+    "coin": "Waves"
+  },
+  {
+    "type": "7562605",
+    "path": "0x8073656d",
+    "coin": "Semux"
+  },
+  {
+    "type": "7567736",
+    "path": "0x80737978",
+    "coin": "ION"
+  },
+  {
+    "type": "7777777",
+    "path": "0x8076adf1",
+    "coin": "FirmaChain"
+  },
+  {
+    "type": "7825266",
+    "path": "0x80776772",
+    "coin": "WGR"
+  },
+  {
+    "type": "7825267",
+    "path": "0x80776773",
+    "coin": "OBServer"
+  },
+  {
+    "type": "8163271",
+    "path": "0x807c8fc7",
+    "coin": "ANFS"
+  },
+  {
+    "type": "15118976",
+    "path": "0x80e6b280",
+    "coin": "XDS"
+  },
+  {
+    "type": "61717561",
+    "path": "0x83adbc39",
+    "coin": "Aquachain"
+  },
+  {
+    "type": "88888888",
+    "path": "0x854c5638",
+    "coin": "Hatch"
+  },
+  {
+    "type": "91927009",
+    "path": "0x857ab1e1",
+    "coin": "kUSD"
+  },
+  {
+    "type": "99999996",
+    "path": "0x85f5e0fc",
+    "coin": "GENS"
+  },
+  {
+    "type": "99999997",
+    "path": "0x85f5e0fd",
+    "coin": "EQ"
+  },
+  {
+    "type": "99999998",
+    "path": "0x85f5e0fe",
+    "coin": "Fluid Chains"
+  },
+  {
+    "type": "99999999",
+    "path": "0x85f5e0ff",
+    "coin": "QuarkChain"
+  },
+  {
+    "type": "608589380",
+    "path": "0xa4465644",
+    "coin": "ForumCoin"
+  }
+]

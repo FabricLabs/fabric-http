@@ -1,4 +1,5 @@
-'use strict';
+// Defaults
+const state = require('../settings/state');
 
 const crypto = require('crypto');
 const Service = require('@fabric/core/types/service');
@@ -24,6 +25,10 @@ class Component extends Service {
     this.state = settings;
     this.element = null;
 
+    // Healthy Cleanup
+    this._boundFunctions = {};
+    this._listeners = {};
+
     return this;
   }
 
@@ -44,6 +49,45 @@ class Component extends Service {
     // TODO: cache and skip
     let hash = crypto.createHash('sha256').update(this.data).digest('base64');
     return `sha256-${hash}`;
+  }
+
+  attributeChangedCallback (name, old, value) {
+    console.log('[MAKI:COMPONENT]', 'Component notified a change:', name, 'changed to:', value, `(was ${old})`);
+  }
+
+  connectedCallback () {
+    console.log('[MAKI:COMPONENT]', 'Component added to page:', this);
+    let html = this._getInnerHTML(this.state);
+
+    this.setAttribute('data-integrity', Fabric.sha256(html));
+    this.setAttribute('data-fingerprint', this.fingerprint);
+    // this.innerHTML = html;
+    this.innerHTML = html + '';
+
+    /* let binding = this.getAttribute('data-bind');
+
+    if (binding) {
+      // TODO: use Fabric.Remote
+      fetch(`fabric:${binding}`)
+        .then((response) => response.text())
+        .then((responseText) => {
+          this.render(JSON.parse(responseText));
+        })
+        .catch((error) => {
+          console.error(error);
+        });
+    } */
+
+    // Reflect.construct(HTMLElement, [], this.constructor);
+    return this;
+  }
+
+  disconnectedCallback () {
+    console.log('[MAKI:COMPONENT]', 'Component removed from page:', this);
+
+    for (let name in this._boundFunctions) {
+      this.removeEventListener('message', this._boundFunctions[name]);
+    }
   }
 
   _bind (element) {
@@ -97,9 +141,29 @@ class Component extends Service {
   }
 
   render () {
-    this.element.innerHTML = this._getInnerHTML();
+    if (this.element) {
+      this.element.innerHTML = this._getInnerHTML();
+    }
     return this._renderState(this.state);
   }
 }
 
-module.exports = Component;
+export default FabricComponent;
+
+// TODO: debug why this can't be used on this parent class...
+// ```
+// TypeError: Class extends value #<Object> is not a constructor or null
+// Module.<anonymous>
+// src/components/FabricIdentityManager.js:19
+//   16 | import IdentityPicker from './IdentityPicker';
+//   17 | import SeedEntryForm from './SeedEntryForm';
+//   18 | 
+// > 19 | class FabricIdentityManager extends FabricComponent {
+//   20 |   constructor (props) {
+//   21 |     super(props);
+//   22 | 
+// ```
+// export default connect(FabricStateMapper)(FabricComponent);
+//
+// ...
+// End of @fabric/core/types/component

@@ -1,5 +1,9 @@
 'use strict';
 
+const {
+  P2P_SESSION_ACK
+} = require('@fabric/core/constants');
+
 // engine
 const TICK_INTERVAL = 1000;
 const SESSION_SEED = '79084a7963fc1761e8f6871d6aa704c4922316030af4aa5a076dde35fc0b6857';
@@ -12,6 +16,10 @@ const HTTP_SERVER_PORT = 9999;
 const HTTPS_CLIENT_PORT = 443;
 const HTTPS_SERVER_PORT = 19999;
 
+// websockets
+const MAXIMUM_PING = 10000;
+const WEBSOCKET_KEEPALIVE = 600000; // 10 minutes
+
 // browser / dom
 const BROWSER_TARGET = '#browser-content';
 
@@ -23,5 +31,8 @@ module.exports = {
   HTTP_SERVER_PORT,
   HTTPS_CLIENT_PORT,
   HTTPS_SERVER_PORT,
-  BROWSER_TARGET
+  MAXIMUM_PING,
+  WEBSOCKET_KEEPALIVE,
+  BROWSER_TARGET,
+  P2P_SESSION_ACK
 };

@@ -2,27 +2,46 @@
 
 const {
   HTTP_SERVER_PORT,
-  HTTPS_SERVER_PORT
+  HTTPS_SERVER_PORT,
+  MAXIMUM_PING,
+  P2P_SESSION_ACK,
+  WEBSOCKET_KEEPALIVE
 } = require('../constants');
 
-// trusted community modules
-// const fs = require('fs');
+// Dependencies
 const http = require('http');
-// const crypto = require('crypto');
+const crypto = require('crypto');
+const merge = require('lodash.merge');
 // TODO: remove Express entirely...
 // NOTE: current blockers include PeerServer...
 const express = require('express');
 const session = require('express-session');
+// TODO: check with Riddle about this
 const parsers = require('body-parser');
+const monitor = require('fast-json-patch');
+const extractor = require('express-bearer-token');
 const pluralize = require('pluralize');
 const stoppable = require('stoppable');
 
-// Core components
-const Fabric = require('@fabric/core');
+// Pathing
+const pathToRegexp = require('path-to-regexp').pathToRegexp;
+
+// Fabric Types
+const Actor = require('@fabric/core/types/actor');
+// const Oracle = require('@fabric/core/types/oracle');
+const Collection = require('@fabric/core/types/collection');
+// const Resource = require('@fabric/core/types/resource');
+const Service = require('@fabric/core/types/service');
+const Message = require('@fabric/core/types/message');
+const Entity = require('@fabric/core/types/entity');
+const State = require('@fabric/core/types/state');
+
+// Internal Components
 // const App = require('./app');
 // const Client = require('./client');
 // const Component = require('./component');
-const SPA = require('./spa');
+// const Browser = require('./browser');
+// const SPA = require('./spa');
 
 // Dependencies
 const WebSocket = require('ws');
@@ -30,36 +49,50 @@ const PeerServer = require('peer').ExpressPeerServer;
 
 /**
  * The primary web server.
- * @extends Oracle
+ * @extends Service
  */
-class HTTPServer extends Fabric.Oracle {
+class FabricHTTPServer extends Service {
   /**
    * Create an instance of the HTTP server.
-   * @param  {Object} [settings={}] Configuration values.
-   * @return {HTTPServer} Fully-configured instance of the HTTP server.
+   * @param {Object} [settings] Configuration values.
+   * @param {String} [settings.name="FabricHTTPServer"] User-friendly name of this server.
+   * @param {Number} [settings.port=9999] Port to listen for HTTP connections on.
+   * @return {FabricHTTPServer} Fully-configured instance of the HTTP server.
    */
   constructor (settings = {}) {
     super(settings);
 
-    this.settings = Object.assign({
+    // Assign defaults
+    this.settings = merge({
       name: 'FabricHTTPServer',
+      description: 'Service delivering a Fabric application across the HTTP protocol.',
+      // TODO: document host as listening on all interfaces by default
       host: '0.0.0.0',
       path: './stores/server',
       port: HTTP_SERVER_PORT,
+      listen: true,
       resources: {},
       components: {},
-      services: {},
+      services: {
+        audio: {
+          address: '/devices/audio'
+        }
+      },
+      // TODO: replace with crypto random
       seed: Math.random(),
-      sessions: false,
-      verbose: false
+      sessions: false
     }, settings);
 
     this.connections = {};
     this.definitions = {};
+    this.methods = {};
+    this.stores = {};
 
-    this.app = new SPA(Object.assign({}, this.settings, {
+    // this.browser = new Browser(this.settings);
+    // TODO: compile & boot (load state) SPA (React + Redux?)
+    /* this.app = new SPA(Object.assign({}, this.settings, {
       path: './stores/server-application'
-    }));
+    })); */
 
     /* this.compiler = webpack({
       // webpack options
@@ -67,6 +100,7 @@ class HTTPServer extends Fabric.Oracle {
 
     this.wss = null;
     this.http = null;
+
     this.express = express();
     this.sessions = session({
       resave: true,
@@ -74,12 +108,60 @@ class HTTPServer extends Fabric.Oracle {
       secret: this.settings.seed
     });
 
+    this._state = {};
+    this.observer = monitor.observe(this.state);
     this.coordinator = new PeerServer(this.express, {
       path: '/services/peering'
     });
 
     this.collections = [];
+    this.routes = [];
     this.customRoutes = [];
+
+    return this;
+  }
+
+  get link () {
+    return `http://${this.settings.host}:${this.settings.port}`;
+  }
+
+  get state () {
+    return this._state;
+  }
+
+  set state (value) {
+    this._state = value;
+  }
+
+  async commit () {
+    ++this.clock;
+
+    this['@id'] = this.id;
+    // TODO: define parent path
+    // this['@parent'] = this.id;
+    // this['@preimage'] = this.toString();
+    this['@constructor'] = this.constructor;
+
+    if (this.observer) {
+      this['@changes'] = monitor.generate(this.observer);
+    }
+
+    if (this['@changes'] && this['@changes'].length) {
+      const message = {
+        '@type': 'Transaction',
+        '@data': {
+          changes: this['@changes'],
+          state: this.state
+        }
+      };
+
+      this.emit('changes', this['@changes']);
+      this.emit('state', this.state);
+      this.emit('message', message);
+
+      // Broadcast to connected peers
+      this.broadcast(message);
+    }
 
     return this;
   }
@@ -88,24 +170,125 @@ class HTTPServer extends Fabric.Oracle {
    * Define a {@link Type} by name.
    * @param  {String} name       Human-friendly name of the type.
    * @param  {Definition} definition Configuration object for the type.
-   * @return {HTTPServer}            Instance of the configured server.
+   * @return {FabricHTTPServer}            Instance of the configured server.
    */
   async define (name, definition) {
-    let resource = await super.define(name, definition);
-    let snapshot = Object.assign({
+    if (this.settings.verbosity >= 5) console.log('[HTTP:SERVER]', 'Defining:', name, definition);
+    const server = this;
+    const resource = await super.define(name, definition);
+
+    const snapshot = Object.assign({
+      name: name,
       names: { plural: pluralize(name) }
     }, resource);
 
+    const address = snapshot.routes.list.split('/')[1];
+    const store = new Collection(snapshot);
+
+    if (this.settings.verbosity >= 6) console.log('[HTTP:SERVER]', 'Collection as store:', store);
+    if (this.settings.verbosity >= 6) console.log('[HTTP:SERVER]', 'Snapshot:', snapshot);
+
+    this.stores[name] = store;
     this.definitions[name] = snapshot;
     this.collections.push(snapshot.routes.list);
+    this.keys.add(snapshot.routes.list);
 
+    this.stores[name].on('error', async (error) => {
+      console.error('[HTTP:SERVER]', '[ERROR]', error);
+    });
+
+    this.stores[name].on('warning', async (warning) => {
+      console.warn('[HTTP:SERVER]', 'Warning:', warning);
+    });
+
+    this.stores[name].on('message', async (message) => {
+      let entity = null;
+      switch (message['@type']) {
+        case 'Create':
+          entity = new Entity({
+            '@type': name,
+            '@data': message['@data']
+          });
+
+          console.log('[HTTP:SERVER]', `Resource "${name}" created:`, entity.data);
+          server.emit('message', entity.data);
+          break;
+        case 'Transaction':
+          await server._applyChanges(message['@data'].changes);
+          break;
+        default:
+          console.warn('[HTTP:SERVER]', 'Unhandled message type:', message['@type']);
+          break;
+      }
+
+      server.broadcast({
+        '@type': 'StateUpdate',
+        '@data': server.state
+      });
+    });
+
+    this.stores[name].on('commit', (commit) => {
+      server.broadcast({
+        '@type': 'StateUpdate',
+        '@data': server.state
+      });
+    });
+
+    this.routes.push({
+      path: snapshot.routes.view,
+      route: pathToRegexp(snapshot.routes.view),
+      resource: name
+    });
+
+    this.routes.push({
+      path: snapshot.routes.list,
+      route: pathToRegexp(snapshot.routes.list),
+      resource: name
+    });
+
+    // Also define on app
+    await this.app.define(name, definition);
+
+    // TODO: document pathing
+    this.state[address] = {};
+    this.app.state[address] = {};
+
+    // if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Routes:', this.routes);
     return this;
   }
 
+  broadcast (message) {
+    let peers = Object.keys(this.connections);
+    for (let i = 0; i < peers.length; i++) {
+      try {
+        this.connections[peers[i]].send(JSON.stringify(message));
+      } catch (E) {
+        console.error('Could not send message to peer:', E);
+      }
+    }
+  }
+
   trust (source) {
+    super.trust(source);
+
     source.on('message', function (msg) {
-      console.log('[RPG:SERVER]', 'trusted source:', source.constructor.name, 'sent message:', msg);
+      console.log('[HTTP:SERVER]', 'trusted source:', source.constructor.name, 'sent message:', msg);
     });
+  }
+
+  _registerMethod (name, method) {
+    this.methods[name] = method.bind(this);
+  }
+
+  _handleAppMessage (msg) {
+    console.trace('[HTTP:SERVER]', 'Internal app emitted message:', msg);
+  }
+
+  _handleCall (call) {
+    if (!call.method) throw new Error('Call requires "method" parameter.');
+    if (!call.params) throw new Error('Call requires "params" parameter.');
+    if (!this.methods[call.method]) throw new Error(`Method "${call.method}" has not been registered.`);
+    this.methods[call.method].apply(this, call.params);
   }
 
   /**
@@ -115,64 +298,148 @@ class HTTPServer extends Fabric.Oracle {
    * @return {WebSocket} Returns the connected socket.
    */
   _handleWebSocket (socket, request) {
-    // console.log('incoming WebSocket:', socket);
-    let server = this;
+    const server = this;
+    server.emit('debug', `Handling WebSocket: ${Object.keys(socket)}`);
 
     // TODO: check security of common defaults for `sec-websocket-key` params
     // Chrome?  Firefox?  Safari?  Opera?  What defaults do they use?
-    let buffer = Buffer.from(request.headers['sec-websocket-key'], 'base64');
-    let player = new Fabric.State({
+    const buffer = Buffer.from(request.headers['sec-websocket-key'], 'base64');
+    const handle = buffer.toString('hex');
+    const player = new State({
       connection: buffer.toString('hex'),
       entropy: buffer.toString('hex')
     });
 
+    socket._resetKeepAlive = function () {
+      clearInterval(socket._heartbeat);
+      socket._heartbeat = setInterval(function () {
+        const now = Date.now();
+        const message = Message.fromVector(['Ping', now.toString()]);
+        // TODO: refactor _sendTo to accept Message type
+        const ping = JSON.stringify(message.toObject());
+
+        try {
+          server._sendTo(handle, ping);
+        } catch (exception) {
+          console.error('could not ping peer:', handle, exception);
+        }
+      }, WEBSOCKET_KEEPALIVE);
+    };
+
+    socket._timeout = null;
+    socket._resetKeepAlive();
+
     // Clean up memory when the connection has been safely closed (ideal case).
     socket.on('close', function () {
+      clearInterval(socket._heartbeat);
       delete server.connections[player['@data'].connection];
     });
 
-    // TODO: set up heartbeat
-    // socket.heartbeat = setInterval([...]);
-
     // TODO: message handler on base class
     socket.on('message', async function handler (msg) {
-      console.log('websocket incoming message:', msg);
+      console.log('[SERVER:WEBSOCKET]', 'incoming message:', typeof msg, msg);
+
+      let message = null;
+      let type = null;
+
+      if (msg.type && msg.data) {
+        console.log('spec:', {
+          type: msg.type,
+          data: msg.data
+        });
+      }
+
+      try {
+        message = Message.fromRaw(msg);
+        type = message.type;
+      } catch (exception) {
+        console.error('could not parse message:', exception);
+      }
+
+      if (!message) {
+        // Fall back to JSON parsing
+        try {
+          if (msg instanceof Buffer) {
+            msg = msg.toString('utf8');
+          }
+
+          message = JSON.parse(msg);
+          type = message['@type'] || message.type;
+        } catch (E) {
+          console.error('could not parse message:', typeof msg, msg, E);
+          // TODO: disconnect from peer
+          console.warn('you should disconnect from this peer:', handle);
+        }
+      }
+
+      const obj = message.toObject();
+      const actor = new Actor(obj);
+
+      let local = null;
+
+      switch (type) {
+        default:
+          console.log('[SERVER]', 'unhandled type:', type);
+          break;
+        case 'GET':
+          let answer = await server._GET(message['@data']['path']);
+          console.log('answer:', answer);
+          return answer;
+        case 'POST':
+          let link = await server._POST(message['@data']['path'], message['@data']['value']);
+          console.log('[SERVER]', 'posted link:', link);
+          break;
+        case 'PATCH':
+          let result = await server._PATCH(message['@data']['path'], message['@data']['value']);
+          console.log('[SERVER]', 'patched:', result);
+          break;
+        case 'Ping':
+          let now = Date.now();
+          local = Message.fromVector(['Pong', now.toString()]);
+          let pong = JSON.stringify(local.toObject());
+          return server._sendTo(handle, pong);
+        case 'GenericMessage':
+          local = Message.fromVector(['GenericMessage', JSON.stringify({
+            type: 'GenericMessageReceipt',
+            content: actor.id
+          })]);
+
+          let msg = null;
+
+          try {
+            msg = JSON.parse(obj.data);
+          } catch (exception) {}
+
+          if (msg) {
+            server.emit('call', msg.data || {
+              method: 'GenericMessage',
+              params: [msg.data]
+            });
+          }
+
+          break;
+        case 'Pong':
+          socket._resetKeepAlive();
+          return;
+          break;
+        case 'Call':
+          server.emit('call', {
+            method: message['@data'].data.method,
+            params: message['@data'].data.params
+          });
+          break;
+      }
+
+      // TODO: enable relays
+      // server._relayFrom(handle, msg);
 
       // always send a receipt of acknowledgement
       socket.send(JSON.stringify({
         '@type': 'Receipt',
-        '@actor': buffer.toString('hex'),
-        '@data': msg,
+        '@actor': handle,
+        '@data': message,
         '@version': 1
       }));
-
-      try {
-        let message = JSON.parse(msg);
-        let type = message['@type'];
-
-        switch (type) {
-          default:
-            console.log('[SERVER]', 'unhandled type:', type);
-            break;
-          case 'GET':
-            let answer = await server._GET(message['@data']['path']);
-            console.log('answer:', answer);
-            return answer;
-          case 'POST':
-            let link = await server._POST(message['@data']['path'], message['@data']['value']);
-            console.log('[SERVER]', 'posted link:', link);
-            break;
-          case 'PATCH':
-            let result = await server._PATCH(message['@data']['path'], message['@data']['value']);
-            console.log('[SERVER]', 'patched:', result);
-            break;
-        }
-
-        server._relayFrom(buffer.toString('hex'), msg);
-      } catch (E) {
-        console.error('could not parse message:', E);
-        console.log('you should disconnect from this peer:', buffer.toString('hex'));
-      }
     });
 
     // set up an oracle, which listens to patches from server
@@ -184,25 +451,38 @@ class HTTPServer extends Fabric.Oracle {
     server.connections[player['@data'].connection] = socket;
     // server.players[player['@data'].connection] = player;
 
+    const ack = Message.fromVector([P2P_SESSION_ACK, crypto.randomBytes(32).toString('hex')]);
+    const raw = ack.toBuffer();
+    socket.send(raw);
+
     // send result
-    socket.send(JSON.stringify({
+    /* socket.send(JSON.stringify({
       '@type': 'VerAck',
       '@version': 1
-    }));
+    })); */
 
-    socket.send(JSON.stringify({
-      '@type': 'Inventory',
-      '@parent': this.app.id,
-      '@version': 1
-    }));
+    if (this.app) {
+      socket.send(JSON.stringify({
+        '@type': 'Inventory',
+        '@parent': server.app.id,
+        '@version': 1
+      }));
 
-    socket.send(JSON.stringify({
-      '@type': 'State',
-      '@data': this.app.state,
-      '@version': 1
-    }));
+      socket.send(JSON.stringify({
+        '@type': 'State',
+        '@data': server.app.state,
+        '@version': 1
+      }));
+    }
 
     return socket;
+  }
+
+  _sendTo (actor, msg) {
+    console.log('[SERVER:WEBSOCKET]', 'sending message to actor', actor, msg);
+    let target = this.connections[actor];
+    if (!target) throw new Error('No such target.');
+    let result = target.send(msg);
   }
 
   _relayFrom (actor, msg) {
@@ -228,7 +508,13 @@ class HTTPServer extends Fabric.Oracle {
    */
   _handleIndexRequest (req, res) {
     console.log('[HTTP:SERVER]', 'Handling request for Index...');
-    let html = this.app.render();
+    let html = '';
+
+    if (this.app) {
+      html = this.app.render(this.state);
+    } else {
+      html = '<fabric-application><fabric-card>Failed to load, as no application was available.</fabric-card></fabric-application>';
+    }
     console.log('[HTTP:SERVER]', 'Generated HTML:', html);
     res.set('Content-Type', 'text/html');
     res.send(`${html}`);
@@ -236,21 +522,30 @@ class HTTPServer extends Fabric.Oracle {
 
   _handleOptionsRequest (req, res) {
     res.send({
+      name: this.settings.name,
+      description: this.settings.description,
       resources: this.definitions
     });
   }
 
-  _logRequest (req, res, next) {
-    if (!this.settings.verbose) return next();
+  _logMiddleware (req, res, next) {
+    // if (!this.settings.verbosity < 2) return next();
     // TODO: switch to this.log
     console.log([
-      `${req.host}:${this.settings.port}`,
+      `${req.hostname}:${this.settings.port}`,
       req.hostname,
       req.user,
       `"${req.method} ${req.path} HTTP/${req.httpVersion}"`,
       res.statusCode,
       res.getHeader('content-length')
     ].join(' '));
+    return next();
+  }
+
+  _headerMiddleware (req, res, next) {
+    res.header('X-Powered-By', '@fabric/http');
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', 'content-type');
     return next();
   }
 
@@ -270,34 +565,92 @@ class HTTPServer extends Fabric.Oracle {
    * @param {Function} handler HTTP handler (req, res, next)
    */
   _addRoute (method, path, handler) {
-    if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Adding route:', path);
+    this.emit('debug', `[HTTP:SERVER] Adding route: ${path}`);
     this.customRoutes.push({ method, path, handler });
   }
 
-  async _handleRoutableRequest (req, res, next) {
-    // TODO: check known resources
-    // if (~this.resouces.indexOf(req.path)) {
-    // ...
-    // }
+  _roleMiddleware (req, res, next) {
+    next();
+  }
 
-    switch (req.method) {
+  async _applyChanges (ops) {
+    try {
+      monitor.applyPatch(this.state, ops);
+      await this.commit();
+    } catch (E) {
+      this.error('Error applying changes:', E);
+    }
+
+    return this;
+  }
+
+  async _handleRoutableRequest (req, res, next) {
+    if (this.settings.verbosity >= 5) console.log('[HTTP:SERVER]', 'Handling routable request:', req.method, req.path);
+    const server = this;
+
+    // Prepare variables
+    let result = null;
+    let route = null;
+    let resource = null;
+
+    for (let i in this.routes) {
+      let local = this.routes[i];
+      if (req.path.match(local.route)) {
+        route = local;
+        resource = local.resource;
+        break;
+      }
+    }
+
+    switch (req.method.toUpperCase()) {
+      // Discard unhandled methods
       default:
         return next();
+      case 'HEAD':
+        let existing = await server._GET(req.path);
+        if (!existing) return res.status(404).end();
+        break;
       case 'GET':
-        let mem = await this._GET(req.path);
-        if (!mem) return res.status(404).end();
-        return res.send(mem);
+        if (resource) {
+          try {
+            result = await server.stores[resource].get(req.path);
+          } catch (exception) {
+            console.warn('[HTTP:SERVER]', 'Warning:', exception);
+          }
+        }
+
+        // TODO: re-optimize querying from memory (i.e., don't touch disk / restore)
+        // If a result was found, use it by breaking immediately
+        // if (result) break;
+
+        // No result found, call _GET locally
+        result = await server._GET(req.path);
+        // let content = await server.stores[resource].get(req.path);
+        break;
       case 'PUT':
-        let obj = await this._PUT(req.path, req.body);
-        return res.send(obj);
+        result = await server._PUT(req.path, req.body);
+        break;
       case 'POST':
-        let link = await this._POST(req.path, req.body);
+        if (resource) {
+          result = await server.stores[resource].create(req.body);
+        }
+
+        if (!result) return res.status(500).end();
+
+        // Call parent method (2 options)
+        // Option 1 (original): Assigns the direct result
+        // let link = await server._POST(req.path, result);
+        // Option 2 (testing): Assigns the raw body
+        let link = await server._POST(req.path, req.body);
+
+        // POST requests return a 303 header with a pointer to the object
         return res.redirect(303, link);
       case 'PATCH':
-        let patch = await this._PATCH(req.path, req.body);
-        return res.send(patch);
+        let patch = await server._PATCH(req.path, req.body);
+        result = patch;
+        break;
       case 'DELETE':
-        await this._DELETE(req.path);
+        await server._DELETE(req.path);
         return res.sendStatus(204);
       case 'OPTIONS':
         return res.send({
@@ -305,6 +658,34 @@ class HTTPServer extends Fabric.Oracle {
           '@data': 'Not yet supported.'
         });
     }
+
+    // If no result found, return 404
+    if (!result) {
+      return res.status(404).send({
+        status: 'error',
+        message: 'Document not found.',
+        request: {
+          method: req.method.toUpperCase(),
+          path: req.path
+        }
+      });
+    }
+
+    return res.format({
+      json: function () {
+        res.header('Content-Type', 'application/json');
+        return res.send(result);
+      },
+      html: function () {
+        // TODO: re-enable for HTML
+        // let output = server.app._loadHTML(resource.render(result));
+        // return res.send(server.app._renderWith(output));
+
+        // TODO: re-write above code, render app with data
+        res.header('Content-Type', 'application/json');
+        return res.send(result);
+      }
+    });
   }
 
   async start () {
@@ -312,28 +693,33 @@ class HTTPServer extends Fabric.Oracle {
     const server = this;
     server.status = 'starting';
 
-    for (let name in server.settings.resources) {
-      const definition = server.settings.resources[name];
-      const resource = await server.define(name, definition);
-      // console.log('[AUDIT]', 'Created resource:', resource);
+    if (!server.settings.resources || !Object.keys(server.settings.resources).length) {
+      console.trace('[HTTP:SERVER]', 'No Resources have been defined for this server.  Please provide a "resources" map in the configuration.');
     }
 
-    try {
-      await server.app.start();
-    } catch (E) {
-      console.error('Could not start server app:', E);
+    for (let name in server.settings.resources) {
+      const definition = server.settings.resources[name];
+      const resource = await server._defineResource(name, definition);
+      if (server.settings.verbosity >= 6) console.log('[AUDIT]', 'Created resource:', resource);
     }
 
     // configure router
+    server.express.use(server._logMiddleware.bind(server));
+    server.express.use(server._headerMiddleware.bind(server));
+
     // TODO: defer to an in-memory datastore for requested files
     // NOTE: disable this line to compile on-the-fly
     server.express.use(express.static('assets'));
+    server.express.use(extractor());
+    server.express.use(server._roleMiddleware.bind(server));
 
     // configure sessions & parsers
-    server.express.use(server.sessions);
+    // TODO: migrate to {@link Session} or abolish entirely
+    if (server.settings.sessions) server.express.use(server.sessions);
+
+    // Other Middlewares
     server.express.use(parsers.urlencoded({ extended: true }));
     server.express.use(parsers.json());
-    server.express.use(server._logRequest.bind(server));
 
     // TODO: render page
     server.express.options('/', server._handleOptionsRequest.bind(server));
@@ -341,43 +727,10 @@ class HTTPServer extends Fabric.Oracle {
     // NOTE: see `server.express.use(express.static('assets'));`
     server.express.get('/', server._handleIndexRequest.bind(server));
 
-    // TODO: consolidate into earlier loop
-    // NOTE: reconcile this against tests...
-    for (let name in server.settings.resources) {
-      const def = server.settings.resources[name];
-      const resource = new Fabric.Resource(def);
-
-      // TODO: re-bind this
-      server._addRoute('GET', `${resource.routes.view}`, function (req, res, next) {
-        res.format({
-          json: function () {
-            return next();
-          },
-          html: function () {
-            let output = server.app._loadHTML(resource.render());
-            return server.app._renderWith(output);
-          }
-        });
-      });
-
-      // TODO: re-bind this
-      server._addRoute('GET', `${resource.routes.list}`, function (req, res, next) {
-        res.format({
-          json: function () {
-            return next();
-          },
-          html: function () {
-            let output = server.app._loadHTML(resource.render());
-            return server.app._renderWith(output);
-          }
-        });
-      });
-    }
-
     // handle custom routes.
     // TODO: abolish this garbage in favor of resources.
     for (let i = 0; i < server.customRoutes.length; i++) {
-      let route = server.customRoutes[i];
+      const route = server.customRoutes[i];
       switch (route.method.toLowerCase()) {
         case 'get':
         case 'put':
@@ -401,45 +754,84 @@ class HTTPServer extends Fabric.Oracle {
     server.http = stoppable(http.createServer(server.express), 0);
 
     // attach a WebSocket handler
-    this.wss = new WebSocket.Server({
+    server.wss = new WebSocket.Server({
       server: server.http,
       // TODO: validate entire verification chain
       // verifyClient: this._verifyClient.bind(this)
     });
 
     // set up the WebSocket connection handler
-    this.wss.on('connection', this._handleWebSocket.bind(this));
+    server.wss.on('connection', server._handleWebSocket.bind(server));
 
-    // TODO: test?
-    await server.http.listen(this.settings.port, this.settings.host);
+    // Handle messages from internal app
+    if (server.app) {
+      server.app.on('snapshot', server._handleAppMessage.bind(server));
+      server.app.on('message', server._handleAppMessage.bind(server));
+      server.app.on('commit', server._handleAppMessage.bind(server));
+    }
 
-    this.status = 'started';
+    // Handle interna call requests
+    server.on('call', server._handleCall.bind(server));
+
+    // TODO: convert to bound functions
+    server.on('commit', async function (msg) {
+      console.log('[HTTP:SERVER]', 'Internal commit:', msg);
+    });
+
+    server.on('message', async function (msg) {
+      console.log('[HTTP:SERVER]', 'Internal message:', msg);
+    });
+
+    if (server.app) {
+      try {
+        await server.app.start();
+      } catch (E) {
+        console.error('Could not start server app:', E);
+      }
+    }
+
+    if (this.settings.listen) {
+      server.http.on('listening', notifyReady);
+      await server.http.listen(this.settings.port, this.settings.host);
+    } else {
+      console.warn('[HTTP:SERVER]', 'Listening is disabled.  Only events will be emitted!');
+      notifyReady();
+    }
+
+    function notifyReady () {
+      server.status = 'STARTED';
+      server.emit('ready', {
+        id: server.id
+      });
+    }
 
     // commit to our results
     // await this.commit();
 
-    this.emit('ready');
-
-    // inform the user
-    if (this.settings.verbose) {
-      let address = server.http.address();
-      console.log('address:', address);
-      if (!address) console.error('could not get address:', server.http);
-      let link = `http://${address.address}:${address.port}`;
-      console.log('[FABRIC:WEB]', 'Started!', `Now listening on ${link} ⇐ live URL`);
-      // TODO: include somewhere
-      // console.log('[FABRIC:WEB]', 'You should consider changing the `host` property in your config,');
-      // console.log('[FABRIC:WEB]', 'or set up a TLS server to encrypt traffic to and from this node.');
-    }
-
+    // TODO: include somewhere
+    // console.log('[FABRIC:WEB]', 'You should consider changing the `host` property in your config,');
+    // console.log('[FABRIC:WEB]', 'or set up a TLS server to encrypt traffic to and from this node.');
     if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Started!');
 
     return server;
   }
 
+  async flush () {
+    // console.log('[HTTP:SERVER]', 'flush requested:', this.keys);
+
+    for (let item of this.keys) {
+      // console.log('...flushing:', item);
+      try {
+        await this._DELETE(item);
+      } catch (E) {
+        console.error(E);
+      }
+    }
+  }
+
   async stop () {
     if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Stopping...');
-    let server = this;
+    const server = this;
     this.status = 'stopping';
 
     try {
@@ -448,10 +840,12 @@ class HTTPServer extends Fabric.Oracle {
       console.error('Could not stop HTTP listener:', E);
     }
 
-    try {
-      await server.app.stop();
-    } catch (E) {
-      console.error('Could not stop server app:', E);
+    if (server.app) {
+      try {
+        await server.app.stop();
+      } catch (E) {
+        console.error('Could not stop server app:', E);
+      }
     }
 
     this.status = 'stopped';
@@ -462,6 +856,7 @@ class HTTPServer extends Fabric.Oracle {
   }
 
   async _GET (path) {
+    if (!this.app || !this.app.store) return null;
     if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling GET to', path);
     let result = await this.app.store._GET(path);
     if (this.settings.verbosity >= 5) console.log('[HTTP:SERVER]', 'Retrieved:', result);
@@ -470,23 +865,26 @@ class HTTPServer extends Fabric.Oracle {
   }
 
   async _PUT (path, data) {
+    if (!this.app || !this.app.store) return null;
+    if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling PUT to', path, data);
     return this.app.store._PUT(path, data);
   }
 
   async _POST (path, data) {
-    if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling POST to', path, data);
+    if (this.settings.verbosity >= 4) console.trace('[HTTP:SERVER]', 'Handling POST to', path, data);
     return this.app.store._POST(path, data);
   }
 
   async _PATCH (path, data) {
+    if (!this.app || !this.app.store) return null;
     if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling PATCH to', path, data);
     return this.app.store._PATCH(path, data);
   }
 
   async _DELETE (path) {
     if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling DELETE to', path);
-    return this.app.store._DELETE(path, data);
+    return this.app.store._DELETE(path);
   }
 }
 
-module.exports = HTTPServer;
+module.exports = FabricHTTPServer;

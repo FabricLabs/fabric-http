@@ -74,16 +74,20 @@ class App extends Component {
     this.router = new Router(this.settings);
     // this.wallet = new Wallet();
     this.browser = new Browser(Object.assign({}, this.settings, {
+      component: 'fabric-welcome',
       path: './stores/fabric-browser'
     }));
 
-    this.state = {
+    // TODO: define these elsewhere!
+    // These are internal components, should be on prototype.
+    /* this.state = {
       methods: {},
       channels: {},
       components: {},
       resources: {},
       messages: {}
-    };
+    }; */
+    this._state = {};
 
     this.modal = null;
     this.target = null;
@@ -109,13 +113,12 @@ class App extends Component {
       }
     });
 
-    this.handler = page;
     this.circuit = this.settings.circuit || new Fabric.Circuit();
 
     // Add index menu item
     // this.menu._addItem({ name: this.settings.name, path: '/', brand: true });
     this.router._addRoute('/', this.settings.components.index);
-    this.handler('/', this._loadIndex.bind(this));
+    this.handler('/', this._handleNavigation.bind(this));
 
     // properties
     this.identities = {};
@@ -148,6 +151,7 @@ class App extends Component {
     // Some default Components, available to all
     // TODO: expose this as the Library, namespace `alexandria`
     this.define('Introduction', Introduction);
+    this._defineElement('maki-introduction', Introduction);
 
     this.route = '/';
     this.status = 'ready';
@@ -155,10 +159,23 @@ class App extends Component {
     return this;
   }
 
+  get handler () {
+    return page;
+  }
+
   get page () {
+    // TODO: return current page
     return new Resource({
       name: 'BlankPage'
     });
+  }
+
+  get state () {
+    return this._state;
+  }
+
+  set state (value) {
+    return this._state = value;
   }
 
   get version () {
@@ -174,7 +191,7 @@ class App extends Component {
     if (this.settings.verbosity >= 4) console.log('[WEB:APP]', 'Defining', name, route);
     this.types.state[name] = definition;
     this.resources[name] = definition;
-    this.state[pluralize(name).toLowerCase()] = definition.data || {};
+    this._state[pluralize(name).toLowerCase()] = definition.data || {};
   }
 
   dispatch (name, data = {}) {
@@ -210,10 +227,13 @@ class App extends Component {
   _defineElement (handle, definition) {
     this.components[handle] = definition;
 
-    try {
-      customElements.define(handle, definition);
-    } catch (E) {
-      console.error('[MAKI:APP]', 'Could not define Custom Element:', E, handle, definition);
+    // TODO: custom elements polyfill
+    if (typeof customElements !== 'undefined') {
+      try {
+        customElements.define(handle, definition);
+      } catch (E) {
+        console.error('[MAKI:APP]', 'Could not define Custom Element:', E, handle, definition);
+      }
     }
   }
 
@@ -247,6 +267,7 @@ class App extends Component {
 
   async _loadIndex (ctx) {
     let Index = this.components[this.settings.components.index];
+    if (!Index) throw new Error(`Could not find component: ${this.settings.components.index}`);
     let resource = new Index(this.state);
     let content = resource.render();
     this._setTitle(resource.name);
@@ -408,28 +429,40 @@ class App extends Component {
     let blob = JSON.stringify(this.state, null, '  ');
     let verification = crypto.createHash('sha256').update(blob).digest('hex');
     let content = ``;
-    content += `<fabric-application route="${this.route}" integrity="${this.integrity}" class="window">
-  <header>
-    <fabric-grid-row id="details" class="ui grid">
-      <div class="wide column">
-        <div class="ui inverted header">
-          <a href="/"><img src="/images/brand.png" class="ui small image" /></a>
-          <h1 class="content"><a href="/">${this.settings.name}</a></h1>
-          <p class="sub header">${this.settings.synopsis}</p>
-        </div>
-      </div>
-    </fabric-grid-row>
-  </header>
-  <fabric-grid-row id="browser">${this.browser.render()}</fabric-grid-row>
-  <footer>
-    <fabric-debug></fabric-debug>
-  </footer>
-  <div id="ephemeral-content"></div>
-  <!-- TODO: rollup semantic into build process -->
-  <!-- <script type="text/javascript" src="/scripts/semantic.min.js"></script> -->
-  <!-- <script type="text/javascript" src="/scripts/index.min.js"></script> -->
-  <script type="text/javascript" src="/scripts/rpg.min.js"></script>
-</fabric-application>`;
+
+    // Begin Content Body
+    content += `<fabric-application route="${this.route}" integrity="${this.integrity}" class="window">`;
+
+    if (this.settings.header) {
+      content += `<header>
+        <fabric-grid-row id="details" class="ui grid">
+          <div class="wide column">
+            <div class="ui inverted header">
+              <a href="/"><img src="/images/brand.png" class="ui small image" /></a>
+              <h1 class="content"><a href="/">${this.settings.name}</a></h1>
+              <p class="sub header">${this.settings.synopsis}</p>
+            </div>
+          </div>
+        </fabric-grid-row>
+      </header>`;
+    }
+
+    // Main Browser Viewport
+    content += `<fabric-grid-row id="browser">${this.browser.render()}</fabric-grid-row>`;
+
+    if (this.settings.footer) {
+      content += `<footer>
+        <fabric-debug></fabric-debug>
+      </footer>`;
+    }
+
+    content += `<div id="ephemeral-content"></div>
+      <!-- TODO: rollup semantic into build process -->
+      <!-- <script type="text/javascript" src="/scripts/semantic.min.js"></script> -->
+      <!-- <script type="text/javascript" src="/scripts/index.min.js"></script> -->
+      <!-- <script type="text/javascript" src="/scripts/rpg.min.js"></script> -->
+      <script type="text/javascript" src="/scripts/app.js"></script>
+    </fabric-application>`;
     return content;
   }
 
@@ -459,17 +492,19 @@ class App extends Component {
   async start () {
     if (typeof window !== 'undefined' && window.app) await window.app.stop();
 
-    try {
-      await this.store.start();
-    } catch (E) {
-      console.error('Could not open store:', E);
+    if (this.store) {
+      try {
+        await this.store.start();
+      } catch (E) {
+        console.error('Could not open store:', E);
+      }
     }
 
     await this.define('FabricMenu', Menu);
     await this.define('ResourceList', ResourceList);
 
-    for (let name in this.resources) {
-      let definition = this.resources[name];
+    for (const name in this.resources) {
+      const definition = this.resources[name];
       if (definition.data) {
         // TODO: move this to `types/resource.js`
         if (!definition.names) {
@@ -500,7 +535,7 @@ class App extends Component {
     await this.router.stop();
     await this.browser.stop();
     await this.circuit.stop();
-    await this.store.stop();
+    if (this.store) await this.store.stop();
 
     return true;
   }

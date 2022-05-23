@@ -1,36 +1,41 @@
 'use strict';
 
 const Fabric = require('@fabric/core');
+const FabricElement = require('../types/element');
 
 const crypto = require('crypto');
+const manager = require('fast-json-patch');
 const pointer = require('json-pointer');
 
 /**
  * The {@link Component} element is a generic class for creating interactive DOM
  * elements, usually for later composition in an {@link App}.
  */
-class Component extends HTMLElement {
+class Component extends FabricElement {
   /**
    * Create a new {@link Fabric} {@link Component}.
    * @param  {Object} [settings={}] Settings for the {@link Component}.
    * @return {Component}               Instance of the {@link Component}.
    */
-  constructor (settings = {}) {
-    super(settings);
+  init (settings = {}) {
+    super.init(settings);
 
     this.settings = Object.assign({
       title: 'Fabric Component',
       handle: 'fabric-component'
     }, settings);
 
-    this.element = document.createElement(this.settings.handle);
-    this.fabric = new Fabric();
+    // this.element = document.createElement(this.settings.handle);
+    // this.fabric = new Fabric();
+    this._boundFunctions = {};
+    this._listeners = {};
+
     this.remote = new Fabric.Remote({
       host: window.host,
       port: window.port
     });
 
-    this.state = {
+    this._state = {
       methods: {},
       handlers: {}
     };
@@ -50,20 +55,46 @@ class Component extends HTMLElement {
     return Object.keys(this.state.methods);
   }
 
+  set state (state) {
+    if (!state) throw new Error('State must be provided.');
+    this._state = state;
+    this._redraw(this._state);
+  }
+
+  get state () {
+    return Object.assign({}, this._state);
+  }
+
+  /* init (state = {}) {
+    // Assign Settings
+    this.settings = Object.assign({
+      handle: 'starforge-component'
+    }, state);
+
+    // Assign State
+    this._state = {
+      handlers: {}
+    };
+
+    this._registerHandler('click', this.click.bind(this));
+    // this.addEventListener('click', this.click.bind(this));
+  } */
+
   attributeChangedCallback (name, old, value) {
     console.log('[MAKI:COMPONENT]', 'Component notified a change:', name, 'changed to:', value, `(was ${old})`);
   }
 
   connectedCallback () {
     console.log('[MAKI:COMPONENT]', 'Component added to page:', this);
-    let html = this._getInnerHTML();
+    const state = (typeof window !== 'undefined' && window.app) ? window.app.state : this.state;
+    const html = this._getInnerHTML(state);
 
     this.setAttribute('data-integrity', Fabric.sha256(html));
     this.setAttribute('data-fingerprint', this.fingerprint);
     // this.innerHTML = html;
     this.innerHTML = html + '';
 
-    /* let binding = this.getAttribute('data-bind');
+    let binding = this.getAttribute('data-bind');
 
     if (binding) {
       // TODO: use Fabric.Remote
@@ -75,7 +106,7 @@ class Component extends HTMLElement {
         .catch((error) => {
           console.error(error);
         });
-    } */
+    }
 
     // Reflect.construct(HTMLElement, [], this.constructor);
     return this;
@@ -83,20 +114,37 @@ class Component extends HTMLElement {
 
   disconnectedCallback () {
     console.log('[MAKI:COMPONENT]', 'Component removed from page:', this);
-    // TODO: remove event listeners, close connections, etc.
+    for (let name in this._boundFunctions) {
+      this.removeEventListener('message', this._boundFunctions[name]);
+    }
+  }
+
+  integrity (data = '') {
+    // TODO: cache and skip
+    return `sha256-${crypto.createHash('sha256').update(data).digest('base64')}`;
   }
 
   _getElement () {
     return this.element;
   }
 
+  /**
+   * Attach a handler to an event.
+   * @param {String} name Name of the event to listen for.
+   * @param {Function} method Function to execute.
+   */
   _registerHandler (name, method) {
     this.state.handlers[name] = method.bind(this);
 
     switch (name) {
+      default:
+        console.warn('[MAKI:COMPONENT]', 'Unknown method for handler:', name);
+        break;
+      case 'click':
       case 'submit':
-        let listener = document.addEventListener(name, method);
-        console.log('listener created:', listener);
+        // let listener = document.addEventListener(name, method);
+        // console.log('listener created:', listener);
+        let local = this.addEventListener(name, method);
         break;
     }
   }
@@ -138,9 +186,8 @@ class Component extends HTMLElement {
    */
   _redraw (state = {}) {
     if (!state) state = this.state;
-    console.log('[MAKI:COMPONENT]', 'redrawing with state:', state);
+    if (this.settings.verbosity >= 5) console.log('[MAKI:COMPONENT]', 'redrawing with state:', state);
     this.innerHTML = this._getInnerHTML(state);
-    console.log('this innerHTML', this.innerHTML);
     return this;
   }
 
@@ -150,12 +197,14 @@ class Component extends HTMLElement {
   }
 
   _getInnerHTML (state) {
-    if (!state) state = this.state;
+    if (!state) state = (typeof window !== 'undefined') ? window.app.state : this.state;
     return `<code integrity="${this.integrity}">${JSON.stringify(this.state)}</code>`;
   }
 
   render () {
-    return `<${this.settings.handle}>${this._getInnerHTML()}</${this.settings.handle}>`;
+    let content = this._getInnerHTML();
+    let hash = Fabric.sha256(content);
+    return `<${this.settings.handle} integrity="${this.integrity(content)}" data-hash="${hash}">${content}</${this.settings.handle}>`;
   }
 
   async _GET (path) {
@@ -164,6 +213,17 @@ class Component extends HTMLElement {
 
   async _SET (path, value) {
     return pointer.set(this.state, path, value);
+  }
+
+  async _applyChanges (ops) {
+    try {
+      monitor.applyPatch(this.state, ops);
+      await this.commit();
+    } catch (E) {
+      console.error('Error applying changes:', E);
+    }
+
+    return this;
   }
 }
 
