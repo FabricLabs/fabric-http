@@ -4,8 +4,8 @@ const SPA = require('../types/spa');
 const Compiler = require('../types/compiler');
 
 async function main () {
-  let spa = new SPA();
-  let compiler = new Compiler({
+  const spa = new SPA();
+  const compiler = new Compiler({
     document: spa
   });
 

@@ -46,6 +46,7 @@
     "express": "^4.16.4",
     "express-bearer-token": "^2.4.0",
     "express-session": "^1.15.6",
+    "fabric-auth-middleware": "FabricLabs/fabric-auth-middleware#master",
     "isomorphic-ws": "^4.0.1",
     "jquery": "^3.4.1",
     "js-beautify": "^1.10.0",
