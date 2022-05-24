@@ -233,6 +233,7 @@ class Remote extends Actor {
   async request (type, path, params = {}) {
     const self = this;
 
+    let url = this.authority + path;
     let result = null;
     let response = null;
     let headers = {
@@ -252,8 +253,6 @@ class Remote extends Actor {
         this.settings.password || ''
       ].join(':')).toString('base64')}`;
     }
-
-    const url = this.authority + path;
 
     switch (params.mode) {
       case 'query':
