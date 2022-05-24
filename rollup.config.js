@@ -1,7 +1,6 @@
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
-
-const packageJson = require('./package.json');
+import json from '@rollup/plugin-json';
 
 export default [
   {
@@ -9,7 +8,8 @@ export default [
     output: [
       {
         file: 'assets/components.js',
-        format: 'cjs'
+        format: 'iife',
+        name: 'FabricComponents'
       }
     ],
     plugins: [
@@ -18,11 +18,12 @@ export default [
     ]
   },
   {
-    input: 'index.js',
+    input: 'scripts/index.js',
     output: [
       {
         file: 'assets/fabric.http.js',
-        format: 'es'
+        format: 'iife',
+        name: 'FabricHTTP'
       },
       {
         file: 'builds/esm/fabric.http.js',
@@ -30,8 +31,10 @@ export default [
       }
     ],
     plugins: [
+      json(),
       resolve(),
       commonjs()
-    ]
+    ],
+    external: []
   }
 ];

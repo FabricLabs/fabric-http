@@ -15,7 +15,6 @@ const Fabric = require('@fabric/core');
 // const Stash = require('@fabric/core/types/stash');
 
 // Internal Types
-const Avatar = require('./avatar');
 const Router = require('./router');
 const Browser = require('./browser');
 const Resource = require('./resource');
@@ -70,7 +69,6 @@ class App extends Component {
 
     this.menu = new Menu();
     this.types = new ResourceList();
-    this.avatar = new Avatar();
     this.router = new Router(this.settings);
     // this.wallet = new Wallet();
     this.browser = new Browser(Object.assign({}, this.settings, {
