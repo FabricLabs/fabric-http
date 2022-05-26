@@ -2,7 +2,7 @@
   "name": "@fabric/http",
   "version": "0.1.0-RC1",
   "description": "tools for serving the legacy web with Fabric",
-  "main": "index.js",
+  "main": "assets/fabric.http.js",
   "module": "builds/esm/fabric.http.js",
   "scripts": {
     "build": "npm run report:coverage && npm test && npm run build:scripts && npm run build:docs",
