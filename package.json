@@ -5,6 +5,7 @@
   "main": "index.js",
   "module": "builds/esm/fabric.http.js",
   "scripts": {
+    "build": "npm run report:coverage && npm test && npm run build:scripts && npm run build:docs",
     "build:docs": "jsdoc -c jsdoc.json types components/*.js types/*.js settings/deprecations.js README.md -d docs",
     "build:coverage": "npm run coverage && nyc report --reporter=html",
     "build:fast": "node examples/build.js && npm run build:scripts",
@@ -20,7 +21,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/FabricLabs/web.git"
+    "url": "git+https://github.com/FabricLabs/fabric-http.git"
   },
   "keywords": [
     "http",
@@ -32,9 +33,9 @@
   "author": "Eric Martindale",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/FabricLabs/web/issues"
+    "url": "https://github.com/FabricLabs/fabric-http/issues"
   },
-  "homepage": "https://github.com/FabricLabs/web#readme",
+  "homepage": "https://github.com/FabricLabs/fabric-http#readme",
   "dependencies": {
     "@fabric/core": "FabricLabs/fabric#security/dependencies",
     "body-parser": "^1.18.3",
