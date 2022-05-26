@@ -35,6 +35,6 @@ export default [
       resolve(),
       commonjs()
     ],
-    external: []
+    external: ['react', 'react-dom']
   }
 ];
