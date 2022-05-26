@@ -1,6 +1,6 @@
 language: node_js
 node_js:
-  - '12.20.2'
+  - '14.19.2'
 script:
   - npm run test
   - npm run report:coverage
