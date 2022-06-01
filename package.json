@@ -55,6 +55,7 @@
     "lightning-client": "^0.5.2-beta.8",
     "lodash.merge": "^4.6.2",
     "metascraper": "^5.29.5",
+    "node-fetch": "^3.2.4",
     "page": "^1.11.4",
     "path-to-regexp": "^6.1.0",
     "peer": "^0.2.10",
