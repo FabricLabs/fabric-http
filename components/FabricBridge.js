@@ -17,7 +17,7 @@ import {
 // Fabric Types
 // import * as Store from '@fabric/core/types/store';
 // import * as Worker from '@fabric/core/types/worker';
-import * as Remote from '@fabric/http/types/remote';
+import * as Remote from '../types/remote';
 
 class FabricBridge extends FabricComponent {
   constructor (props) {
