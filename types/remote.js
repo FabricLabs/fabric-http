@@ -10,7 +10,7 @@ const https = require('https');
 const querystring = require('querystring');
 
 // External Dependencies
-const fetch = require('node-fetch');
+const fetch = require('cross-fetch');
 const parser = require('content-type');
 const ws = require('ws').WebSocket;
 
