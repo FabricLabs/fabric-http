@@ -13,7 +13,7 @@
     "compile": "node examples/build.js && npm run build:scripts",
     "coverage": "nyc npm run test",
     "docs": "npm run build:docs && http-server docs",
-    "report:coverage": "npm run coverage && nyc report --reporter=text-lcov > reports/coverage.lcov && codecov",
+    "report:coverage": "npm run coverage && nyc report --reporter=text-lcov > reports/coverage.lcov",
     "review:coverage": "npm run build:coverage && http-server reports/coverage",
     "start": "npm run compile && node examples/server.js",
     "static": "npm run build:scripts && http-server assets",
