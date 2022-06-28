@@ -2,8 +2,7 @@
   "name": "@fabric/http",
   "version": "0.1.0-RC1",
   "description": "tools for serving the legacy web with Fabric",
-  "main": "index.js",
-  "module": "builds/esm/fabric.http.js",
+  "main": "types/web.js",
   "scripts": {
     "build": "npm run report:coverage && npm test && npm run build:scripts && npm run build:docs",
     "build:docs": "jsdoc -c jsdoc.json types components/*.js types/*.js settings/deprecations.js README.md -d docs",
@@ -30,14 +29,18 @@
     "bitcoin",
     "blockchain"
   ],
-  "author": "Eric Martindale",
+  "author": "Fabric Labs",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/FabricLabs/fabric-http/issues"
   },
   "homepage": "https://github.com/FabricLabs/fabric-http#readme",
+  "contributors": [
+    "Eric Martindale"
+  ],
   "dependencies": {
     "body-parser": "^1.18.3",
+    "cross-fetch": "^3.1.5",
     "d3": "^5.9.2",
     "d3-graphviz": "^2.6.1",
     "express": "^4.16.4",
@@ -48,13 +51,10 @@
     "jade-lexer": "0.0.9",
     "jade-parser": "0.0.9",
     "jquery": "^3.4.1",
-    "js-beautify": "^1.10.0",
-    "jsdoc": "FabricLabs/jsdoc#fabric",
     "level": "5",
     "lightning-client": "^0.5.2-beta.8",
     "lodash.merge": "^4.6.2",
     "metascraper": "^5.29.5",
-    "node-fetch": "^2.6.7",
     "page": "^1.11.4",
     "path-to-regexp": "^6.1.0",
     "peer": "^0.2.10",
@@ -70,6 +70,8 @@
     "@rollup/plugin-typescript": "^8.3.2",
     "debug-trace": "^2.2.3",
     "gulp": "^4.0.2",
+    "js-beautify": "^1.10.0",
+    "jsdoc": "FabricLabs/jsdoc#fabric",
     "jsdom": "^11.12.0",
     "mocha": "^6.0.2",
     "nyc": "^13.3.0",
