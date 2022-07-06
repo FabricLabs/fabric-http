@@ -38,7 +38,6 @@ class Remote extends Actor {
     super(config);
 
     this.settings = Object.assign({
-      authority: 'localhost',
       backoff: 2,
       entropy: Math.random(),
       secure: true,
@@ -73,7 +72,7 @@ class Remote extends Actor {
 
   get authority () {
     // TODO: use onion address for secure mode
-    const parts = this.settings.authority.split(':');
+    const parts = (this.settings.authority) ? this.settings.authority.split(':') : this.host.split(':');
     const state = {
       host: null,
       secure: null,
