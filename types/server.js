@@ -16,6 +16,7 @@ const merge = require('lodash.merge');
 // NOTE: current blockers include PeerServer...
 const express = require('express');
 const session = require('express-session');
+const flasher = require('express-flash');
 // TODO: check with Riddle about this
 const parsers = require('body-parser');
 const monitor = require('fast-json-patch');
@@ -715,7 +716,10 @@ class FabricHTTPServer extends Service {
 
     // configure sessions & parsers
     // TODO: migrate to {@link Session} or abolish entirely
-    if (server.settings.sessions) server.express.use(server.sessions);
+    if (server.settings.sessions) {
+      server.express.use(server.sessions);
+      server.express.use(flasher());
+    }
 
     // Other Middlewares
     server.express.use(parsers.urlencoded({ extended: true }));
