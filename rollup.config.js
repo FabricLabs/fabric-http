@@ -17,7 +17,9 @@ export default [
     plugins: [
       nodeGlobals(),
       nodePolyfills(),
-      commonjs({ include: /node_modules/, transformMixedEsModules:true}),
+      commonjs({
+        include: /node_modules/, 
+        transformMixedEsModules:true}),
       resolve(),
     ]
   },
@@ -39,6 +41,7 @@ export default [
       nodeGlobals(),
       nodePolyfills(),
       commonjs({
+        include: /node_modules/, 
         transformMixedEsModules: true}),
       resolve({	
         browser: true		
