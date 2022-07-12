@@ -5,18 +5,17 @@ const {
 } = require('@fabric/core/constants');
 
 // Internal Dependencies
-const http = require('http');
-const https = require('https');
 const querystring = require('querystring');
 
 // External Dependencies
-const fetch = require('node-fetch');
+const fetch = require('cross-fetch');
 const parser = require('content-type');
-const ws = require('ws').WebSocket;
+// const ws = require('ws').WebSocket;
 
 // Internal Types
 const Actor = require('@fabric/core/types/actor');
 const Message = require('@fabric/core/types/message');
+
 const CONTENT_TYPE = 'application/json';
 
 /**
