@@ -1,6 +1,8 @@
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
+import nodeGlobals from 'rollup-plugin-node-globals';
+import nodePolyfills from 'rollup-plugin-polyfill-node';
 
 export default [
   {
@@ -13,8 +15,12 @@ export default [
       }
     ],
     plugins: [
+      nodeGlobals(),
+      nodePolyfills(),
+      commonjs({
+        include: /node_modules/, 
+        transformMixedEsModules:true}),
       resolve(),
-      commonjs()
     ]
   },
   {
@@ -32,8 +38,14 @@ export default [
     ],
     plugins: [
       json(),
-      resolve(),
-      commonjs()
+      nodeGlobals(),
+      nodePolyfills(),
+      commonjs({
+        include: /node_modules/, 
+        transformMixedEsModules: true}),
+      resolve({	
+        browser: true		
+      })
     ],
     external: []
   }

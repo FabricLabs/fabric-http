@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Source: components/component.js &middot; Docs</title>
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+  </head>
+  <body>
+    <div id="main">
+      <h1 class="page-title">Source: components/component.js</h1>
+      
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>'use strict';
+
+const Fabric = require('@fabric/core');
+const FabricElement = require('../types/element');
+
+const crypto = require('crypto');
+const manager = require('fast-json-patch');
+const pointer = require('json-pointer');
+
+/**
+ * The {@link Component} element is a generic class for creating interactive DOM
+ * elements, usually for later composition in an {@link App}.
+ */
+class Component extends FabricElement {
+  /**
+   * Create a new {@link Fabric} {@link Component}.
+   * @param  {Object} [settings={}] Settings for the {@link Component}.
+   * @return {Component}               Instance of the {@link Component}.
+   */
+  init (settings = {}) {
+    super.init(settings);
+
+    this.settings = Object.assign({
+      title: 'Fabric Component',
+      handle: 'fabric-component'
+    }, settings);
+
+    // this.element = document.createElement(this.settings.handle);
+    // this.fabric = new Fabric();
+    this._boundFunctions = {};
+    this._listeners = {};
+
+    this.remote = new Fabric.Remote({
+      host: window.host,
+      port: window.port
+    });
+
+    this._state = {
+      methods: {},
+      handlers: {}
+    };
+
+    return this;
+  }
+
+  get fingerprint () {
+    return crypto.createHash('sha256').update(JSON.stringify(this.state)).digest('hex');
+  }
+
+  get title () {
+    return this.settings.title;
+  }
+
+  get methods () {
+    return Object.keys(this.state.methods);
+  }
+
+  set state (state) {
+    if (!state) throw new Error('State must be provided.');
+    this._state = state;
+    this._redraw(this._state);
+  }
+
+  get state () {
+    return Object.assign({}, this._state);
+  }
+
+  /* init (state = {}) {
+    // Assign Settings
+    this.settings = Object.assign({
+      handle: 'starforge-component'
+    }, state);
+
+    // Assign State
+    this._state = {
+      handlers: {}
+    };
+
+    this._registerHandler('click', this.click.bind(this));
+    // this.addEventListener('click', this.click.bind(this));
+  } */
+
+  attributeChangedCallback (name, old, value) {
+    console.log('[MAKI:COMPONENT]', 'Component notified a change:', name, 'changed to:', value, `(was ${old})`);
+  }
+
+  connectedCallback () {
+    console.log('[MAKI:COMPONENT]', 'Component added to page:', this);
+    const state = (typeof window !== 'undefined' &amp;&amp; window.app) ? window.app.state : this.state;
+    const html = this._getInnerHTML(state);
+
+    this.setAttribute('data-integrity', Fabric.sha256(html));
+    this.setAttribute('data-fingerprint', this.fingerprint);
+    // this.innerHTML = html;
+    this.innerHTML = html + '';
+
+    let binding = this.getAttribute('data-bind');
+
+    if (binding) {
+      // TODO: use Fabric.Remote
+      fetch(`fabric:${binding}`)
+        .then((response) => response.text())
+        .then((responseText) => {
+          this.render(JSON.parse(responseText));
+        })
+        .catch((error) => {
+          console.error(error);
+        });
+    }
+
+    // Reflect.construct(HTMLElement, [], this.constructor);
+    return this;
+  }
+
+  disconnectedCallback () {
+    console.log('[MAKI:COMPONENT]', 'Component removed from page:', this);
+    for (let name in this._boundFunctions) {
+      this.removeEventListener('message', this._boundFunctions[name]);
+    }
+  }
+
+  integrity (data = '') {
+    // TODO: cache and skip
+    return `sha256-${crypto.createHash('sha256').update(data).digest('base64')}`;
+  }
+
+  _getElement () {
+    return this.element;
+  }
+
+  /**
+   * Attach a handler to an event.
+   * @param {String} name Name of the event to listen for.
+   * @param {Function} method Function to execute.
+   */
+  _registerHandler (name, method) {
+    this.state.handlers[name] = method.bind(this);
+
+    switch (name) {
+      default:
+        console.warn('[MAKI:COMPONENT]', 'Unknown method for handler:', name);
+        break;
+      case 'click':
+      case 'submit':
+        // let listener = document.addEventListener(name, method);
+        // console.log('listener created:', listener);
+        let local = this.addEventListener(name, method);
+        break;
+    }
+  }
+
+  _registerMethod (name, method) {
+    this.state.methods[name] = method.bind(this);
+
+    if (window &amp;&amp; window.app &amp;&amp; window.app.circuit) {
+      window.app.circuit._registerMethod(name, this.state.methods[name]);
+    }
+  }
+
+  _handleLocalChange (patches) {
+    console.log('[MAKI:COMPONENT]', 'local changes:', patches);
+
+    for (let i = 0; i &lt; patches.length; i++) {
+      let patch = patches[i];
+      switch (patch.op) {
+        case 'add':
+        case 'replace':
+          this.emit(patch.path, {
+            '@type': 'Snapshot',
+            '@data': patch.value
+          });
+          break;
+      }
+    }
+
+    this.emit('/', {
+      '@type': 'Snapshot',
+      '@data': this.state
+    });
+  }
+
+  /**
+   * Re-draw the component, using provided state or existing state.
+   * @param  {Object} [state={}] State to render with (optional).
+   * @return {Component}         Instance of the {@link Component}.
+   */
+  _redraw (state = {}) {
+    if (!state) state = this.state;
+    if (this.settings.verbosity >= 5) console.log('[MAKI:COMPONENT]', 'redrawing with state:', state);
+    this.innerHTML = this._getInnerHTML(state);
+    return this;
+  }
+
+  commit () {
+    let id = this.fingerprint();
+    return id;
+  }
+
+  _getInnerHTML (state) {
+    if (!state) state = (typeof window !== 'undefined') ? window.app.state : this.state;
+    return `&lt;code integrity="${this.integrity}">${JSON.stringify(this.state)}&lt;/code>`;
+  }
+
+  renderToHTML () {
+    let content = this._getInnerHTML();
+    let hash = Fabric.sha256(content);
+    return `&lt;${this.settings.handle} integrity="${this.integrity(content)}" data-hash="${hash}">${content}&lt;/${this.settings.handle}>`;
+  }
+
+  render () {
+    return this.renderToHTML();
+  }
+
+  async _GET (path) {
+    return pointer.get(this.state, path);
+  }
+
+  async _SET (path, value) {
+    return pointer.set(this.state, path, value);
+  }
+
+  async _applyChanges (ops) {
+    try {
+      monitor.applyPatch(this.state, ops);
+      await this.commit();
+    } catch (E) {
+      console.error('Error applying changes:', E);
+    }
+
+    return this;
+  }
+}
+
+module.exports = Component;
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+    </div>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Application.html">Application</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Component.html">Component</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Modal.html">Modal</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Stash.html">Stash</a></li><li><a href="Steps.html">Steps</a></li><li><a href="Wallet.html">Wallet</a></li><li><a href="WalletCard.html">WalletCard</a></li><li><a href="WalletCreator.html">WalletCreator</a></li></ul></nav>
+    <br class="clear" />
+    <footer>
+        <a href="https://github.com/FabricLabs/web">git://</a> &middot; <a href="https://chat.fabric.pub/#/room/#web:fabric.pub">Community</a>
+    </footer>
+    <script> prettyPrint(); </script>
+    <script src="scripts/linenumber.js"></script>
+  </body>
+</html>

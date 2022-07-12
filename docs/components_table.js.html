@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Source: components/table.js &middot; Docs</title>
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+  </head>
+  <body>
+    <div id="main">
+      <h1 class="page-title">Source: components/table.js</h1>
+      
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>'use strict';
+
+const Component = require('./component');
+
+/**
+ * Manage a table of columnar data.
+ * @extends {Component}
+ */
+class Table extends Component {
+  constructor (settings = {}) {
+    super(settings);
+
+    this.settings = Object.assign({
+      title: 'Table',
+      description: 'An empty table.',
+      rows: [],
+      methods: {},
+      handle: 'maki-table'
+    }, settings);
+
+    this._state = {
+      rows: this.settings.rows
+    };
+
+    return this;
+  }
+
+  connectedCallback () {
+    super.connectedCallback();
+    console.log('[MAKI:TABLE]', 'connected!');
+    window.app.circuit._registerMethod('_resortRows', this._resortRows.bind(this));
+  }
+
+  _resortRows (event) {
+    this.status = 'resorting';
+    // TODO: implement
+    // this.emit('resort');
+    this.status = 'resorted';
+    return this;
+  }
+
+  /**
+   * Sets the content of the modal.
+   * @param {Table} content String of HTML to add as content.
+   */
+  _setContent (content) {
+    this.settings.content = content;
+    this.innerHTML = this._getInnerHTML();
+    return this;
+  }
+
+  _getInnerHTML () {
+    let html = `&lt;div class="header">${this.settings.title}&lt;/div>`;
+    html += `&lt;div class="content">`;
+    html += `&lt;div class="description">${this.settings.description}&lt;/div>`;
+
+    if (this.settings.content) {
+      html += `&lt;div class="content ui segment">${this.settings.content}&lt;/div>`;
+    }
+
+    html += '&lt;/div>';
+    html += `&lt;table class="ui table">`;
+    html += `&lt;tbody>`;
+
+    for (let i = 0; i &lt; this._state.rows.length; i++) {
+      let row = this._state.rows[i];
+      let fields = Object.keys(row);
+
+      html += `&lt;tr>`;
+
+      for (let j = 0; j &lt; fields.length; j++) {
+        html += `&lt;td>`;
+        html += `&lt;code>${row}&lt;/code>`;
+        html += `&lt;/td>`;
+      }
+
+      html += `&lt;/tr>`;
+    }
+
+    html += '&lt;/tbody>';
+    html += '&lt;/table>';
+    html += '&lt;/div>';
+
+    return html;
+  }
+}
+
+module.exports = Table;
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+    </div>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Application.html">Application</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Component.html">Component</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Modal.html">Modal</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Stash.html">Stash</a></li><li><a href="Steps.html">Steps</a></li><li><a href="Wallet.html">Wallet</a></li><li><a href="WalletCard.html">WalletCard</a></li><li><a href="WalletCreator.html">WalletCreator</a></li></ul></nav>
+    <br class="clear" />
+    <footer>
+        <a href="https://github.com/FabricLabs/web">git://</a> &middot; <a href="https://chat.fabric.pub/#/room/#web:fabric.pub">Community</a>
+    </footer>
+    <script> prettyPrint(); </script>
+    <script src="scripts/linenumber.js"></script>
+  </body>
+</html>
