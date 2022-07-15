@@ -74,6 +74,7 @@ class FabricHTTPServer extends Service {
       listen: true,
       resources: {},
       components: {},
+      middlewares: {},
       services: {
         audio: {
           address: '/devices/audio'
@@ -724,6 +725,11 @@ class FabricHTTPServer extends Service {
     // Other Middlewares
     server.express.use(parsers.urlencoded({ extended: true }));
     server.express.use(parsers.json());
+
+    for (let name in server.settings.middlewares) {
+      const middleware = server.settings.middlewares[name];
+      server.express.use(middleware);
+    }
 
     // TODO: render page
     server.express.options('/', server._handleOptionsRequest.bind(server));

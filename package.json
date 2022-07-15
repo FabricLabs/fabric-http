@@ -50,8 +50,6 @@
     "fast-json-patch": "^3.1.1",
     "http-server": "^14.1.1",
     "isomorphic-ws": "^4.0.1",
-    "jade-lexer": "0.0.9",
-    "jade-parser": "0.0.9",
     "jquery": "^3.4.1",
     "level": "5",
     "lightning-client": "^0.5.2-beta.8",
