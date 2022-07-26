@@ -42,7 +42,7 @@ const State = require('@fabric/core/types/state');
 // const Client = require('./client');
 // const Component = require('./component');
 // const Browser = require('./browser');
-// const SPA = require('./spa');
+const SPA = require('./spa');
 
 // Dependencies
 const WebSocket = require('ws');
@@ -92,9 +92,9 @@ class FabricHTTPServer extends Service {
 
     // this.browser = new Browser(this.settings);
     // TODO: compile & boot (load state) SPA (React + Redux?)
-    /* this.app = new SPA(Object.assign({}, this.settings, {
+    this.app = new SPA(Object.assign({}, this.settings, {
       path: './stores/server-application'
-    })); */
+    }));
 
     /* this.compiler = webpack({
       // webpack options
@@ -509,7 +509,6 @@ class FabricHTTPServer extends Service {
    * @param {HTTPResponse} res Outgoing response.
    */
   _handleIndexRequest (req, res) {
-    console.log('[HTTP:SERVER]', 'Handling request for Index...');
     let html = '';
 
     if (this.app) {
@@ -517,7 +516,7 @@ class FabricHTTPServer extends Service {
     } else {
       html = '<fabric-application><fabric-card>Failed to load, as no application was available.</fabric-card></fabric-application>';
     }
-    console.log('[HTTP:SERVER]', 'Generated HTML:', html);
+
     res.set('Content-Type', 'text/html');
     res.send(`${html}`);
   }
