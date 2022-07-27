@@ -15,11 +15,11 @@ async function main (input = {}) {
   const server = new HTTPServer(input);
   await server.start();
 
-  return {
+  return JSON.stringify({
     id: server.id,
     environment: environment.id,
     link: server.link
-  };
+  });
 }
 
 environment.start();
@@ -32,8 +32,9 @@ const input = {
 
 // Run Process
 main(input).catch((exception) => {
-  console.log('[HTTP:NODE]', 'Main Process Exception:', exception);
+  console.log('[FABRIC:HTTP]', 'Main Process Exception:', exception);
 }).then((output) => {
-  console.log('[HTTP:NODE]', 'Main Process Output:', output);
+  console.log('[FABRIC:HTTP]', 'Main Process Output:', output);
+  console.log('[FABRIC:HTTP]', 'HTTP Server is running:', JSON.parse(output).link);
 });
 

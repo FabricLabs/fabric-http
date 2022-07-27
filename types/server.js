@@ -694,9 +694,9 @@ class FabricHTTPServer extends Service {
     const server = this;
     server.status = 'starting';
 
-    if (!server.settings.resources || !Object.keys(server.settings.resources).length) {
+    /* if (!server.settings.resources || !Object.keys(server.settings.resources).length) {
       console.trace('[HTTP:SERVER]', 'No Resources have been defined for this server.  Please provide a "resources" map in the configuration.');
-    }
+    } */
 
     for (let name in server.settings.resources) {
       const definition = server.settings.resources[name];
