@@ -67,6 +67,7 @@ class FabricHTTPServer extends Service {
     this.settings = merge({
       name: 'FabricHTTPServer',
       description: 'Service delivering a Fabric application across the HTTP protocol.',
+      assets: 'assets',
       // TODO: document host as listening on all interfaces by default
       host: '0.0.0.0',
       path: './stores/server',
@@ -178,7 +179,6 @@ class FabricHTTPServer extends Service {
     if (this.settings.verbosity >= 5) console.log('[HTTP:SERVER]', 'Defining:', name, definition);
     const server = this;
     const resource = await super.define(name, definition);
-
     const snapshot = Object.assign({
       name: name,
       names: { plural: pluralize(name) }
@@ -710,7 +710,7 @@ class FabricHTTPServer extends Service {
 
     // TODO: defer to an in-memory datastore for requested files
     // NOTE: disable this line to compile on-the-fly
-    server.express.use(express.static('assets'));
+    server.express.use(express.static(this.settings.assets));
     server.express.use(extractor());
     server.express.use(server._roleMiddleware.bind(server));
 

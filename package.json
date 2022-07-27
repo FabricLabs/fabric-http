@@ -3,6 +3,9 @@
   "version": "0.1.0-RC1",
   "description": "tools for serving the legacy web with Fabric",
   "main": "types/web.js",
+  "bin": {
+    "fabric-http": "./scripts/node.js"
+  },
   "scripts": {
     "build": "npm run report:coverage && npm test && npm run build:scripts && npm run build:docs",
     "build:docs": "jsdoc -c jsdoc.json types components/*.js types/*.js settings/deprecations.js README.md -d docs",
@@ -39,6 +42,7 @@
     "Eric Martindale"
   ],
   "dependencies": {
+    "@fabric/core": "github:FabricLabs/fabric#feature/federation",
     "body-parser": "^1.18.3",
     "cross-fetch": "^3.1.5",
     "d3": "^5.9.2",
@@ -80,9 +84,6 @@
     "semistandard": "^13.0.1",
     "showdown": "^1.9.1",
     "typescript": "^4.6.3"
-  },
-  "peerDependencies": {
-    "@fabric/core": "FabricLabs/fabric#feature/federation"
   },
   "browser": {
     "ws": false
