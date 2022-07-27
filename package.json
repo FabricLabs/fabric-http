@@ -61,7 +61,7 @@
     "metascraper": "^5.29.5",
     "page": "^1.11.4",
     "path-to-regexp": "^6.1.0",
-    "peer": "^0.2.10",
+    "peer": "^0.6.1",
     "peerjs": "^1.0.0",
     "pluralize": "^7.0.0",
     "stoppable": "^1.1.0",
