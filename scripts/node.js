@@ -3,13 +3,12 @@
  * Command-line HTTP server.
  */
 
-// Settings
-const settings = {
-  assets: process.argv[2] || 'assets'
-}; // TODO: read from file (Environment)
-
 // Fabric Types
+const Environment = require('@fabric/core/types/environment');
 const HTTPServer = require('../types/server');
+
+// Read environment
+const environment = new Environment();
 
 // Main Function
 async function main (input = {}) {
@@ -18,12 +17,21 @@ async function main (input = {}) {
 
   return {
     id: server.id,
-    environment: environment.id
+    environment: environment.id,
+    link: server.link
   };
 }
 
+environment.start();
+
+const input = {
+  assets: process.argv[2] || 'assets',
+  seed: environment.seed,
+  xprv: environment.xprv
+};
+
 // Run Process
-main(settings).catch((exception) => {
+main(input).catch((exception) => {
   console.log('[HTTP:NODE]', 'Main Process Exception:', exception);
 }).then((output) => {
   console.log('[HTTP:NODE]', 'Main Process Output:', output);
