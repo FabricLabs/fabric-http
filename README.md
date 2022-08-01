@@ -12,7 +12,8 @@ Building applications with `@fabric/http` is easy.
 
 ```
 mkdir myapp && cd myapp
-npm install @fabric/http
+npm init
+npm i --save @fabric/http
 ```
 
 ### `app.js`
@@ -22,7 +23,7 @@ npm install @fabric/http
 const SPA = require('@fabric/http/types/spa');
 
 async function main () {
-  let spa = new SPA(
+  const spa = new SPA(
     name: 'Example App',
     synopsis: 'Simple demonstration of a single-page app.',
     resources: {
