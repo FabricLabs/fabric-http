@@ -76,6 +76,7 @@ class FabricHTTPServer extends Service {
       resources: {},
       components: {},
       middlewares: {},
+      redirects: {},
       services: {
         audio: {
           address: '/devices/audio'
@@ -550,6 +551,14 @@ class FabricHTTPServer extends Service {
     return next();
   }
 
+  _redirectMiddleware (req, res, next) {
+    if (Object.keys(this.settings.redirects).includes(req.path)) {
+      return res.redirect(this.settings.redirects[req.path]);
+    } else {
+      return next();
+    }
+  }
+
   _verifyClient (info, done) {
     console.log('[HTTP:SERVER]', '_verifyClient', info);
     if (!this.settings.sessions) return done();
@@ -707,6 +716,7 @@ class FabricHTTPServer extends Service {
     // configure router
     server.express.use(server._logMiddleware.bind(server));
     server.express.use(server._headerMiddleware.bind(server));
+    server.express.use(server._redirectMiddleware.bind(server));
 
     // TODO: defer to an in-memory datastore for requested files
     // NOTE: disable this line to compile on-the-fly
