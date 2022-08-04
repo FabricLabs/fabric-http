@@ -148,7 +148,7 @@ class FabricComponent extends Service {
   }
 }
 
-export default FabricComponent;
+module.exports = FabricComponent;
 
 // TODO: debug why this can't be used on this parent class...
 // ```

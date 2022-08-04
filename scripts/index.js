@@ -23,6 +23,7 @@ async function main () {
       // 'Depositor': Service
     }
   });
+
   window.app.service = new Service();
   window.app.circuit = new Circuit({
     gates: [],

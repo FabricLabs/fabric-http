@@ -16,6 +16,7 @@ const merge = require('lodash.merge');
 // NOTE: current blockers include PeerServer...
 const express = require('express');
 const session = require('express-session');
+const flasher = require('express-flash');
 // TODO: check with Riddle about this
 const parsers = require('body-parser');
 const monitor = require('fast-json-patch');
@@ -41,7 +42,7 @@ const State = require('@fabric/core/types/state');
 // const Client = require('./client');
 // const Component = require('./component');
 // const Browser = require('./browser');
-// const SPA = require('./spa');
+const SPA = require('./spa');
 
 // Dependencies
 const WebSocket = require('ws');
@@ -66,6 +67,7 @@ class FabricHTTPServer extends Service {
     this.settings = merge({
       name: 'FabricHTTPServer',
       description: 'Service delivering a Fabric application across the HTTP protocol.',
+      assets: 'assets',
       // TODO: document host as listening on all interfaces by default
       host: '0.0.0.0',
       path: './stores/server',
@@ -73,6 +75,8 @@ class FabricHTTPServer extends Service {
       listen: true,
       resources: {},
       components: {},
+      middlewares: {},
+      redirects: {},
       services: {
         audio: {
           address: '/devices/audio'
@@ -90,9 +94,9 @@ class FabricHTTPServer extends Service {
 
     // this.browser = new Browser(this.settings);
     // TODO: compile & boot (load state) SPA (React + Redux?)
-    /* this.app = new SPA(Object.assign({}, this.settings, {
+    this.app = new SPA(Object.assign({}, this.settings, {
       path: './stores/server-application'
-    })); */
+    }));
 
     /* this.compiler = webpack({
       // webpack options
@@ -176,7 +180,6 @@ class FabricHTTPServer extends Service {
     if (this.settings.verbosity >= 5) console.log('[HTTP:SERVER]', 'Defining:', name, definition);
     const server = this;
     const resource = await super.define(name, definition);
-
     const snapshot = Object.assign({
       name: name,
       names: { plural: pluralize(name) }
@@ -507,7 +510,6 @@ class FabricHTTPServer extends Service {
    * @param {HTTPResponse} res Outgoing response.
    */
   _handleIndexRequest (req, res) {
-    console.log('[HTTP:SERVER]', 'Handling request for Index...');
     let html = '';
 
     if (this.app) {
@@ -515,7 +517,7 @@ class FabricHTTPServer extends Service {
     } else {
       html = '<fabric-application><fabric-card>Failed to load, as no application was available.</fabric-card></fabric-application>';
     }
-    console.log('[HTTP:SERVER]', 'Generated HTML:', html);
+
     res.set('Content-Type', 'text/html');
     res.send(`${html}`);
   }
@@ -547,6 +549,14 @@ class FabricHTTPServer extends Service {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Headers', 'content-type');
     return next();
+  }
+
+  _redirectMiddleware (req, res, next) {
+    if (Object.keys(this.settings.redirects).includes(req.path)) {
+      return res.redirect(this.settings.redirects[req.path]);
+    } else {
+      return next();
+    }
   }
 
   _verifyClient (info, done) {
@@ -693,9 +703,9 @@ class FabricHTTPServer extends Service {
     const server = this;
     server.status = 'starting';
 
-    if (!server.settings.resources || !Object.keys(server.settings.resources).length) {
+    /* if (!server.settings.resources || !Object.keys(server.settings.resources).length) {
       console.trace('[HTTP:SERVER]', 'No Resources have been defined for this server.  Please provide a "resources" map in the configuration.');
-    }
+    } */
 
     for (let name in server.settings.resources) {
       const definition = server.settings.resources[name];
@@ -706,20 +716,29 @@ class FabricHTTPServer extends Service {
     // configure router
     server.express.use(server._logMiddleware.bind(server));
     server.express.use(server._headerMiddleware.bind(server));
+    server.express.use(server._redirectMiddleware.bind(server));
 
     // TODO: defer to an in-memory datastore for requested files
     // NOTE: disable this line to compile on-the-fly
-    server.express.use(express.static('assets'));
+    server.express.use(express.static(this.settings.assets));
     server.express.use(extractor());
     server.express.use(server._roleMiddleware.bind(server));
 
     // configure sessions & parsers
     // TODO: migrate to {@link Session} or abolish entirely
-    if (server.settings.sessions) server.express.use(server.sessions);
+    if (server.settings.sessions) {
+      server.express.use(server.sessions);
+      server.express.use(flasher());
+    }
 
     // Other Middlewares
     server.express.use(parsers.urlencoded({ extended: true }));
     server.express.use(parsers.json());
+
+    for (let name in server.settings.middlewares) {
+      const middleware = server.settings.middlewares[name];
+      server.express.use(middleware);
+    }
 
     // TODO: render page
     server.express.options('/', server._handleOptionsRequest.bind(server));

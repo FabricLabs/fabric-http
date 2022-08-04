@@ -1,6 +1,7 @@
+dist: focal
 language: node_js
-node_js:
-  - '16.15.0'
-script:
-  - npm run test
+before_install:
+  - npm install -g codecov
+after_success:
   - npm run report:coverage
+  - codecov

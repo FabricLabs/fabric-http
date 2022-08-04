@@ -4,12 +4,13 @@ const SPA = require('../types/spa');
 const Compiler = require('../types/compiler');
 
 async function main () {
-  let spa = new SPA({
+  const spa = new SPA({
     resources: {
       'Depositor': {}
     }
   });
-  let compiler = new Compiler({
+
+  const compiler = new Compiler({
     document: spa
   });
 
