@@ -7,5 +7,7 @@ const SPA = require('./spa');
 module.exports = {
   Server: Server,
   Client: Client,
-  App: SPA
+  App: SPA,
+  SPA: SPA,
+  Site: SPA
 };

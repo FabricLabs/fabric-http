@@ -5,18 +5,17 @@ const {
 } = require('@fabric/core/constants');
 
 // Internal Dependencies
-const http = require('http');
-const https = require('https');
 const querystring = require('querystring');
 
 // External Dependencies
-const fetch = require('node-fetch');
+const fetch = require('cross-fetch');
 const parser = require('content-type');
-const ws = require('ws').WebSocket;
+// const ws = require('ws').WebSocket;
 
 // Internal Types
 const Actor = require('@fabric/core/types/actor');
 const Message = require('@fabric/core/types/message');
+
 const CONTENT_TYPE = 'application/json';
 
 /**
@@ -39,7 +38,6 @@ class Remote extends Actor {
     super(config);
 
     this.settings = Object.assign({
-      authority: 'localhost',
       backoff: 2,
       entropy: Math.random(),
       secure: true,
@@ -74,7 +72,7 @@ class Remote extends Actor {
 
   get authority () {
     // TODO: use onion address for secure mode
-    const parts = this.settings.authority.split(':');
+    const parts = (this.settings.authority) ? this.settings.authority.split(':') : this.host.split(':');
     const state = {
       host: null,
       secure: null,

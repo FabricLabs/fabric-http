@@ -9,14 +9,14 @@ const { URL } = require('url');
 class HTTPClient {
   constructor (settings = {}) {
     this.config = Object.assign({
-      authority: 'localhost',
+      host: 'localhost',
       secure: true,
       port: 9999
     }, settings);
 
     // TODO: remove import requirement, use local definition
     this.client = new Remote({
-      host: this.config.authority,
+      host: this.config.host,
       secure: this.config.secure,
       port: this.config.port
     });
@@ -42,9 +42,18 @@ class HTTPClient {
     return this.client._DELETE(path);
   }
 
+  async _OPTIONS (path) {
+    return this.client._OPTIONS(path);
+  }
+
   async crawl (address) {
     let url = new URL(address);
-    let remote = new Remote({ host: url.hostname });
+    let remote = new Remote({
+      host: url.hostname,
+      port: url.port,
+      secure: (url.protocol === 'https') ? true : false
+    });
+
     let content = await remote._GET(url.pathname);
     let metadata = await scrape({
       url: address,
