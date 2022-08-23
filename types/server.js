@@ -721,6 +721,11 @@ class FabricHTTPServer extends Service {
     server.express.use(parsers.urlencoded({ extended: true }));
     server.express.use(parsers.json());
 
+    for (let name in server.settings.middlewares) {
+      const middleware = server.settings.middlewares[name];
+      server.express.use(middleware);
+    }
+
     // TODO: render page
     server.express.options('/', server._handleOptionsRequest.bind(server));
     // TODO: enable this route by disabling or moving the static asset handler above
