@@ -8,7 +8,7 @@ const Service = require('@fabric/core/types/service');
 /**
  * Generic component.
  */
-class Component extends Service {
+class FabricComponent extends Service {
   /**
    * Create a component.
    * @param  {Object} [settings={}] Settings for the component.
@@ -148,7 +148,7 @@ class Component extends Service {
   }
 }
 
-export default FabricComponent;
+module.exports = FabricComponent;
 
 // TODO: debug why this can't be used on this parent class...
 // ```

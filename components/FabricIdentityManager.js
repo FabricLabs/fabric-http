@@ -9,11 +9,7 @@ import {
   Button,
   Card,
   Form,
-  // Container,
-  Icon,
-  // Grid,
-  // Menu,
-  // Segment
+  Icon
 } from 'semantic-ui-react';
 
 import IdentityPicker from './IdentityPicker';
