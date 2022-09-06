@@ -27,7 +27,7 @@ const Router = require('./router');
 
 // Fabric Types
 const Message = require('@fabric/core/types/message');
-const Circuit = require('@fabric/core/types/circuit');
+// const Circuit = require('@fabric/core/types/circuit');
 const Resource = require('@fabric/core/types/resource');
 // const Store = require('@fabric/core/types/store');
 
@@ -248,7 +248,7 @@ class SPA extends App {
    * @return {String} Fully-rendered HTML document.
    */
   render () {
-    let body = super.render();
+    const body = super.render();
     // TODO: define Custom Element
     // let app = SPA.toString('base64');
     // definition = customElements.define(name, SPA);

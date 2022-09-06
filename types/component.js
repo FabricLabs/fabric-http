@@ -1,6 +1,6 @@
-// Defaults
-const state = require('../settings/state');
+'use strict';
 
+// Dependencies
 const crypto = require('crypto');
 const Service = require('@fabric/core/types/service');
 // const Fabric = require('@fabric/core');
@@ -114,7 +114,12 @@ class FabricComponent extends Service {
     return element;
   }
 
-  _loadHTML (content) {
+  /**
+   * Load an HTML string into the Component.
+   * @param {String} [content] HTML string to load (empty by default).
+   * @returns {String} HTML document.
+   */
+  _loadHTML (content = '') {
     let hash = crypto.createHash('sha256').update(content).digest('base64');
     return `<${this.settings.handle} integrity="sha256-${hash}">${content}</${this.settings.handle}>`;
   }
@@ -126,7 +131,7 @@ class FabricComponent extends Service {
   _renderState (state) {
     // TODO: render Template here
     // cc: @melnx @lel @lllllll:fabric.pub
-    let content = this._getInnerHTML(state);
+    const content = this._getInnerHTML(state);
     return this._loadHTML(content);
   }
 
@@ -141,9 +146,7 @@ class FabricComponent extends Service {
   }
 
   render () {
-    if (this.element) {
-      this.element.innerHTML = this._getInnerHTML();
-    }
+    if (this.element) this.element.innerHTML = this._getInnerHTML();
     return this._renderState(this.state);
   }
 }
