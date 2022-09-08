@@ -55,6 +55,7 @@
     "express-flash": "^0.0.2",
     "express-session": "^1.15.6",
     "fast-json-patch": "^3.1.1",
+    "fabric-auth-middleware": "FabricLabs/fabric-auth-middleware#master",
     "isomorphic-ws": "^4.0.1",
     "jquery": "^3.4.1",
     "js-beautify": "^1.14.6",

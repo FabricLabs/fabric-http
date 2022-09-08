@@ -12,6 +12,9 @@ const {
 const http = require('http');
 const crypto = require('crypto');
 const merge = require('lodash.merge');
+const pluralize = require('pluralize');
+const auth = require('fabric-auth-middleware');
+
 // TODO: remove Express entirely...
 // NOTE: current blockers include PeerServer...
 const express = require('express');
@@ -21,7 +24,6 @@ const flasher = require('express-flash');
 const parsers = require('body-parser');
 const monitor = require('fast-json-patch');
 const extractor = require('express-bearer-token');
-const pluralize = require('pluralize');
 const stoppable = require('stoppable');
 
 // Pathing
@@ -719,8 +721,11 @@ class FabricHTTPServer extends Service {
       if (server.settings.verbosity >= 6) console.log('[AUDIT]', 'Created resource:', resource);
     }
 
-    // configure router
+    // Middlewares
     server.express.use(server._logMiddleware.bind(server));
+    server.express.use(auth);
+
+    // Custom Headers
     server.express.use(server._headerMiddleware.bind(server));
     server.express.use(server._redirectMiddleware.bind(server));
 
