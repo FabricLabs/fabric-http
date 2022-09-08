@@ -13,7 +13,6 @@ const http = require('http');
 const crypto = require('crypto');
 const merge = require('lodash.merge');
 const pluralize = require('pluralize');
-const auth = require('fabric-auth-middleware');
 
 // TODO: remove Express entirely...
 // NOTE: current blockers include PeerServer...
@@ -38,6 +37,9 @@ const Service = require('@fabric/core/types/service');
 const Message = require('@fabric/core/types/message');
 const Entity = require('@fabric/core/types/entity');
 const State = require('@fabric/core/types/state');
+
+// Internal Types
+const auth = require('../middlewares/auth');
 
 // Internal Components
 // const App = require('./app');
