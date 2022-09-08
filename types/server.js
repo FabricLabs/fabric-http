@@ -122,6 +122,8 @@ class FabricHTTPServer extends Service {
     this.routes = [];
     this.customRoutes = [];
 
+    this.keys = new Set();
+
     return this;
   }
 
@@ -531,21 +533,25 @@ class FabricHTTPServer extends Service {
   }
 
   _logMiddleware (req, res, next) {
-    // if (!this.settings.verbosity < 2) return next();
-    // TODO: switch to this.log
-    console.log([
+    // TODO: double-check Apache spec
+    const asApache = [
       `${req.hostname}:${this.settings.port}`,
       req.hostname,
       req.user,
       `"${req.method} ${req.path} HTTP/${req.httpVersion}"`,
       res.statusCode,
       res.getHeader('content-length')
-    ].join(' '));
+    ].join(' ');
+
+    this.emit('log', asApache);
+
     return next();
   }
 
   _headerMiddleware (req, res, next) {
     res.header('X-Powered-By', '@fabric/http');
+    // TODO: only enable when requested
+    // @ChronicSmoke
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Headers', 'content-type');
     return next();
@@ -836,7 +842,7 @@ class FabricHTTPServer extends Service {
   }
 
   async flush () {
-    // console.log('[HTTP:SERVER]', 'flush requested:', this.keys);
+    this.emit('debug', `Flush requested for keys: ${this.keys}`);
 
     for (let item of this.keys) {
       // console.log('...flushing:', item);

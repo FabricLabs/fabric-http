@@ -239,6 +239,10 @@ class Remote extends Actor {
       'Content-Type': CONTENT_TYPE
     };
 
+    if (params.headers) {
+      headers = Object.assign({}, headers, params.headers);
+    }
+
     let opts = {
       method: type,
       headers: headers

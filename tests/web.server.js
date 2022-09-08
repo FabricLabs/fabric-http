@@ -40,7 +40,7 @@ describe('@fabric/http/types/server', function () {
       assert.equal(server.status, 'STOPPED');
     });
 
-    xit('can serve a simple GET request', async function () {
+    it('can serve a simple GET request', async function () {
       let client = new HTTPClient(TEST_CONFIG);
       let server = new HTTPServer(TEST_CONFIG);
       let result = null;
@@ -69,7 +69,6 @@ describe('@fabric/http/types/server', function () {
         assert.fail(exception);
       }
 
-      // console.log('result:', result);
       assert.ok(result);
     });
 

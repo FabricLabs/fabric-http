@@ -1,22 +1,21 @@
 'use strict';
 
-const Fabric = require('@fabric/core');
+// Internal Types
 const App = require('../types/app');
-
-const RPG = require('../types/rpg');
-const Authority = require('./authority');
-const Canvas = require('./canvas');
-
+const Remote = require('../types/remote');
 const Identity = require('../types/identity');
 const Swarm = require('../types/swarm');
 
+// Components
+const Authority = require('./authority');
+const Canvas = require('./canvas');
+
 /**
  * Primary Application Definition
- * @property {Object} rpg Instance of the RPG engine.
  */
 class Application extends App {
   /**
-   * Create an instance of the RPG client.
+   * Create an instance of a Fabric-based web application.
    * @param  {Object} [configuration={}] Key/value map of configuration options.
    * @return {Application}               Instance of our {@link Application}.
    */
