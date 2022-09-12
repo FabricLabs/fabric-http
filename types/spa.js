@@ -27,9 +27,9 @@ const Router = require('./router');
 
 // Fabric Types
 const Message = require('@fabric/core/types/message');
-const Circuit = require('@fabric/core/types/circuit');
+// const Circuit = require('@fabric/core/types/circuit');
 const Resource = require('@fabric/core/types/resource');
-const Store = require('@fabric/core/types/store');
+// const Store = require('@fabric/core/types/store');
 
 /**
  * Fully-managed HTML application.
@@ -54,11 +54,13 @@ class SPA extends App {
     this.settings = Object.assign({
       name: "@fabric/maki",
       authority: 'localhost.localdomain:9999',
-      persistent: true,
+      persistent: false,
       // TODO: enable by default?
       websockets: false,
       secure: false, // TODO: default to secure (i.e., TLS on all connections)
-      components: {}
+      components: {} /* {
+        'fabric-identity': require('../components/fabric-identity')
+      } */
     }, config, settings);
 
     // TODO: enable Web Worker integration
@@ -68,7 +70,7 @@ class SPA extends App {
 
     this.bridge = new Bridge(this.settings);
     this.router = new Router(this.settings);
-    this.store = new Store(this.settings);
+    // this.store = new Store(this.settings);
 
     this.routes = [];
     this.bindings = {
@@ -83,7 +85,7 @@ class SPA extends App {
     if (settings && settings.verbosity >= 5) console.trace('[WEB:SPA]', 'Calling init() with settings:', settings);
     this.bridge = new Bridge(this.settings);
     this.browser = new Browser(this.settings);
-    this.store = new Store(Object.assign({}, this.settings, { path: './stores/spa' }));
+    // this.store = new Store(Object.assign({}, this.settings, { path: './stores/spa' }));
     this.settings = Object.assign({}, this.settings, settings);
     this._state = (window.app && window.app.state) ? window.app.state : {};
   }
@@ -246,7 +248,7 @@ class SPA extends App {
    * @return {String} Fully-rendered HTML document.
    */
   render () {
-    let body = super.render();
+    const body = super.render();
     // TODO: define Custom Element
     // let app = SPA.toString('base64');
     // definition = customElements.define(name, SPA);

@@ -12,6 +12,11 @@ class Introduction extends Component {
       handle: 'fabric-introduction'
     }, settings);
 
+    /*
+      HTML:
+      <fabric-introduction state="{ foo: 'bar' }" data-bind="http://localhost/something" />
+    */
+
     return this;
   }
 
