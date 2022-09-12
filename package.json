@@ -10,9 +10,8 @@
   "scripts": {
     "build": "npm run report:coverage && npm test && npm run build:scripts && npm run build:docs",
     "build:app": "webpack scripts/index.js",
-    "build:docs": "jsdoc -c jsdoc.json types components/*.js types/*.js settings/deprecations.js README.md -d docs",
+    "build:docs": "jsdoc -c jsdoc.json types settings/deprecations.js README.md -d docs",
     "build:coverage": "npm run coverage && c8 report --reporter=html",
-
     "build:fast": "node examples/build.js && npm run build:scripts",
     "build:scripts": "rollup -c",
     "compile": "node examples/build.js && npm run build:scripts",
