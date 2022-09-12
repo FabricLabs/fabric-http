@@ -21,4 +21,8 @@ async function main () {
   process.exit();
 }
 
-main();
+main({}).catch((exception) => {
+
+}).then((output) => {
+
+});

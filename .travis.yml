@@ -1,7 +1,7 @@
 dist: focal
 language: node_js
 node_js:
-  - 16
+  - 16.15
 before_install:
   - npm install -g codecov
 after_success:

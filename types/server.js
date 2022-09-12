@@ -12,6 +12,8 @@ const {
 const http = require('http');
 const crypto = require('crypto');
 const merge = require('lodash.merge');
+const pluralize = require('pluralize');
+
 // TODO: remove Express entirely...
 // NOTE: current blockers include PeerServer...
 const express = require('express');
@@ -21,7 +23,6 @@ const flasher = require('express-flash');
 const parsers = require('body-parser');
 const monitor = require('fast-json-patch');
 const extractor = require('express-bearer-token');
-const pluralize = require('pluralize');
 const stoppable = require('stoppable');
 
 // Pathing
@@ -36,6 +37,9 @@ const Service = require('@fabric/core/types/service');
 const Message = require('@fabric/core/types/message');
 const Entity = require('@fabric/core/types/entity');
 const State = require('@fabric/core/types/state');
+
+// Internal Types
+const auth = require('../middlewares/auth');
 
 // Internal Components
 // const App = require('./app');
@@ -121,6 +125,8 @@ class FabricHTTPServer extends Service {
     this.collections = [];
     this.routes = [];
     this.customRoutes = [];
+
+    this.keys = new Set();
 
     return this;
   }
@@ -531,21 +537,25 @@ class FabricHTTPServer extends Service {
   }
 
   _logMiddleware (req, res, next) {
-    // if (!this.settings.verbosity < 2) return next();
-    // TODO: switch to this.log
-    console.log([
+    // TODO: double-check Apache spec
+    const asApache = [
       `${req.hostname}:${this.settings.port}`,
       req.hostname,
       req.user,
       `"${req.method} ${req.path} HTTP/${req.httpVersion}"`,
       res.statusCode,
       res.getHeader('content-length')
-    ].join(' '));
+    ].join(' ');
+
+    this.emit('log', asApache);
+
     return next();
   }
 
   _headerMiddleware (req, res, next) {
     res.header('X-Powered-By', '@fabric/http');
+    // TODO: only enable when requested
+    // @ChronicSmoke
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Headers', 'content-type');
     return next();
@@ -713,8 +723,11 @@ class FabricHTTPServer extends Service {
       if (server.settings.verbosity >= 6) console.log('[AUDIT]', 'Created resource:', resource);
     }
 
-    // configure router
+    // Middlewares
     server.express.use(server._logMiddleware.bind(server));
+    server.express.use(auth);
+
+    // Custom Headers
     server.express.use(server._headerMiddleware.bind(server));
     server.express.use(server._redirectMiddleware.bind(server));
 
@@ -836,7 +849,7 @@ class FabricHTTPServer extends Service {
   }
 
   async flush () {
-    // console.log('[HTTP:SERVER]', 'flush requested:', this.keys);
+    this.emit('debug', `Flush requested for keys: ${this.keys}`);
 
     for (let item of this.keys) {
       // console.log('...flushing:', item);
