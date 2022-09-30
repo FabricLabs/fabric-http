@@ -22,8 +22,16 @@ class HTTPClient {
     });
   }
 
-  async _GET (path) {
-    return this.client._GET(path);
+  async get (path, params = {}) {
+    return this._GET(path, params);
+  }
+
+  async put (path, data, params = {}) {
+    return this._PUT(path, data params);
+  }
+
+  async _GET (path, params = {}) {
+    return this.client._GET(path, params);
   }
 
   async _PUT (path, data) {
