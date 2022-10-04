@@ -6,7 +6,14 @@ const Remote = require('./remote');
 const scrape = require('metascraper');
 const { URL } = require('url');
 
+/**
+ * Generic HTTP Client.
+ */
 class HTTPClient {
+  /**
+   * Create an instance of an HTTP client.
+   * @param {Object} [settings] Configuration for the client.
+   */
   constructor (settings = {}) {
     this.config = Object.assign({
       host: 'localhost',
@@ -27,7 +34,7 @@ class HTTPClient {
   }
 
   async put (path, data, params = {}) {
-    return this._PUT(path, data params);
+    return this._PUT(path, data, params);
   }
 
   async _GET (path, params = {}) {
