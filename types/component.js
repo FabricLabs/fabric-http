@@ -22,12 +22,15 @@ class FabricComponent extends Service {
       path: '/'
     }, settings);
 
-    this.state = settings;
     this.element = null;
 
     // Healthy Cleanup
     this._boundFunctions = {};
     this._listeners = {};
+
+    this._state = {
+      content: settings
+    };
 
     return this;
   }

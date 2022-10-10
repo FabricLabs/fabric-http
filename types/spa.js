@@ -42,17 +42,14 @@ class SPA extends App {
    * @param  {String} [settings.name="@fabric/maki"] Name of the app.
    * @param  {Boolean} [settings.offline=true] Hint offline mode to browsers.
    * @param  {Object} [components] Map of Web Components for the application to utilize.
-   * @return {App}               Instance of the application.
+   * @return {App} Instance of the application.
    */
   constructor (settings = {}) {
     super(settings);
 
-    // Assist in debugging
-    if (settings.verbosity >= 4) console.log('[WEB:SPA]', 'Creating instance with constructor settings:', settings);
-
     // Assign defaults
     this.settings = Object.assign({
-      name: "@fabric/maki",
+      name: '@fabric/maki',
       authority: 'localhost.localdomain:9999',
       persistent: false,
       // TODO: enable by default?
