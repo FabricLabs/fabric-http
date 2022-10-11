@@ -45,6 +45,7 @@
   ],
   "dependencies": {
     "@fabric/core": "FabricLabs/fabric#master",
+    "babel-loader": "8.2.5",
     "body-parser": "1.18.3",
     "canvas": "2.10.1",
     "cross-fetch": "3.1.5",
@@ -67,6 +68,7 @@
     "peerjs": "1.0.0",
     "pluralize": "7.0.0",
     "stoppable": "1.1.0",
+    "webpack": "5.74.0",
     "ws": "6.2.1"
   },
   "devDependencies": {
