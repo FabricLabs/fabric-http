@@ -70,21 +70,35 @@ class Compiler {
 
   /**
    * Build a {@link String} representing the HTML-encoded Document.
-   * @param {Mixed} data Input data to use for local rendering.
+   * @param {Mixed} [data] Input data to use for local rendering.
    * @returns {String} Rendered HTML document containing the compiled JavaScript application.
    */
   compile (data) {
     return this.settings.document.render();
   }
 
-  compileTo (target) {
+  async compileBundle () {
+    return new Promise((resolve, reject) => {
+      this.packer.run((err, res) => {
+        if (err) return reject(err);
+        resolve(res);
+      });
+    });
+  }
+
+  async compileTo (target) {
     console.log('[MAKI:ROLLER]', `Compiling SPA to ${target}...`);
 
     // Create browser bundle
-    this.packer.run(this._handleWebpackResult.bind(this));
+    const bundle = await this.compileBundle();
 
     // Create HTML document
-    const html = this.compile();
+    const html = this.compile({
+      bundle: {
+        fullhash: bundle.fullhash
+      }
+    });
+
     const clean = beautify(html, { indent_size: 2, extra_liners: [] });
     const hash = crypto.createHash('sha256').update(clean).digest('hex');
 
@@ -97,13 +111,7 @@ class Compiler {
     }
 
     console.log('[MAKI:ROLLER]', `${clean.length} bytes written to ${target} with sha256(H) = ${hash} ~`);
-
     return true;
-  }
-
-  async _handleWebpackResult (err, stats) {
-    if (err) console.error('[MAKI:ROLLER]', `Webpack error:`, err);
-    console.log('[MAKI:ROLLER]', `Webpack result:`, stats);
   }
 }
 
