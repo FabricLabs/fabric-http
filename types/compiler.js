@@ -18,13 +18,16 @@ class Compiler {
   constructor (settings = {}) {
     this.settings = Object.assign({
       document: null,
+      // TODO: load from:
+      // 1. webpack.config.js (local)
+      // 2. @fabric/http/webpack.config
       webpack: {
         mode: 'development',
         entry: path.resolve('./scripts/browser.js'),
         target: 'web',
         output: {
           path: path.resolve('./assets/bundles'),
-          filename: 'bundle.[fullhash].js'
+          filename: 'browser.js'
         },
         devtool: 'inline-source-map',
         module: {
@@ -44,7 +47,6 @@ class Compiler {
                   loader: 'css-loader',
                   options: {
                     modules: true,
-                    // localsConvention: 'camelCase',
                     sourceMap: true
                   }
                 }
