@@ -79,6 +79,8 @@ class Compiler {
 
   async compileBundle () {
     return new Promise((resolve, reject) => {
+      // TODO: consider creating compiler on the fly as to enable the
+      // definition of Webpack's settings at runtime
       this.packer.run((err, res) => {
         if (err) return reject(err);
         resolve(res);
@@ -86,7 +88,12 @@ class Compiler {
     });
   }
 
-  async compileTo (target) {
+  /**
+   * Compiles a Fabric component to an HTML document.
+   * @param {String} target Path to output HTML.
+   * @returns {Boolean} True if the build succeeded, false if it did not.
+   */
+  async compileTo (target = 'assets/index.html') {
     console.log('[MAKI:ROLLER]', `Compiling SPA to ${target}...`);
 
     // Create browser bundle

@@ -1,6 +1,10 @@
  'use strict';
 
+// Fabric Types
+const Peer = require('@fabric/core/types/peer');
 const Service = require('@fabric/core/types/service');
+
+// Internal Types
 const SPA = require('../types/spa');
 
 /**
@@ -19,6 +23,9 @@ class Site extends Service {
     // Define local settings
     this.settings = Object.assign({
       authority: 'http://localhost:9332/services/fabric', // loopback service
+      fabric: {
+        name: '@sites/default'
+      },
       spa: null
     }, this.settings, settings);
 
@@ -28,10 +35,27 @@ class Site extends Service {
       status: 'PAUSED'
     };
 
+    this.peer = new Peer(this.settings.fabric);
     this.spa = new SPA(this.settings.spa);
 
     // Ensure chainability
     return this;
+  }
+
+  render (state = this.state) {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title></title>
+        </head>
+        <body>
+          <div id="fabric-container">
+            <p>Loading...</p>
+          </div>
+          <fabric-site debug="${JSON.stringify(state, null, '')}" />
+        </body>
+      </html>`;
   }
 
   async compute (next = {}) {
