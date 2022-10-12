@@ -31,7 +31,9 @@ class Site extends Service {
 
     // Set local state
     this._state = {
-      content: {},
+      content: {
+        title: 'Default Site'
+      },
       status: 'PAUSED'
     };
 
@@ -47,13 +49,14 @@ class Site extends Service {
       <!DOCTYPE html>
       <html>
         <head>
-          <title></title>
+          <title>${state.title}</title>
         </head>
         <body>
           <div id="fabric-container">
             <p>Loading...</p>
           </div>
-          <fabric-site debug="${JSON.stringify(state, null, '')}" />
+          <fabric-site></fabric-site>
+          <script src="bundles/browser.js" data-fullhash="${(state.bundle) ? state.bundle.fullhash : ''}"></script>
         </body>
       </html>`;
   }
@@ -62,6 +65,12 @@ class Site extends Service {
     this.state = Object.assign(this.state, next);
     this.next = this.commit();
     this.emit('commit', this.next);
+    return this;
+  }
+
+  async start () {
+    this.trust(this.peer, 'AGENT');
+    await this.peer.start();
     return this;
   }
 }
