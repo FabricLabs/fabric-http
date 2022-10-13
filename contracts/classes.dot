@@ -2,6 +2,12 @@ digraph FabricClasses {
   label = "Fabric Class Inheritances"
   rankdir = "TB"
 
+  subgraph cluster_binaries {
+    label = "Executables"
+    "fabric"
+    "fabric-http"
+  }
+
   subgraph cluster_generics {
     label = "Generics"
     "Object"
@@ -27,15 +33,20 @@ digraph FabricClasses {
     "Transaction"
     "Tree"
     "Wallet"
-  }
 
-  subgraph cluster_http {
-    label = "@fabric/http"
-    "Component"
-    "Remote"
-    "Site"
-    "HTTPClient"
-    "HTTPServer"
+    subgraph cluster_http {
+      label = "@fabric/http"
+      "Component"
+      "Remote"
+      "Site"
+      "HTTPClient"
+      "HTTPServer"
+
+      subgraph cluster_components {
+        label = "Components"
+        "FabricComponent"
+      }
+    }
   }
 
   subgraph cluster_candidates {
@@ -65,6 +76,16 @@ digraph FabricClasses {
     "CLI"
   }
 
+  "CLI" -> {
+    "fabric"
+    "fabric-http"
+  }
+
+  "Contract" -> {
+    "Distribution"
+    "Federation"
+  }
+
   "Entity" -> "Environment"
   "EventEmitter" -> {
     "Actor"
@@ -86,5 +107,7 @@ digraph FabricClasses {
     "Site"
     "HTTPServer"
     "Component"
+    "FabricComponent"
   }
+
 }
