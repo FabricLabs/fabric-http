@@ -17,6 +17,7 @@ export class EdgeNode extends Actor {
   Client: Client
   Remote: Remote
   Server: Server
+  EdgeHTTPServer: Server
   Site: Site
 
   constructor (settings: object = {}) {
@@ -55,7 +56,7 @@ export class Fabric extends Actor {
 // This namespace is merged with the FabricHTTP class and allows for consumers,
 // and this file, to have types which are nested away in their own sections.
 declare namespace EdgeNode {
-  export interface Server {
+  export interface HTTPServer {
     id: string;
   }
 }
