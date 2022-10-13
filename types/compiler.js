@@ -105,7 +105,7 @@ class Compiler extends Service {
    * @returns {Boolean} True if the build succeeded, false if it did not.
    */
   async _compileToFile (target = 'assets/index.html') {
-    console.log('[MAKI:ROLLER]', `Compiling SPA to ${target}...`);
+    console.log('[HTTP:COMPILER]', `Compiling Fabric Component to HTML at ${target}...`);
 
     // Create browser bundle
     const bundle = await this.compileBundle();

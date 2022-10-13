@@ -16,11 +16,11 @@
     "build:scripts": "rollup -c",
     "compile": "node examples/build.js && npm run build:scripts",
     "coverage": "c8 npm run test",
-    "docs": "npm run build:docs && http-server docs",
+    "docs": "npm run build:docs && fabric-http docs",
     "report:coverage": "npm run coverage && c8 report --reporter=text-lcov > reports/coverage.lcov && codecov",
-    "review:coverage": "npm run build:coverage && http-server reports/coverage",
+    "review:coverage": "npm run build:coverage && fabric-http reports/coverage",
     "start": "npm run compile && node examples/server.js",
-    "static": "npm run build:scripts && http-server assets",
+    "static": "npm run build:scripts && fabric-http assets",
     "test": "mocha tests"
   },
   "repository": {
