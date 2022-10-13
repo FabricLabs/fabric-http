@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Source: types/wallet.js &middot; Docs</title>
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+  </head>
+  <body>
+    <div id="main">
+      <h1 class="page-title">Source: types/wallet.js</h1>
+      
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>'use strict';
+
+const Fabric = require('@fabric/core');
+const bcoin = require('bcoin/lib/bcoin-browser').set('regtest');
+
+const WalletDB = bcoin.WalletDB;
+const WalletKey = bcoin.wallet.WalletKey;
+const KeyRing = bcoin.KeyRing;
+const Mnemonic = bcoin.hd.Mnemonic;
+const HD = bcoin.hd;
+
+/**
+ * Manage keys and track their balances.
+ * @type {Object}
+ */
+class Wallet extends Fabric.Service {
+  /**
+   * Create an instance of a {@link Wallet}.
+   * @param  {Object} [settings={}] Configure the wallet.
+   * @return {Wallet}               Instance of the wallet.
+   */
+  constructor (settings = {}) {
+    super(settings);
+
+    this.settings = Object.assign({
+      name: 'default',
+      network: 'regtest'
+    }, settings);
+
+    this.database = new WalletDB({
+      db: 'memory',
+      network: 'regtest'
+    });
+
+    this.account = null;
+    this.manager = null;
+    this.wallet = null;
+    this.master = null;
+    this.seed = null;
+
+    this.words = Mnemonic.getWordlist('english').words;
+    this.mnemonic = new Mnemonic();
+
+    this.status = 'closed';
+
+    return this;
+  }
+
+  _handleWalletTransaction (tx) {
+    console.log('[BRIDGE:WALLET]', 'incoming transaction:', tx);
+  }
+
+  _getDepositAddress () {
+    return this.address;
+  }
+
+  _getSeed () {
+    return this.seed;
+  }
+
+  _getAccountByIndex (index = 0) {
+    return {
+      address: this.account.deriveReceive(index).getAddress('string')
+    };
+  }
+
+  async _handleWalletBalance (balance) {
+    console.log('wallet balance:', balance);
+    await this._PUT(`/balance`, balance);
+
+    let depositor = new Fabric.State({ name: 'eric' });
+    await this._PUT(`/depositors/${depositor.id}/balance`, balance);
+    this.emit('balance', balance);
+  }
+
+  async _registerAccount (obj) {
+    this.status = 'creating';
+
+    if (!this.database.db.loaded) {
+      await this.database.open();
+    }
+
+    try {
+      this.wallet = await this.database.create();
+    } catch (E) {
+      console.error('Could not create wallet:', E);
+    }
+
+    if (this.manager) {
+      this.manager.on('tx', this._handleWalletTransaction.bind(this));
+      this.manager.on('balance', this._handleWalletBalance.bind(this));
+    }
+
+    return this.account;
+  }
+
+  async _unload () {
+    return this.database.close();
+  }
+
+  async _load (settings = {}) {
+    let self = this;
+
+    this.status = 'loading';
+
+    await this.database.open();
+
+    this.wallet = await this.database.create();
+    this.account = await this.wallet.getAccount('default');
+    this.address = await this.account.receiveAddress();
+    this.seed = this.wallet.master.mnemonic.phrase;
+
+    this.status = 'loaded';
+
+    this.emit('ready');
+
+    console.log('[FABRIC:WALLET]', 'Wallet opened:', this.wallet);
+
+    return this.wallet;
+  }
+
+  async start () {
+    return this._load();
+  }
+}
+
+module.exports = Wallet;
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+    </div>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Router.html">Router</a></li><li><a href="Site.html">Site</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Stash.html">Stash</a></li><li><a href="Wallet.html">Wallet</a></li></ul></nav>
+    <br class="clear" />
+    <footer>
+        <a href="https://github.com/FabricLabs/web">git://</a> &middot; <a href="https://chat.fabric.pub/#/room/#web:fabric.pub">Community</a>
+    </footer>
+    <script> prettyPrint(); </script>
+    <script src="scripts/linenumber.js"></script>
+  </body>
+</html>
