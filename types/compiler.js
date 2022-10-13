@@ -11,7 +11,7 @@ const webpack = require('webpack');
  */
 class Compiler {
   /**
-   * 
+   * Create an instance of the compiler.
    * @param {Object} [settings] Map of settings.
    * @param {Mixed} [settings.document] Document to use.
    */
