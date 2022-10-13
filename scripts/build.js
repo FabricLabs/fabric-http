@@ -1,28 +1,29 @@
 'use strict';
 
-const SPA = require('../types/spa');
+// Settings
+const settings = require('../settings/local');
+
+// Types
+const Site = require('../types/site');
 const Compiler = require('../types/compiler');
 
-async function main () {
-  const spa = new SPA({
-    resources: {
-      'Depositor': {}
-    }
-  });
-
+// Program Body
+async function main (input = {}) {
+  const site = new Site(input);
   const compiler = new Compiler({
-    document: spa
+    document: site
   });
 
-  compiler.compileTo('assets/index.html');
-  compiler.compileTo('assets/spa.html');
+  await compiler.compileTo('assets/site.html');
 
-  // TODO: why isn't SPA exiting?
-  process.exit();
+  return {
+    site: site.id
+  };
 }
 
-main({}).catch((exception) => {
-
+// Run Program
+main(settings).catch((exception) => {
+  console.error('[BUILD:SITE]', '[EXCEPTION]', exception);
 }).then((output) => {
-
+  console.log('[BUILD:SITE]', '[OUTPUT]', output);
 });
