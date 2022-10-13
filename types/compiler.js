@@ -6,18 +6,23 @@ const crypto = require('crypto');
 const beautify = require('js-beautify').html;
 const webpack = require('webpack');
 
+const Service = require('@fabric/core/types/service');
+const FabricComponent = require('./component');
+
 /**
  * Builder for {@link Fabric}-based applications.
  */
-class Compiler {
+class Compiler extends Service {
   /**
    * Create an instance of the compiler.
    * @param {Object} [settings] Map of settings.
-   * @param {Mixed} [settings.document] Document to use.
+   * @param {FabricComponent} [settings.document] Document to use.
    */
   constructor (settings = {}) {
+    super(settings);
+
     this.settings = Object.assign({
-      document: null,
+      document: new FabricComponent(settings),
       // TODO: load from:
       // 1. webpack.config.js (local)
       // 2. @fabric/http/webpack.config
@@ -90,12 +95,16 @@ class Compiler {
     });
   }
 
+  async compileTo (target = 'assets/index.html') {
+    return this._compileToFile(target);
+  }
+
   /**
    * Compiles a Fabric component to an HTML document.
    * @param {String} target Path to output HTML.
    * @returns {Boolean} True if the build succeeded, false if it did not.
    */
-  async compileTo (target = 'assets/index.html') {
+  async _compileToFile (target = 'assets/index.html') {
     console.log('[MAKI:ROLLER]', `Compiling SPA to ${target}...`);
 
     // Create browser bundle
@@ -121,6 +130,19 @@ class Compiler {
 
     console.log('[MAKI:ROLLER]', `${clean.length} bytes written to ${target} with sha256(H) = ${hash} ~`);
     return true;
+  }
+
+  async compileToFile (target = 'assets/index.html') {
+    const success = await this.compileTo(target);
+    if (!success) {
+      this.emit('error', `Could not write file: ${target}`);
+    } else {
+      this.state.status = 'FINISHED';
+      this.commit();
+      this.emit('log', `Compilation finished: ${target} [${this.id}]`);
+    }
+
+    return this;
   }
 }
 
