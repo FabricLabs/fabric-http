@@ -10,7 +10,7 @@
   "scripts": {
     "build": "npm test && npm run build:scripts && npm run build:docs && npm run build:app",
     "build:app": "node scripts/build.js",
-    "build:docs": "jsdoc -c jsdoc.json types settings/deprecations.js README.md -d docs",
+    "build:docs": "# jsdoc -c jsdoc.json types settings/deprecations.js README.md -d docs",
     "build:coverage": "npm run coverage && c8 report --reporter=html",
     "build:fast": "node examples/build.js && npm run build:scripts",
     "build:scripts": "# rollup -c",

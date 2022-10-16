@@ -23,6 +23,7 @@ class Compiler extends Service {
 
     this.settings = Object.assign({
       document: new FabricComponent(settings),
+      state: {},
       // TODO: load from:
       // 1. webpack.config.js (local)
       // 2. @fabric/http/webpack.config
@@ -68,7 +69,11 @@ class Compiler extends Service {
           })
         ]
       }
-    }, settings);
+    }, this.settings, settings);
+
+    this._state = {
+      content: this.settings.state
+    };
 
     this.packer = webpack(this.settings.webpack);
 
