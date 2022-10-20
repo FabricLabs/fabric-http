@@ -12,8 +12,18 @@
       <p>Loading...</p>
     </div>
     <div id="fabric-content">
-      <fabric-site state="[object Object]"></fabric-site>
+      <fabric-site state="[object Object]" state-raw="{}"></fabric-site>
     </div>
     <script src="bundles/browser.js" data-fullhash=""></script>
+    <script type="text/javascript">
+      if (customElements) {
+        class FabricSite extends HTMLElement {
+          constructor (settings) {
+            super(settings);
+          }
+        }
+        customElements.define('fabric-site', FabricSite);
+      }
+    </script>
   </body>
 </html>

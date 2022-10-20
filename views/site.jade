@@ -1,4 +1,17 @@
 extends ./layout.jade
 
 block content
-  fabric-site(state="#{state || new Object()}")
+  - const raw = JSON.stringify(state);
+  fabric-site(state="#{state}", state-raw="#{raw}")
+
+block scripts
+  //- TODO: get build from webpack
+  script(type="text/javascript")
+    | if (customElements) {
+    |   class FabricSite extends HTMLElement {
+    |     constructor (settings) {
+    |       super(settings);
+    |     }
+    |   }
+    |   customElements.define('fabric-site', FabricSite);
+    | }
