@@ -1,0 +1,13 @@
+html
+  head
+    title #{title || '@fabric/http/views/site'}
+  body
+    .ui.header
+      h1 Hello, world!
+      p Sample site.
+    #fabric-container
+      p Loading...
+    #fabric-content
+      block content
+    script(src="bundles/browser.js" data-fullhash="#{bundle.?fullhash}")
+    block scripts
