@@ -6,6 +6,10 @@ doctype html
 html(lang="en")
   head
     title #{title || '@fabric/http/views/site'}
+    meta(http-equiv="Content-Type", content="text/html; charset=utf-8")
+    //- link(rel="manifest", href="/manifest.json")
+    link(rel="stylesheet", type="text/css", href="/styles/screen.css")
+    link(rel="stylesheet", type="text/css", href="/styles/semantic.css")
   body
     .ui.header
       h1 Hello, world!

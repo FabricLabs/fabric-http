@@ -119,3 +119,4 @@
 ./scripts/index.js:// TODO: switch core to types
 ./scripts/index.js:  // TODO: fix verification
 ./scripts/index.js:  // TODO: move these into App
+./views/site.jade:  //- TODO: get build from webpack
