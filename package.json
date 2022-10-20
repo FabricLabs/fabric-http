@@ -14,7 +14,7 @@
     "build:coverage": "npm run coverage && c8 report --reporter=html",
     "build:fast": "node examples/build.js && npm run build:scripts",
     "build:scripts": "# rollup -c",
-    "build:semantic": "cd libraries/fomantic && npx gulp build && cp -r dist/themes ../../assets && cd ../..",
+    "build:semantic": "cd libraries/fomantic && npx gulp build && cp dist/*.js ../../assets/scripts && cp dist/*.css ../../assets/styles && cp -r dist/themes ../../assets && cd ../..",
     "build:views": "jade --pretty -o assets/ views/site.jade",
     "compile": "node examples/build.js && npm run build:scripts",
     "coverage": "c8 npm run test",
