@@ -1,9 +1,10 @@
 {
   "compilerOptions": {
     // Default
-    "target": "es5",
+    "target": "ES6",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
     "strict": true,
     "skipLibCheck": true,
 
@@ -12,12 +13,13 @@
     "declaration": true,
     "declarationDir": "types",
     "sourceMap": true,
-    "outDir": "dist",
+    "outDir": "assets/types",
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
     "emitDeclarationOnly": true
   },
   "include": [
+    "contracts/**/*",
     "types/**/*",
     "index.d.ts", // declaration file path
   ],

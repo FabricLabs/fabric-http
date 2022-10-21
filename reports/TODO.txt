@@ -83,6 +83,8 @@
 ./types/app.js:      <!-- TODO: rollup semantic into build process -->
 ./types/app.js:    // TODO: implement fullscreen from RPG
 ./types/app.js:        // TODO: move this to `types/resource.js`
+./contracts/cli.js:  const cli = new CLI(settings); // TODO: this.settings
+./contracts/bootstrap.ts:// TODO: deal with IO Monad
 ./tests/web.client.js:      // TODO: define 404 behavior
 ./tests/web.client.js:      // TODO: define 404 behavior
 ./components/content-page.js:// TODO: rename file to page.js?
@@ -114,9 +116,9 @@
 ./components/SeedEntryForm.js:    // TODO: prepare Fabric
 ./components/SeedEntryForm.js:    // TODO: merge old state
 ./package.json:    "report:todo": "grep --exclude-dir=.git --exclude-dir=backups --exclude-dir=_book --exclude-dir=assets --exclude-dir=node_modules --exclude-dir=reports --exclude-dir=coverage --exclude-dir=docs -rEI \"TODO|FIXME\" . > reports/TODO.txt",
-./module.js:// TODO: export...
 ./examples/build.js:  // TODO: why isn't SPA exiting?
 ./scripts/index.js:// TODO: switch core to types
 ./scripts/index.js:  // TODO: fix verification
 ./scripts/index.js:  // TODO: move these into App
+./scripts/cli.js:  // TODO: read & test contracts
 ./views/site.jade:  //- TODO: get build from webpack

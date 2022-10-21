@@ -128,8 +128,8 @@ class Compiler extends Service {
     console.log('[HTTP:COMPILER]', `Compiling Fabric Component to HTML at ${target}...`);
 
     // Create HTML document
-    const html = this.compileHTML(this.state);
-    const hash = crypto.createHash('sha256').update(html).digest('hex');
+    const html = await this.compileHTML(this.state);
+    const hash = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
 
     // Write HTML to disk
     try {
@@ -139,7 +139,7 @@ class Compiler extends Service {
       return false;
     }
 
-    console.log('[MAKI:ROLLER]', `${html.length} bytes written to ${target} with sha256(H) = ${hash} ~`);
+    console.log('[HTTP:COMPILER]', `${html.length} bytes written to ${target} with sha256(H) = ${hash} ~`);
     return true;
   }
 
