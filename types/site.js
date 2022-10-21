@@ -46,8 +46,7 @@ class Site extends Service {
   }
 
   render (state = this.state) {
-    return `
-      <!DOCTYPE html>
+    return `<!DOCTYPE html>
       <html>
         <head>
           <title>${state.title}</title>
@@ -56,16 +55,25 @@ class Site extends Service {
           <div id="fabric-container">
             <p>Loading...</p>
           </div>
-          <fabric-site></fabric-site>
+          <fabric-site />
           <script src="bundles/browser.js" data-fullhash="${(state.bundle) ? state.bundle.fullhash : ''}"></script>
         </body>
       </html>`;
   }
 
   async compute (next = {}) {
-    this.state = Object.assign(this.state, next);
+    this._state.content.status = 'COMPUTING';
+    const state = Object.assign(this.state, next);
+    const actor = new Actor({
+      type: 'Cycle',
+      object: state
+    });
+
     this.next = this.commit();
-    this.emit('commit', this.next);
+    this._state.content.status = 'COMPUTED';
+
+    this.emit('cycle', actor);
+
     return this;
   }
 
