@@ -1,11 +1,12 @@
  'use strict';
 
 // Fabric Types
+const Actor = require('@fabric/core/types/actor');
 const Peer = require('@fabric/core/types/peer');
 const Service = require('@fabric/core/types/service');
 
 // Internal Types
-const SPA = require('../types/spa');
+const SPA = require('./spa');
 
 /**
  * Implements a full-capacity (Native + Edge nodes) for a Fabric Site. 

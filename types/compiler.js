@@ -85,11 +85,11 @@ class Compiler extends Service {
    * @param {Mixed} [data] Input data to use for local rendering.
    * @returns {String} Rendered HTML document containing the compiled JavaScript application.
    */
-  compile (data) {
-    return this.settings.document.render();
+  compile (state = this.state) {
+    return this.settings.document.render(state);
   }
 
-  async compileBundle () {
+  async compileBundle (state = this.state) {
     return new Promise((resolve, reject) => {
       // TODO: consider creating compiler on the fly as to enable the
       // definition of Webpack's settings at runtime
@@ -98,6 +98,21 @@ class Compiler extends Service {
         resolve(res);
       });
     });
+  }
+
+  async compileHTML (state = this.state) {
+    // Create browser bundle
+    const bundle = await this.compileBundle(state);
+    const html = this.compile({
+      bundle: {
+        fullhash: bundle.fullhash
+      },
+      state: state
+    });
+
+    // Cleanup output
+    const output = beautify(html, { indent_size: 2, extra_liners: [] });
+    return output;
   }
 
   async compileTo (target = 'assets/index.html') {
@@ -112,28 +127,19 @@ class Compiler extends Service {
   async _compileToFile (target = 'assets/index.html') {
     console.log('[HTTP:COMPILER]', `Compiling Fabric Component to HTML at ${target}...`);
 
-    // Create browser bundle
-    const bundle = await this.compileBundle();
-
     // Create HTML document
-    const html = this.compile({
-      bundle: {
-        fullhash: bundle.fullhash
-      }
-    });
-
-    const clean = beautify(html, { indent_size: 2, extra_liners: [] });
-    const hash = crypto.createHash('sha256').update(clean).digest('hex');
+    const html = this.compileHTML(this.state);
+    const hash = crypto.createHash('sha256').update(html).digest('hex');
 
     // Write HTML to disk
     try {
-      fs.writeFileSync(target, clean);
+      fs.writeFileSync(target, html);
     } catch (exception) {
-      console.error('[MAKI:ROLLER]', 'Could not write HTML:', exception);
+      console.error('[HTTP:COMPILER]', 'Could not write HTML:', exception);
       return false;
     }
 
-    console.log('[MAKI:ROLLER]', `${clean.length} bytes written to ${target} with sha256(H) = ${hash} ~`);
+    console.log('[MAKI:ROLLER]', `${html.length} bytes written to ${target} with sha256(H) = ${hash} ~`);
     return true;
   }
 
