@@ -18,6 +18,7 @@
     "build:views": "jade --pretty -o assets/ views/site.jade",
     "compile": "node examples/build.js && npm run build:scripts",
     "coverage": "c8 npm run test",
+    "deploy": "npm run build && rm -rf stores/wiki && git clone git@github.com:FabricLabs/wiki.git stores/wiki && rm -rf stores/wiki/.git && cp -rf stores/wiki/assets assets/wiki && fabric-http",
     "docs": "npm run build:docs && fabric-http docs",
     "reports": "npm run report:install && npm run build:coverage && npm run report:todo",
     "report:coverage": "npm run coverage && c8 report --reporter=text-lcov > reports/coverage.lcov && codecov",
@@ -50,7 +51,7 @@
     "Victor Wu"
   ],
   "dependencies": {
-    "@fabric/core": "FabricLabs/fabric#feature/grpc",
+    "@fabric/core": "FabricLabs/fabric#feature/v0.1.0-RC1",
     "babel-loader": "8.2.5",
     "body-parser": "1.18.3",
     "canvas": "2.10.1",

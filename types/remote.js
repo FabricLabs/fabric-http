@@ -237,12 +237,18 @@ class Remote extends Actor {
     let response = null;
     let headers = {
       'Accept': CONTENT_TYPE,
-      'Content-Type': CONTENT_TYPE,
-      'Macaroon': this.settings.macaroon
+      'Content-Type': CONTENT_TYPE
     };
 
     if (params.headers) {
       headers = Object.assign({}, headers, params.headers);
+    }
+
+    if (this.settings.macaroon) {
+      headers = Object.assign({}, headers, {
+        'Macaroon': this.settings.macaroon,
+        'EncodingType': 'hex'
+      });
     }
 
     let opts = {
