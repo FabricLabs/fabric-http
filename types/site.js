@@ -6,6 +6,7 @@ const Peer = require('@fabric/core/types/peer');
 const Service = require('@fabric/core/types/service');
 
 // Internal Types
+// const Bridge = require('../types/bridge');
 const SPA = require('./spa');
 
 /**
@@ -40,6 +41,8 @@ class Site extends Service {
 
     this.peer = new Peer(this.settings.fabric);
     this.spa = new SPA(this.settings.spa);
+
+    // this.bridge = new Bridge();
 
     // Ensure chainability
     return this;

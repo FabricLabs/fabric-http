@@ -11,6 +11,9 @@ const Message = require('@fabric/core/types/message');
 // Internal Types
 const Remote = require('./remote');
 
+// Components
+// const FabricBridge = require('../components/FabricBridge');
+
 /**
  * The {@link Bridge} type extends a Fabric application to the web.
  */
@@ -23,9 +26,13 @@ class Bridge extends Service {
   constructor (settings = {}) {
     super(settings);
 
+    // const bridge = new FabricBridge(this.settings);
+    const bridge = null;
+
     // Assign settings
     this.settings = Object.assign({
       authority: 'localhost',
+      document: bridge,
       port: 9999,
       path: './stores/bridge',
       reconnect: true
@@ -92,6 +99,8 @@ class Bridge extends Service {
           });
 
           const options = await remote._OPTIONS('/');
+          if (this.settings.verbosity >= 4) console.log('[HTTP:BRIDGE]', 'Got options from Remote:', options);
+
           this._remotes.push(remote);
         } catch (exception) {
           console.error('Could not connect to remote:', exception);
