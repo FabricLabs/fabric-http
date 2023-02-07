@@ -4,6 +4,7 @@
   "description": "tools for serving the legacy web with Fabric",
   "main": "types/web.js",
   "module": "module.js",
+  "type": "commonjs",
   "bin": {
     "fabric-http": "./scripts/node.js"
   },
@@ -22,7 +23,7 @@
     "docs": "npm run build:docs && fabric-http docs",
     "reports": "npm run report:install && npm run build:coverage && npm run report:todo",
     "report:coverage": "npm run coverage && c8 report --reporter=text-lcov > reports/coverage.lcov && codecov",
-    "report:install": "rm -rf node_modules && rm package-lock.json && echo \"$ npm i\" > reports/install.log && npm i >> reports/install.log",
+    "report:install": "rm -rf node_modules && echo \"\n\" > package-lock.json && echo \"$ npm i\" > reports/install.log && npm i >> reports/install.log",
     "report:todo": "grep --exclude-dir=.git --exclude-dir=backups --exclude-dir=_book --exclude-dir=assets --exclude-dir=node_modules --exclude-dir=reports --exclude-dir=coverage --exclude-dir=docs -rEI \"TODO|FIXME\" . > reports/TODO.txt",
     "review:coverage": "npm run build:coverage && fabric-http reports/coverage",
     "start": "npm run compile && node examples/server.js",
