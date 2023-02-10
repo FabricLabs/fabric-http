@@ -15,9 +15,9 @@ describe('@fabric/http/types/ui', function () {
     });
 
     it('create an instance', function () {
-      const node = new UI();
+      const ui = new UI();
       assert.equal(UI instanceof Function, true);
-      assert.ok(node);
+      assert.ok(ui);
     });
   });
 });
