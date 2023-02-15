@@ -39,6 +39,7 @@
 ./types/server.js:    // TODO: message handler on base class
 ./types/server.js:          // TODO: disconnect from peer
 ./types/server.js:      // TODO: enable relays
+./types/server.js:  // TODO: consolidate with Peer
 ./types/server.js:    // TODO: double-check Apache spec
 ./types/server.js:    // TODO: only enable when requested
 ./types/server.js:      // TODO: reject unknown (!info.req.session.identity)
