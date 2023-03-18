@@ -8,19 +8,24 @@
     "fabric-http": "./scripts/node.js"
   },
   "scripts": {
-    "build": "npm run report:coverage && npm test && npm run build:scripts && npm run build:docs",
-    "build:app": "webpack scripts/index.js",
-    "build:docs": "jsdoc -c jsdoc.json types settings/deprecations.js README.md -d docs",
+    "build": "npm test && npm run build:scripts && npm run build:docs && npm run build:app",
+    "build:app": "node scripts/build.js",
+    "build:docs": "# jsdoc -c jsdoc.json types settings/deprecations.js README.md -d docs",
     "build:coverage": "npm run coverage && c8 report --reporter=html",
     "build:fast": "node examples/build.js && npm run build:scripts",
-    "build:scripts": "rollup -c",
+    "build:scripts": "# rollup -c",
+    "build:semantic": "cd libraries/fomantic && npx gulp build && cp dist/*.js ../../assets/scripts && cp dist/*.css ../../assets/styles && cp -r dist/themes ../../assets && cd ../..",
+    "build:views": "jade --pretty -o assets/ views/site.jade",
     "compile": "node examples/build.js && npm run build:scripts",
     "coverage": "c8 npm run test",
-    "docs": "npm run build:docs && http-server docs",
+    "docs": "npm run build:docs && fabric-http docs",
+    "reports": "npm run report:install && npm run build:coverage && npm run report:todo",
     "report:coverage": "npm run coverage && c8 report --reporter=text-lcov > reports/coverage.lcov && codecov",
-    "review:coverage": "npm run build:coverage && http-server reports/coverage",
+    "report:install": "rm -rf node_modules && rm package-lock.json && echo \"$ npm i\" > reports/install.log && npm i >> reports/install.log",
+    "report:todo": "grep --exclude-dir=.git --exclude-dir=backups --exclude-dir=_book --exclude-dir=assets --exclude-dir=node_modules --exclude-dir=reports --exclude-dir=coverage --exclude-dir=docs -rEI \"TODO|FIXME\" . > reports/TODO.txt",
+    "review:coverage": "npm run build:coverage && fabric-http reports/coverage",
     "start": "npm run compile && node examples/server.js",
-    "static": "npm run build:scripts && http-server assets",
+    "static": "npm run build:scripts && fabric-http assets",
     "test": "mocha tests"
   },
   "repository": {
@@ -41,10 +46,12 @@
   },
   "homepage": "https://github.com/FabricLabs/fabric-http#readme",
   "contributors": [
-    "Eric Martindale"
+    "Eric Martindale",
+    "Victor Wu"
   ],
   "dependencies": {
-    "@fabric/core": "FabricLabs/fabric#master",
+    "@fabric/core": "FabricLabs/fabric#feature/grpc",
+    "babel-loader": "8.2.5",
     "body-parser": "1.18.3",
     "canvas": "2.10.1",
     "cross-fetch": "3.1.5",
@@ -58,15 +65,17 @@
     "isomorphic-ws": "4.0.1",
     "jquery": "3.4.1",
     "js-beautify": "1.14.6",
+    "json-pointer": "0.6.2",
     "level": "5",
     "lodash.merge": "4.6.2",
-    "metascraper": "5.29.5",
+    "metascraper": "5.31.1",
     "page": "1.11.4",
     "path-to-regexp": "6.1.0",
-    "peer": "0.6.1",
+    "peer": "FabricLabs/peerjs-server#feature/fabric",
     "peerjs": "1.0.0",
     "pluralize": "7.0.0",
     "stoppable": "1.1.0",
+    "webpack": "5.74.0",
     "ws": "6.2.1"
   },
   "devDependencies": {
@@ -76,6 +85,7 @@
     "@rollup/plugin-typescript": "8.3.2",
     "c8": "7.11.3",
     "debug-trace": "2.2.3",
+    "fomantic-ui": "2.9.0",
     "gulp": "4.0.2",
     "jsdoc": "FabricLabs/jsdoc#fabric",
     "jsdom": "11.12.0",
@@ -84,6 +94,8 @@
     "rollup-plugin-dts": "4.2.1",
     "semistandard": "13.0.1",
     "showdown": "1.9.1",
+    "ts-mocha": "10.0.0",
+    "typedoc": "0.23.16",
     "typescript": "4.6.3"
   },
   "browser": {

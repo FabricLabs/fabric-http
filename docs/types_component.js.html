@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Source: types/component.js &middot; Docs</title>
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+  </head>
+  <body>
+    <div id="main">
+      <h1 class="page-title">Source: types/component.js</h1>
+      
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>'use strict';
+
+// Dependencies
+const crypto = require('crypto');
+const Service = require('@fabric/core/types/service');
+// const Fabric = require('@fabric/core');
+
+/**
+ * Generic component.
+ */
+class FabricComponent extends Service {
+  /**
+   * Create a component.
+   * @param  {Object} [settings={}] Settings for the component.
+   * @return {Component}            Fully-configured component.
+   */
+  constructor (settings = {}) {
+    super(settings);
+
+    this.settings = Object.assign({
+      handle: 'fabric-component',
+      path: '/'
+    }, settings);
+
+    this.element = null;
+
+    // Healthy Cleanup
+    this._boundFunctions = {};
+    this._listeners = {};
+
+    this._state = {
+      content: settings
+    };
+
+    return this;
+  }
+
+  get path () {
+    return this.settings.path;
+  }
+
+  get data () {
+    return JSON.stringify(this.state || {});
+  }
+
+  get hash () {
+    // TODO: cache and skip
+    return crypto.createHash('sha256').update(this.render()).digest('hex');
+  }
+
+  get integrity () {
+    // TODO: cache and skip
+    let hash = crypto.createHash('sha256').update(this.data).digest('base64');
+    return `sha256-${hash}`;
+  }
+
+  attributeChangedCallback (name, old, value) {
+    console.log('[MAKI:COMPONENT]', 'Component notified a change:', name, 'changed to:', value, `(was ${old})`);
+  }
+
+  connectedCallback () {
+    console.log('[MAKI:COMPONENT]', 'Component added to page:', this);
+    let html = this._getInnerHTML(this.state);
+
+    this.setAttribute('data-integrity', Fabric.sha256(html));
+    this.setAttribute('data-fingerprint', this.fingerprint);
+    // this.innerHTML = html;
+    this.innerHTML = html + '';
+
+    /* let binding = this.getAttribute('data-bind');
+
+    if (binding) {
+      // TODO: use Fabric.Remote
+      fetch(`fabric:${binding}`)
+        .then((response) => response.text())
+        .then((responseText) => {
+          this.render(JSON.parse(responseText));
+        })
+        .catch((error) => {
+          console.error(error);
+        });
+    } */
+
+    // Reflect.construct(HTMLElement, [], this.constructor);
+    return this;
+  }
+
+  disconnectedCallback () {
+    console.log('[MAKI:COMPONENT]', 'Component removed from page:', this);
+
+    for (let name in this._boundFunctions) {
+      this.removeEventListener('message', this._boundFunctions[name]);
+    }
+  }
+
+  _bind (element) {
+    if (this.element) {
+      // TODO: unbind old handlers
+    }
+
+    this.element = element;
+    this.element.addEventListener('refresh', this.refresh.bind(this));
+    this.element.addEventListener('message', this._handleComponentMessage.bind(this));
+
+    this.render();
+
+    return this;
+  }
+
+  _handleComponentMessage (msg) {
+    console.log('[FABRIC:COMPONENT]', 'Element emitted message:', msg);
+  }
+
+  _toElement () {
+    let element = document.createElement(this.settings.handle);
+    element.innerHTML = this._getInnerHTML(this.state);
+    return element;
+  }
+
+  /**
+   * Load an HTML string into the Component.
+   * @param {String} [content] HTML string to load (empty by default).
+   * @returns {String} HTML document.
+   */
+  _loadHTML (content = '') {
+    let hash = crypto.createHash('sha256').update(content).digest('base64');
+    return `&lt;${this.settings.handle} integrity="sha256-${hash}">${content}&lt;/${this.settings.handle}>`;
+  }
+
+  _getInnerHTML (state) {
+    return `&lt;code class="unconfigured" data-name="_getInnerHTML">${JSON.stringify(state || this.state)}&lt;/code>`;
+  }
+
+  _renderState (state) {
+    // TODO: render Template here
+    // cc: @melnx @lel @lllllll:fabric.pub
+    const content = this._getInnerHTML(state);
+    return this._loadHTML(content);
+  }
+
+  refresh () {
+    if (this.element) {
+      this.element.innerHTML = this._getInnerHTML(this.state);
+    }
+  }
+
+  register () {
+    customElements.define(this.settings.handle, Component, { extends: 'div' });
+  }
+
+  render () {
+    if (this.element) this.element.innerHTML = this._getInnerHTML();
+    return this._renderState(this.state);
+  }
+}
+
+module.exports = FabricComponent;
+
+// TODO: debug why this can't be used on this parent class...
+// ```
+// TypeError: Class extends value #&lt;Object> is not a constructor or null
+// Module.&lt;anonymous>
+// src/components/FabricIdentityManager.js:19
+//   16 | import IdentityPicker from './IdentityPicker';
+//   17 | import SeedEntryForm from './SeedEntryForm';
+//   18 | 
+// > 19 | class FabricIdentityManager extends FabricComponent {
+//   20 |   constructor (props) {
+//   21 |     super(props);
+//   22 | 
+// ```
+// export default connect(FabricStateMapper)(FabricComponent);
+//
+// ...
+// End of @fabric/core/types/component
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+    </div>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Router.html">Router</a></li><li><a href="Site.html">Site</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Stash.html">Stash</a></li><li><a href="Wallet.html">Wallet</a></li></ul></nav>
+    <br class="clear" />
+    <footer>
+        <a href="https://github.com/FabricLabs/web">git://</a> &middot; <a href="https://chat.fabric.pub/#/room/#web:fabric.pub">Community</a>
+    </footer>
+    <script> prettyPrint(); </script>
+    <script src="scripts/linenumber.js"></script>
+  </body>
+</html>

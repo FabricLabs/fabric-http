@@ -11,7 +11,15 @@ const Message = require('@fabric/core/types/message');
 // Internal Types
 const Remote = require('./remote');
 
+/**
+ * The {@link Bridge} type extends a Fabric application to the web.
+ */
 class Bridge extends Service {
+  /**
+   * Create an instance of the bridge by providing a host.
+   * @param {Object} [settings] Settings for the bridge.
+   * @returns {Bridge} Instance of the bridge.
+   */
   constructor (settings = {}) {
     super(settings);
 
@@ -33,6 +41,10 @@ class Bridge extends Service {
     return this;
   }
 
+  /**
+   * Attempt to connect to the target host.
+   * @returns {Bridge} Instance of the bridge.
+   */
   async connect () {
     if (this.settings.verbosity >= 3) console.log('[WEB:BRIDGE]', 'Connecting...');
     if (this.websocket) {
@@ -44,18 +56,23 @@ class Bridge extends Service {
     // Used for subscribing to all state paths for the host.
     // TODO: secure
     const protocol = (this.settings.secure) ? 'wss' : 'ws';
+
+    // Instance of the WebSocket
     this.websocket = new WebSocket(`${protocol}://${this.settings.hostname}:${this.settings.port}/`);
 
+    // Track bound functions in _boundFunctions
     this._boundFunctions['onopen'] = this._handleSuccessfulConnection.bind(this);
     this._boundFunctions['onclose'] = this._handleConnectionClose.bind(this);
     this._boundFunctions['onmessage'] = this._handleHostMessage.bind(this);
     this._boundFunctions['onerror'] = this._handleHostError.bind(this);
 
+    // Assign bound functions to the WebSocket
     this.websocket.onopen = this._boundFunctions['onopen'];
     this.websocket.onclose = this._boundFunctions['onclose'];
     this.websocket.onmessage = this._boundFunctions['onmessage'];
     this.websocket.onerror = this._boundFunctions['onerror'];
 
+    // Ensure chainability
     return this;
   }
  
@@ -66,17 +83,15 @@ class Bridge extends Service {
       if (this.settings.verbosity >= 4) console.log('[HTTP:BRIDGE]', 'Connecting to Hubs:', this.settings.hubs);
       for (let i = 0; i < this.settings.hubs.length; i++) {
         try {
-          let hub = this.settings.hubs[i];
-          let parts = URL.parse(hub);
-          let remote = new Remote({
+          const hub = this.settings.hubs[i];
+          const parts = URL.parse(hub);
+          const remote = new Remote({
             authority: parts.hostname,
             port: parts.port,
             secure: (parts.protocol === 'https:') ? true : false
           });
 
-          let options = await remote._OPTIONS('/');
-          if (this.settings.verbosity >= 4) console.log('[HTTP:BRIDGE]', 'Got options from Remote:', options);
-
+          const options = await remote._OPTIONS('/');
           this._remotes.push(remote);
         } catch (exception) {
           console.error('Could not connect to remote:', exception);

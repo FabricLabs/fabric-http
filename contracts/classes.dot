@@ -1,0 +1,113 @@
+digraph FabricClasses {
+  label = "Fabric Class Inheritances"
+  rankdir = "TB"
+
+  subgraph cluster_binaries {
+    label = "Executables"
+    "fabric"
+    "fabric-http"
+  }
+
+  subgraph cluster_generics {
+    label = "Generics"
+    "Object"
+    "EventEmitter"
+  }
+
+  subgraph cluster_core {
+    label = "@fabric/core"
+    "Actor"
+    "Block"
+    "Bitcoin"
+    "Chain"
+    "Channel"
+    "Contract"
+    "Environment"
+    "Key"
+    "Lightning"
+    "Message"
+    "Peer"
+    "Reader"
+    "Service"
+    "Signer"
+    "Transaction"
+    "Tree"
+    "Wallet"
+
+    subgraph cluster_http {
+      label = "@fabric/http"
+      "Component"
+      "Remote"
+      "Site"
+      "HTTPClient"
+      "HTTPServer"
+
+      subgraph cluster_components {
+        label = "Components"
+        "FabricComponent"
+      }
+    }
+  }
+
+  subgraph cluster_candidates {
+    label = "Candidates"
+    "App"
+    "CLI"
+  }
+
+  subgraph cluster_legacy {
+    label = "Legacy"
+    "Entity"
+  }
+
+  "Actor" -> {
+    "Block"
+    "Chain"
+    "Message"
+    "Service"
+    "Signer"
+    "Transaction"
+    "Tree"
+    "Remote"
+    "HTTPClient"
+  }
+
+  "App" -> {
+    "CLI"
+  }
+
+  "CLI" -> {
+    "fabric"
+    "fabric-http"
+  }
+
+  "Contract" -> {
+    "Distribution"
+    "Federation"
+  }
+
+  "Entity" -> "Environment"
+  "EventEmitter" -> {
+    "Actor"
+    "Entity"
+    "Reader"
+  }
+
+  "Object" -> "EventEmitter"
+  "Object" -> "Key"
+
+  "Service" -> {
+    "App"
+    "Bitcoin"
+    "Channel"
+    "Contract"
+    "Lightning"
+    "Peer"
+    "Wallet"
+    "Site"
+    "HTTPServer"
+    "Component"
+    "FabricComponent"
+  }
+
+}

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Source: types/client.js &middot; Docs</title>
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+  </head>
+  <body>
+    <div id="main">
+      <h1 class="page-title">Source: types/client.js</h1>
+      
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>'use strict';
+
+const Remote = require('./remote');
+
+// dependencies
+const scrape = require('metascraper');
+const { URL } = require('url');
+
+/**
+ * Generic HTTP Client.
+ */
+class HTTPClient {
+  /**
+   * Create an instance of an HTTP client.
+   * @param {Object} [settings] Configuration for the client.
+   */
+  constructor (settings = {}) {
+    this.config = Object.assign({
+      host: 'localhost',
+      secure: true,
+      port: 9999
+    }, settings);
+
+    // TODO: remove import requirement, use local definition
+    this.client = new Remote({
+      host: this.config.host,
+      secure: this.config.secure,
+      port: this.config.port
+    });
+  }
+
+  async get (path, params = {}) {
+    return this._GET(path, params);
+  }
+
+  async put (path, data, params = {}) {
+    return this._PUT(path, data, params);
+  }
+
+  async _GET (path, params = {}) {
+    return this.client._GET(path, params);
+  }
+
+  async _PUT (path, data) {
+    return this.client._PUT(path, data);
+  }
+
+  async _POST (path, data) {
+    return this.client._POST(path, data);
+  }
+
+  async _PATCH (path, data) {
+    return this.client._PATCH(path, data);
+  }
+
+  async _DELETE (path) {
+    return this.client._DELETE(path);
+  }
+
+  async _OPTIONS (path) {
+    return this.client._OPTIONS(path);
+  }
+
+  async crawl (address) {
+    let url = new URL(address);
+    let remote = new Remote({
+      host: url.hostname,
+      port: url.port,
+      secure: (url.protocol === 'https') ? true : false
+    });
+
+    let content = await remote._GET(url.pathname);
+    let metadata = await scrape({
+      url: address,
+      html: content
+    });
+
+    return { metadata, content };
+  }
+}
+
+module.exports = HTTPClient;
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+    </div>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Router.html">Router</a></li><li><a href="Site.html">Site</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Stash.html">Stash</a></li><li><a href="Wallet.html">Wallet</a></li></ul></nav>
+    <br class="clear" />
+    <footer>
+        <a href="https://github.com/FabricLabs/web">git://</a> &middot; <a href="https://chat.fabric.pub/#/room/#web:fabric.pub">Community</a>
+    </footer>
+    <script> prettyPrint(); </script>
+    <script src="scripts/linenumber.js"></script>
+  </body>
+</html>

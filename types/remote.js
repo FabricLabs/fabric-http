@@ -40,6 +40,7 @@ class Remote extends Actor {
     this.settings = Object.assign({
       backoff: 2,
       entropy: Math.random(),
+      macaroon: null,
       secure: true,
       host: 'hub.fabric.pub',
       port: 443
@@ -236,7 +237,8 @@ class Remote extends Actor {
     let response = null;
     let headers = {
       'Accept': CONTENT_TYPE,
-      'Content-Type': CONTENT_TYPE
+      'Content-Type': CONTENT_TYPE,
+      'Macaroon': this.settings.macaroon
     };
 
     if (params.headers) {

@@ -272,7 +272,7 @@ class SPA extends App {
 
     try {
       if (this.settings.verbosity >= 5) console.log('[HTTP:SPA]', 'Stopping store...');
-      await this.store.stop();
+      if (this.store) await this.store.stop();
     } catch (E) {
       console.error('Could not stop SPA store:', E);
     }
