@@ -221,8 +221,8 @@ class SPA extends App {
     return this.target;
   }
 
-  _renderWith (html) {
-    let hash = crypto.createHash('sha256').update(html).digest('hex');
+  _renderWith (html = '') {
+    const hash = crypto.createHash('sha256').update(html).digest('hex');
 
     // TODO: move CSS to inline from webpack
     return `<!DOCTYPE html>
