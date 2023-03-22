@@ -89,7 +89,7 @@
     "debug-trace": "2.2.3",
     "fomantic-ui": "2.9.0",
     "gulp": "4.0.2",
-    "jsdoc": "FabricLabs/jsdoc#fabric",
+    "jsdoc": "4.0.2",
     "jsdom": "11.12.0",
     "mocha": "6.0.2",
     "rollup": "2.70.2",
