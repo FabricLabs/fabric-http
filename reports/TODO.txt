@@ -116,6 +116,7 @@
 ./components/modal.js:    console.log('TODO: submit modal form here', event, event.target, this);
 ./components/SeedEntryForm.js:    // TODO: prepare Fabric
 ./components/SeedEntryForm.js:    // TODO: merge old state
+./package.json:    "build:scripts": "# TODO: build assets/bundles/browser.js",
 ./package.json:    "report:todo": "grep --exclude-dir=.git --exclude-dir=backups --exclude-dir=_book --exclude-dir=assets --exclude-dir=node_modules --exclude-dir=reports --exclude-dir=coverage --exclude-dir=docs -rEI \"TODO|FIXME\" . > reports/TODO.txt",
 ./examples/build.js:  // TODO: why isn't SPA exiting?
 ./scripts/index.js:// TODO: switch core to types
