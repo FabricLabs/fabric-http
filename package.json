@@ -57,7 +57,7 @@
     "body-parser": "1.18.3",
     "canvas": "2.10.1",
     "cross-fetch": "3.1.5",
-    "d3": "5.9.2",
+    "d3": "7.8.2",
     "d3-graphviz": "2.6.1",
     "express": "4.16.4",
     "express-bearer-token": "2.4.0",
