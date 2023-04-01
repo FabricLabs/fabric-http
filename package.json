@@ -84,6 +84,7 @@
     "@babel/preset-env": "7.19.4",
     "@webcomponents/webcomponentsjs": "2.7.0",
     "c8": "7.11.3",
+    "codecov": "3.8.3",
     "debug-trace": "2.2.3",
     "fomantic-ui": "2.9.0",
     "gulp": "4.0.2",
