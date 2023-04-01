@@ -1,5 +1,4 @@
-// State
-import * as defaults from '../settings/state';
+'use strict';
 
 // Dependencies
 import merge from 'lodash.merge';
