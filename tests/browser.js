@@ -17,17 +17,11 @@ describe('bundles/browser.js', function () {
       const browser = await puppeteer.launch();
       const page = await browser.newPage();
 
-      console.log('browser:', browser);
-      console.log('page:', page);
-
       await page.goto('http://localhost:8484');
 
       await page.waitForSelector('fabric-browser');
 
       const result = await page.evaluate(() => {
-        console.log('this:', this);
-        console.log('global:', window.fabric);
-
         return {
           window: window,
           foo: 'bar'
