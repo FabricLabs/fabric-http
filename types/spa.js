@@ -221,8 +221,8 @@ class SPA extends App {
     return this.target;
   }
 
-  _renderWith (html) {
-    let hash = crypto.createHash('sha256').update(html).digest('hex');
+  _renderWith (html = '') {
+    const hash = crypto.createHash('sha256').update(html).digest('hex');
 
     // TODO: move CSS to inline from webpack
     return `<!DOCTYPE html>
@@ -233,10 +233,11 @@ class SPA extends App {
   <!-- <link rel="manifest" href="/manifest.json"> -->
   <link rel="stylesheet" type="text/css" href="/styles/screen.css" />
   <link rel="stylesheet" type="text/css" href="/styles/semantic.css" />
+  <script type="text/javascript" src="/scripts/jquery-3.4.1.js"></script>
+  <script type="text/javascript" src="/scripts/semantic.js"></script>
+  <script src="bundles/browser.js"></script>
 </head>
-<body data-bind="${hash}">${html}</body>
-<script type="text/javascript" src="/scripts/jquery-3.4.1.js"></script>
-<script type="text/javascript" src="/scripts/semantic.js"></script>
+<body data-bind="${hash}" data-hash="${hash}">${html}</body>
 </html>`;
   }
 
