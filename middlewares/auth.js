@@ -15,8 +15,7 @@ const hasRole = require('../contracts/hasRole');
 
 module.exports = function FabricAuthenticationMiddleware (request, response, next) {
   request.identity = null;
-
-  // request.hasRole = hasRole.bind(request);
+  request.hasRole = hasRole.bind(request);
   // request.hasState = hasState.bind(app.state);
 
   if (request.headers[HTTP_IDENTITY_HEADER_NAME_LOWER]) {
