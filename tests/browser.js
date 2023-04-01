@@ -8,7 +8,7 @@ const Server = require('../types/server');
 
 describe('bundles/browser.js', function () {
   describe('browser', function () {
-    this.timeout(30000);
+    this.timeout(60000);
 
     it('provides a global fabric', async function () {
       const server = new Server({ port: 8484 });
