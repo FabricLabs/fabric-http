@@ -49,19 +49,8 @@ class Site extends Service {
   }
 
   render (state = this.state) {
-    return `<!DOCTYPE html>
-      <html>
-        <head>
-          <title>${state.title}</title>
-        </head>
-        <body>
-          <div id="fabric-container">
-            <p>Loading...</p>
-          </div>
-          <fabric-site />
-          <script src="bundles/browser.js" data-fullhash="${(state.bundle) ? state.bundle.fullhash : ''}"></script>
-        </body>
-      </html>`;
+    const html = `<fabric-debug>Hello, world!</fabric-debug>`;
+    return this.spa._renderWith(html);
   }
 
   async compute (next = {}) {
