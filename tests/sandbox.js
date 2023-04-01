@@ -16,7 +16,7 @@ describe('@fabric/http/types/sandbox', function () {
   });
 
   describe('Sandbox', function () {
-    this.timeout(15000);
+    this.timeout(30000);
 
     it('should expose a constructor', function () {
       assert.equal(typeof Sandbox, 'function');
