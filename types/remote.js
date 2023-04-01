@@ -83,6 +83,11 @@ class Remote extends FabricRemote {
     console.log('socket message:', msg);
     const message = Message.fromBuffer(msg);
     console.log('parsed:', message);
+    switch (message.type) {
+      default:
+        this.emit('error', `Unhandled message type: ${message.type}`);
+        break;
+    }
   }
 
   async start () {
