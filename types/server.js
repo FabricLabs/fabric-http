@@ -25,6 +25,10 @@ const monitor = require('fast-json-patch');
 const extractor = require('express-bearer-token');
 const stoppable = require('stoppable');
 
+// GraphQL
+const { GraphQLSchema, GraphQLObjectType, GraphQLString } = require('graphql');
+const graphql = require('graphql-http/lib/use/http').createHandler;
+
 // Pathing
 const pathToRegexp = require('path-to-regexp').pathToRegexp;
 
@@ -122,6 +126,8 @@ class FabricHTTPServer extends Service {
       path: '/services/peering'
     });
 
+    this.graphQLSchema = null;
+
     this.collections = [];
     this.routes = [];
     this.customRoutes = [];
@@ -185,10 +191,17 @@ class FabricHTTPServer extends Service {
   async define (name, definition) {
     if (this.settings.verbosity >= 5) console.log('[HTTP:SERVER]', 'Defining:', name, definition);
     const server = this;
-    const resource = await super.define(name, definition);
+
+    // Stub out old Resource code (Maki)
+    const resource = { type: 'Resource', object: { name, definition } };
+    const plural = pluralize(name).toLowerCase();
     const snapshot = Object.assign({
       name: name,
-      names: { plural: pluralize(name) }
+      names: { plural },
+      routes: {
+        list: `/${plural}`,
+        view: `/${plural}/:id`
+      }
     }, resource);
 
     const address = snapshot.routes.list.split('/')[1];
@@ -494,6 +507,7 @@ class FabricHTTPServer extends Service {
     let result = target.send(msg);
   }
 
+  // TODO: consolidate with Peer
   _relayFrom (actor, msg) {
     let peers = Object.keys(this.connections).filter(key => {
       return key !== actor;
@@ -723,6 +737,18 @@ class FabricHTTPServer extends Service {
       if (server.settings.verbosity >= 6) console.log('[AUDIT]', 'Created resource:', resource);
     }
 
+    this.graphQLSchema = new GraphQLSchema({
+      query: new GraphQLObjectType({
+        name: 'Query',
+        fields: {
+          hello: {
+            type: GraphQLString,
+            resolve: () => 'world',
+          }
+        },
+      }),
+    });
+
     // Middlewares
     server.express.use(server._logMiddleware.bind(server));
     server.express.use(auth);
@@ -736,6 +762,8 @@ class FabricHTTPServer extends Service {
     server.express.use(express.static(this.settings.assets));
     server.express.use(extractor());
     server.express.use(server._roleMiddleware.bind(server));
+
+    server.express.all('/services/graphql', graphql({ schema: this.graphQLSchema }))
 
     // configure sessions & parsers
     // TODO: migrate to {@link Session} or abolish entirely

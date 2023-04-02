@@ -231,11 +231,11 @@ class SPA extends App {
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
   <title>${this.title}</title>
   <!-- <link rel="manifest" href="/manifest.json"> -->
-  <link rel="stylesheet" type="text/css" href="/styles/screen.css" />
   <link rel="stylesheet" type="text/css" href="/styles/semantic.css" />
+  <link rel="stylesheet" type="text/css" href="/styles/screen.css" />
   <script type="text/javascript" src="/scripts/jquery-3.4.1.js"></script>
   <script type="text/javascript" src="/scripts/semantic.js"></script>
-  <script src="bundles/browser.js"></script>
+  <script src="/bundles/browser.js"></script>
 </head>
 <body data-bind="${hash}" data-hash="${hash}">${html}</body>
 </html>`;

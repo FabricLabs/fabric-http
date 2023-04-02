@@ -49,8 +49,22 @@ class Site extends Service {
   }
 
   render (state = this.state) {
-    const html = `<fabric-debug>Hello, world!</fabric-debug>`;
+    const html = this._getHTML(state);
     return this.spa._renderWith(html);
+  }
+
+  _getHTML (state) {
+    return `
+      <fabric-site class="ui container">
+        <div class="ui card fluid">
+          <div class="content">
+            <h1>${state.title || 'Example Site'}</h1>
+          </div>
+        </div>
+        <fabric-bridge host="localhost" port="9999" secure="false" />
+        <fabric-debug>Hello, world!</fabric-debug>
+      </fabric-site>
+    `.trim();
   }
 
   async compute (next = {}) {
