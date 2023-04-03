@@ -3,4 +3,6 @@ type FabricHTTPServer {
   alias: String
   host: String
   port: Int
+  pubkey: String
+  services: [Service]
 }

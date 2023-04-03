@@ -152,6 +152,10 @@ class FabricComponent extends Service {
     if (this.element) this.element.innerHTML = this._getInnerHTML();
     return this._renderState(this.state);
   }
+
+  toHTML () {
+    return this._renderState(this.state);
+  }
 }
 
 module.exports = FabricComponent;

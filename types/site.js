@@ -58,7 +58,7 @@ class Site extends Service {
       <fabric-site class="ui container">
         <div class="ui card fluid">
           <div class="content">
-            <h1>${state.title || 'Example Site'}</h1>
+            <h1 data-bind="/title">${state.title || this.title || 'Example Site'}</h1>
           </div>
         </div>
         <fabric-bridge host="localhost" port="9999" secure="false" />
