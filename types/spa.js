@@ -55,6 +55,10 @@ class SPA extends App {
       // TODO: enable by default?
       websockets: false,
       secure: false, // TODO: default to secure (i.e., TLS on all connections)
+      state: {
+        status: 'PAUSED',
+        title: settings.title || '@fabric/http'
+      },
       components: {} /* {
         'fabric-identity': require('../components/fabric-identity')
       } */
@@ -75,6 +79,14 @@ class SPA extends App {
     };
 
     return this;
+  }
+
+  get state () {
+    return this._state.content;
+  }
+
+  get title () {
+    return this.state.title;
   }
 
   // TODO: reconcile with super(), document use of constructor vs. CustomElements
@@ -233,8 +245,8 @@ class SPA extends App {
   <!-- <link rel="manifest" href="/manifest.json"> -->
   <link rel="stylesheet" type="text/css" href="/styles/semantic.css" />
   <link rel="stylesheet" type="text/css" href="/styles/screen.css" />
-  <script type="text/javascript" src="/scripts/jquery-3.4.1.js"></script>
-  <script type="text/javascript" src="/scripts/semantic.js"></script>
+  <script src="/scripts/jquery-3.4.1.js"></script>
+  <script src="/scripts/semantic.js"></script>
   <script src="/bundles/browser.js"></script>
 </head>
 <body data-bind="${hash}" data-hash="${hash}">${html}</body>

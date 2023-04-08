@@ -28,20 +28,21 @@ class Site extends Service {
       fabric: {
         name: '@sites/default'
       },
+      state: {
+        title: 'Default Site'
+      },
       spa: null
     }, this.settings, settings);
 
     // Set local state
     this._state = {
-      content: {
-        title: 'Default Site'
-      },
+      content: this.settings.state,
       status: 'PAUSED'
     };
 
+    // Fabric Components
     this.peer = new Peer(this.settings.fabric);
-    this.spa = new SPA(this.settings.spa);
-
+    this.spa = new SPA(this.settings);
     // this.bridge = new Bridge();
 
     // Ensure chainability
@@ -53,7 +54,17 @@ class Site extends Service {
     return this.spa._renderWith(html);
   }
 
+  toHTML () {
+    return this.render();
+  }
+
   _getHTML (state) {
+    // TODO: obvious modularization...
+    // - fabric-site
+    //   - fabric-bridge
+    //   - fabric-console
+    //   - fabric-menu
+    //   - fabric-grid
     return `
       <fabric-site class="ui container">
         <div class="ui card fluid">
@@ -65,6 +76,10 @@ class Site extends Service {
         <fabric-debug>Hello, world!</fabric-debug>
       </fabric-site>
     `.trim();
+  }
+
+  _renderWith (html) {
+    return this.spa._renderWith(html);
   }
 
   async compute (next = {}) {

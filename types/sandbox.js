@@ -39,6 +39,17 @@ class Sandbox extends Service {
     this.chromium = await puppeteer.launch(this.settings.browser);
     this.browser = await this.chromium.newPage();
 
+    // Connect to Chrome DevTools
+    const client = await page.target().createCDPSession();
+
+    // Set throttling property
+    await client.send('Network.emulateNetworkConditions', {
+      'offline': false,
+      'downloadThroughput': 56 * 1024 / 8,
+      'uploadThroughput': Math.floor(24.4 * 1024 / 8),
+      'latency': 1000
+    });
+
     // Browser event handlers
     this.browser.on('console', (msg) => {
       this.emit('debug', `Sandbox console emitted: ${msg.text()}`)
