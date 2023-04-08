@@ -4,7 +4,7 @@
 const WebSocket = require('isomorphic-ws');
 
 // Fabric Types
-const Message = require('@fabric/core/types/message');
+// const Message = require('@fabric/core/types/message');
 const FabricRemote = require('@fabric/core/types/remote');
 
 const CONTENT_TYPE = 'application/json';
@@ -68,11 +68,13 @@ class Remote extends FabricRemote {
   }
 
   _handleSocketOpen () {
-    const INV_MSG = Message.fromVector(['INVENTORY_REQUEST', {
+    console.log('socket open!');
+
+    /* const INV_MSG = Message.fromVector(['INVENTORY_REQUEST', {
       created: (new Date()).toISOString()
     }]);
 
-    this.socket.send(INV_MSG.toBuffer());
+    this.socket.send(INV_MSG.toBuffer()); */
   }
 
   _handleSocketClose () {
@@ -81,13 +83,13 @@ class Remote extends FabricRemote {
 
   _handleSocketMessage (msg) {
     console.log('socket message:', msg);
-    const message = Message.fromBuffer(msg);
+    /* const message = Message.fromBuffer(msg);
     console.log('parsed:', message);
     switch (message.type) {
       default:
         this.emit('error', `Unhandled message type: ${message.type}`);
         break;
-    }
+    } */
   }
 
   async start () {

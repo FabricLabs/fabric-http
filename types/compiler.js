@@ -6,8 +6,12 @@ const crypto = require('crypto');
 const beautify = require('js-beautify').html;
 const webpack = require('webpack');
 
+// Fabric Types
 const Service = require('@fabric/core/types/service');
-const FabricComponent = require('./component');
+
+// Types
+const HTTPComponent = require('./component');
+const HTTPSite = require('./site');
 
 /**
  * Builder for {@link Fabric}-based applications.
@@ -16,14 +20,16 @@ class Compiler extends Service {
   /**
    * Create an instance of the compiler.
    * @param {Object} [settings] Map of settings.
-   * @param {FabricComponent} [settings.document] Document to use.
+   * @param {HTTPComponent} [settings.document] Document to use.
    */
   constructor (settings = {}) {
     super(settings);
 
     this.settings = Object.assign({
-      document: new FabricComponent(settings),
-      state: {},
+      document: new HTTPComponent(settings),
+      state: {
+        title: settings.title || 'Fabric HTTP Document'
+      },
       // TODO: load from:
       // 1. webpack.config.js (local)
       // 2. @fabric/http/webpack.config
@@ -71,6 +77,9 @@ class Compiler extends Service {
       }
     }, this.settings, settings);
 
+    this.component = this.settings.document || null;
+    this.site = new HTTPSite();
+
     this._state = {
       content: this.settings.state
     };
@@ -86,7 +95,9 @@ class Compiler extends Service {
    * @returns {String} Rendered HTML document containing the compiled JavaScript application.
    */
   compile (state = this.state) {
-    return this.settings.document.render(state);
+    if (!this.document) return this.site.render();
+    if (!this.document.render) return this.site.render();
+    return this.document.render(state);
   }
 
   async compileBundle (state = this.state) {
