@@ -26,7 +26,7 @@ class Compiler extends Service {
     super(settings);
 
     this.settings = Object.assign({
-      document: new HTTPComponent(settings),
+      document: settings.document || new HTTPComponent(settings),
       state: {
         title: settings.title || 'Fabric HTTP Document'
       },
