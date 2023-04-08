@@ -66,14 +66,8 @@ class Site extends Service {
     //   - fabric-menu
     //   - fabric-grid
     return `
-      <fabric-site class="ui container">
-        <div class="ui card fluid">
-          <div class="content">
-            <h1 data-bind="/title">${state.title || this.title || 'Example Site'}</h1>
-          </div>
-        </div>
-        <fabric-bridge host="localhost" port="9999" secure="false" />
-        <fabric-debug>Hello, world!</fabric-debug>
+      <fabric-site class="ui container" id="site">
+        <fabric-bridge host="localhost" port="9999" secure="false"></fabric-bridge>
       </fabric-site>
     `.trim();
   }
