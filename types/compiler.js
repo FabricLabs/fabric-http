@@ -36,6 +36,17 @@ class Compiler extends Service {
       webpack: {
         mode: 'development',
         entry: path.resolve('./scripts/browser.js'),
+        resolve: {
+          fallback: {
+            crypto: require.resolve('crypto-browserify'),
+            stream: require.resolve('stream-browserify'),
+            querystring: require.resolve('querystring-es3'),
+            path: require.resolve('path-browserify'),
+            assert: require.resolve('assert-browserify'),
+            util: require.resolve('node-util'),
+            fs: require.resolve('browserify-fs')
+          }
+        },
         target: 'web',
         output: {
           path: path.resolve('./assets/bundles'),
@@ -67,10 +78,10 @@ class Compiler extends Service {
         },
         plugins: [
           new webpack.DefinePlugin({
-            'process.env': {
-              NODE_ENV: JSON.stringify('production'),
-              APP_ENV: JSON.stringify('browser')
-            }
+            'process.env': JSON.stringify(process.env)
+          }),
+          new webpack.ProvidePlugin({
+            Buffer: ['buffer', 'Buffer'],
           })
         ]
       }

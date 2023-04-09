@@ -39,8 +39,9 @@ class Sandbox extends Service {
     this.chromium = await puppeteer.launch(this.settings.browser);
     this.browser = await this.chromium.newPage();
 
+    /*
     // Connect to Chrome DevTools
-    const client = await page.target().createCDPSession();
+    const client = await this.browser.target().createCDPSession();
 
     // Set throttling property
     await client.send('Network.emulateNetworkConditions', {
@@ -49,6 +50,7 @@ class Sandbox extends Service {
       'uploadThroughput': Math.floor(24.4 * 1024 / 8),
       'latency': 1000
     });
+    */
 
     // Browser event handlers
     this.browser.on('console', (msg) => {

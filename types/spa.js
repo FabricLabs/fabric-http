@@ -78,6 +78,10 @@ class SPA extends App {
       'click': this._handleClick.bind(this)
     };
 
+    this._state = {
+      content: this.settings.state
+    };
+
     return this;
   }
 
@@ -87,6 +91,10 @@ class SPA extends App {
 
   get title () {
     return this.state.title;
+  }
+
+  set title (value) {
+    this._state.content.title = value;
   }
 
   // TODO: reconcile with super(), document use of constructor vs. CustomElements
