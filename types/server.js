@@ -137,6 +137,10 @@ class FabricHTTPServer extends Service {
     return this;
   }
 
+  get interface () {
+    return this.settings.interface || this.settings.host;
+  }
+
   get link () {
     return `http://${this.settings.host}:${this.settings.port}`;
   }
@@ -290,12 +294,24 @@ class FabricHTTPServer extends Service {
     }
   }
 
+  debug (content) {
+    console.debug('[FABRIC:EDGE]', (new Date().toISOString()), content);
+  }
+
+  log (content) {
+    console.log('[FABRIC:EDGE]', (new Date().toISOString()), content);
+  }
+
   trust (source) {
     super.trust(source);
 
     source.on('message', function (msg) {
       console.log('[HTTP:SERVER]', 'trusted source:', source.constructor.name, 'sent message:', msg);
     });
+  }
+
+  warn (content) {
+    console.warn('[FABRIC:EDGE]', (new Date().toISOString()), content);
   }
 
   _registerMethod (name, method) {
@@ -723,7 +739,7 @@ class FabricHTTPServer extends Service {
   }
 
   async start () {
-    if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Starting...');
+    this.emit('debug', '[HTTP:SERVER] Starting...');
     const server = this;
     server.status = 'starting';
 
@@ -731,9 +747,16 @@ class FabricHTTPServer extends Service {
       console.trace('[HTTP:SERVER]', 'No Resources have been defined for this server.  Please provide a "resources" map in the configuration.');
     } */
 
+    const schema = {};
+
     for (let name in server.settings.resources) {
       const definition = server.settings.resources[name];
       const resource = await server._defineResource(name, definition);
+      schema[resource.names[1].toLowerCase()] = new GraphQLObjectType({
+        name: name,
+        fields: resource.fields
+      });
+
       if (server.settings.verbosity >= 6) console.log('[AUDIT]', 'Created resource:', resource);
     }
 
@@ -745,13 +768,13 @@ class FabricHTTPServer extends Service {
             type: GraphQLString,
             resolve: () => 'world',
           }
-        },
-      }),
+        }
+      })
     });
 
     // Middlewares
     server.express.use(server._logMiddleware.bind(server));
-    server.express.use(auth);
+    server.express.use(auth.bind(server));
 
     // Custom Headers
     server.express.use(server._headerMiddleware.bind(server));
@@ -838,6 +861,9 @@ class FabricHTTPServer extends Service {
       console.log('[HTTP:SERVER]', 'Internal commit:', msg);
     });
 
+    server.on('debug', this.debug.bind(this));
+    server.on('log', this.log.bind(this));
+    server.on('warning', this.warn.bind(this));
     server.on('message', async function (msg) {
       console.log('[HTTP:SERVER]', 'Internal message:', msg);
     });
@@ -852,7 +878,7 @@ class FabricHTTPServer extends Service {
 
     if (this.settings.listen) {
       server.http.on('listening', notifyReady);
-      await server.http.listen(this.settings.port, this.settings.host);
+      await server.http.listen(this.settings.port, this.interface);
     } else {
       console.warn('[HTTP:SERVER]', 'Listening is disabled.  Only events will be emitted!');
       notifyReady();
@@ -868,10 +894,8 @@ class FabricHTTPServer extends Service {
     // commit to our results
     // await this.commit();
 
-    // TODO: include somewhere
-    // console.log('[FABRIC:WEB]', 'You should consider changing the `host` property in your config,');
-    // console.log('[FABRIC:WEB]', 'or set up a TLS server to encrypt traffic to and from this node.');
-    if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Started!');
+    this.emit('warning', '[WARNING] Unencrypted transport!  You should consider changing the `host` property in your config, or set up a TLS server to encrypt traffic to and from this node.');
+    this.emit('log', `[HTTP:SERVER] Started!  Link: ${this.link}`);
 
     return server;
   }

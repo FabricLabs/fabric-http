@@ -4,7 +4,7 @@ const Actor = require('@fabric/core/types/actor');
 const Remote = require('./remote');
 
 // dependencies
-const scrape = require('metascraper');
+// const scrape = require('metascraper');
 const { URL } = require('url');
 
 /**
@@ -103,6 +103,13 @@ class HTTPClient extends Actor {
     });
 
     return { metadata, content };
+  }
+
+  async start () {
+    const options = await this._OPTIONS('/');
+    console.log('OPTIONS:', options);
+    this._state.content.status = 'STARTED';
+    return this;
   }
 }
 
