@@ -68,6 +68,28 @@ class Site extends Service {
     return `
       <fabric-site class="ui container" id="site">
         <fabric-bridge host="localhost" port="9999" secure="false"></fabric-bridge>
+        <fabric-console id="console" style="display: none;">
+          <fabric-card class="ui fluid card">
+            <fabric-card-content class="content">
+              <p>Console...</p>
+            </fabric-card-content>
+          </fabric-card>
+        </fabric-console>
+        <fabric-grid class="ui centered grid">
+          <fabric-column class="twelve wide column">
+            <fabric-card class="ui fluid card" id="overlay">
+              <fabric-card-content class="content" style="text-align: center;">
+                <h1 class="ui huge header" data-bind="/title"><code>${state.title || this.title || this.state.title || 'Example Application'}</code></h1>
+                <p>file browser</p>
+              </fabric-card-content>
+              <fabric-card-content class="bottom attached" style="display: none;">
+                <fabric-button-group class="ui small bottom attached left aligned buttons">
+                  <fabric-button class="ui labeled icon button"><i class="ui linkify icon"></i> <code>${this.id}</code></fabric-button>
+                </fabric-button-group>
+              </fabric-card-content>
+            </fabric-card>
+          </fabric-column>
+        </fabric-grid>
       </fabric-site>
     `.trim();
   }
