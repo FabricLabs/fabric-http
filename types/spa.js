@@ -16,6 +16,7 @@ const config = {
 
 // core dependencies
 const crypto = require('crypto');
+const merge = require('lodash.merge');
 const page = require('page');
 const pluralize = require('pluralize');
 
@@ -48,7 +49,7 @@ class SPA extends App {
     super(settings);
 
     // Assign defaults
-    this.settings = Object.assign({
+    this.settings = merge({
       name: '@fabric/maki',
       authority: 'localhost.localdomain:9999',
       persistent: false,
@@ -249,7 +250,7 @@ class SPA extends App {
 <html lang="${this.settings.language}"${(this.settings.offline) ? 'manifest="cache.manifest"' : ''}>
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-  <title>${this.title}</title>
+  <title>${this.title || this.settings.title}</title>
   <!-- <link rel="manifest" href="/manifest.json"> -->
   <link rel="stylesheet" type="text/css" href="/styles/semantic.css" />
   <link rel="stylesheet" type="text/css" href="/styles/screen.css" />

@@ -7,4 +7,5 @@ This library implements an HTTP interface to Fabric applications.
 - [x] Remote
 
 ### `@fabric/http`
+- [x] Client
 - [ ] Remote

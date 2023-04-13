@@ -14,7 +14,7 @@ async function main (input = {}) {
     document: site
   });
 
-  await compiler.compileTo('assets/site.html');
+  await compiler.compileTo('assets/index.html');
 
   return {
     site: site.id

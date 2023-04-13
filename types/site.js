@@ -2,8 +2,6 @@
 
 // Fabric Types
 const Actor = require('@fabric/core/types/actor');
-const Peer = require('@fabric/core/types/peer');
-const Service = require('@fabric/core/types/service');
 
 // Internal Types
 // const Bridge = require('../types/bridge');
@@ -12,7 +10,7 @@ const SPA = require('./spa');
 /**
  * Implements a full-capacity (Native + Edge nodes) for a Fabric Site. 
  */
-class Site extends Service {
+class Site extends Actor {
   /**
    * Creates an instance of the {@link Site}, which provides general statistics covering a target Fabric node.
    * @param {Object} [settings] Configuration values for the {@link Site}.
@@ -41,7 +39,6 @@ class Site extends Service {
     };
 
     // Fabric Components
-    this.peer = new Peer(this.settings.fabric);
     this.spa = new SPA(this.settings);
     // this.bridge = new Bridge();
 

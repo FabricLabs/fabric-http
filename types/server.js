@@ -142,7 +142,7 @@ class FabricHTTPServer extends Service {
   }
 
   get link () {
-    return `http://${this.settings.host}:${this.settings.port}`;
+    return `http://${this.settings.hostname}:${this.settings.port}`;
   }
 
   get state () {
