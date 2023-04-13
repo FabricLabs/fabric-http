@@ -457,11 +457,6 @@ class App extends Component {
     }
 
     content += `<div id="ephemeral-content"></div>
-      <!-- TODO: rollup semantic into build process -->
-      <!-- <script type="text/javascript" src="/scripts/semantic.min.js"></script> -->
-      <!-- <script type="text/javascript" src="/scripts/index.min.js"></script> -->
-      <!-- <script type="text/javascript" src="/scripts/rpg.min.js"></script> -->
-      <script type="text/javascript" src="/scripts/app.js"></script>
     </fabric-application>`;
     return content;
   }

@@ -747,15 +747,22 @@ class FabricHTTPServer extends Service {
       console.trace('[HTTP:SERVER]', 'No Resources have been defined for this server.  Please provide a "resources" map in the configuration.');
     } */
 
-    const schema = {};
+    const fields = {
+      hello: {
+        type: GraphQLString,
+        resolve: () => 'world'
+      }
+    };
 
     for (let name in server.settings.resources) {
       const definition = server.settings.resources[name];
       const resource = await server._defineResource(name, definition);
-      schema[resource.names[1].toLowerCase()] = new GraphQLObjectType({
-        name: name,
-        fields: resource.fields
-      });
+
+      // Attach to GraphQL
+      fields[resource.names[1].toLowerCase()] = {
+        type: GraphQLObjectType,
+        resolve: () => {}
+      };
 
       if (server.settings.verbosity >= 6) console.log('[AUDIT]', 'Created resource:', resource);
     }
@@ -763,12 +770,7 @@ class FabricHTTPServer extends Service {
     this.graphQLSchema = new GraphQLSchema({
       query: new GraphQLObjectType({
         name: 'Query',
-        fields: {
-          hello: {
-            type: GraphQLString,
-            resolve: () => 'world',
-          }
-        }
+        fields: fields
       })
     });
 
