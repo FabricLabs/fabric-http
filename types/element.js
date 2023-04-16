@@ -2,18 +2,15 @@
 
 class HTMLCustomElement extends HTMLElement {
   constructor (...$) {
-    const _ = super(...$);
-    _.init();
-    return _;
+    return super(...$).init();
   }
 
   /**
    * Initialize the element.  Use in place of constructor behavior.
    */
   init () {
-    if (this.settings && this.settings.verbosity >= 5) {
-      console.log('[FABRIC:ELEMENT]', 'Initializing...');
-    }
+    console.log('[FABRIC:ELEMENT]', 'Initializing...');
+    return this;
   }
 }
 

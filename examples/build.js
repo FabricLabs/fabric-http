@@ -9,13 +9,10 @@ async function main () {
     document: spa
   });
 
-  console.log('compiler:', compiler);
-
   compiler.compileTo('assets/index.html');
-  compiler.compileTo('assets/spa.html');
 
   // TODO: why isn't SPA exiting?
-  process.exit();
+  // process.exit();
 }
 
 main();

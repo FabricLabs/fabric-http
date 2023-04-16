@@ -22,6 +22,7 @@ class Site extends Actor {
 
     // Define local settings
     this.settings = Object.assign({
+      handle: 'fabric-site',
       authority: 'http://localhost:9332/services/fabric', // loopback service
       fabric: {
         name: '@sites/default'
@@ -44,6 +45,10 @@ class Site extends Actor {
 
     // Ensure chainability
     return this;
+  }
+
+  get handle () {
+    return this.settings.handle;
   }
 
   render (state = this.state) {
