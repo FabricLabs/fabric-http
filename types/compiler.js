@@ -105,9 +105,11 @@ class Compiler extends Service {
    * @returns {String} Rendered HTML document containing the compiled JavaScript application.
    */
   compile (state = this.state) {
-    if (!this.component) return this.site.render();
-    if (!this.component.render) return this.site.render();
-    return this.component.render(state);
+    if (!this.component || !this.component.render) {
+      return this.site.render();
+    } else {
+      return this.component.render(state);
+    }
   }
 
   async compileBundle (state = this.state) {
