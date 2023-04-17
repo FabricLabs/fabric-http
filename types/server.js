@@ -740,8 +740,7 @@ class FabricHTTPServer extends Service {
 
   async start () {
     this.emit('debug', '[HTTP:SERVER] Starting...');
-    const server = this;
-    server.status = 'starting';
+    this.status = 'starting';
 
     /* if (!server.settings.resources || !Object.keys(server.settings.resources).length) {
       console.trace('[HTTP:SERVER]', 'No Resources have been defined for this server.  Please provide a "resources" map in the configuration.');
@@ -754,9 +753,9 @@ class FabricHTTPServer extends Service {
       }
     };
 
-    for (let name in server.settings.resources) {
-      const definition = server.settings.resources[name];
-      const resource = await server._defineResource(name, definition);
+    for (let name in this.settings.resources) {
+      const definition = this.settings.resources[name];
+      const resource = await this._defineResource(name, definition);
 
       // Attach to GraphQL
       fields[resource.names[1].toLowerCase()] = {
@@ -764,7 +763,7 @@ class FabricHTTPServer extends Service {
         resolve: () => {}
       };
 
-      if (server.settings.verbosity >= 6) console.log('[AUDIT]', 'Created resource:', resource);
+      if (this.settings.verbosity >= 6) console.log('[AUDIT]', 'Created resource:', resource);
     }
 
     this.graphQLSchema = new GraphQLSchema({
@@ -775,121 +774,121 @@ class FabricHTTPServer extends Service {
     });
 
     // Middlewares
-    server.express.use(server._logMiddleware.bind(server));
-    server.express.use(auth.bind(server));
+    this.express.use(this._logMiddleware.bind(this));
+    this.express.use(auth.bind(this));
 
     // Custom Headers
-    server.express.use(server._headerMiddleware.bind(server));
-    server.express.use(server._redirectMiddleware.bind(server));
+    this.express.use(this._headerMiddleware.bind(this));
+    this.express.use(this._redirectMiddleware.bind(this));
 
     // TODO: defer to an in-memory datastore for requested files
     // NOTE: disable this line to compile on-the-fly
-    server.express.use(express.static(this.settings.assets));
-    server.express.use(extractor());
-    server.express.use(server._roleMiddleware.bind(server));
+    this.express.use(express.static(this.settings.assets));
+    this.express.use(extractor());
+    this.express.use(this._roleMiddleware.bind(this));
 
-    server.express.all('/services/graphql', graphql({ schema: this.graphQLSchema }))
+    this.express.all('/services/graphql', graphql({ schema: this.graphQLSchema }))
 
     // configure sessions & parsers
     // TODO: migrate to {@link Session} or abolish entirely
-    if (server.settings.sessions) {
-      server.express.use(server.sessions);
-      server.express.use(flasher());
+    if (this.settings.sessions) {
+      this.express.use(this.sessions);
+      this.express.use(flasher());
     }
 
     // Other Middlewares
-    server.express.use(parsers.urlencoded({ extended: true }));
-    server.express.use(parsers.json());
+    this.express.use(parsers.urlencoded({ extended: true }));
+    this.express.use(parsers.json());
 
-    for (let name in server.settings.middlewares) {
-      const middleware = server.settings.middlewares[name];
-      server.express.use(middleware);
+    for (let name in this.settings.middlewares) {
+      const middleware = this.settings.middlewares[name];
+      this.express.use(middleware);
     }
 
     // TODO: render page
-    server.express.options('/', server._handleOptionsRequest.bind(server));
+    this.express.options('/', this._handleOptionsRequest.bind(this));
     // TODO: enable this route by disabling or moving the static asset handler above
-    // NOTE: see `server.express.use(express.static('assets'));`
-    server.express.get('/', server._handleIndexRequest.bind(server));
+    // NOTE: see `this.express.use(express.static('assets'));`
+    this.express.get('/', this._handleIndexRequest.bind(this));
 
     // handle custom routes.
     // TODO: abolish this garbage in favor of resources.
-    for (let i = 0; i < server.customRoutes.length; i++) {
-      const route = server.customRoutes[i];
+    for (let i = 0; i < this.customRoutes.length; i++) {
+      const route = this.customRoutes[i];
       switch (route.method.toLowerCase()) {
         case 'get':
         case 'put':
         case 'post':
         case 'patch':
         case 'delete':
-          server.express[route.method.toLowerCase()](route.path, route.handler);
+          this.express[route.method.toLowerCase()](route.path, route.handler);
           break;
       }
     }
 
     // Attach the internal router
-    server.express.get('/*', server._handleRoutableRequest.bind(server));
-    server.express.put('/*', server._handleRoutableRequest.bind(server));
-    server.express.post('/*', server._handleRoutableRequest.bind(server));
-    server.express.patch('/*', server._handleRoutableRequest.bind(server));
-    server.express.delete('/*', server._handleRoutableRequest.bind(server));
-    server.express.options('/*', server._handleRoutableRequest.bind(server));
+    this.express.get('/*', this._handleRoutableRequest.bind(this));
+    this.express.put('/*', this._handleRoutableRequest.bind(this));
+    this.express.post('/*', this._handleRoutableRequest.bind(this));
+    this.express.patch('/*', this._handleRoutableRequest.bind(this));
+    this.express.delete('/*', this._handleRoutableRequest.bind(this));
+    this.express.options('/*', this._handleRoutableRequest.bind(this));
 
     // create the HTTP server
-    server.http = stoppable(http.createServer(server.express), 0);
+    this.http = stoppable(http.createServer(this.express), 0);
 
     // attach a WebSocket handler
-    server.wss = new WebSocket.Server({
-      server: server.http,
+    this.wss = new WebSocket.Server({
+      server: this.http,
       // TODO: validate entire verification chain
       // verifyClient: this._verifyClient.bind(this)
     });
 
     // set up the WebSocket connection handler
-    server.wss.on('connection', server._handleWebSocket.bind(server));
+    this.wss.on('connection', this._handleWebSocket.bind(this));
 
     // Handle messages from internal app
-    if (server.app) {
-      server.app.on('snapshot', server._handleAppMessage.bind(server));
-      server.app.on('message', server._handleAppMessage.bind(server));
-      server.app.on('commit', server._handleAppMessage.bind(server));
+    if (this.app) {
+      this.app.on('snapshot', this._handleAppMessage.bind(this));
+      this.app.on('message', this._handleAppMessage.bind(this));
+      this.app.on('commit', this._handleAppMessage.bind(this));
     }
 
     // Handle interna call requests
-    server.on('call', server._handleCall.bind(server));
+    this.on('call', this._handleCall.bind(this));
 
     // TODO: convert to bound functions
-    server.on('commit', async function (msg) {
+    this.on('commit', async function (msg) {
       console.log('[HTTP:SERVER]', 'Internal commit:', msg);
     });
 
-    server.on('debug', this.debug.bind(this));
-    server.on('log', this.log.bind(this));
-    server.on('warning', this.warn.bind(this));
-    server.on('message', async function (msg) {
+    this.on('debug', this.debug.bind(this));
+    this.on('log', this.log.bind(this));
+    this.on('warning', this.warn.bind(this));
+    this.on('message', async function (msg) {
       console.log('[HTTP:SERVER]', 'Internal message:', msg);
     });
 
-    if (server.app) {
+    if (this.app) {
       try {
-        await server.app.start();
+        await this.app.start();
       } catch (E) {
-        console.error('Could not start server app:', E);
+        console.error('Could not start this app:', E);
       }
     }
 
     if (this.settings.listen) {
-      server.http.on('listening', notifyReady);
-      await server.http.listen(this.settings.port, this.interface);
+      this.http.on('listening', notifyReady);
+      await this.http.listen(this.settings.port, this.interface);
     } else {
       console.warn('[HTTP:SERVER]', 'Listening is disabled.  Only events will be emitted!');
       notifyReady();
     }
 
     function notifyReady () {
-      server.status = 'STARTED';
-      server.emit('ready', {
-        id: server.id
+      this.status = 'STARTED';
+      this.emit('ready', {
+        id: this.id
       });
     }
 
@@ -899,7 +898,7 @@ class FabricHTTPServer extends Service {
     this.emit('warning', '[WARNING] Unencrypted transport!  You should consider changing the `host` property in your config, or set up a TLS server to encrypt traffic to and from this node.');
     this.emit('log', `[HTTP:SERVER] Started!  Link: ${this.link}`);
 
-    return server;
+    return this;
   }
 
   async flush () {
