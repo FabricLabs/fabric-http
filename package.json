@@ -26,7 +26,7 @@
     "report:install": "rm -rf node_modules && echo \"\n\" > package-lock.json && echo \"$ npm i\" > reports/install.log && npm i >> reports/install.log",
     "report:todo": "grep --exclude-dir=.git --exclude-dir=backups --exclude-dir=_book --exclude-dir=assets --exclude-dir=node_modules --exclude-dir=reports --exclude-dir=coverage --exclude-dir=docs -rEI \"TODO|FIXME\" . > reports/TODO.txt",
     "review:coverage": "npm run build:coverage && fabric-http reports/coverage",
-    "start": "npm run compile && node examples/server.js",
+    "start": "npm run compile && node scripts/node.js",
     "static": "npm run build:scripts && fabric-http assets",
     "test": "mocha tests"
   },

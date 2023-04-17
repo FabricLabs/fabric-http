@@ -3,6 +3,9 @@
  * Command-line HTTP server.
  */
 
+// Settings
+const settings = require('../settings/local');
+
 // Fabric Types
 const Environment = require('@fabric/core/types/environment');
 const HTTPServer = require('../types/server');
@@ -24,11 +27,11 @@ async function main (input = {}) {
 
 environment.start();
 
-const input = {
+const input = Object.assign(settings, {
   assets: process.argv[2] || 'assets',
   seed: environment.seed,
   xprv: environment.xprv
-};
+});
 
 // Run Process
 main(input).catch((exception) => {
