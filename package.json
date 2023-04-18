@@ -9,12 +9,12 @@
     "fabric-http": "./scripts/node.js"
   },
   "scripts": {
-    "build": "npm test && npm run build:scripts && npm run build:docs && npm run build:app",
-    "build:app": "node scripts/build.js",
-    "build:docs": "# jsdoc -c jsdoc.json types settings/deprecations.js README.md -d docs",
+    "build": "npm test && npm run build:scripts && npm run build:docs",
+    "build:app": "npm run build:scripts",
+    "build:docs": "jsdoc -c jsdoc.json types settings/deprecations.js README.md -d docs",
     "build:coverage": "npm run coverage && c8 report --reporter=html",
     "build:fast": "node examples/build.js && npm run build:scripts",
-    "build:scripts": "# TODO: build assets/bundles/browser.js",
+    "build:scripts": "node scripts/build.js",
     "build:semantic": "cd libraries/fomantic && npx gulp build && cp dist/*.js ../../assets/scripts && cp dist/*.css ../../assets/styles && cp -r dist/themes ../../assets && cd ../..",
     "build:views": "jade --pretty -o assets/ views/site.jade",
     "compile": "node examples/build.js && npm run build:scripts",
@@ -52,7 +52,7 @@
     "Victor Wu"
   ],
   "dependencies": {
-    "@fabric/core": "FabricLabs/fabric#feature/v0.1.0-RC1",
+    "@fabric/core": "FabricLabs/fabric#feature/clean-install",
     "assert-browserify": "2.0.0",
     "babel-loader": "8.2.5",
     "body-parser": "1.18.3",
