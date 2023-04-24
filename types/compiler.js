@@ -36,6 +36,9 @@ class Compiler extends Service {
       webpack: {
         mode: 'development',
         entry: path.resolve('./scripts/browser.js'),
+         experiments: {
+          asyncWebAssembly: true
+        },
         resolve: {
           fallback: {
             crypto: require.resolve('crypto-browserify'),
@@ -88,7 +91,7 @@ class Compiler extends Service {
     }, this.settings, settings);
 
     this.component = this.settings.document || null;
-    this.site = new HTTPSite();
+    this.site = new HTTPSite(this.settings);
 
     this._state = {
       content: this.settings.state
