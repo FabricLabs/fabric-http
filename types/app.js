@@ -426,8 +426,8 @@ class App extends Component {
 
   // TODO: write Purity-based version, use in production
   _loadHTML (html) {
-    let blob = JSON.stringify(this.state, null, '  ');
-    let verification = crypto.createHash('sha256').update(blob).digest('hex');
+    const blob = JSON.stringify(this.state, null, '  ');
+    const verification = crypto.createHash('sha256').update(blob).digest('hex');
     let content = ``;
 
     // Begin Content Body
