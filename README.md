@@ -4,7 +4,9 @@
 [![GitHub contributors](https://img.shields.io/github/contributors/FabricLabs/web.svg?style=flat-square)](https://github.com/FabricLabs/web/graphs/contributors)
 [![Community](https://img.shields.io/matrix/hub:fabric.pub.svg?style=flat-square)](https://chat.fabric.pub)
 
-Fabric module for serving the legacy web.
+Robust library for implementing Fabric-enabled Web Applications.
+## TODO
+- [ ] Replace `Fabric-enabled` with `Bitcoin-enabled`
 
 ## Quick Start
 Building applications with `@fabric/http` is easy.

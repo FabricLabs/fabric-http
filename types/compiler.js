@@ -5,6 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 const beautify = require('js-beautify').html;
 const webpack = require('webpack');
+const merge = require('lodash.merge');
 
 // Fabric Types
 const Service = require('@fabric/core/types/service');
@@ -25,7 +26,7 @@ class Compiler extends Service {
   constructor (settings = {}) {
     super(settings);
 
-    this.settings = Object.assign({
+    this.settings = merge({
       document: settings.document || new HTTPComponent(settings),
       state: {
         title: settings.title || 'Fabric HTTP Document'
@@ -36,7 +37,7 @@ class Compiler extends Service {
       webpack: {
         mode: 'development',
         entry: path.resolve('./scripts/browser.js'),
-         experiments: {
+        experiments: {
           asyncWebAssembly: true
         },
         resolve: {
