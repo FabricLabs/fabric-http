@@ -10,7 +10,7 @@ class Sandbox extends Service {
     this.settings = Object.assign({
       browser: {
         headless: true,
-        slowMo: 1000, // limit to 1 hz
+        slowMo: 1, // limit to 0.001 hz
         viewport: {
           height: 480,
           width: 640

@@ -1,10 +1,11 @@
 'use strict';
 
 // Settings
-const settings = require('../settings/default');
+// const settings = require('../settings/default');
+const settings = {};
 
 // Types
-const Client = require('../types/client');
+// const Client = require('../types/client');
 
 // Main Program
 async function main (input) {
@@ -18,6 +19,7 @@ async function main (input) {
   }, input);
 
   // Fabric Client
+  /*
   const client = new Client(options);
 
   client.on('log', (msg) => {
@@ -28,10 +30,11 @@ async function main (input) {
 
   // Fabric Global
   window.fabric = client;
+  */
 
   // Result Map
   return {
-    client: window.fabric.id
+    client: null // window.fabric.id
   };
 }
 

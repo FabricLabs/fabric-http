@@ -16,6 +16,11 @@ const environment = new Environment();
 // Main Function
 async function main (input = {}) {
   const server = new HTTPServer(input);
+
+  server.on('debug', (msg) => {
+    console.debug('[FABRIC:HTTP]', '[DEBUG]', msg);
+  });
+
   await server.start();
 
   return JSON.stringify({

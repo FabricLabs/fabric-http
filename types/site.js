@@ -25,7 +25,7 @@ class Site extends Actor {
       handle: 'fabric-site',
       authority: 'http://localhost:9332/services/fabric', // loopback service
       fabric: {
-        name: '@sites/default'
+        alias: '@sites/default'
       },
       state: {
         title: 'Default Site'

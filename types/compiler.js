@@ -28,6 +28,9 @@ class Compiler extends Service {
 
     this.settings = merge({
       document: settings.document || new HTTPComponent(settings),
+      site: {
+        name: 'Default Fabric Application'
+      },
       state: {
         title: settings.title || 'Fabric HTTP Document'
       },
@@ -92,7 +95,7 @@ class Compiler extends Service {
     }, this.settings, settings);
 
     this.component = this.settings.document || null;
-    this.site = new HTTPSite(this.settings);
+    this.site = new HTTPSite(this.settings.site);
 
     this._state = {
       content: this.settings.state

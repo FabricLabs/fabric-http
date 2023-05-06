@@ -137,6 +137,10 @@ class FabricHTTPServer extends Service {
     return this;
   }
 
+  get hostname () {
+    return this.settings.hostname || 'localhost';
+  }
+
   get interface () {
     return this.settings.interface || this.settings.host;
   }
@@ -145,12 +149,8 @@ class FabricHTTPServer extends Service {
     return `http://${this.settings.hostname}:${this.settings.port}`;
   }
 
-  get state () {
-    return this._state;
-  }
-
-  set state (value) {
-    this._state = value;
+  get port () {
+    return this.settings.port || 9999;
   }
 
   async commit () {
@@ -635,7 +635,7 @@ class FabricHTTPServer extends Service {
   }
 
   async _handleRoutableRequest (req, res, next) {
-    if (this.settings.verbosity >= 5) console.log('[HTTP:SERVER]', 'Handling routable request:', req.method, req.path);
+    if (this.settings.verbosity >= 5) this.emit('debug', `[HTTP:SERVER] Handling routable request: ${req.method} ${req.path}`);
     const server = this;
 
     // Prepare variables
@@ -835,6 +835,8 @@ class FabricHTTPServer extends Service {
     this.express.options('/*', this._handleRoutableRequest.bind(this));
 
     // create the HTTP server
+    // NOTE: stoppable is used here to force immediate termination of
+    // all connections.  We may want to defer to default APIs for portability reasons.
     this.http = stoppable(http.createServer(this.express), 0);
 
     // attach a WebSocket handler
