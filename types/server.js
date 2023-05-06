@@ -871,6 +871,10 @@ class FabricHTTPServer extends Service {
       console.log('[HTTP:SERVER]', 'Internal message:', msg);
     });
 
+    this._registerMethod('GenericMessage', (msg) => {
+      console.log('GENERIC:', msg);
+    });
+
     if (this.app) {
       try {
         await this.app.start();
