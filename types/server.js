@@ -835,6 +835,8 @@ class FabricHTTPServer extends Service {
     this.express.options('/*', this._handleRoutableRequest.bind(this));
 
     // create the HTTP server
+    // NOTE: stoppable is used here to force immediate termination of
+    // all connections.  We may want to defer to default APIs for portability reasons.
     this.http = stoppable(http.createServer(this.express), 0);
 
     // attach a WebSocket handler

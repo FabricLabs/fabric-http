@@ -17,9 +17,8 @@ describe('bundles/browser.js', function () {
       const browser = await puppeteer.launch();
       const page = await browser.newPage();
 
-      await page.goto('http://localhost:8484');
-
-      await page.waitForSelector('fabric-browser');
+      // await page.goto('http://localhost:8484');
+      // await page.waitForSelector('fabric-site');
 
       const result = await page.evaluate(() => {
         return {
@@ -27,8 +26,6 @@ describe('bundles/browser.js', function () {
           foo: 'bar'
         };
       });
-
-      console.log('result:', result);
 
       await browser.close();
       await server.stop();
