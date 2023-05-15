@@ -92,7 +92,10 @@ class FabricHTTPServer extends Service {
       },
       // TODO: replace with crypto random
       seed: Math.random(),
-      sessions: false
+      sessions: false,
+      state: {
+        status: 'PAUSED'
+      }
     }, settings);
 
     this.connections = {};
@@ -472,12 +475,14 @@ class FabricHTTPServer extends Service {
       // server._relayFrom(handle, msg);
 
       // always send a receipt of acknowledgement
-      socket.send(JSON.stringify({
+      const receipt = Message.fromVector(['P2P_MESSAGE_RECEIPT', {
         '@type': 'Receipt',
         '@actor': handle,
         '@data': message,
         '@version': 1
-      }));
+      }]);
+
+      socket.send(receipt.toBuffer());
     });
 
     // set up an oracle, which listens to patches from server
@@ -856,7 +861,7 @@ class FabricHTTPServer extends Service {
       this.app.on('commit', this._handleAppMessage.bind(this));
     }
 
-    // Handle interna call requests
+    // Handle internal call requests
     this.on('call', this._handleCall.bind(this));
 
     // TODO: convert to bound functions
