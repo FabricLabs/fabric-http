@@ -68,7 +68,7 @@ class Site extends Actor {
     //   - fabric-menu
     //   - fabric-grid
     return `
-      <fabric-site class="ui container" id="site">
+      <${this.handle} class="ui container" id="site">
         <fabric-bridge host="localhost" port="9999" secure="false"></fabric-bridge>
         <fabric-console id="console" style="display: none;">
           <fabric-card class="ui fluid card">
@@ -106,7 +106,7 @@ class Site extends Actor {
             </fabric-card>
           </fabric-column>
         </fabric-grid>
-      </fabric-site>
+      </${this.handle}>
     `.trim();
   }
 
