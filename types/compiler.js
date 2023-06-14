@@ -52,14 +52,14 @@ class Compiler extends Service {
             assert: require.resolve('assert-browserify'),
             util: require.resolve('node-util'),
             fs: require.resolve('browserify-fs')
-          }
+          },
+          symlinks: false
         },
         target: 'web',
         output: {
           path: path.resolve('./assets/bundles'),
           filename: 'browser.js'
         },
-        devtool: 'inline-source-map',
         module: {
           rules: [
             {
@@ -68,18 +68,7 @@ class Compiler extends Service {
             },
             {
               test: /\.css$/,
-              use: [
-                {
-                  loader: 'style-loader'
-                },
-                {
-                  loader: 'css-loader',
-                  options: {
-                    modules: true,
-                    sourceMap: true
-                  }
-                }
-              ]
+              use: ['style-loader', 'css-loader']
             }
           ]
         },
@@ -112,10 +101,10 @@ class Compiler extends Service {
    * @returns {String} Rendered HTML document containing the compiled JavaScript application.
    */
   compile (state = this.state) {
-    if (!this.component || !this.component.render) {
-      return this.site.render();
+    if (!this.component || !this.component._getHTML) {
+      return this.site.render(state);
     } else {
-      return this.component.render(state);
+      return this.component._getHTML(state);
     }
   }
 
