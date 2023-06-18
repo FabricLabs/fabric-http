@@ -6,6 +6,13 @@ const crypto = require('crypto');
 const beautify = require('js-beautify').html;
 const webpack = require('webpack');
 const merge = require('lodash.merge');
+const { JSDOM } = require('jsdom');
+
+const dom = new JSDOM();
+
+global.document = dom.window.document;
+global.window = dom.window;
+global.HTMLElement = dom.HTMLElement;
 
 // Fabric Types
 const Service = require('@fabric/core/types/service');
@@ -104,7 +111,8 @@ class Compiler extends Service {
     if (!this.component || !this.component._getHTML) {
       return this.site.render(state);
     } else {
-      return this.component._getHTML(state);
+      const html = this.component._getHTML(state);
+      return this.site._renderWith(html);
     }
   }
 
