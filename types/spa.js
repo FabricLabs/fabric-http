@@ -254,6 +254,7 @@ class SPA extends App {
     <title>${this.title || this.settings.title}</title>
     <link rel="stylesheet" type="text/css" href="/styles/semantic.min.css" />
     <link rel="stylesheet" type="text/css" href="/styles/screen.css" />
+    <script src="/scripts/jquery-3.4.1.js"></script>
     <script src="/scripts/semantic.min.js"></script>
   </head>
   <body>
