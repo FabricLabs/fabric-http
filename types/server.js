@@ -1,5 +1,10 @@
+/**
+ * # Fabric HTTP Server
+ * Implements an HTTP-capable server for a Fabric Application.
+ */
 'use strict';
 
+// Constants
 const {
   HTTP_SERVER_PORT,
   HTTPS_SERVER_PORT,
@@ -41,6 +46,7 @@ const Service = require('@fabric/core/types/service');
 const Message = require('@fabric/core/types/message');
 const Entity = require('@fabric/core/types/entity');
 const State = require('@fabric/core/types/state');
+const Peer = require('@fabric/core/types/peer');
 
 // Internal Types
 const auth = require('../middlewares/auth');
@@ -57,7 +63,7 @@ const WebSocket = require('ws');
 const PeerServer = require('peer').ExpressPeerServer;
 
 /**
- * The primary web server.
+ * Fabric Service for exposing an {@link Application} to clients over HTTP.
  * @extends Service
  */
 class FabricHTTPServer extends Service {
@@ -103,6 +109,16 @@ class FabricHTTPServer extends Service {
     this.methods = {};
     this.stores = {};
 
+    // ## Fabric Agent
+    // Establishes network connectivity with Fabric.  Manages peers, connections, and messages.
+    this.agent = new Peer({
+      listen: false,
+      networking: true,
+      peers: this.settings.peers,
+      state: this.settings.state,
+      upnp: false
+    });
+
     // this.browser = new Browser(this.settings);
     // TODO: compile & boot (load state) SPA (React + Redux?)
     this.app = new SPA(Object.assign({}, this.settings, {
@@ -115,27 +131,27 @@ class FabricHTTPServer extends Service {
 
     this.wss = null;
     this.http = null;
+    this.graphQLSchema = null;
+    this.collections = [];
+    this.routes = [];
+    this.customRoutes = [];
+    this.keys = new Set();
 
+    // Setup for Express application
     this.express = express();
+    // TODO: enable cross-shard sessions
     this.sessions = session({
       resave: true,
       saveUninitialized: false,
       secret: this.settings.seed
     });
 
+    // Local State Setup
     this._state = {};
     this.observer = monitor.observe(this.state);
     this.coordinator = new PeerServer(this.express, {
       path: '/services/peering'
     });
-
-    this.graphQLSchema = null;
-
-    this.collections = [];
-    this.routes = [];
-    this.customRoutes = [];
-
-    this.keys = new Set();
 
     return this;
   }
@@ -214,8 +230,8 @@ class FabricHTTPServer extends Service {
     const address = snapshot.routes.list.split('/')[1];
     const store = new Collection(snapshot);
 
-    if (this.settings.verbosity >= 6) console.log('[HTTP:SERVER]', 'Collection as store:', store);
-    if (this.settings.verbosity >= 6) console.log('[HTTP:SERVER]', 'Snapshot:', snapshot);
+    if (this.settings.verbosity >= 6) console.debug('[HTTP:SERVER]', 'Collection as store:', store);
+    if (this.settings.verbosity >= 6) console.debug('[HTTP:SERVER]', 'Snapshot:', snapshot);
 
     this.stores[name] = store;
     this.definitions[name] = snapshot;
@@ -284,6 +300,12 @@ class FabricHTTPServer extends Service {
 
     // if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Routes:', this.routes);
     return this;
+  }
+
+  async handleFabricMessage (message) {
+    this.emit('debug', `Handling trusted Fabric message: ${message}`);
+    // TODO: validation
+    await this.agent.broadcast(message);
   }
 
   broadcast (message) {
@@ -456,6 +478,8 @@ class FabricHTTPServer extends Service {
               method: 'GenericMessage',
               params: [msg.data]
             });
+
+            await server.handleFabricMessage(message);
           }
 
           break;
@@ -605,7 +629,8 @@ class FabricHTTPServer extends Service {
   }
 
   _verifyClient (info, done) {
-    console.log('[HTTP:SERVER]', '_verifyClient', info);
+    this.emit('debug', `[HTTP:SERVER] _verifyClient ${info}`);
+
     if (!this.settings.sessions) return done();
     this.sessions(info.req, {}, () => {
       // TODO: reject unknown (!info.req.session.identity)
@@ -854,6 +879,14 @@ class FabricHTTPServer extends Service {
     // set up the WebSocket connection handler
     this.wss.on('connection', this._handleWebSocket.bind(this));
 
+    this.agent.on('debug', (msg) => {
+      console.debug('debug:', msg);
+    });
+
+    this.agent.on('log', (msg) => {
+      console.log('log:', msg);
+    });
+
     // Handle messages from internal app
     if (this.app) {
       this.app.on('snapshot', this._handleAppMessage.bind(this));
@@ -877,8 +910,10 @@ class FabricHTTPServer extends Service {
     });
 
     this._registerMethod('GenericMessage', (msg) => {
-      console.log('GENERIC:', msg);
+      // console.log('GENERIC:', msg);
     });
+
+    await this.agent.start();
 
     if (this.app) {
       try {
@@ -935,6 +970,8 @@ class FabricHTTPServer extends Service {
     } catch (E) {
       console.error('Could not stop HTTP listener:', E);
     }
+
+    await this.agent.stop();
 
     if (server.app) {
       try {
