@@ -1,5 +1,6 @@
 'use strict';
 
+const merge = require('lodash.merge');
 const puppeteer = require('puppeteer');
 const Service = require('@fabric/core/types/service');
 
@@ -7,7 +8,7 @@ class Sandbox extends Service {
   constructor (settings = {}) {
     super(settings);
 
-    this.settings = Object.assign({
+    this.settings = merge({
       browser: {
         headless: true,
         slowMo: 1, // limit to 0.001 hz
@@ -90,7 +91,18 @@ class Sandbox extends Service {
 
   async _navigateTo (url) {
     await this.browser.goto(url);
+    await this.browser.waitForNavigation();
     return this;
+  }
+
+  async download (url) {
+    const response = await this.browser.goto(url /*, { waitUntil: 'networkidle0' } */);
+    const buffer = await response.buffer();
+    return this;
+  }
+
+  async export () {
+    return this.browser.evaluate(() => document.querySelector('*').outerHTML);
   }
 }
 

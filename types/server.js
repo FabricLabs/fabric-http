@@ -851,6 +851,8 @@ class FabricHTTPServer extends Service {
         case 'post':
         case 'patch':
         case 'delete':
+        case 'search':
+        case 'options':
           this.express[route.method.toLowerCase()](route.path, route.handler);
           break;
       }

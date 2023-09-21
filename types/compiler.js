@@ -45,7 +45,7 @@ class Compiler extends Service {
       // 1. webpack.config.js (local)
       // 2. @fabric/http/webpack.config
       webpack: {
-        mode: 'development',
+        mode: 'production',
         entry: path.resolve('./scripts/browser.js'),
         experiments: {
           asyncWebAssembly: true
@@ -85,10 +85,11 @@ class Compiler extends Service {
           }),
           new webpack.ProvidePlugin({
             Buffer: ['buffer', 'Buffer'],
-          })
-        ]
+          }),
+        ],
+        watch: false
       }
-    }, this.settings, settings);
+    }, settings);
 
     this.component = this.settings.document || null;
     this.site = new HTTPSite(this.settings.site);
@@ -108,6 +109,7 @@ class Compiler extends Service {
    * @returns {String} Rendered HTML document containing the compiled JavaScript application.
    */
   compile (state = this.state) {
+    // Default case: no component provided, or not a Fabric Component
     if (!this.component || !this.component._getHTML) {
       return this.site.render(state);
     } else {
