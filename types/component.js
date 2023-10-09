@@ -153,6 +153,10 @@ class FabricComponent extends Service {
     return this._renderState(this.state);
   }
 
+  /**
+   * Generate an HTML representation of the component.
+   * @returns {String} HTML of the rendered component.
+   */
   toHTML () {
     return this._renderState(this.state);
   }

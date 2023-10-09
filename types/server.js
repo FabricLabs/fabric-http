@@ -757,13 +757,15 @@ class FabricHTTPServer extends Service {
         return res.send(result);
       },
       html: function () {
-        // TODO: re-enable for HTML
-        // let output = server.app._loadHTML(resource.render(result));
-        // return res.send(server.app._renderWith(output));
+        let output = '';
 
-        // TODO: re-write above code, render app with data
-        res.header('Content-Type', 'application/json');
-        return res.send(result);
+        if (resource) {
+          output = server.app._loadHTML(resource.render(result));
+        } else {
+          output = server.app.toHTML();
+        }
+
+        return res.send(server.app._renderWith(output));
       }
     });
   }

@@ -90,7 +90,7 @@ class Sandbox extends Service {
   }
 
   async _navigateTo (url) {
-    await this.browser.goto(url);
+    await this.browser.goto(url /*, { waitUntil: 'networkidle0' } */);
     await this.browser.waitForNavigation();
     return this;
   }
