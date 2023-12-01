@@ -309,10 +309,14 @@ class FabricHTTPServer extends Service {
   }
 
   broadcast (message) {
-    let peers = Object.keys(this.connections);
+    const peers = Object.keys(this.connections);
+
+    // Send to all connected peers
     for (let i = 0; i < peers.length; i++) {
+      const peer = peers[i];
+
       try {
-        this.connections[peers[i]].send(JSON.stringify(message));
+        this.connections[peer].send(message.toBuffer());
       } catch (E) {
         console.error('Could not send message to peer:', E);
       }
