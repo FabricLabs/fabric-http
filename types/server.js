@@ -404,7 +404,7 @@ class FabricHTTPServer extends Service {
 
     // TODO: message handler on base class
     socket.on('message', async function handler (msg) {
-      console.log('[SERVER:WEBSOCKET]', 'incoming message:', typeof msg, msg);
+      // console.log('[SERVER:WEBSOCKET]', 'incoming message:', typeof msg, msg);
 
       let message = null;
       let type = null;
@@ -550,7 +550,7 @@ class FabricHTTPServer extends Service {
   }
 
   _sendTo (actor, msg) {
-    console.log('[SERVER:WEBSOCKET]', 'sending message to actor', actor, msg);
+    // console.log('[SERVER:WEBSOCKET]', 'sending message to actor', actor, msg);
     let target = this.connections[actor];
     if (!target) throw new Error('No such target.');
     let result = target.send(msg);
