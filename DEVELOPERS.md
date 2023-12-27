@@ -1,7 +1,6 @@
 # Fabric Edge Nodes for Developers
 This library implements an HTTP interface to Fabric applications.
 
-
 ## Browser
 ### Components
 - [ ] FabricApplication
