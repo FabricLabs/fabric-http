@@ -366,7 +366,6 @@ class FabricHTTPServer extends Service {
    */
   _handleWebSocket (socket, request) {
     const server = this;
-    server.emit('debug', `Handling WebSocket: ${Object.keys(socket)}`);
 
     // TODO: check security of common defaults for `sec-websocket-key` params
     // Chrome?  Firefox?  Safari?  Opera?  What defaults do they use?
@@ -381,12 +380,10 @@ class FabricHTTPServer extends Service {
       clearInterval(socket._heartbeat);
       socket._heartbeat = setInterval(function () {
         const now = Date.now();
-        const message = Message.fromVector(['Ping', now.toString()]);
-        // TODO: refactor _sendTo to accept Message type
-        const ping = JSON.stringify(message.toObject());
+        const ping = Message.fromVector(['Ping', now.toString()]);
 
         try {
-          server._sendTo(handle, ping);
+          server._sendTo(handle, ping.toBuffer());
         } catch (exception) {
           console.error('could not ping peer:', handle, exception);
         }
@@ -461,10 +458,9 @@ class FabricHTTPServer extends Service {
           console.log('[SERVER]', 'patched:', result);
           break;
         case 'Ping':
-          let now = Date.now();
+          const now = Date.now();
           local = Message.fromVector(['Pong', now.toString()]);
-          let pong = JSON.stringify(local.toObject());
-          return server._sendTo(handle, pong);
+          return server._sendTo(handle, local.toBuffer());
         case 'GenericMessage':
           local = Message.fromVector(['GenericMessage', JSON.stringify({
             type: 'GenericMessageReceipt',
@@ -550,10 +546,16 @@ class FabricHTTPServer extends Service {
   }
 
   _sendTo (actor, msg) {
-    // console.log('[SERVER:WEBSOCKET]', 'sending message to actor', actor, msg);
-    let target = this.connections[actor];
+    const target = this.connections[actor];
+
     if (!target) throw new Error('No such target.');
-    let result = target.send(msg);
+
+    const result = target.send(msg);
+
+    return {
+      destination: actor,
+      result: result
+    };
   }
 
   // TODO: consolidate with Peer

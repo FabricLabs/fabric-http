@@ -65,7 +65,7 @@ class Compiler extends Service {
         target: 'web',
         output: {
           path: path.resolve('./assets/bundles'),
-          filename: 'browser.js'
+          filename: 'browser.min.js'
         },
         module: {
           rules: [
