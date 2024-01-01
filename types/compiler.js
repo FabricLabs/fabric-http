@@ -5,9 +5,21 @@ const path = require('path');
 const crypto = require('crypto');
 const beautify = require('js-beautify').html;
 const webpack = require('webpack');
+const merge = require('lodash.merge');
+const { JSDOM } = require('jsdom');
 
+const dom = new JSDOM();
+
+global.document = dom.window.document;
+global.window = dom.window;
+global.HTMLElement = dom.HTMLElement;
+
+// Fabric Types
 const Service = require('@fabric/core/types/service');
-const FabricComponent = require('./component');
+
+// Types
+const HTTPComponent = require('./component');
+const HTTPSite = require('./site');
 
 /**
  * Builder for {@link Fabric}-based applications.
@@ -16,60 +28,71 @@ class Compiler extends Service {
   /**
    * Create an instance of the compiler.
    * @param {Object} [settings] Map of settings.
-   * @param {FabricComponent} [settings.document] Document to use.
+   * @param {HTTPComponent} [settings.document] Document to use.
    */
   constructor (settings = {}) {
     super(settings);
 
-    this.settings = Object.assign({
-      document: new FabricComponent(settings),
-      state: {},
+    this.settings = merge({
+      document: settings.document || new HTTPComponent(settings),
+      site: {
+        name: 'Default Fabric Application'
+      },
+      state: {
+        title: settings.title || 'Fabric HTTP Document'
+      },
       // TODO: load from:
       // 1. webpack.config.js (local)
       // 2. @fabric/http/webpack.config
       webpack: {
-        mode: 'development',
+        mode: 'production',
         entry: path.resolve('./scripts/browser.js'),
+        experiments: {
+          asyncWebAssembly: true
+        },
+        resolve: {
+          fallback: {
+            crypto: require.resolve('crypto-browserify'),
+            stream: require.resolve('stream-browserify'),
+            querystring: require.resolve('querystring-es3'),
+            path: require.resolve('path-browserify'),
+            assert: require.resolve('assert-browserify'),
+            util: require.resolve('node-util'),
+            fs: require.resolve('browserify-fs')
+          },
+          symlinks: false
+        },
         target: 'web',
         output: {
           path: path.resolve('./assets/bundles'),
-          filename: 'browser.js'
+          filename: 'browser.min.js'
         },
-        devtool: 'inline-source-map',
         module: {
           rules: [
             {
               test: /\.(js)$/,
-              exclude: /node_modules/,
               use: ['babel-loader']
             },
             {
               test: /\.css$/,
-              use: [
-                {
-                  loader: 'style-loader'
-                },
-                {
-                  loader: 'css-loader',
-                  options: {
-                    modules: true,
-                    sourceMap: true
-                  }
-                }
-              ]
+              use: ['style-loader', 'css-loader']
             }
           ]
         },
         plugins: [
           new webpack.DefinePlugin({
-            'process.env': {
-              NODE_ENV: JSON.stringify('production'),
-              APP_ENV: JSON.stringify('browser')
-            }
-          })
-        ]
+            'process.env': JSON.stringify(process.env)
+          }),
+          new webpack.ProvidePlugin({
+            Buffer: ['buffer', 'Buffer'],
+          }),
+        ],
+        watch: false
       }
-    }, this.settings, settings);
+    }, settings);
+
+    this.component = this.settings.document || null;
+    this.site = new HTTPSite(this.settings.site);
 
     this._state = {
       content: this.settings.state
@@ -86,7 +109,13 @@ class Compiler extends Service {
    * @returns {String} Rendered HTML document containing the compiled JavaScript application.
    */
   compile (state = this.state) {
-    return this.settings.document.render(state);
+    // Default case: no component provided, or not a Fabric Component
+    if (!this.component || !this.component._getHTML) {
+      return this.site.render(state);
+    } else {
+      const html = this.component._getHTML(state);
+      return this.site._renderWith(html);
+    }
   }
 
   async compileBundle (state = this.state) {

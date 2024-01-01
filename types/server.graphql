@@ -1,0 +1,8 @@
+type FabricHTTPServer {
+  id: ID!
+  alias: String
+  host: String!
+  port: Int!
+  pubkey: String!
+  services: [Service]
+}

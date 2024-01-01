@@ -16,6 +16,7 @@ const config = {
 
 // core dependencies
 const crypto = require('crypto');
+const merge = require('lodash.merge');
 const page = require('page');
 const pluralize = require('pluralize');
 
@@ -48,13 +49,17 @@ class SPA extends App {
     super(settings);
 
     // Assign defaults
-    this.settings = Object.assign({
+    this.settings = merge({
       name: '@fabric/maki',
       authority: 'localhost.localdomain:9999',
       persistent: false,
       // TODO: enable by default?
       websockets: false,
       secure: false, // TODO: default to secure (i.e., TLS on all connections)
+      state: {
+        status: 'PAUSED',
+        title: settings.title || '@fabric/http'
+      },
       components: {} /* {
         'fabric-identity': require('../components/fabric-identity')
       } */
@@ -74,7 +79,23 @@ class SPA extends App {
       'click': this._handleClick.bind(this)
     };
 
+    this._state = {
+      content: this.settings.state
+    };
+
     return this;
+  }
+
+  get state () {
+    return this._state.content;
+  }
+
+  get title () {
+    return this.state.title;
+  }
+
+  set title (value) {
+    this._state.content.title = value;
   }
 
   // TODO: reconcile with super(), document use of constructor vs. CustomElements
@@ -226,18 +247,20 @@ class SPA extends App {
 
     // TODO: move CSS to inline from webpack
     return `<!DOCTYPE html>
-<html lang="${this.settings.language}"${(this.settings.offline) ? 'manifest="cache.manifest"' : ''}>
-<head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-  <title>${this.title}</title>
-  <!-- <link rel="manifest" href="/manifest.json"> -->
-  <link rel="stylesheet" type="text/css" href="/styles/screen.css" />
-  <link rel="stylesheet" type="text/css" href="/styles/semantic.css" />
-  <script type="text/javascript" src="/scripts/jquery-3.4.1.js"></script>
-  <script type="text/javascript" src="/scripts/semantic.js"></script>
-  <script src="bundles/browser.js"></script>
-</head>
-<body data-bind="${hash}" data-hash="${hash}">${html}</body>
+<html lang="${this.settings.language}"${(this.settings.offline) ? ' manifest="cache.manifest"' : ''}>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>${this.title || this.settings.title}</title>
+    <link rel="stylesheet" type="text/css" href="/styles/semantic.min.css" />
+    <link rel="stylesheet" type="text/css" href="/styles/screen.css" />
+    <script src="/scripts/jquery-3.4.1.js"></script>
+    <script src="/scripts/semantic.min.js"></script>
+  </head>
+  <body>
+    <div data-hash="${hash}" id="application-target">${html}</div>
+    <script src="/bundles/browser.min.js"></script>
+  </body>
 </html>`;
   }
 

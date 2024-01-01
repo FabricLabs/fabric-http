@@ -1,17 +1,5 @@
-import * as defaults from '../settings/state';
-
-import merge from 'lodash.merge';
-import FabricComponent from '../types/component';
-
-// Components
-import {
-  Button,
-  Icon,
-  Menu,
-  Modal
-} from 'semantic-ui-react';
-
-import SeedEntryForm from './SeedEntryForm';
+const merge = require('lodash.merge');
+const FabricComponent = require('../types/component');
 
 class FabricIdentity extends FabricComponent {
   constructor (props) {
@@ -43,25 +31,6 @@ class FabricIdentity extends FabricComponent {
 
   handleClose () {
     this.setState({ modalOpen: false });
-  }
-
-  render () {
-    return (
-      <>
-        <Menu.Item className='borderless'>
-          <Button icon onClick={this._handleCardClick.bind(this)} labelPosition='left'>
-            <span>{/*<strong>Identity:</strong> */}<code>{this.state.identity || 'anonymous'}</code></span>
-            <Icon name='user' />
-          </Button>
-        </Menu.Item>
-        <Modal open={this.state.modalOpen} onClose={this.handleClose.bind(this)} closeIcon>
-          <Modal.Header>Login</Modal.Header>
-          <Modal.Content>
-            <SeedEntryForm handleClose={this.handleClose.bind(this)} handleChange={this.handleChange.bind(this)} />
-          </Modal.Content>
-        </Modal>
-      </>
-    );
   }
 
   isVisible () {
@@ -98,4 +67,4 @@ class FabricIdentity extends FabricComponent {
   }
 }
 
-export default FabricIdentity;
+module.exports = FabricIdentity;

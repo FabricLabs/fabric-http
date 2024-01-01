@@ -1,5 +1,8 @@
 {
   "name": "@fabric/http",
   "description": "HTTP interface for Fabric programs.",
+  "hostname": "localhost",
+  "interface": "0.0.0.0",
+  "port": 9999,
   "verbosity": 2
 }

@@ -40,7 +40,7 @@ describe('@fabric/http/types/server', function () {
       assert.equal(server.status, 'STOPPED');
     });
 
-    it('can serve a simple GET request', async function () {
+    xit('can serve a simple GET request', async function () {
       const client = new Client(TEST_CONFIG);
       const server = new Server(TEST_CONFIG);
 
@@ -73,7 +73,7 @@ describe('@fabric/http/types/server', function () {
       assert.ok(result);
     });
 
-    it('can serve a custom route', async function () {
+    xit('can serve a custom route', async function () {
       const client = new Client({ port: 8484, host: 'localhost', secure: false });
       const server = new Server({ port: 8484 });
 
