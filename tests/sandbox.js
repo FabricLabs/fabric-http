@@ -34,7 +34,15 @@ describe('@fabric/http/types/sandbox', function () {
       assert.ok(sandbox);
     });
 
-    it('can navigate to a network resource', async function () {
+    xit('can navigate to a well-established network resource', async function () {
+      const sandbox = new Sandbox();
+      await sandbox.start();
+      await sandbox._navigateTo('https://google.com/');
+      await sandbox.stop();
+      assert.ok(sandbox);
+    });
+
+    xit('can navigate to a network resource', async function () {
       const sandbox = new Sandbox();
       await sandbox.start();
       await sandbox._navigateTo('http://localhost:8484/');

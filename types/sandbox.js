@@ -1,5 +1,6 @@
 'use strict';
 
+const merge = require('lodash.merge');
 const puppeteer = require('puppeteer');
 const Service = require('@fabric/core/types/service');
 
@@ -7,10 +8,10 @@ class Sandbox extends Service {
   constructor (settings = {}) {
     super(settings);
 
-    this.settings = Object.assign({
+    this.settings = merge({
       browser: {
         headless: true,
-        slowMo: 1000, // limit to 1 hz
+        slowMo: 1, // limit to 0.001 hz
         viewport: {
           height: 480,
           width: 640
@@ -38,6 +39,19 @@ class Sandbox extends Service {
     // Create browser instance
     this.chromium = await puppeteer.launch(this.settings.browser);
     this.browser = await this.chromium.newPage();
+
+    /*
+    // Connect to Chrome DevTools
+    const client = await this.browser.target().createCDPSession();
+
+    // Set throttling property
+    await client.send('Network.emulateNetworkConditions', {
+      'offline': false,
+      'downloadThroughput': 56 * 1024 / 8,
+      'uploadThroughput': Math.floor(24.4 * 1024 / 8),
+      'latency': 1000
+    });
+    */
 
     // Browser event handlers
     this.browser.on('console', (msg) => {
@@ -76,8 +90,19 @@ class Sandbox extends Service {
   }
 
   async _navigateTo (url) {
-    await this.browser.goto(url);
+    await this.browser.goto(url /*, { waitUntil: 'networkidle0' } */);
+    await this.browser.waitForNavigation();
     return this;
+  }
+
+  async download (url) {
+    const response = await this.browser.goto(url /*, { waitUntil: 'networkidle0' } */);
+    const buffer = await response.buffer();
+    return this;
+  }
+
+  async export () {
+    return this.browser.evaluate(() => document.querySelector('*').outerHTML);
   }
 }
 

@@ -26,7 +26,7 @@ class FabricBridge extends FabricComponent {
       host: 'localhost',
       port: 9999,
       secure: false
-    }, defaults, props);
+    }, props);
 
     this.state = merge({
       integrity: 'sha256-deadbeefbabe',

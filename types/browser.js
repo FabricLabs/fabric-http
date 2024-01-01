@@ -9,8 +9,10 @@ const {
   BROWSER_TARGET
 } = require('../constants');
 
+// Fabric Types
+const Service = require('@fabric/core/types/service');
+
 // Internal components for networking, etc.
-const Fabric = require('@fabric/core');
 const Router = require('./router');
 
 // Components for the User Interface
@@ -20,7 +22,7 @@ const Introduction = require('../components/introduction');
 const SearchBox = require('../components/search-box');
 const Welcome = require('../components/welcome');
 
-class Browser extends Fabric.Service {
+class Browser extends Service {
   constructor (settings = {}) {
     super(settings);
 
