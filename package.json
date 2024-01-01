@@ -52,7 +52,7 @@
     "Victor Wu"
   ],
   "dependencies": {
-    "@fabric/core": "FabricLabs/fabric#feature/node-18",
+    "@fabric/core": "FabricLabs/fabric#feature/v0.1.0-RC1",
     "assert-browserify": "2.0.0",
     "babel-loader": "8.2.5",
     "body-parser": "1.18.3",
