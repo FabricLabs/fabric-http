@@ -45,6 +45,7 @@ class Remote extends FabricRemote {
       entropy: Math.random(),
       macaroon: null,
       secure: true,
+      debug: false,
       state: {
         status: 'PAUSED'
       },
@@ -102,6 +103,21 @@ class Remote extends FabricRemote {
         this.emit('error', `Unhandled message type: ${message.type}`);
         break;
     } */
+  }
+
+  async deepFetch (url) {
+    if (!url) return [];
+
+    const response = await fetch(url);
+    const object = await response.json();
+
+    let results = object.results;
+
+    if (object.next) {
+      results = results.concat(await this.deepFetch(object.next));
+    }
+
+    return results;
   }
 
   /**
@@ -197,8 +213,10 @@ class Remote extends FabricRemote {
                 console.error('[REMOTE]', 'Could not parse JSON:', E);
               }
 
-              if (response.headers.get('x-pagination')) {
-                console.debug('Has pagination:', response.headers);
+              if (this.settings.debug) {
+                if (response.headers.get('x-pagination')) {
+                  console.debug('Has pagination:', response.headers);
+                }
               }
               break;
             default:
