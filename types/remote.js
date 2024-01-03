@@ -211,6 +211,7 @@ class Remote extends FabricRemote {
                 result = await response.json();
               } catch (E) {
                 console.error('[REMOTE]', 'Could not parse JSON:', E);
+                result = await response.text();
               }
 
               if (this.settings.debug) {
@@ -228,9 +229,9 @@ class Remote extends FabricRemote {
           if (this.settings.verbosity >= 4) console.warn('[FABRIC:REMOTE]', 'Unmanaged HTTP status code:', response.status);
 
           try {
-            result = response.json();
+            result = await response.json();
           } catch (exception) {
-            result = response.text();
+            result = await response.text();
           }
         }
         break;
