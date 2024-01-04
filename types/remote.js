@@ -227,12 +227,11 @@ class Remote extends FabricRemote {
           }
         } else {
           if (this.settings.verbosity >= 4) console.warn('[FABRIC:REMOTE]', 'Unmanaged HTTP status code:', response.status);
-
-          try {
-            result = await response.json();
-          } catch (exception) {
-            result = await response.text();
-          }
+          result = {
+            status: 'error',
+            message: 'Unhandled HTTP status code.',
+            code: response.status
+          };
         }
         break;
     }
