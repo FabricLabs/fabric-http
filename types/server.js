@@ -840,7 +840,7 @@ class FabricHTTPServer extends Service {
     this.express.use(extractor());
     this.express.use(this._roleMiddleware.bind(this));
 
-    this.express.all('/services/graphql', graphql({ schema: this.graphQLSchema }))
+    // this.express.all('/services/graphql', graphql({ schema: this.graphQLSchema }))
 
     // configure sessions & parsers
     // TODO: migrate to {@link Session} or abolish entirely
