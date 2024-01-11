@@ -31,8 +31,8 @@ const extractor = require('express-bearer-token');
 const stoppable = require('stoppable');
 
 // GraphQL
-const { GraphQLSchema, GraphQLObjectType, GraphQLString } = require('graphql');
-const graphql = require('graphql-http/lib/use/http').createHandler;
+// const { GraphQLSchema, GraphQLObjectType, GraphQLString } = require('graphql');
+// const graphql = require('graphql-http/lib/use/http').createHandler;
 
 // Pathing
 const pathToRegexp = require('path-to-regexp').pathToRegexp;
@@ -314,6 +314,10 @@ class FabricHTTPServer extends Service {
     // Send to all connected peers
     for (let i = 0; i < peers.length; i++) {
       const peer = peers[i];
+
+      if (peer.status === 'connected') {
+        // TODO: move send buffer here
+      }
 
       try {
         this.connections[peer].send(message.toBuffer());
@@ -688,6 +692,8 @@ class FabricHTTPServer extends Service {
       }
     }
 
+    this.debug('Resource mounted:', resource);
+
     switch (req.method.toUpperCase()) {
       // Discard unhandled methods
       default:
@@ -757,6 +763,8 @@ class FabricHTTPServer extends Service {
       });
     }
 
+    console.debug('Preparing to format:', req.path);
+
     return res.format({
       json: function () {
         res.header('Content-Type', 'application/json');
@@ -777,39 +785,46 @@ class FabricHTTPServer extends Service {
   }
 
   async start () {
+    console.debug('[HTTP:SERVER]', 'Starting...');
     this.emit('debug', '[HTTP:SERVER] Starting...');
+
     this.status = 'starting';
 
     /* if (!server.settings.resources || !Object.keys(server.settings.resources).length) {
       console.trace('[HTTP:SERVER]', 'No Resources have been defined for this server.  Please provide a "resources" map in the configuration.');
     } */
 
-    const fields = {
+    /* const fields = {
       hello: {
         type: GraphQLString,
         resolve: () => 'world'
       }
-    };
+    }; */
+
+    // console.log('resources:', this.settings.resources);
 
     for (let name in this.settings.resources) {
       const definition = this.settings.resources[name];
       const resource = await this._defineResource(name, definition);
 
+      // console.log('resource:', name, definition, resource);
+
       // Attach to GraphQL
-      fields[resource.names[1].toLowerCase()] = {
+      /* fields[resource.names[1].toLowerCase()] = {
         type: GraphQLObjectType,
         resolve: () => {}
-      };
+      }; */
 
       if (this.settings.verbosity >= 6) console.log('[AUDIT]', 'Created resource:', resource);
     }
 
-    this.graphQLSchema = new GraphQLSchema({
+    // console.log('fields:', fields);
+    /* this.graphQLSchema = new GraphQLSchema({
       query: new GraphQLObjectType({
         name: 'Query',
         fields: fields
       })
-    });
+    }); */
 
     // Middlewares
     this.express.use(this._logMiddleware.bind(this));
