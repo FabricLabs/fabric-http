@@ -533,17 +533,10 @@ class FabricHTTPServer extends Service {
     })); */
 
     if (this.app) {
-      socket.send(JSON.stringify({
-        '@type': 'Inventory',
-        '@parent': server.app.id,
-        '@version': 1
-      }));
-
-      socket.send(JSON.stringify({
-        '@type': 'State',
-        '@data': server.app.state,
-        '@version': 1
-      }));
+      const inventory = Message.fromVector(['InventoryRequest', { parent: server.app.id, version: 0 }]);
+      const state = Message.fromVector(['State', { content: server.app.state }]);
+      socket.send(inventory.toBuffer());
+      socket.send(state.toBuffer());
     }
 
     return socket;
