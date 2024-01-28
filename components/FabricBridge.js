@@ -17,11 +17,7 @@ import {
 // Fabric Types
 // import * as Store from '@fabric/core/types/store';
 // import * as Worker from '@fabric/core/types/worker';
-<<<<<<< HEAD
-import * as Remote from '@fabric/http/types/remote';
-=======
 import * as Remote from '../types/remote';
->>>>>>> 06fbe168d70552c1f4a32406cfb74261450a2356
 
 class FabricBridge extends FabricComponent {
   constructor (props) {
@@ -29,14 +25,9 @@ class FabricBridge extends FabricComponent {
 
     this.settings = Object.assign({
       host: 'localhost',
-<<<<<<< HEAD
-      port: 9999
-    }, props);
-=======
       port: 9999,
       secure: false
     }, defaults, props);
->>>>>>> 06fbe168d70552c1f4a32406cfb74261450a2356
 
     this.state = merge({
       integrity: 'sha256-deadbeefbabe',
@@ -47,23 +38,12 @@ class FabricBridge extends FabricComponent {
           count: 0
         }
       }
-<<<<<<< HEAD
-    }, defaults, props);
-
-    this.remote = new Remote({
-      host: 'nuevo' || this.settings.host,
-      port: this.settings.port,
-      secure: false
-=======
     }, this.settings);
-
-    console.log('bridge settings:', this.settings);
 
     this.remote = new Remote({
       host: this.settings.host,
       port: this.settings.port,
       secure: this.settings.secure
->>>>>>> 06fbe168d70552c1f4a32406cfb74261450a2356
     });
 
     /* this.agent = new Worker({
@@ -127,11 +107,7 @@ class FabricBridge extends FabricComponent {
             <Feed>
               {this.state.messages.map((message, i) => {
                 return (
-<<<<<<< HEAD
-                  <Feed.Event key={i}>
-=======
                   <Feed.Event size='small' key={i} style={{ fontSize: '0.8em', fontFamily: 'monospace' }}>
->>>>>>> 06fbe168d70552c1f4a32406cfb74261450a2356
                     <Feed.Content>
                       <div style={{color: 'black'}}>{JSON.stringify(message, null, '  ')}</div>
                     </Feed.Content>
@@ -149,7 +125,6 @@ class FabricBridge extends FabricComponent {
     );
   }
 
-<<<<<<< HEAD
   async _handleRemoteReady () {
     this._syncState();
     console.log('Remote ready!');
@@ -157,16 +132,12 @@ class FabricBridge extends FabricComponent {
     console.log('balances:', balances);
   }
 
-  async start () {
-    this.remote.on('ready', this._handleRemoteReady.bind(this));
-=======
   async send (message) {
     return this.remote.send(message);
   }
 
   async start () {
     this.remote.on('ready', this.props.remoteReady.bind(this));
->>>>>>> 06fbe168d70552c1f4a32406cfb74261450a2356
     this.remote.on('message', this._handleRemoteMessage.bind(this));
     this.remote.on('error', this._handleRemoteError.bind(this));
     this.connect();
