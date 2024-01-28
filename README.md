@@ -12,17 +12,19 @@ Building applications with `@fabric/http` is easy.
 
 ```
 mkdir myapp && cd myapp
-npm install @fabric/http
+npm init
+npm i --save @fabric/http
 ```
 
-### `app.js`
+Create an application by creating a new file (here we've used `scripts/app.js`), containing the following:
+### `scripts/app.js`:
 ```js
 'use strict';
 
 const SPA = require('@fabric/http/types/spa');
 
 async function main () {
-  let spa = new SPA(
+  const spa = new SPA({
     name: 'Example App',
     synopsis: 'Simple demonstration of a single-page app.',
     resources: {
@@ -30,15 +32,19 @@ async function main () {
         description: 'A to-do list item.'
       }
     }
-  );
+  });
 
   await spa.start();
 }
 
-main();
+main().catch((exception) => {
+  console.log('[FABRIC-HTTP:EXAMPLE] Main Process Exception:', exception);
+}).then((output) => {
+  console.log('[FABRIC-HTTP:EXAMPLE] Main Process Output:', output);
+});
 ```
 
-Run `node app.js` to start the app, or `webpack app.js -o assets/app.min.js` to
+Run `node scripts/app.js` to start the app, or `webpack scripts/app.js -o assets/app.min.js` to
 build a browser version.
 
 ### Advanced: `@maki/roller`

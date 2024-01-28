@@ -5,18 +5,17 @@ const {
 } = require('@fabric/core/constants');
 
 // Internal Dependencies
-const http = require('http');
-const https = require('https');
 const querystring = require('querystring');
 
 // External Dependencies
-const fetch = require('node-fetch');
+const fetch = require('cross-fetch');
 const parser = require('content-type');
-const ws = require('ws').WebSocket;
+// const ws = require('ws').WebSocket;
 
 // Internal Types
 const Actor = require('@fabric/core/types/actor');
 const Message = require('@fabric/core/types/message');
+
 const CONTENT_TYPE = 'application/json';
 
 /**
@@ -39,7 +38,6 @@ class Remote extends Actor {
     super(config);
 
     this.settings = Object.assign({
-      authority: 'localhost',
       backoff: 2,
       entropy: Math.random(),
       secure: true,
@@ -70,6 +68,48 @@ class Remote extends Actor {
 
   get port () {
     return this.settings.port;
+  }
+
+  get authority () {
+    // TODO: use onion address for secure mode
+    const parts = (this.settings.authority) ? this.settings.authority.split(':') : this.host.split(':');
+    const state = {
+      host: null,
+      secure: null,
+      protocol: null,
+      port: null
+    };
+
+    // Check number of components
+    switch (parts.length) {
+      default:
+        // TODO: warn about unexpected values
+        state.host = this.settings.host;
+        state.port = this.settings.port;
+        state.secure = this.settings.secure;
+        break;
+      case 1:
+        state.host = parts[0];
+        state.port = this.settings.port;
+        state.secure = this.settings.secure;
+        break;
+      case 2:
+        state.host = parts[0];
+        state.port = parts[1];
+        state.secure = this.settings.secure;
+        break;
+      case 3:
+        state.host = parts[1];
+        state.port = parts[2];
+        // TODO: should settings override protocol inclusion?
+        state.secure = (parts[0].charAt(4) === 's');
+        break;
+    }
+
+    // Finally set protocol for all cases...
+    state.protocol = (!state.secure) ? 'http' : 'https';
+
+    return `${state.protocol}://${state.host}:${state.port}`;
   }
 
   get isArrayBufferSupported () {
@@ -190,25 +230,18 @@ class Remote extends Actor {
    */
   async request (type, path, params = {}) {
     const self = this;
-    const parts = self.settings.authority.split(':');
 
-    // TODO: use onion address for secure mode
-    const host = parts[0] || ((self.secure) ? 'localhost' : 'localhost');
-    let port = parts[1] || ((self.secure) ? 443 : 80);
-
-    if (this.settings.port) {
-      port = this.settings.port;
-    }
-
-    const protocol = (!self.secure) ? 'http' : 'https';
-    let url = `${protocol}://${host}:${port}${path}`;
-
+    let url = this.authority + path;
     let result = null;
     let response = null;
     let headers = {
       'Accept': CONTENT_TYPE,
       'Content-Type': CONTENT_TYPE
     };
+
+    if (params.headers) {
+      headers = Object.assign({}, headers, params.headers);
+    }
 
     let opts = {
       method: type,

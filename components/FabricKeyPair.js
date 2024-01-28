@@ -4,6 +4,7 @@ import React, { Component } from 'react';
 
 // Components
 import {
+<<<<<<< HEAD
   Button,
   // Container,
   Dropdown,
@@ -12,6 +13,9 @@ import {
   Icon
   // Menu,
   // Segment
+=======
+  Form
+>>>>>>> 06fbe168d70552c1f4a32406cfb74261450a2356
 } from 'semantic-ui-react';
 
 // Fabric Types

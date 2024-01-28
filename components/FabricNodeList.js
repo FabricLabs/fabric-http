@@ -6,6 +6,7 @@ import FabricComponent from '../types/component';
 // Components
 import {
   Button,
+<<<<<<< HEAD
   // Button,
   // Card,
   // Container,
@@ -17,6 +18,9 @@ import {
   Label,
   // Menu,
   Segment,
+=======
+  Label,
+>>>>>>> 06fbe168d70552c1f4a32406cfb74261450a2356
   Table
 } from 'semantic-ui-react';
 

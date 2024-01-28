@@ -201,10 +201,14 @@ class Component extends FabricElement {
     return `<code integrity="${this.integrity}">${JSON.stringify(this.state)}</code>`;
   }
 
-  render () {
+  renderToHTML () {
     let content = this._getInnerHTML();
     let hash = Fabric.sha256(content);
     return `<${this.settings.handle} integrity="${this.integrity(content)}" data-hash="${hash}">${content}</${this.settings.handle}>`;
+  }
+
+  render () {
+    return this.renderToHTML();
   }
 
   async _GET (path) {

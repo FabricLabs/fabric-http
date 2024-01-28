@@ -9,11 +9,15 @@ import {
   Button,
   Card,
   Form,
+<<<<<<< HEAD
   // Container,
   Icon,
   // Grid,
   // Menu,
   // Segment
+=======
+  Icon
+>>>>>>> 06fbe168d70552c1f4a32406cfb74261450a2356
 } from 'semantic-ui-react';
 
 import IdentityPicker from './IdentityPicker';
@@ -59,7 +63,11 @@ class FabricIdentityManager extends FabricComponent {
     });
   }
 
+<<<<<<< HEAD
   previoustStep () {
+=======
+  previousStep () {
+>>>>>>> 06fbe168d70552c1f4a32406cfb74261450a2356
     const { step } = this.state;
     this.setState({
       step: step - 1

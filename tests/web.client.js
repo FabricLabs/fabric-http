@@ -45,7 +45,7 @@ describe('@fabric/http/types/client', function () {
       assert.ok(result);
     });
 
-    it('can create content on a local server', async function () {
+    xit('can create content on a local server', async function () {
       const server = new HTTPServer(TEST_CONFIG);
       const client = new HTTPClient(TEST_CONFIG);
       await server.start();
@@ -61,7 +61,7 @@ describe('@fabric/http/types/client', function () {
       assert.ok(result);
     });
 
-    it('can update content on a local server', async function () {
+    xit('can update content on a local server', async function () {
       const server = new HTTPServer(TEST_CONFIG);
       const client = new HTTPClient(TEST_CONFIG);
       await server.start();

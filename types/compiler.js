@@ -23,8 +23,8 @@ class Compiler {
 
   /**
    * Build a {@link String} representing the HTML-encoded Document.
-   * @param {Mixed} input Input data to use for local rendering.
-   * @returns {String}
+   * @param {Mixed} data Input data to use for local rendering.
+   * @returns {String} Rendered HTML document containing the compiled JavaScript application.
    */
   compile (data) {
     return this.settings.document.render();
@@ -33,17 +33,15 @@ class Compiler {
   compileTo (target) {
     console.log('[MAKI:ROLLER]', `Compiling SPA to ${target}...`);
 
-    let html = this.compile();
-    let clean = beautify(html, {
-      indent_size: 2,
-      extra_liners: []
-    });
-    let hash = crypto.createHash('sha256').update(clean).digest('hex');
+    const html = this.compile();
+    const clean = beautify(html, { indent_size: 2, extra_liners: [] });
+    const hash = crypto.createHash('sha256').update(clean).digest('hex');
 
     try {
       fs.writeFileSync(target, clean);
-    } catch (E) {
-      console.error('[MAKI:ROLLER]', 'Could not write SPA:', E);
+    } catch (exception) {
+      console.error('[MAKI:ROLLER]', 'Could not write SPA:', exception);
+      return false;
     }
 
     console.log('[MAKI:ROLLER]', `${clean.length} bytes written to ${target} with sha256(H) = ${hash} ~`);

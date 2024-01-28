@@ -3,23 +3,29 @@
   "version": "0.1.0-RC1",
   "description": "tools for serving the legacy web with Fabric",
   "main": "types/web.js",
+  "module": "module.js",
+  "bin": {
+    "fabric-http": "./scripts/node.js"
+  },
   "scripts": {
-    "build:docs": "jsdoc -c jsdoc.json types components/*.js types/*.js settings/deprecations.js README.md -d docs",
-    "build:coverage": "npm run coverage && nyc report --reporter=html",
+    "build": "npm run report:coverage && npm test && npm run build:scripts && npm run build:docs",
+    "build:app": "webpack scripts/index.js",
+    "build:docs": "jsdoc -c jsdoc.json types settings/deprecations.js README.md -d docs",
+    "build:coverage": "npm run coverage && c8 report --reporter=html",
     "build:fast": "node examples/build.js && npm run build:scripts",
-    "build:scripts": "webpack scripts/index.js",
+    "build:scripts": "rollup -c",
     "compile": "node examples/build.js && npm run build:scripts",
-    "coverage": "nyc npm run test",
-    "docs": "npm run build:docs && ecstatic docs",
-    "report:coverage": "npm run coverage && nyc report --reporter=text-lcov > reports/coverage.lcov && codecov",
-    "review:coverage": "npm run build:coverage && ecstatic reports/coverage",
+    "coverage": "c8 npm run test",
+    "docs": "npm run build:docs && http-server docs",
+    "report:coverage": "npm run coverage && c8 report --reporter=text-lcov > reports/coverage.lcov && codecov",
+    "review:coverage": "npm run build:coverage && http-server reports/coverage",
     "start": "npm run compile && node examples/server.js",
-    "static": "npm run build:scripts && ecstatic assets",
+    "static": "npm run build:scripts && http-server assets",
     "test": "mocha tests"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/FabricLabs/web.git"
+    "url": "git+https://github.com/FabricLabs/fabric-http.git"
   },
   "keywords": [
     "http",
@@ -28,60 +34,65 @@
     "bitcoin",
     "blockchain"
   ],
-  "author": "Eric Martindale",
+  "author": "Fabric Labs",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/FabricLabs/web/issues"
+    "url": "https://github.com/FabricLabs/fabric-http/issues"
   },
-  "homepage": "https://github.com/FabricLabs/web#readme",
+  "homepage": "https://github.com/FabricLabs/fabric-http#readme",
+  "contributors": [
+    "Eric Martindale"
+  ],
   "dependencies": {
-    "@fabric/core": "martindale/fabric#faucet",
+    "@fabric/core": "FabricLabs/fabric#master",
+    "@fabric/connect": "martindale/fabric-auth-middleware#eric/develop",
     "body-parser": "^1.18.3",
-    "canvas": "^2.5.0",
+    "cross-fetch": "^3.1.5",
     "d3": "^5.9.2",
     "d3-graphviz": "^2.6.1",
     "express": "^4.16.4",
     "express-bearer-token": "^2.4.0",
+    "express-flash": "^0.0.2",
     "express-session": "^1.15.6",
+    "fast-json-patch": "^3.1.1",
     "isomorphic-ws": "^4.0.1",
-    "jade-lexer": "0.0.9",
-    "jade-parser": "0.0.9",
     "jquery": "^3.4.1",
-    "js-beautify": "^1.10.0",
-    "jsdoc": "FabricLabs/jsdoc#fabric",
+    "js-beautify": "^1.14.6",
     "level": "5",
     "lightning-client": "^0.5.2-beta.8",
     "lodash.merge": "^4.6.2",
-    "metascraper": "^5.25.0",
+    "metascraper": "^5.29.5",
     "page": "^1.11.4",
     "path-to-regexp": "^6.1.0",
-    "peer": "^0.2.10",
+    "peer": "^0.6.1",
     "peerjs": "^1.0.0",
     "pluralize": "^7.0.0",
     "stoppable": "^1.1.0",
     "ws": "^6.2.1"
   },
   "devDependencies": {
-    "codecov": "^3.2.0",
+    "@rollup/plugin-commonjs": "^21.1.0",
+    "@rollup/plugin-json": "^4.1.0",
+    "@rollup/plugin-node-resolve": "^13.2.1",
+    "@rollup/plugin-typescript": "^8.3.2",
+    "c8": "^7.11.3",
     "debug-trace": "^2.2.3",
-    "ecstatic": "^3.3.1",
     "gulp": "^4.0.2",
+    "jsdoc": "FabricLabs/jsdoc#fabric",
     "jsdom": "^11.12.0",
     "mocha": "^6.0.2",
-    "nyc": "^13.3.0",
+    "rollup": "^2.70.2",
+    "rollup-plugin-dts": "^4.2.1",
     "semistandard": "^13.0.1",
     "showdown": "^1.9.1",
-    "webpack": "^4.32.0",
-    "webpack-assets-manifest": "^3.1.1",
-    "webpack-cli": "^3.3.2",
-    "webpack-dev-middleware": "^3.7.0"
+    "typescript": "^4.6.3"
   },
   "browser": {
     "ws": false
   },
-  "nyc": {
+  "c8": {
     "report-dir": "./reports/coverage",
-    "temp-dir": "./reports/nyc",
+    "temp-dir": "./reports/c8",
     "exclude": [
       "docs",
       "tests"

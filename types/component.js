@@ -1,5 +1,6 @@
 'use strict';
 
+// Dependencies
 const crypto = require('crypto');
 const Service = require('@fabric/core/types/service');
 // const Fabric = require('@fabric/core');
@@ -7,7 +8,7 @@ const Service = require('@fabric/core/types/service');
 /**
  * Generic component.
  */
-class Component extends Service {
+class FabricComponent extends Service {
   /**
    * Create a component.
    * @param  {Object} [settings={}] Settings for the component.
@@ -113,7 +114,12 @@ class Component extends Service {
     return element;
   }
 
-  _loadHTML (content) {
+  /**
+   * Load an HTML string into the Component.
+   * @param {String} [content] HTML string to load (empty by default).
+   * @returns {String} HTML document.
+   */
+  _loadHTML (content = '') {
     let hash = crypto.createHash('sha256').update(content).digest('base64');
     return `<${this.settings.handle} integrity="sha256-${hash}">${content}</${this.settings.handle}>`;
   }
@@ -125,7 +131,7 @@ class Component extends Service {
   _renderState (state) {
     // TODO: render Template here
     // cc: @melnx @lel @lllllll:fabric.pub
-    let content = this._getInnerHTML(state);
+    const content = this._getInnerHTML(state);
     return this._loadHTML(content);
   }
 
@@ -140,11 +146,27 @@ class Component extends Service {
   }
 
   render () {
-    if (this.element) {
-      this.element.innerHTML = this._getInnerHTML();
-    }
+    if (this.element) this.element.innerHTML = this._getInnerHTML();
     return this._renderState(this.state);
   }
 }
 
-module.exports = Component;
+module.exports = FabricComponent;
+
+// TODO: debug why this can't be used on this parent class...
+// ```
+// TypeError: Class extends value #<Object> is not a constructor or null
+// Module.<anonymous>
+// src/components/FabricIdentityManager.js:19
+//   16 | import IdentityPicker from './IdentityPicker';
+//   17 | import SeedEntryForm from './SeedEntryForm';
+//   18 | 
+// > 19 | class FabricIdentityManager extends FabricComponent {
+//   20 |   constructor (props) {
+//   21 |     super(props);
+//   22 | 
+// ```
+// export default connect(FabricStateMapper)(FabricComponent);
+//
+// ...
+// End of @fabric/core/types/component
