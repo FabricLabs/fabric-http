@@ -39,8 +39,6 @@ class FabricBridge extends FabricComponent {
       }
     }, this.settings);
 
-    console.log('bridge settings:', this.settings);
-
     this.remote = new Remote({
       host: this.settings.host,
       port: this.settings.port,
@@ -124,6 +122,13 @@ class FabricBridge extends FabricComponent {
         </Card>
       </>
     );
+  }
+
+  async _handleRemoteReady () {
+    this._syncState();
+    console.log('Remote ready!');
+    const balances = await this.executeMethod('btc_getbalances');
+    console.log('balances:', balances);
   }
 
   async send (message) {
