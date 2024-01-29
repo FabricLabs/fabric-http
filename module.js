@@ -1,18 +1,21 @@
-import * as components from './components/index.js';
-// import * as types from './index.js';
+// Monads
+import * as BootstrapMonad from './contracts/bootstrap';
 
-export const NAME = '@fabric/http';
+// Types
+import * as HTTPClient from './types/client';
+import * as HTTPServer from './types/server';
 
-// TODO: export...
-/*
-  - [ ] Components
-  - [ ] Contracts
-  - [ ] Types
-  - [ ] ...
-*/
+// Components
+import * as Bridge from './components/bridge';
 
+// Locals
+const NAME = '@fabric/http';
+
+// Module
 export default {
-  components: components,
-  name: NAME,
-  // types: types
+  BootstrapMonad: BootstrapMonad,
+  Bridge: Bridge,
+  HTTPClient: HTTPClient,
+  HTTPServer: HTTPServer,
+  NAME: NAME
 };

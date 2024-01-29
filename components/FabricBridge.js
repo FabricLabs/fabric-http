@@ -1,5 +1,4 @@
-// State
-import * as defaults from '../settings/state';
+'use strict';
 
 // Dependencies
 import merge from 'lodash.merge';
@@ -27,7 +26,7 @@ class FabricBridge extends FabricComponent {
       host: 'localhost',
       port: 9999,
       secure: false
-    }, defaults, props);
+    }, props);
 
     this.state = merge({
       integrity: 'sha256-deadbeefbabe',

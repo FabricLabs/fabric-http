@@ -22,12 +22,15 @@ class FabricComponent extends Service {
       path: '/'
     }, settings);
 
-    this.state = settings;
     this.element = null;
 
     // Healthy Cleanup
     this._boundFunctions = {};
     this._listeners = {};
+
+    this._state = {
+      content: settings
+    };
 
     return this;
   }
@@ -147,6 +150,14 @@ class FabricComponent extends Service {
 
   render () {
     if (this.element) this.element.innerHTML = this._getInnerHTML();
+    return this._renderState(this.state);
+  }
+
+  /**
+   * Generate an HTML representation of the component.
+   * @returns {String} HTML of the rendered component.
+   */
+  toHTML () {
     return this._renderState(this.state);
   }
 }

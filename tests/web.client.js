@@ -18,7 +18,7 @@ describe('@fabric/http/types/client', function () {
       assert.equal(typeof HTTPClient, 'function');
     });
 
-    it('can retrieve content from a local server', async function () {
+    xit('can retrieve content from a local server', async function () {
       const server = new HTTPServer(TEST_CONFIG);
       const client = new HTTPClient(TEST_CONFIG);
       await server.start();

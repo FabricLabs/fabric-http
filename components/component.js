@@ -94,7 +94,7 @@ class Component extends FabricElement {
     // this.innerHTML = html;
     this.innerHTML = html + '';
 
-    let binding = this.getAttribute('data-bind');
+    const binding = this.getAttribute('data-bind');
 
     if (binding) {
       // TODO: use Fabric.Remote

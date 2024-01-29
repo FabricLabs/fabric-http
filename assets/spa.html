@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>undefined</title>
+  <!-- <link rel="manifest" href="/manifest.json"> -->
+  <link rel="stylesheet" type="text/css" href="/styles/screen.css" />
+  <link rel="stylesheet" type="text/css" href="/styles/semantic.css" />
+</head>
+<body data-bind="c790f1b0eeb3d42abf21f8f4d9b431348f39ac16f4950cb6505e62cf318b75be">
+  <fabric-application route="/" integrity="sha256-+QkGNfB3/exTL+tXRKYlJgXThW9WgVnhKMenYlPW8iA=" class="window">
+    <fabric-grid-row id="browser">
+      <fabric-browser address="/">
+        <fabric-grid rows="3" columns="3">
+          <div class="ui grid">
+            <div class="sixteen wide column">
+              <div class="browser">
+                <fabric-browser-content id="browser-content" class="ui container">
+                  <div class="ui segment loading">
+                    <h1 class="header">Preparing content...</h1>
+                    <p>The application is compiling your document.</p>
+                  </div>
+                </fabric-browser-content>
+              </div>
+            </div>
+          </div>
+        </fabric-grid>
+      </fabric-browser>
+    </fabric-grid-row>
+    <div id="ephemeral-content"></div>
+    <!-- TODO: rollup semantic into build process -->
+    <!-- <script type="text/javascript" src="/scripts/semantic.min.js"></script> -->
+    <!-- <script type="text/javascript" src="/scripts/index.min.js"></script> -->
+    <!-- <script type="text/javascript" src="/scripts/rpg.min.js"></script> -->
+    <script type="text/javascript" src="/scripts/app.js"></script>
+  </fabric-application>
+</body>
+<script type="text/javascript" src="/scripts/jquery-3.4.1.js"></script>
+<script type="text/javascript" src="/scripts/semantic.js"></script>
+</html>

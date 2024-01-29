@@ -20,7 +20,7 @@
 // export const FabricBridge = require('./FabricBridge');
 // export const FabricChannelManager = require('./FabricChannelManager');
 // export const FabricDebugger = require('./FabricDebugger');
-export const FabricIdentity = require('./FabricIdentity');
+// export const FabricIdentity = require('./FabricIdentity');
 // export const FabricIdentityManager = require('./FabricIdentityManager');
 // export const FabricKeyForm = require('./FabricKeyForm');
 // export const FabricKeyList = require('./FabricKeyList');

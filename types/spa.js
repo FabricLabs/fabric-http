@@ -16,6 +16,7 @@ const config = {
 
 // core dependencies
 const crypto = require('crypto');
+const merge = require('lodash.merge');
 const page = require('page');
 const pluralize = require('pluralize');
 
@@ -42,22 +43,23 @@ class SPA extends App {
    * @param  {String} [settings.name="@fabric/maki"] Name of the app.
    * @param  {Boolean} [settings.offline=true] Hint offline mode to browsers.
    * @param  {Object} [components] Map of Web Components for the application to utilize.
-   * @return {App}               Instance of the application.
+   * @return {App} Instance of the application.
    */
   constructor (settings = {}) {
     super(settings);
 
-    // Assist in debugging
-    if (settings.verbosity >= 4) console.log('[WEB:SPA]', 'Creating instance with constructor settings:', settings);
-
     // Assign defaults
-    this.settings = Object.assign({
-      name: "@fabric/maki",
+    this.settings = merge({
+      name: '@fabric/maki',
       authority: 'localhost.localdomain:9999',
       persistent: false,
       // TODO: enable by default?
       websockets: false,
       secure: false, // TODO: default to secure (i.e., TLS on all connections)
+      state: {
+        status: 'PAUSED',
+        title: settings.title || '@fabric/http'
+      },
       components: {} /* {
         'fabric-identity': require('../components/fabric-identity')
       } */
@@ -77,7 +79,23 @@ class SPA extends App {
       'click': this._handleClick.bind(this)
     };
 
+    this._state = {
+      content: this.settings.state
+    };
+
     return this;
+  }
+
+  get state () {
+    return this._state.content;
+  }
+
+  get title () {
+    return this.state.title;
+  }
+
+  set title (value) {
+    this._state.content.title = value;
   }
 
   // TODO: reconcile with super(), document use of constructor vs. CustomElements
@@ -224,22 +242,25 @@ class SPA extends App {
     return this.target;
   }
 
-  _renderWith (html) {
-    let hash = crypto.createHash('sha256').update(html).digest('hex');
+  _renderWith (html = '') {
+    const hash = crypto.createHash('sha256').update(html).digest('hex');
 
     // TODO: move CSS to inline from webpack
     return `<!DOCTYPE html>
-<html lang="${this.settings.language}"${(this.settings.offline) ? 'manifest="cache.manifest"' : ''}>
-<head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-  <title>${this.title}</title>
-  <!-- <link rel="manifest" href="/manifest.json"> -->
-  <link rel="stylesheet" type="text/css" href="/styles/screen.css" />
-  <link rel="stylesheet" type="text/css" href="/styles/semantic.css" />
-</head>
-<body data-bind="${hash}">${html}</body>
-<script type="text/javascript" src="/scripts/jquery-3.4.1.js"></script>
-<script type="text/javascript" src="/scripts/semantic.js"></script>
+<html lang="${this.settings.language}"${(this.settings.offline) ? ' manifest="cache.manifest"' : ''}>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>${this.title || this.settings.title}</title>
+    <link rel="stylesheet" type="text/css" href="/styles/semantic.min.css" />
+    <link rel="stylesheet" type="text/css" href="/styles/screen.css" />
+    <script src="/scripts/jquery-3.4.1.js"></script>
+    <script src="/scripts/semantic.min.js"></script>
+  </head>
+  <body>
+    <div data-hash="${hash}" id="application-target">${html}</div>
+    <script src="/bundles/browser.min.js"></script>
+  </body>
 </html>`;
   }
 
@@ -275,7 +296,7 @@ class SPA extends App {
 
     try {
       if (this.settings.verbosity >= 5) console.log('[HTTP:SPA]', 'Stopping store...');
-      await this.store.stop();
+      if (this.store) await this.store.stop();
     } catch (E) {
       console.error('Could not stop SPA store:', E);
     }

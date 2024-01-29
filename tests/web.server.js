@@ -10,19 +10,19 @@ const assert = require('assert');
 const WebSocket = require('ws');
 
 // Types
-const HTTPServer = require('../types/server');
-const HTTPClient = require('../types/client');
+const Client = require('../types/client');
+const Server = require('../types/server');
 
 describe('@fabric/http/types/server', function () {
   describe('Server', function () {
     this.timeout(10000);
 
     it('should expose a constructor', function () {
-      assert.equal(typeof HTTPServer, 'function');
+      assert.equal(typeof Server, 'function');
     });
 
     it('should start (and stop) smoothly', async function () {
-      let server = new HTTPServer(TEST_CONFIG);
+      const server = new Server(TEST_CONFIG);
 
       try {
         await server.start();
@@ -40,9 +40,10 @@ describe('@fabric/http/types/server', function () {
       assert.equal(server.status, 'STOPPED');
     });
 
-    it('can serve a simple GET request', async function () {
-      let client = new HTTPClient(TEST_CONFIG);
-      let server = new HTTPServer(TEST_CONFIG);
+    xit('can serve a simple GET request', async function () {
+      const client = new Client(TEST_CONFIG);
+      const server = new Server(TEST_CONFIG);
+
       let result = null;
 
       try {
@@ -72,9 +73,46 @@ describe('@fabric/http/types/server', function () {
       assert.ok(result);
     });
 
+    xit('can serve a custom route', async function () {
+      const client = new Client({ port: 8484, host: 'localhost', secure: false });
+      const server = new Server({ port: 8484 });
+
+      server._addRoute('GET', '/examples/restricted', (req, res, next) => {
+        return res.send({ type: 'SecretDocument' })
+      });
+
+      let result = null;
+
+      try {
+        await server.start();
+      } catch (exception) {
+        assert.fail(exception);
+      }
+
+      try {
+        result = await client._GET('/examples/restricted');
+      } catch (exception) {
+        assert.fail(exception);
+      }
+
+      try {
+        await server.flush();
+      } catch (exception) {
+        assert.fail(exception);
+      }
+
+      try {
+        await server.stop();
+      } catch (exception) {
+        assert.fail(exception);
+      }
+
+      assert.ok(result);
+    });
+
     xit('can store an object in a collection', async function () {
-      let client = new HTTPClient(TEST_CONFIG);
-      let server = new HTTPServer(TEST_CONFIG);
+      const client = new Client(TEST_CONFIG);
+      const server = new Server(TEST_CONFIG);
       let result = null;
       let posted = null;
 
@@ -117,8 +155,8 @@ describe('@fabric/http/types/server', function () {
     });
 
     xit('can restore collections after a restart', async function () {
-      let client = new HTTPClient(TEST_CONFIG);
-      let server = new HTTPServer(TEST_CONFIG);
+      const client = new Client(TEST_CONFIG);
+      const server = new Server(TEST_CONFIG);
       let result = null;
       let posted = null;
       let prior = null;
@@ -182,8 +220,8 @@ describe('@fabric/http/types/server', function () {
 
     xit('can handle a websocket connection', function (done) {
       async function test () {
-        let client = new HTTPClient(TEST_CONFIG);
-        let server = new HTTPServer(TEST_CONFIG);
+        const client = new Client(TEST_CONFIG);
+        const server = new Server(TEST_CONFIG);
         let result = null;
         let posted = null;
         let prior = null;

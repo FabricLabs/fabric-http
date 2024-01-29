@@ -3,7 +3,7 @@
 const pluralize = require('pluralize');
 const { pathToRegexp, match, parse, compile } = require('path-to-regexp');
 
-const Entity = require('@fabric/core/types/entity');
+const Actor = require('@fabric/core/types/actor');
 const Service = require('@fabric/core/types/service');
 
 /**
@@ -107,7 +107,7 @@ class Router extends Service {
     this.status = 'starting';
 
     for (let name in this.routes) {
-      let route = new Entity(this.routes[name].path);
+      let route = new Actor(this.routes[name].path);
       /* this.state.channels[route.id] = Object.assign({
         path: this.routes[name].path,
         members: [],

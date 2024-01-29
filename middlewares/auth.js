@@ -15,15 +15,17 @@ const hasRole = require('../contracts/hasRole');
 
 module.exports = function FabricAuthenticationMiddleware (request, response, next) {
   request.identity = null;
-
-  // request.hasRole = hasRole.bind(request);
+  request.hasRole = hasRole.bind(request);
   // request.hasState = hasState.bind(app.state);
 
   if (request.headers[HTTP_IDENTITY_HEADER_NAME_LOWER]) {
-    request.identity = Identity.fromString(request.headers[HTTP_IDENTITY_HEADER_NAME_LOWER]);
-    // console.log('request body:', request.body);
+    try {
+      request.identity = Identity.fromString(request.headers[HTTP_IDENTITY_HEADER_NAME_LOWER]);
+    } catch {
+
+    }
   } else {
-    console.debug(`[WARNING] No "${HTTP_IDENTITY_HEADER_NAME}" header.  Consider rejecting here.`);
+    this.emit('debug', `[WARNING] No "${HTTP_IDENTITY_HEADER_NAME}" header.  Consider rejecting here.`);
   }
 
   return next();

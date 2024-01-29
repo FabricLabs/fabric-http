@@ -11,7 +11,9 @@ const pluralize = require('pluralize');
 const beautify = require('js-beautify');
 // const d3 = require('d3');
 
-const Fabric = require('@fabric/core');
+const Collection = require('@fabric/core/types/collection');
+const Key = require('@fabric/core/types/key');
+const Store = require('@fabric/core/types/store');
 // const Stash = require('@fabric/core/types/stash');
 
 // Internal Types
@@ -92,7 +94,7 @@ class App extends Component {
     this.identity = null;
     this.history = [];
 
-    this.stash = new Fabric.Store(Object.assign({}, this.settings, {
+    this.stash = new Store(Object.assign({}, this.settings, {
       path: 'stores/stash'
     }));
 
@@ -100,18 +102,18 @@ class App extends Component {
       console.log('[HTTP:APP]', 'heard patches!', patches);
     });
 
-    this.secrets = new Fabric.Store({
+    this.secrets = new Store({
       path: 'stores/secrets'
     });
 
-    this.wallets = new Fabric.Collection({
+    this.wallets = new Collection({
       name: 'Wallet',
       listeners: {
         'changes': this._handleWalletChanges.bind(this)
       }
     });
 
-    this.circuit = this.settings.circuit || new Fabric.Circuit();
+    // this.circuit = this.settings.circuit || new Circuit();
 
     // Add index menu item
     // this.menu._addItem({ name: this.settings.name, path: '/', brand: true });
@@ -341,7 +343,7 @@ class App extends Component {
     let link = null;
 
     // TODO: async generation
-    let key = new Fabric.Key();
+    let key = new Key();
     let struct = {
       name: prompt('What shall be your name?'),
       address: key.address,
@@ -408,7 +410,7 @@ class App extends Component {
   }
 
   _refresh () {
-    let resource = new Fabric.Resource();
+    let resource = new Resource();
     this.target.innerHTML = this._loadHTML(resource.render());
     return this;
   }
@@ -424,8 +426,8 @@ class App extends Component {
 
   // TODO: write Purity-based version, use in production
   _loadHTML (html) {
-    let blob = JSON.stringify(this.state, null, '  ');
-    let verification = crypto.createHash('sha256').update(blob).digest('hex');
+    const blob = JSON.stringify(this.state, null, '  ');
+    const verification = crypto.createHash('sha256').update(blob).digest('hex');
     let content = ``;
 
     // Begin Content Body
@@ -455,11 +457,6 @@ class App extends Component {
     }
 
     content += `<div id="ephemeral-content"></div>
-      <!-- TODO: rollup semantic into build process -->
-      <!-- <script type="text/javascript" src="/scripts/semantic.min.js"></script> -->
-      <!-- <script type="text/javascript" src="/scripts/index.min.js"></script> -->
-      <!-- <script type="text/javascript" src="/scripts/rpg.min.js"></script> -->
-      <script type="text/javascript" src="/scripts/app.js"></script>
     </fabric-application>`;
     return content;
   }
