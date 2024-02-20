@@ -1,11 +1,11 @@
 $ npm i
 
-added 1992 packages, and audited 1993 packages in 1m
+added 1973 packages, and audited 1974 packages in 1m
 
-152 packages are looking for funding
+155 packages are looking for funding
   run `npm fund` for details
 
-30 vulnerabilities (9 moderate, 21 high)
+25 vulnerabilities (6 moderate, 19 high)
 
 To address issues that do not require attention, run:
   npm audit fix
