@@ -685,7 +685,7 @@ class FabricHTTPServer extends Service {
       }
     }
 
-    this.debug('Resource mounted:', resource);
+    if (this.settings.debug) this.debug('Resource mounted:', resource);
 
     switch (req.method.toUpperCase()) {
       // Discard unhandled methods
