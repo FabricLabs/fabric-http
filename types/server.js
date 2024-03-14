@@ -464,7 +464,13 @@ class FabricHTTPServer extends Service {
         case 'Ping':
           const now = Date.now();
           local = Message.fromVector(['Pong', now.toString()]);
-          return server._sendTo(handle, local.toBuffer());
+          let sendResult = null
+          try {
+            sendResult = server._sendTo(handle, local.toBuffer());
+          } catch (exception) {
+            console.error('[FABRIC:EDGE]', '[SERVER]', 'Could not send Pong:', exception);
+          }
+          return sendResult;
         case 'GenericMessage':
           local = Message.fromVector(['GenericMessage', JSON.stringify({
             type: 'GenericMessageReceipt',
@@ -544,7 +550,6 @@ class FabricHTTPServer extends Service {
 
   _sendTo (actor, msg) {
     const target = this.connections[actor];
-
     if (!target) throw new Error('No such target.');
 
     const result = target.send(msg);
