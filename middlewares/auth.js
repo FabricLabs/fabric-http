@@ -25,7 +25,7 @@ module.exports = function FabricAuthenticationMiddleware (request, response, nex
 
     }
   } else {
-    this.emit('debug', `[WARNING] No "${HTTP_IDENTITY_HEADER_NAME}" header.  Consider rejecting here.`);
+    if (this.settings.verbosity > 2) this.emit('warning', `[WARNING] No "${HTTP_IDENTITY_HEADER_NAME}" header.  Consider rejecting here.`);
   }
 
   return next();
