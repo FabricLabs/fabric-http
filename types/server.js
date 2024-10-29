@@ -91,6 +91,7 @@ class FabricHTTPServer extends Service {
       components: {},
       middlewares: {},
       redirects: {},
+      routes: [],
       services: {
         audio: {
           address: '/devices/audio'
@@ -345,6 +346,14 @@ class FabricHTTPServer extends Service {
 
   warn (content) {
     console.warn('[FABRIC:EDGE]', (new Date().toISOString()), content);
+  }
+
+  _addAllRoutes () {
+    for (let i = 0; i < this.settings.routes.length; i++) {
+      this._addRoute(this.settings.routes[i]);
+    }
+
+    return this;
   }
 
   _registerMethod (name, method) {
@@ -861,6 +870,8 @@ class FabricHTTPServer extends Service {
     // TODO: enable this route by disabling or moving the static asset handler above
     // NOTE: see `this.express.use(express.static('assets'));`
     this.express.get('/', this._handleIndexRequest.bind(this));
+
+    this._addAllRoutes();
 
     // handle custom routes.
     // TODO: abolish this garbage in favor of resources.
