@@ -350,7 +350,8 @@ class FabricHTTPServer extends Service {
 
   _addAllRoutes () {
     for (let i = 0; i < this.settings.routes.length; i++) {
-      this._addRoute(this.settings.routes[i]);
+      const route = this.settings.routes[i];
+      this._addRoute(route.method, route.path, route.handler);
     }
 
     return this;
