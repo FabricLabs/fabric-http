@@ -351,7 +351,7 @@ class FabricHTTPServer extends Service {
   _addAllRoutes () {
     for (let i = 0; i < this.settings.routes.length; i++) {
       const route = this.settings.routes[i];
-      this._addRoute(route.method, route.path, route.handler);
+      this._addRoute(route.method, route.route, route.handler);
     }
 
     return this;
@@ -648,7 +648,6 @@ class FabricHTTPServer extends Service {
 
   _verifyClient (info, done) {
     this.emit('debug', `[HTTP:SERVER] _verifyClient ${info}`);
-
     if (!this.settings.sessions) return done();
     this.sessions(info.req, {}, () => {
       // TODO: reject unknown (!info.req.session.identity)
