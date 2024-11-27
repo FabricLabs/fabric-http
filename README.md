@@ -5,29 +5,32 @@
 [![Community](https://img.shields.io/matrix/hub:fabric.pub.svg?style=flat-square)](https://chat.fabric.pub)
 
 Robust library for implementing Fabric-enabled Web Applications.
-## TODO
-- [ ] Replace `Fabric-enabled` with `Bitcoin-enabled`
+
+## What is Fabric?
+[Fabric][fabric] is an attempt at replicating the World Wide Web ("the WWW") as a peer-to-peer network, using payment relationships to exchange documents and scale the network.  `@fabric/http` provides a framework for hosting Fabric-enabled applications over HTTP, allowing them to be used as "edge servers" for legacy web users.
 
 ## Quick Start
 Building applications with `@fabric/http` is easy.
 
-```
-mkdir myapp && cd myapp
-npm init
-npm i --save @fabric/http
+```sh
+mkdir some-project && cd some-project
+npm init # Initialize the project
+npm i --save @fabric/http # Install the @fabric/http dependency
 ```
 
-Create an application by creating a new file (here we've used `scripts/app.js`), containing the following:
-### `scripts/app.js`:
+Create an application by creating a new file (here we've used `scripts/node.js`), containing the following:
+### `scripts/node.js`:
 ```js
 'use strict';
 
+// Dependencies
 const SPA = require('@fabric/http/types/spa');
 
+// Main Process
 async function main () {
   const spa = new SPA({
-    name: 'Example App',
-    synopsis: 'Simple demonstration of a single-page app.',
+    name: 'Example Application',
+    synopsis: 'Simple demonstration of a single-page application.',
     resources: {
       'Todo': {
         description: 'A to-do list item.'
@@ -35,7 +38,11 @@ async function main () {
     }
   });
 
+  // Start the Process
   await spa.start();
+
+  // Return reference
+  return { id: spa.id };
 }
 
 main().catch((exception) => {
@@ -45,10 +52,7 @@ main().catch((exception) => {
 });
 ```
 
-Run `node scripts/app.js` to start the app, or `webpack scripts/app.js -o assets/app.min.js` to
+Run `node scripts/node.js` to start the app, or `webpack scripts/app.js -o assets/app.min.js` to
 build a browser version.
 
-### Advanced: `@maki/roller`
-
-## Maki, making beautiful apps a breeze
-Try `maki roll examples` in this repo for a mind-blowing experience.
+[fabric]: https://fabric.pub
