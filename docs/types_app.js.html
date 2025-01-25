@@ -34,7 +34,9 @@ const pluralize = require('pluralize');
 const beautify = require('js-beautify');
 // const d3 = require('d3');
 
-const Fabric = require('@fabric/core');
+const Collection = require('@fabric/core/types/collection');
+const Key = require('@fabric/core/types/key');
+const Store = require('@fabric/core/types/store');
 // const Stash = require('@fabric/core/types/stash');
 
 // Internal Types
@@ -115,7 +117,7 @@ class App extends Component {
     this.identity = null;
     this.history = [];
 
-    this.stash = new Fabric.Store(Object.assign({}, this.settings, {
+    this.stash = new Store(Object.assign({}, this.settings, {
       path: 'stores/stash'
     }));
 
@@ -123,18 +125,18 @@ class App extends Component {
       console.log('[HTTP:APP]', 'heard patches!', patches);
     });
 
-    this.secrets = new Fabric.Store({
+    this.secrets = new Store({
       path: 'stores/secrets'
     });
 
-    this.wallets = new Fabric.Collection({
+    this.wallets = new Collection({
       name: 'Wallet',
       listeners: {
         'changes': this._handleWalletChanges.bind(this)
       }
     });
 
-    this.circuit = this.settings.circuit || new Fabric.Circuit();
+    // this.circuit = this.settings.circuit || new Circuit();
 
     // Add index menu item
     // this.menu._addItem({ name: this.settings.name, path: '/', brand: true });
@@ -364,7 +366,7 @@ class App extends Component {
     let link = null;
 
     // TODO: async generation
-    let key = new Fabric.Key();
+    let key = new Key();
     let struct = {
       name: prompt('What shall be your name?'),
       address: key.address,
@@ -431,7 +433,7 @@ class App extends Component {
   }
 
   _refresh () {
-    let resource = new Fabric.Resource();
+    let resource = new Resource();
     this.target.innerHTML = this._loadHTML(resource.render());
     return this;
   }
@@ -447,8 +449,8 @@ class App extends Component {
 
   // TODO: write Purity-based version, use in production
   _loadHTML (html) {
-    let blob = JSON.stringify(this.state, null, '  ');
-    let verification = crypto.createHash('sha256').update(blob).digest('hex');
+    const blob = JSON.stringify(this.state, null, '  ');
+    const verification = crypto.createHash('sha256').update(blob).digest('hex');
     let content = ``;
 
     // Begin Content Body
@@ -478,11 +480,6 @@ class App extends Component {
     }
 
     content += `&lt;div id="ephemeral-content">&lt;/div>
-      &lt;!-- TODO: rollup semantic into build process -->
-      &lt;!-- &lt;script type="text/javascript" src="/scripts/semantic.min.js">&lt;/script> -->
-      &lt;!-- &lt;script type="text/javascript" src="/scripts/index.min.js">&lt;/script> -->
-      &lt;!-- &lt;script type="text/javascript" src="/scripts/rpg.min.js">&lt;/script> -->
-      &lt;script type="text/javascript" src="/scripts/app.js">&lt;/script>
     &lt;/fabric-application>`;
     return content;
   }
@@ -571,7 +568,7 @@ module.exports = App;
 
 
     </div>
-    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Router.html">Router</a></li><li><a href="Site.html">Site</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Stash.html">Stash</a></li><li><a href="Wallet.html">Wallet</a></li></ul></nav>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul></nav>
     <br class="clear" />
     <footer>
         <a href="https://github.com/FabricLabs/web">git://</a> &middot; <a href="https://chat.fabric.pub/#/room/#web:fabric.pub">Community</a>

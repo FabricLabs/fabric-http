@@ -24,16 +24,16 @@
             <pre class="prettyprint source linenums"><code> 'use strict';
 
 // Fabric Types
-const Peer = require('@fabric/core/types/peer');
-const Service = require('@fabric/core/types/service');
+const Actor = require('@fabric/core/types/actor');
 
 // Internal Types
-const SPA = require('../types/spa');
+// const Bridge = require('../types/bridge');
+const SPA = require('./spa');
 
 /**
  * Implements a full-capacity (Native + Edge nodes) for a Fabric Site. 
  */
-class Site extends Service {
+class Site extends Actor {
   /**
    * Creates an instance of the {@link Site}, which provides general statistics covering a target Fabric node.
    * @param {Object} [settings] Configuration values for the {@link Site}.
@@ -45,49 +45,111 @@ class Site extends Service {
 
     // Define local settings
     this.settings = Object.assign({
+      handle: 'fabric-site',
       authority: 'http://localhost:9332/services/fabric', // loopback service
       fabric: {
-        name: '@sites/default'
+        alias: '@sites/default'
+      },
+      state: {
+        title: 'Default Site'
       },
       spa: null
     }, this.settings, settings);
 
     // Set local state
     this._state = {
-      content: {
-        title: 'Default Site'
-      },
+      content: this.settings.state,
       status: 'PAUSED'
     };
 
-    this.peer = new Peer(this.settings.fabric);
-    this.spa = new SPA(this.settings.spa);
+    // Fabric Components
+    this.spa = new SPA(this.settings);
+    // this.bridge = new Bridge();
 
     // Ensure chainability
     return this;
   }
 
+  get handle () {
+    return this.settings.handle;
+  }
+
   render (state = this.state) {
+    const html = this._getHTML(state);
+    return this.spa._renderWith(html);
+  }
+
+  toHTML () {
+    return this.render();
+  }
+
+  _getHTML (state) {
+    // TODO: obvious modularization...
+    // - fabric-site
+    //   - fabric-bridge
+    //   - fabric-console
+    //   - fabric-menu
+    //   - fabric-grid
     return `
-      &lt;!DOCTYPE html>
-      &lt;html>
-        &lt;head>
-          &lt;title>${state.title}&lt;/title>
-        &lt;/head>
-        &lt;body>
-          &lt;div id="fabric-container">
-            &lt;p>Loading...&lt;/p>
-          &lt;/div>
-          &lt;fabric-site>&lt;/fabric-site>
-          &lt;script src="bundles/browser.js" data-fullhash="${(state.bundle) ? state.bundle.fullhash : ''}">&lt;/script>
-        &lt;/body>
-      &lt;/html>`;
+      &lt;${this.handle} class="ui container" id="site">
+        &lt;fabric-bridge host="localhost" port="9999" secure="false">&lt;/fabric-bridge>
+        &lt;fabric-console id="console" style="display: none;">
+          &lt;fabric-card class="ui fluid card">
+            &lt;fabric-card-content class="content">
+              &lt;p>Console...&lt;/p>
+            &lt;/fabric-card-content>
+          &lt;/fabric-card>
+        &lt;/fabric-console>
+        &lt;fabric-menu id="tray">
+          &lt;i id="tray-settings" class="ui large inverted cog icon">&lt;/i>
+        &lt;/fabric-menu>
+        &lt;fabric-menu>
+          &lt;fabric-card id="settings" class="ui fluid card" style="display: none;">
+            &lt;fabric-card-header class="ui header">Settings&lt;/fabric-card-header>
+            &lt;fabric-card-content class="ui content">
+              &lt;p>Foo&lt;/p>
+            &lt;/fabric-card-content>
+          &lt;/fabric-card>
+        &lt;/fabric-menu>
+        &lt;fabric-grid class="ui centered grid">
+          &lt;fabric-column class="twelve wide column">
+            &lt;fabric-card class="ui fluid card" id="overlay">
+              &lt;fabric-card-content class="content" style="text-align: center;">
+                &lt;h1 class="ui huge header" data-bind="/title">&lt;code>${state.title || this.title || this.state.title || 'Example Application'}&lt;/code>&lt;/h1>
+                &lt;p>file browser&lt;/p>
+              &lt;/fabric-card-content>
+              &lt;fabric-card-content class="extra hidden" style="display: none;">
+                &lt;h2>Debug&lt;/h2>
+              &lt;/fabric-card-content>
+              &lt;fabric-card-content class="bottom attached" style="display: none;">
+                &lt;fabric-button-group class="ui small bottom attached left aligned buttons">
+                  &lt;fabric-button class="ui labeled icon button">&lt;i class="ui linkify icon">&lt;/i> &lt;code>${this.id}&lt;/code>&lt;/fabric-button>
+                &lt;/fabric-button-group>
+              &lt;/fabric-card-content>
+            &lt;/fabric-card>
+          &lt;/fabric-column>
+        &lt;/fabric-grid>
+      &lt;/${this.handle}>
+    `.trim();
+  }
+
+  _renderWith (html) {
+    return this.spa._renderWith(html);
   }
 
   async compute (next = {}) {
-    this.state = Object.assign(this.state, next);
+    this._state.content.status = 'COMPUTING';
+    const state = Object.assign(this.state, next);
+    const actor = new Actor({
+      type: 'Cycle',
+      object: state
+    });
+
     this.next = this.commit();
-    this.emit('commit', this.next);
+    this._state.content.status = 'COMPUTED';
+
+    this.emit('cycle', actor);
+
     return this;
   }
 
@@ -107,7 +169,7 @@ module.exports = Site;
 
 
     </div>
-    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Router.html">Router</a></li><li><a href="Site.html">Site</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Stash.html">Stash</a></li><li><a href="Wallet.html">Wallet</a></li></ul></nav>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul></nav>
     <br class="clear" />
     <footer>
         <a href="https://github.com/FabricLabs/web">git://</a> &middot; <a href="https://chat.fabric.pub/#/room/#web:fabric.pub">Community</a>

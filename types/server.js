@@ -31,8 +31,8 @@ const extractor = require('express-bearer-token');
 const stoppable = require('stoppable');
 
 // GraphQL
-const { GraphQLSchema, GraphQLObjectType, GraphQLString } = require('graphql');
-const graphql = require('graphql-http/lib/use/http').createHandler;
+// const { GraphQLSchema, GraphQLObjectType, GraphQLString } = require('graphql');
+// const graphql = require('graphql-http/lib/use/http').createHandler;
 
 // Pathing
 const pathToRegexp = require('path-to-regexp').pathToRegexp;
@@ -91,6 +91,7 @@ class FabricHTTPServer extends Service {
       components: {},
       middlewares: {},
       redirects: {},
+      routes: [],
       services: {
         audio: {
           address: '/devices/audio'
@@ -315,6 +316,10 @@ class FabricHTTPServer extends Service {
     for (let i = 0; i < peers.length; i++) {
       const peer = peers[i];
 
+      if (peer.status === 'connected') {
+        // TODO: move send buffer here
+      }
+
       try {
         this.connections[peer].send(message.toBuffer());
       } catch (E) {
@@ -341,6 +346,15 @@ class FabricHTTPServer extends Service {
 
   warn (content) {
     console.warn('[FABRIC:EDGE]', (new Date().toISOString()), content);
+  }
+
+  _addAllRoutes () {
+    for (let i = 0; i < this.settings.routes.length; i++) {
+      const route = this.settings.routes[i];
+      this._addRoute(route.method, route.route, route.handler);
+    }
+
+    return this;
   }
 
   _registerMethod (name, method) {
@@ -460,7 +474,13 @@ class FabricHTTPServer extends Service {
         case 'Ping':
           const now = Date.now();
           local = Message.fromVector(['Pong', now.toString()]);
-          return server._sendTo(handle, local.toBuffer());
+          let sendResult = null
+          try {
+            sendResult = server._sendTo(handle, local.toBuffer());
+          } catch (exception) {
+            console.error('[FABRIC:EDGE]', '[SERVER]', 'Could not send Pong:', exception);
+          }
+          return sendResult;
         case 'GenericMessage':
           local = Message.fromVector(['GenericMessage', JSON.stringify({
             type: 'GenericMessageReceipt',
@@ -529,17 +549,10 @@ class FabricHTTPServer extends Service {
     })); */
 
     if (this.app) {
-      socket.send(JSON.stringify({
-        '@type': 'Inventory',
-        '@parent': server.app.id,
-        '@version': 1
-      }));
-
-      socket.send(JSON.stringify({
-        '@type': 'State',
-        '@data': server.app.state,
-        '@version': 1
-      }));
+      const inventory = Message.fromVector(['InventoryRequest', { parent: server.app.id, version: 0 }]);
+      const state = Message.fromVector(['State', { content: server.app.state }]);
+      socket.send(inventory.toBuffer());
+      socket.send(state.toBuffer());
     }
 
     return socket;
@@ -547,7 +560,6 @@ class FabricHTTPServer extends Service {
 
   _sendTo (actor, msg) {
     const target = this.connections[actor];
-
     if (!target) throw new Error('No such target.');
 
     const result = target.send(msg);
@@ -636,7 +648,6 @@ class FabricHTTPServer extends Service {
 
   _verifyClient (info, done) {
     this.emit('debug', `[HTTP:SERVER] _verifyClient ${info}`);
-
     if (!this.settings.sessions) return done();
     this.sessions(info.req, {}, () => {
       // TODO: reject unknown (!info.req.session.identity)
@@ -687,6 +698,8 @@ class FabricHTTPServer extends Service {
         break;
       }
     }
+
+    if (this.settings.debug) this.debug('Resource mounted:', resource);
 
     switch (req.method.toUpperCase()) {
       // Discard unhandled methods
@@ -757,6 +770,8 @@ class FabricHTTPServer extends Service {
       });
     }
 
+    console.debug('Preparing to format:', req.path);
+
     return res.format({
       json: function () {
         res.header('Content-Type', 'application/json');
@@ -777,39 +792,46 @@ class FabricHTTPServer extends Service {
   }
 
   async start () {
+    console.debug('[HTTP:SERVER]', 'Starting...');
     this.emit('debug', '[HTTP:SERVER] Starting...');
+
     this.status = 'starting';
 
     /* if (!server.settings.resources || !Object.keys(server.settings.resources).length) {
       console.trace('[HTTP:SERVER]', 'No Resources have been defined for this server.  Please provide a "resources" map in the configuration.');
     } */
 
-    const fields = {
+    /* const fields = {
       hello: {
         type: GraphQLString,
         resolve: () => 'world'
       }
-    };
+    }; */
+
+    // console.log('resources:', this.settings.resources);
 
     for (let name in this.settings.resources) {
       const definition = this.settings.resources[name];
       const resource = await this._defineResource(name, definition);
 
+      // console.log('resource:', name, definition, resource);
+
       // Attach to GraphQL
-      fields[resource.names[1].toLowerCase()] = {
+      /* fields[resource.names[1].toLowerCase()] = {
         type: GraphQLObjectType,
         resolve: () => {}
-      };
+      }; */
 
       if (this.settings.verbosity >= 6) console.log('[AUDIT]', 'Created resource:', resource);
     }
 
-    this.graphQLSchema = new GraphQLSchema({
+    // console.log('fields:', fields);
+    /* this.graphQLSchema = new GraphQLSchema({
       query: new GraphQLObjectType({
         name: 'Query',
         fields: fields
       })
-    });
+    }); */
 
     // Middlewares
     this.express.use(this._logMiddleware.bind(this));
@@ -825,7 +847,7 @@ class FabricHTTPServer extends Service {
     this.express.use(extractor());
     this.express.use(this._roleMiddleware.bind(this));
 
-    this.express.all('/services/graphql', graphql({ schema: this.graphQLSchema }))
+    // this.express.all('/services/graphql', graphql({ schema: this.graphQLSchema }))
 
     // configure sessions & parsers
     // TODO: migrate to {@link Session} or abolish entirely
@@ -848,6 +870,8 @@ class FabricHTTPServer extends Service {
     // TODO: enable this route by disabling or moving the static asset handler above
     // NOTE: see `this.express.use(express.static('assets'));`
     this.express.get('/', this._handleIndexRequest.bind(this));
+
+    this._addAllRoutes();
 
     // handle custom routes.
     // TODO: abolish this garbage in favor of resources.
