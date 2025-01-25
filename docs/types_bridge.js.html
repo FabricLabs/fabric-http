@@ -34,6 +34,9 @@ const Message = require('@fabric/core/types/message');
 // Internal Types
 const Remote = require('./remote');
 
+// Components
+// const FabricBridge = require('../components/FabricBridge');
+
 /**
  * The {@link Bridge} type extends a Fabric application to the web.
  */
@@ -46,9 +49,13 @@ class Bridge extends Service {
   constructor (settings = {}) {
     super(settings);
 
+    // const bridge = new FabricBridge(this.settings);
+    const bridge = null;
+
     // Assign settings
     this.settings = Object.assign({
       authority: 'localhost',
+      document: bridge,
       port: 9999,
       path: './stores/bridge',
       reconnect: true
@@ -115,6 +122,8 @@ class Bridge extends Service {
           });
 
           const options = await remote._OPTIONS('/');
+          if (this.settings.verbosity >= 4) console.log('[HTTP:BRIDGE]', 'Got options from Remote:', options);
+
           this._remotes.push(remote);
         } catch (exception) {
           console.error('Could not connect to remote:', exception);
@@ -230,7 +239,7 @@ module.exports = Bridge;
 
 
     </div>
-    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Router.html">Router</a></li><li><a href="Site.html">Site</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Stash.html">Stash</a></li><li><a href="Wallet.html">Wallet</a></li></ul></nav>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul></nav>
     <br class="clear" />
     <footer>
         <a href="https://github.com/FabricLabs/web">git://</a> &middot; <a href="https://chat.fabric.pub/#/room/#web:fabric.pub">Community</a>

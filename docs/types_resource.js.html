@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>Source: settings/deprecations.js &middot; Docs</title>
+    <title>Source: types/resource.js &middot; Docs</title>
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
     <!--[if lt IE 9]>
@@ -13,7 +13,7 @@
   </head>
   <body>
     <div id="main">
-      <h1 class="page-title">Source: settings/deprecations.js</h1>
+      <h1 class="page-title">Source: types/resource.js</h1>
       
 
 
@@ -23,15 +23,35 @@
         <article>
             <pre class="prettyprint source linenums"><code>'use strict';
 
-/**
- * Deprecated 2021-10-16.
- * @deprecated
- */
-class Stash {}
+const Fabric = require('@fabric/core');
 
-module.exports = {
-  Stash
-};
+/**
+ * Generic interface for collections of digital objects.
+ * @param       {Object} definition Initial parameters
+ * @constructor
+ */
+class Resource extends Fabric.Resource {
+  constructor (definition = {}) {
+    super(definition);
+    this.components = {};
+    return this;
+  }
+
+  _define (name, definition) {
+    this.components[name] = definition;
+    return this;
+  }
+
+  renderComponent (name) {
+    return this.components[name].renderState(this.state);
+  }
+
+  render () {
+    return `&lt;fabric-resource name="${this.name}">&lt;code>${JSON.stringify(this.definition)}&lt;/code>&lt;/fabric-resource>`;
+  }
+}
+
+module.exports = Resource;
 </code></pre>
         </article>
     </section>

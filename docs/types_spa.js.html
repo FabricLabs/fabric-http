@@ -39,6 +39,7 @@ const config = {
 
 // core dependencies
 const crypto = require('crypto');
+const merge = require('lodash.merge');
 const page = require('page');
 const pluralize = require('pluralize');
 
@@ -71,13 +72,17 @@ class SPA extends App {
     super(settings);
 
     // Assign defaults
-    this.settings = Object.assign({
+    this.settings = merge({
       name: '@fabric/maki',
       authority: 'localhost.localdomain:9999',
       persistent: false,
       // TODO: enable by default?
       websockets: false,
       secure: false, // TODO: default to secure (i.e., TLS on all connections)
+      state: {
+        status: 'PAUSED',
+        title: settings.title || '@fabric/http'
+      },
       components: {} /* {
         'fabric-identity': require('../components/fabric-identity')
       } */
@@ -97,7 +102,23 @@ class SPA extends App {
       'click': this._handleClick.bind(this)
     };
 
+    this._state = {
+      content: this.settings.state
+    };
+
     return this;
+  }
+
+  get state () {
+    return this._state.content;
+  }
+
+  get title () {
+    return this.state.title;
+  }
+
+  set title (value) {
+    this._state.content.title = value;
   }
 
   // TODO: reconcile with super(), document use of constructor vs. CustomElements
@@ -244,22 +265,26 @@ class SPA extends App {
     return this.target;
   }
 
-  _renderWith (html) {
-    let hash = crypto.createHash('sha256').update(html).digest('hex');
+  _renderWith (html = '') {
+    const hash = crypto.createHash('sha256').update(html).digest('hex');
 
     // TODO: move CSS to inline from webpack
     return `&lt;!DOCTYPE html>
-&lt;html lang="${this.settings.language}"${(this.settings.offline) ? 'manifest="cache.manifest"' : ''}>
-&lt;head>
-  &lt;meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-  &lt;title>${this.title}&lt;/title>
-  &lt;!-- &lt;link rel="manifest" href="/manifest.json"> -->
-  &lt;link rel="stylesheet" type="text/css" href="/styles/screen.css" />
-  &lt;link rel="stylesheet" type="text/css" href="/styles/semantic.css" />
-&lt;/head>
-&lt;body data-bind="${hash}">${html}&lt;/body>
-&lt;script type="text/javascript" src="/scripts/jquery-3.4.1.js">&lt;/script>
-&lt;script type="text/javascript" src="/scripts/semantic.js">&lt;/script>
+&lt;html lang="${this.settings.language}"${(this.settings.offline) ? ' manifest="cache.manifest"' : ''}>
+  &lt;head>
+    &lt;meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    &lt;meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    &lt;title>${this.title || this.settings.title}&lt;/title>
+    &lt;!-- &lt;link rel="manifest" href="/manifest.json"> -->
+    &lt;link rel="stylesheet" type="text/css" href="/styles/semantic.min.css" />
+    &lt;link rel="stylesheet" type="text/css" href="/styles/screen.css" />
+    &lt;script src="/scripts/jquery-3.4.1.js">&lt;/script>
+    &lt;script src="/scripts/semantic.min.js">&lt;/script>
+  &lt;/head>
+  &lt;body>
+    &lt;div data-hash="${hash}" id="application-target">${html}&lt;/div>
+    &lt;script src="/bundles/browser.min.js">&lt;/script>
+  &lt;/body>
 &lt;/html>`;
   }
 
@@ -295,7 +320,7 @@ class SPA extends App {
 
     try {
       if (this.settings.verbosity >= 5) console.log('[HTTP:SPA]', 'Stopping store...');
-      await this.store.stop();
+      if (this.store) await this.store.stop();
     } catch (E) {
       console.error('Could not stop SPA store:', E);
     }
@@ -427,7 +452,7 @@ module.exports = SPA;
 
 
     </div>
-    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Router.html">Router</a></li><li><a href="Site.html">Site</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Stash.html">Stash</a></li><li><a href="Wallet.html">Wallet</a></li></ul></nav>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul></nav>
     <br class="clear" />
     <footer>
         <a href="https://github.com/FabricLabs/web">git://</a> &middot; <a href="https://chat.fabric.pub/#/room/#web:fabric.pub">Community</a>

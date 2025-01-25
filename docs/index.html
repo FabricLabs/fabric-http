@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>@fabric/http &middot; Docs</title>
+    <title>Home &middot; Docs</title>
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
     <!--[if lt IE 9]>
@@ -13,7 +13,7 @@
   </head>
   <body>
     <div id="main">
-      <h1 class="page-title">@fabric/http</h1>
+      <h1 class="page-title">Home</h1>
       
 
 
@@ -38,29 +38,32 @@
 
 
     <section>
-        <article><h1><code>@fabric/http</code></h1>
+        <article><h1><code>@fabric/http</code> — HTTP support for Fabric applications</h1>
 <p><img src="https://img.shields.io/badge/status-experimental-rainbow.svg?style=flat-square" alt="Project Status">
-<a href="https://travis-ci.org/FabricLabs/web"><img src="https://img.shields.io/travis/FabricLabs/web.svg?branch=master&amp;style=flat-square" alt="Build Status"></a>
 <a href="https://codecov.io/gh/FabricLabs/web"><img src="https://img.shields.io/codecov/c/github/FabricLabs/web.svg?style=flat-square" alt="Coverage Status"></a>
 <a href="https://github.com/FabricLabs/web/graphs/contributors"><img src="https://img.shields.io/github/contributors/FabricLabs/web.svg?style=flat-square" alt="GitHub contributors"></a>
 <a href="https://chat.fabric.pub"><img src="https://img.shields.io/matrix/hub:fabric.pub.svg?style=flat-square" alt="Community"></a></p>
-<p>Fabric module for serving the legacy web.</p>
+<p>Robust library for implementing Fabric-enabled Web Applications.</p>
+<h2>What is Fabric?</h2>
+<p><a href="https://fabric.pub">Fabric</a> is an attempt at replicating the World Wide Web (&quot;the WWW&quot;) as a peer-to-peer network, using payment relationships to exchange documents and scale the network.  <code>@fabric/http</code> provides a framework for hosting Fabric-enabled applications over HTTP, allowing them to be used as &quot;edge servers&quot; for legacy web users.</p>
 <h2>Quick Start</h2>
 <p>Building applications with <code>@fabric/http</code> is easy.</p>
-<pre class="prettyprint source"><code>mkdir myapp && cd myapp
-npm init
-npm i --save @fabric/http
+<pre class="prettyprint source lang-sh"><code>mkdir some-project && cd some-project
+npm init # Initialize the project
+npm i --save @fabric/http # Install the @fabric/http dependency
 </code></pre>
-<p>Create an application by creating a new file (here we've used <code>scripts/app.js</code>), containing the following:</p>
-<h3><code>scripts/app.js</code>:</h3>
+<p>Create an application by creating a new file (here we've used <code>scripts/node.js</code>), containing the following:</p>
+<h3><code>scripts/node.js</code>:</h3>
 <pre class="prettyprint source lang-js"><code>'use strict';
 
+// Dependencies
 const SPA = require('@fabric/http/types/spa');
 
+// Main Process
 async function main () {
   const spa = new SPA({
-    name: 'Example App',
-    synopsis: 'Simple demonstration of a single-page app.',
+    name: 'Example Application',
+    synopsis: 'Simple demonstration of a single-page application.',
     resources: {
       'Todo': {
         description: 'A to-do list item.'
@@ -68,7 +71,11 @@ async function main () {
     }
   });
 
+  // Start the Process
   await spa.start();
+
+  // Return reference
+  return { id: spa.id };
 }
 
 main().catch((exception) => {
@@ -77,11 +84,8 @@ main().catch((exception) => {
   console.log('[FABRIC-HTTP:EXAMPLE] Main Process Output:', output);
 });
 </code></pre>
-<p>Run <code>node scripts/app.js</code> to start the app, or <code>webpack scripts/app.js -o assets/app.min.js</code> to
-build a browser version.</p>
-<h3>Advanced: <code>@maki/roller</code></h3>
-<h2>Maki, making beautiful apps a breeze</h2>
-<p>Try <code>maki roll examples</code> in this repo for a mind-blowing experience.</p></article>
+<p>Run <code>node scripts/node.js</code> to start the app, or <code>webpack scripts/app.js -o assets/app.min.js</code> to
+build a browser version.</p></article>
     </section>
 
 
@@ -90,7 +94,7 @@ build a browser version.</p>
 
 
     </div>
-    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Router.html">Router</a></li><li><a href="Site.html">Site</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Stash.html">Stash</a></li><li><a href="Wallet.html">Wallet</a></li></ul></nav>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul></nav>
     <br class="clear" />
     <footer>
         <a href="https://github.com/FabricLabs/web">git://</a> &middot; <a href="https://chat.fabric.pub/#/room/#web:fabric.pub">Community</a>
