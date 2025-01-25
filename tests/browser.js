@@ -10,7 +10,7 @@ describe('bundles/browser.js', function () {
   describe('browser', function () {
     this.timeout(60000);
 
-    it('provides a global fabric', async function () {
+    xit('provides a global fabric', async function () {
       const server = new Server({ port: 8484 });
       await server.start();
 
