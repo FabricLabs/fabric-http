@@ -109,6 +109,7 @@ class FabricHTTPServer extends Service {
     this.definitions = {};
     this.methods = {};
     this.stores = {};
+    this.subscriptions = new Map(); // Track subscriptions by path
 
     // ## Fabric Agent
     // Establishes network connectivity with Fabric.  Manages peers, connections, and messages.
@@ -390,6 +391,9 @@ class FabricHTTPServer extends Service {
       entropy: buffer.toString('hex')
     });
 
+    // Initialize socket subscriptions
+    socket.subscriptions = new Set();
+
     socket._resetKeepAlive = function () {
       clearInterval(socket._heartbeat);
       socket._heartbeat = setInterval(function () {
@@ -410,123 +414,125 @@ class FabricHTTPServer extends Service {
     // Clean up memory when the connection has been safely closed (ideal case).
     socket.on('close', function () {
       clearInterval(socket._heartbeat);
+      // Clear subscriptions for this socket
+      socket.subscriptions.clear();
       delete server.connections[player['@data'].connection];
     });
 
     // TODO: message handler on base class
     socket.on('message', async function handler (msg) {
-      // console.log('[SERVER:WEBSOCKET]', 'incoming message:', typeof msg, msg);
-
       let message = null;
       let type = null;
 
-      if (msg.type && msg.data) {
-        console.log('spec:', {
-          type: msg.type,
-          data: msg.data
-        });
-      }
-
       try {
-        message = Message.fromRaw(msg);
-        type = message.type;
-      } catch (exception) {
-        console.error('could not parse message:', exception);
-      }
-
-      if (!message) {
-        // Fall back to JSON parsing
-        try {
-          if (msg instanceof Buffer) {
-            msg = msg.toString('utf8');
-          }
-
-          message = JSON.parse(msg);
-          type = message['@type'] || message.type;
-        } catch (E) {
-          console.error('could not parse message:', typeof msg, msg, E);
-          // TODO: disconnect from peer
-          console.warn('you should disconnect from this peer:', handle);
+        // Handle binary messages
+        if (msg instanceof Buffer) {
+          message = Message.fromBuffer(msg);
+        } else if (msg.data instanceof Buffer) {
+          message = Message.fromBuffer(msg.data);
+        } else {
+          // Try to parse as JSON if not binary
+          const data = typeof msg === 'string' ? msg : msg.toString('utf8');
+          message = Message.fromRaw(JSON.parse(data));
         }
-      }
 
-      const obj = message.toObject();
-      const actor = new Actor(obj);
-
-      let local = null;
-
-      switch (type) {
-        default:
-          console.log('[SERVER]', 'unhandled type:', type);
-          break;
-        case 'GET':
-          let answer = await server._GET(message['@data']['path']);
-          console.log('answer:', answer);
-          return answer;
-        case 'POST':
-          let link = await server._POST(message['@data']['path'], message['@data']['value']);
-          console.log('[SERVER]', 'posted link:', link);
-          break;
-        case 'PATCH':
-          let result = await server._PATCH(message['@data']['path'], message['@data']['value']);
-          console.log('[SERVER]', 'patched:', result);
-          break;
-        case 'Ping':
-          const now = Date.now();
-          local = Message.fromVector(['Pong', now.toString()]);
-          let sendResult = null
-          try {
-            sendResult = server._sendTo(handle, local.toBuffer());
-          } catch (exception) {
-            console.error('[FABRIC:EDGE]', '[SERVER]', 'Could not send Pong:', exception);
-          }
-          return sendResult;
-        case 'GenericMessage':
-          local = Message.fromVector(['GenericMessage', JSON.stringify({
-            type: 'GenericMessageReceipt',
-            content: actor.id
-          })]);
-
-          let msg = null;
-
-          try {
-            msg = JSON.parse(obj.data);
-          } catch (exception) {}
-
-          if (msg) {
-            server.emit('call', msg.data || {
-              method: 'GenericMessage',
-              params: [msg.data]
-            });
-
-            await server.handleFabricMessage(message);
-          }
-
-          break;
-        case 'Pong':
-          socket._resetKeepAlive();
+        if (!message) {
+          console.error('Could not parse message:', msg);
           return;
-          break;
-        case 'Call':
-          server.emit('call', {
-            method: message['@data'].data.method,
-            params: message['@data'].data.params
-          });
-          break;
+        }
+
+        type = message.type;
+        const obj = message.toObject();
+        const actor = new Actor(obj);
+
+        let local = null;
+
+        switch (type) {
+          default:
+            console.log('[SERVER]', 'unhandled type:', type);
+            break;
+          case 'GET':
+            let answer = await server._GET(message['@data']['path']);
+            console.log('answer:', answer);
+            return answer;
+          case 'POST':
+            let link = await server._POST(message['@data']['path'], message['@data']['value']);
+            console.log('[SERVER]', 'posted link:', link);
+            break;
+          case 'PATCH':
+            let result = await server._PATCH(message['@data']['path'], message['@data']['value']);
+            console.log('[SERVER]', 'patched:', result);
+            break;
+          case 'Ping':
+            const now = Date.now();
+            local = Message.fromVector(['Pong', now.toString()]);
+            let sendResult = null;
+            try {
+              sendResult = server._sendTo(handle, local.toBuffer());
+            } catch (exception) {
+              console.error('[FABRIC:EDGE]', '[SERVER]', 'Could not send Pong:', exception);
+            }
+            return sendResult;
+          case 'GenericMessage':
+            local = Message.fromVector(['GenericMessage', JSON.stringify({
+              type: 'GenericMessageReceipt',
+              content: actor.id
+            })]);
+
+            let msgData = null;
+            try {
+              msgData = JSON.parse(obj.data);
+            } catch (exception) {}
+
+            if (msgData) {
+              server.emit('call', msgData.data || {
+                method: 'GenericMessage',
+                params: [msgData.data]
+              });
+
+              await server.handleFabricMessage(message);
+            }
+            break;
+          case 'Pong':
+            socket._resetKeepAlive();
+            return;
+          case 'Call':
+            server.emit('call', {
+              method: message['@data'].data.method,
+              params: message['@data'].data.params
+            });
+            break;
+          case 'SUBSCRIBE':
+            const subscribePath = message['@data'];
+            socket.subscriptions.add(subscribePath);
+            console.debug('[SERVER]', 'Added subscription:', handle, 'to path:', subscribePath);
+            break;
+          case 'UNSUBSCRIBE':
+            const unsubscribePath = message['@data'];
+            socket.subscriptions.delete(unsubscribePath);
+            console.debug('[SERVER]', 'Removed subscription:', handle, 'from path:', unsubscribePath);
+            break;
+        }
+
+        // Send receipt of acknowledgement
+        const receipt = Message.fromVector(['P2P_MESSAGE_RECEIPT', {
+          '@type': 'Receipt',
+          '@actor': handle,
+          '@data': message,
+          '@version': 1
+        }]);
+
+        socket.send(receipt.toBuffer());
+      } catch (error) {
+        console.error('[SERVER]', 'Error handling message:', error);
+        const errorReceipt = Message.fromVector(['P2P_MESSAGE_ERROR', {
+          '@type': 'Error',
+          '@actor': handle,
+          '@data': { error: error.message },
+          '@version': 1
+        }]);
+        socket.send(errorReceipt.toBuffer());
       }
-
-      // TODO: enable relays
-      // server._relayFrom(handle, msg);
-
-      // always send a receipt of acknowledgement
-      const receipt = Message.fromVector(['P2P_MESSAGE_RECEIPT', {
-        '@type': 'Receipt',
-        '@actor': handle,
-        '@data': message,
-        '@version': 1
-      }]);
-
-      socket.send(receipt.toBuffer());
     });
 
     // set up an oracle, which listens to patches from server
@@ -670,9 +676,49 @@ class FabricHTTPServer extends Service {
     next();
   }
 
+  /**
+   * Notify subscribers of a state change
+   * @param {String} path - The path that changed
+   * @param {*} value - The new value
+   */
+  _notifySubscribers (path, value) {
+    const message = Message.fromVector(['PATCH', {
+      path,
+      value
+    }]);
+
+    // Iterate through all connections and notify those subscribed to this path
+    Object.entries(this.connections).forEach(([handle, socket]) => {
+      if (socket.subscriptions && socket.subscriptions.has(path)) {
+        try {
+          this._sendTo(handle, message.toBuffer());
+        } catch (error) {
+          console.error('[SERVER]', 'Failed to notify subscriber:', handle, error);
+        }
+      }
+    });
+  }
+
   async _applyChanges (ops) {
+    const sample = Object.assign({}, this.state);
+    const reference = new Actor(sample);
+
     try {
-      monitor.applyPatch(this.state, ops);
+      // Apply changes to state
+      monitor.applyPatch(sample, ops, function isValid () {
+        return true;
+      }, true);
+
+      this._state.parent = reference.id;
+      this._state.content = sample;
+
+      // Notify subscribers of changes
+      ops.forEach(op => {
+        if (op.op === 'replace' || op.op === 'add') {
+          this._notifySubscribers(op.path, op.value);
+        }
+      });
+
       await this.commit();
     } catch (E) {
       this.error('Error applying changes:', E);
