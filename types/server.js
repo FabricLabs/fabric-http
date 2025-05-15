@@ -1046,7 +1046,7 @@ class FabricHTTPServer extends Service {
     this.status = 'stopping';
 
     try {
-      await server.http.stop();
+      if (server.http) await server.http.stop();
     } catch (E) {
       console.error('Could not stop HTTP listener:', E);
     }
