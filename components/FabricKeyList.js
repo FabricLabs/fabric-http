@@ -4,6 +4,21 @@ import React, {
   Component
 } from 'react';
 
+// Components
+import {
+  Button,
+  // Card,
+  // Container,
+  Header,
+  Icon,
+  Input,
+  // Grid,
+  // Label,
+  // Menu,
+  Segment,
+  Table
+} from 'semantic-ui-react';
+
 import * as Actor from '@fabric/core/types/actor';
 import FabricKeyManager from './FabricKeyManager';
 
