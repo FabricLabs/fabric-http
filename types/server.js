@@ -39,8 +39,8 @@ const pathToRegexp = require('path-to-regexp').pathToRegexp;
 
 // Fabric Types
 const Actor = require('@fabric/core/types/actor');
-// const Oracle = require('@fabric/core/types/oracle');
 const Collection = require('@fabric/core/types/collection');
+const Key = require('@fabric/core/types/key');
 // const Resource = require('@fabric/core/types/resource');
 const Service = require('@fabric/core/types/service');
 const Message = require('@fabric/core/types/message');
@@ -84,6 +84,7 @@ class FabricHTTPServer extends Service {
       assets: 'assets',
       // TODO: document host as listening on all interfaces by default
       host: '0.0.0.0',
+      key: null,
       path: './stores/server',
       port: HTTP_SERVER_PORT,
       listen: true,
@@ -105,6 +106,8 @@ class FabricHTTPServer extends Service {
       }
     }, settings);
 
+    this._rootKey = new Key(this.settings.key);
+
     this.connections = {};
     this.definitions = {};
     this.methods = {};
@@ -118,7 +121,8 @@ class FabricHTTPServer extends Service {
       networking: true,
       peers: this.settings.peers,
       state: this.settings.state,
-      upnp: false
+      upnp: false,
+      xpub: this._rootKey.xpub
     });
 
     // this.browser = new Browser(this.settings);
@@ -149,7 +153,13 @@ class FabricHTTPServer extends Service {
     });
 
     // Local State Setup
-    this._state = {};
+    this._state = {
+      actors: {},
+      content: this.settings.state,
+      history: [],
+      messages: []
+    };
+
     this.observer = monitor.observe(this.state);
     this.coordinator = new PeerServer(this.express, {
       path: '/services/peering'
@@ -420,7 +430,7 @@ class FabricHTTPServer extends Service {
     });
 
     // TODO: message handler on base class
-    socket.on('message', async function handler (msg) {
+    socket.on('message', async (msg) => {
       let message = null;
       let type = null;
 
@@ -441,15 +451,43 @@ class FabricHTTPServer extends Service {
           return;
         }
 
-        type = message.type;
+        if (!message.raw.signature.toString()) console.warn('[SERVER]', 'Message has no signature:', message);
+        // if (!message.verify()) console.warn('[SERVER]', 'Message signature verification failed:', message);
+
         const obj = message.toObject();
         const actor = new Actor(obj);
 
         let local = null;
 
-        switch (type) {
+        switch (message.type) {
           default:
-            console.log('[SERVER]', 'unhandled type:', type);
+            console.log('[SERVER]', 'unhandled type:', message.type);
+            break;
+          case 'JSONCall':
+            try {
+              const request = JSON.parse(message.body);
+              const preimage = crypto.createHash('sha256').update(message.body).digest('hex');
+              const hash = crypto.createHash('sha256').update(preimage).digest('hex');
+              const kernel = new Actor(request);
+              const result = await server._handleCall({
+                hash: hash,
+                method: request.method,
+                params: request.params
+              });
+
+              this.commit();
+
+              // Create a response message
+              const callResultMessage = Message.fromVector(['JSONCall', JSON.stringify({
+                method: 'JSONCallResult',
+                params: [hash, result]
+              })]).signWithKey(this._rootKey);
+
+              socket.send(callResultMessage.toBuffer());
+            } catch (exception) {
+              console.error('[SERVER]', 'Could not parse JSON blob:', exception);
+              return;
+            }
             break;
           case 'GET':
             let answer = await server._GET(message['@data']['path']);
@@ -524,14 +562,8 @@ class FabricHTTPServer extends Service {
 
         socket.send(receipt.toBuffer());
       } catch (error) {
-        console.error('[SERVER]', 'Error handling message:', error);
-        const errorReceipt = Message.fromVector(['P2P_MESSAGE_ERROR', {
-          '@type': 'Error',
-          '@actor': handle,
-          '@data': { error: error.message },
-          '@version': 1
-        }]);
-        socket.send(errorReceipt.toBuffer());
+        console.debug('[SERVER]', 'Error handling message:', error);
+        socket.close(1002);
       }
     });
 
@@ -546,7 +578,7 @@ class FabricHTTPServer extends Service {
 
     const ack = Message.fromVector([P2P_SESSION_ACK, crypto.randomBytes(32).toString('hex')]);
     const raw = ack.toBuffer();
-    socket.send(raw);
+    // socket.send(raw);
 
     // send result
     /* socket.send(JSON.stringify({
@@ -567,9 +599,7 @@ class FabricHTTPServer extends Service {
   _sendTo (actor, msg) {
     const target = this.connections[actor];
     if (!target) throw new Error('No such target.');
-
-    const result = target.send(msg);
-
+    const result = target.send(payload);
     return {
       destination: actor,
       result: result
@@ -578,15 +608,16 @@ class FabricHTTPServer extends Service {
 
   // TODO: consolidate with Peer
   _relayFrom (actor, msg) {
+    // Ensure only Fabric Message buffers are sent
+    let payload = msg;
+    if (!Buffer.isBuffer(msg)) payload = Message.fromVector(['GenericMessage', JSON.stringify(msg)]).toBuffer();
     let peers = Object.keys(this.connections).filter(key => {
       return key !== actor;
     });
-
     this.log(`relaying message from ${actor} to peers:`, peers);
-
     for (let i = 0; i < peers.length; i++) {
       try {
-        this.connections[peers[i]].send(msg);
+        this.connections[peers[i]].send(payload);
       } catch (E) {
         console.error('Could not relay to peer:', E);
       }
