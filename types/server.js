@@ -589,14 +589,17 @@ class FabricHTTPServer extends Service {
     if (this.app) {
       const inventory = Message.fromVector(['InventoryRequest', { parent: server.app.id, version: 0 }]);
       const state = Message.fromVector(['State', { content: server.app.state }]);
-      socket.send(inventory.toBuffer());
-      socket.send(state.toBuffer());
+      // socket.send(inventory.toBuffer());
+      // socket.send(state.toBuffer());
     }
 
     return socket;
   }
 
   _sendTo (actor, msg) {
+    // Ensure only Fabric Message buffers are sent
+    let payload = msg;
+    if (!Buffer.isBuffer(msg)) payload = Message.fromVector(['GenericMessage', JSON.stringify(msg)]).toBuffer();
     const target = this.connections[actor];
     if (!target) throw new Error('No such target.');
     const result = target.send(payload);
