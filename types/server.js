@@ -839,18 +839,9 @@ class FabricHTTPServer extends Service {
     }
 
     // If no result found, return 404
-    if (!result) {
-      return res.status(404).send({
-        status: 'error',
-        message: 'Document not found.',
-        request: {
-          method: req.method.toUpperCase(),
-          path: req.path
-        }
-      });
-    }
+    if (!result) return next();
 
-    console.debug('Preparing to format:', req.path);
+    // console.debug('Preparing to format:', req.path);
 
     return res.format({
       json: function () {
