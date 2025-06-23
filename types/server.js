@@ -368,6 +368,11 @@ class FabricHTTPServer extends Service {
     return this;
   }
 
+  _registerBitcoin (bitcoin) {
+    this.bitcoin = bitcoin;
+    return this;
+  }
+
   _registerMethod (name, method) {
     this.methods[name] = method.bind(this);
   }
