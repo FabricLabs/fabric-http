@@ -50,7 +50,7 @@ class Hub extends Oracle {
     this.express = express();
     this.sessions = session({ secret: this.config.seed });
     this.peer = new PeerServer(this.express, {
-      // path: '/services/peering'
+      path: '/services/peering'
     });
 
     this.server = new Server();
