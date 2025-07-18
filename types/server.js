@@ -509,6 +509,7 @@ class FabricHTTPServer extends Service {
           case 'Ping':
             const now = Date.now();
             local = Message.fromVector(['Pong', now.toString()]);
+            if (server._rootKey && server._rootKey.private) local.signWithKey(server._rootKey);
             let sendResult = null;
             try {
               sendResult = server._sendTo(handle, local.toBuffer());
@@ -522,7 +523,9 @@ class FabricHTTPServer extends Service {
               content: actor.id
             })]);
 
+            if (server._rootKey && server._rootKey.private) local.signWithKey(server._rootKey);
             let msgData = null;
+
             try {
               msgData = JSON.parse(obj.data);
             } catch (exception) {}
@@ -565,6 +568,8 @@ class FabricHTTPServer extends Service {
           '@version': 1
         }]);
 
+        if (server._rootKey && server._rootKey.private) receipt.signWithKey(server._rootKey);
+
         socket.send(receipt.toBuffer());
       } catch (error) {
         console.debug('[SERVER]', 'Error handling message:', error);
@@ -604,7 +609,13 @@ class FabricHTTPServer extends Service {
   _sendTo (actor, msg) {
     // Ensure only Fabric Message buffers are sent
     let payload = msg;
-    if (!Buffer.isBuffer(msg)) payload = Message.fromVector(['GenericMessage', JSON.stringify(msg)]).toBuffer();
+
+    if (!Buffer.isBuffer(msg)) {
+      const message = Message.fromVector(['GenericMessage', JSON.stringify(msg)]);
+      if (this._rootKey && this._rootKey.private) message.signWithKey(this._rootKey);
+      payload = message.toBuffer();
+    }
+
     const target = this.connections[actor];
     if (!target) throw new Error('No such target.');
     const result = target.send(payload);
@@ -618,11 +629,19 @@ class FabricHTTPServer extends Service {
   _relayFrom (actor, msg) {
     // Ensure only Fabric Message buffers are sent
     let payload = msg;
-    if (!Buffer.isBuffer(msg)) payload = Message.fromVector(['GenericMessage', JSON.stringify(msg)]).toBuffer();
+
+    if (!Buffer.isBuffer(msg)) {
+      const message = Message.fromVector(['GenericMessage', JSON.stringify(msg)]);
+      if (this._rootKey && this._rootKey.private) message.signWithKey(this._rootKey);
+      payload = message.toBuffer();
+    }
+
     let peers = Object.keys(this.connections).filter(key => {
       return key !== actor;
     });
+
     this.log(`relaying message from ${actor} to peers:`, peers);
+
     for (let i = 0; i < peers.length; i++) {
       try {
         this.connections[peers[i]].send(payload);
@@ -725,6 +744,8 @@ class FabricHTTPServer extends Service {
       path,
       value
     }]);
+
+    if (this._rootKey && this._rootKey.private) message.signWithKey(this._rootKey);
 
     // Iterate through all connections and notify those subscribed to this path
     Object.entries(this.connections).forEach(([handle, socket]) => {
