@@ -456,7 +456,7 @@ class FabricHTTPServer extends Service {
           return;
         }
 
-        if (!message.raw.signature.toString()) console.warn('[SERVER]', 'Message has no signature:', message);
+        if (!message.raw.signature.toString()) console.warn('[SERVER]', 'Message has no signature:', message, message.header, message.body);
         // if (!message.verify()) console.warn('[SERVER]', 'Message signature verification failed:', message);
 
         const obj = message.toObject();
