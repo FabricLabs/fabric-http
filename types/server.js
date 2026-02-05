@@ -15,6 +15,7 @@ const {
 
 // Dependencies
 const http = require('http');
+const fs = require('fs');
 const crypto = require('crypto');
 const merge = require('lodash.merge');
 const pluralize = require('pluralize');
@@ -50,6 +51,7 @@ const Peer = require('@fabric/core/types/peer');
 
 // Internal Types
 const auth = require('../middlewares/auth');
+const payments = require('../middlewares/payments');
 
 // Internal Components
 // const App = require('./app');
@@ -88,6 +90,7 @@ class FabricHTTPServer extends Service {
       path: './stores/server',
       port: HTTP_SERVER_PORT,
       listen: true,
+      accessLog: 'access.log',
       resources: {},
       components: {},
       middlewares: {},
@@ -142,6 +145,7 @@ class FabricHTTPServer extends Service {
     this.routes = [];
     this.customRoutes = [];
     this.keys = new Set();
+    this.accessLogStream = null;
 
     // Setup for Express application
     this.express = express();
@@ -317,7 +321,16 @@ class FabricHTTPServer extends Service {
   async handleFabricMessage (message) {
     this.emit('debug', `Handling trusted Fabric message: ${message}`);
     // TODO: validation
-    await this.agent.broadcast(message);
+    // TODO: migrate to Message instances throughout; buffer only transparently when sending to peers
+    // Peer.broadcast expects a Buffer, not a Message instance
+    // TODO: is that true?  Message instances seem to be the correct type...
+    if (message && typeof message.toBuffer === 'function') {
+      await this.agent.broadcast(message.toBuffer());
+    } else if (Buffer.isBuffer(message)) {
+      await this.agent.broadcast(message);
+    } else {
+      console.error('[SERVER]', 'Invalid message type passed to handleFabricMessage:', typeof message);
+    }
   }
 
   broadcast (message) {
@@ -362,7 +375,21 @@ class FabricHTTPServer extends Service {
   _addAllRoutes () {
     for (let i = 0; i < this.settings.routes.length; i++) {
       const route = this.settings.routes[i];
-      this._addRoute(route.method, route.route, route.handler);
+
+      // Validate route before adding
+      if (!route || !route.method || typeof route.method !== 'string') {
+        console.warn('[HTTP:SERVER]', 'Skipping invalid route in settings.routes:', route);
+        continue;
+      }
+
+      // Support both 'route' and 'path' keys
+      const path = route.route || route.path;
+      if (!path || !route.handler) {
+        console.warn('[HTTP:SERVER]', 'Skipping route with missing path or handler:', route);
+        continue;
+      }
+
+      this._addRoute(route.method, path, route.handler);
     }
 
     return this;
@@ -415,6 +442,11 @@ class FabricHTTPServer extends Service {
         const now = Date.now();
         const ping = Message.fromVector(['Ping', now.toString()]);
 
+        // Sign the ping message before sending
+        if (server._rootKey && server._rootKey.private) {
+          ping.signWithKey(server._rootKey);
+        }
+
         try {
           server._sendTo(handle, ping.toBuffer());
         } catch (exception) {
@@ -448,7 +480,17 @@ class FabricHTTPServer extends Service {
         } else {
           // Try to parse as JSON if not binary
           const data = typeof msg === 'string' ? msg : msg.toString('utf8');
-          message = Message.fromRaw(JSON.parse(data));
+          const parsed = JSON.parse(data);
+          // Extract type from parsed JSON if available (support both @type and type)
+          if (parsed && (parsed.type || parsed['@type'])) {
+            type = parsed.type || parsed['@type'];
+          }
+          // If it's a JSON object, create message from object, otherwise try fromRaw
+          if (parsed && typeof parsed === 'object' && !Buffer.isBuffer(parsed)) {
+            message = new Message(parsed);
+          } else {
+            message = Message.fromRaw(parsed);
+          }
         }
 
         if (!message) {
@@ -456,7 +498,14 @@ class FabricHTTPServer extends Service {
           return;
         }
 
-        if (!message.raw.signature.toString()) console.warn('[SERVER]', 'Message has no signature:', message, message.header, message.body);
+        // Use extracted type or fall back to message.type
+        const messageType = type || message.type;
+
+        // System messages (HEARTBEAT, Ping, Pong) may not have signatures
+        const systemMessageTypes = ['HEARTBEAT', 'Ping', 'Pong'];
+        if (!message.raw.signature.toString() && !systemMessageTypes.includes(messageType)) {
+          console.trace('[SERVER]', 'Message has no signature:', message, message.header, message.body);
+        }
         // if (!message.verify()) console.warn('[SERVER]', 'Message signature verification failed:', message);
 
         const obj = message.toObject();
@@ -464,11 +513,17 @@ class FabricHTTPServer extends Service {
 
         let local = null;
 
-        switch (message.type) {
+        // Use extracted messageType for switch statement
+        switch (messageType || message.type) {
+          case 'HEARTBEAT':
+            // HEARTBEAT messages are keepalive signals, no action needed
+            if (server.settings.debug) console.debug('[SERVER]', 'Received HEARTBEAT from:', handle);
+            break;
           default:
-            console.log('[SERVER]', 'unhandled type:', message.type);
+            console.log('[SERVER]', 'unhandled type:', messageType || message.type);
             break;
           case 'JSONCall':
+            console.trace('[SERVER]', 'received JSON call:', message.body);
             try {
               const request = JSON.parse(message.body);
               const preimage = crypto.createHash('sha256').update(message.body).digest('hex');
@@ -688,7 +743,10 @@ class FabricHTTPServer extends Service {
       res.getHeader('content-length')
     ].join(' ');
 
-    this.emit('log', asApache);
+    // Write to access log file if stream is available
+    if (this.accessLogStream) {
+      this.accessLogStream.write(asApache + '\n');
+    }
 
     return next();
   }
@@ -698,7 +756,8 @@ class FabricHTTPServer extends Service {
     // TODO: only enable when requested
     // @ChronicSmoke
     res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'content-type');
+    res.header('Access-Control-Allow-Headers', 'accept, content-type');
+    res.header('Allow', 'GET, POST, OPTIONS, PUT, DELETE, PATCH, HEAD, SEARCH');
     return next();
   }
 
@@ -888,6 +947,89 @@ class FabricHTTPServer extends Service {
     });
   }
 
+  /**
+   * Standardized content negotiation for route handlers.
+   * Handles JSON/HTML negotiation with proper precedence.
+   * @param {Object} req - Express request object
+   * @param {Object} res - Express response object
+   * @param {*} data - Data to send
+   * @param {Object} options - Formatting options
+   * @param {String} options.title - HTML page title
+   * @param {String} options.resourceName - Resource name for display
+   * @param {String} options.resourceType - Resource type (for HTML rendering)
+   */
+  formatResponse (req, res, data, options = {}) {
+    const { title = 'Hub', resourceName = 'Resource', resourceType = null } = options;
+    const accept = req.headers.accept || '';
+    const hasJson = accept.includes('application/json');
+    const hasHtml = accept.includes('text/html');
+
+    // Prefer JSON when both are present with equal q-values
+    if (hasJson && hasHtml) {
+      const jsonMatch = accept.match(/application\/json(?:\s*;\s*q=([\d.]+))?/);
+      const htmlMatch = accept.match(/text\/html(?:\s*;\s*q=([\d.]+))?/);
+      const jsonQ = jsonMatch && jsonMatch[1] ? parseFloat(jsonMatch[1]) : 1.0;
+      const htmlQ = htmlMatch && htmlMatch[1] ? parseFloat(htmlMatch[1]) : 1.0;
+
+      if (htmlQ <= jsonQ) {
+        res.header('Content-Type', 'application/json');
+        return res.json(data);
+      }
+    }
+
+    // Format content for HTML
+    let content = '';
+    if (data === null || data === undefined) {
+      content = '<p class="empty">No data available.</p>';
+    } else if (Array.isArray(data)) {
+      if (data.length === 0) {
+        content = '<p class="empty">No items found.</p>';
+      } else {
+        content = `<ul>${data.map(item => `<li><pre>${JSON.stringify(item, null, 2)}</pre></li>`).join('')}</ul>`;
+      }
+    } else if (typeof data === 'object') {
+      content = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+    } else {
+      content = `<p>${String(data)}</p>`;
+    }
+
+    return res.format({
+      'application/json': function () {
+        res.header('Content-Type', 'application/json');
+        return res.json(data);
+      },
+      'text/html': function () {
+        res.header('Content-Type', 'text/html');
+        const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title} - Hub</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; line-height: 1.6; }
+    h1 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 0.5rem; }
+    ul { list-style: none; padding: 0; }
+    li { padding: 1rem; margin: 0.5rem 0; background: #f5f5f5; border-radius: 4px; }
+    pre { margin: 0; white-space: pre-wrap; word-wrap: break-word; }
+    .empty { color: #666; font-style: italic; }
+    .error { color: #d32f2f; background: #ffebee; padding: 1rem; border-radius: 4px; border-left: 4px solid #d32f2f; }
+  </style>
+</head>
+<body>
+  <h1>${resourceName}</h1>
+  ${content}
+</body>
+</html>`;
+        return res.send(html);
+      },
+      default: function () {
+        res.header('Content-Type', 'application/json');
+        return res.json(data);
+      }
+    });
+  }
+
   async start () {
     console.debug('[HTTP:SERVER]', 'Starting...');
     this.emit('debug', '[HTTP:SERVER] Starting...');
@@ -909,7 +1051,7 @@ class FabricHTTPServer extends Service {
 
     for (let name in this.settings.resources) {
       const definition = this.settings.resources[name];
-      const resource = await this._defineResource(name, definition);
+      const resource = await this.define(name, definition);
 
       // console.log('resource:', name, definition, resource);
 
@@ -974,7 +1116,22 @@ class FabricHTTPServer extends Service {
     // TODO: abolish this garbage in favor of resources.
     for (let i = 0; i < this.customRoutes.length; i++) {
       const route = this.customRoutes[i];
-      switch (route.method.toLowerCase()) {
+
+      // Skip invalid routes
+      if (!route || !route.method || typeof route.method !== 'string') {
+        console.warn('[HTTP:SERVER]', 'Skipping invalid route:', route);
+        continue;
+      }
+
+      // Support both 'path' and 'route' keys for path
+      const path = route.path || route.route;
+      if (!path || !route.handler) {
+        console.warn('[HTTP:SERVER]', 'Skipping route with missing path or handler:', route);
+        continue;
+      }
+
+      const method = route.method.toLowerCase();
+      switch (method) {
         case 'get':
         case 'put':
         case 'post':
@@ -982,7 +1139,10 @@ class FabricHTTPServer extends Service {
         case 'delete':
         case 'search':
         case 'options':
-          this.express[route.method.toLowerCase()](route.path, route.handler);
+          this.express[method](path, route.handler);
+          break;
+        default:
+          console.warn('[HTTP:SERVER]', 'Skipping route with unsupported method:', method);
           break;
       }
     }
@@ -1054,6 +1214,14 @@ class FabricHTTPServer extends Service {
       }
     }
 
+    // Open access log file stream
+    try {
+      this.accessLogStream = fs.createWriteStream(this.settings.accessLog, { flags: 'a' });
+      this.emit('debug', `[HTTP:SERVER] Access log opened: ${this.settings.accessLog}`);
+    } catch (E) {
+      console.error('[HTTP:SERVER] Could not open access log file:', E);
+    }
+
     if (this.settings.listen) {
       this.http.on('listening', notifyReady);
       await this.http.listen(this.settings.port, this.interface);
@@ -1096,14 +1264,28 @@ class FabricHTTPServer extends Service {
     const server = this;
     this.status = 'stopping';
 
+    // Stop accepting connections
     try {
       if (server.http) await server.http.stop();
     } catch (E) {
       console.error('Could not stop HTTP listener:', E);
     }
 
+    // Close access log stream
+    if (this.accessLogStream) {
+      try {
+        this.accessLogStream.end();
+        this.accessLogStream = null;
+        this.emit('debug', `[HTTP:SERVER] Access log closed: ${this.settings.accessLog}`);
+      } catch (E) {
+        console.error('[HTTP:SERVER] Could not close access log file:', E);
+      }
+    }
+
+    // Stop peer connections
     await this.agent.stop();
 
+    // Stop the server app (if it exists)
     if (server.app) {
       try {
         await server.app.stop();
@@ -1112,10 +1294,11 @@ class FabricHTTPServer extends Service {
       }
     }
 
+    // Set status to stopped and emit stopped event
     this.status = 'stopped';
     server.emit('stopped');
 
-    if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Stopped!');
+    if (this.settings.verbosity >= 4) this.emit('log', '[HTTP:SERVER]', 'Stopped!');
     return server;
   }
 

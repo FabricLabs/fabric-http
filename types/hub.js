@@ -93,7 +93,7 @@ class Hub extends Oracle {
 
     // TODO: message handler on base class
     socket.on('message', async function handler (msg) {
-      console.log('websocket incoming message:', msg);
+      console.debug('[HUB]', 'WebSocket incoming message:', msg);
 
       socket.send(JSON.stringify({
         '@type': 'Receipt',
