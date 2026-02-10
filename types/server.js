@@ -1074,6 +1074,7 @@ class FabricHTTPServer extends Service {
 
     // Middlewares
     this.express.use(this._logMiddleware.bind(this));
+    this.express.use(extractor());
     this.express.use(auth.bind(this));
 
     // Custom Headers
@@ -1083,7 +1084,6 @@ class FabricHTTPServer extends Service {
     // TODO: defer to an in-memory datastore for requested files
     // NOTE: disable this line to compile on-the-fly
     this.express.use(express.static(this.settings.assets));
-    this.express.use(extractor());
     this.express.use(this._roleMiddleware.bind(this));
 
     // this.express.all('/services/graphql', graphql({ schema: this.graphQLSchema }))

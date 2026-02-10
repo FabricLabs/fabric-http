@@ -326,8 +326,10 @@ class SPA extends App {
       case 'Ping':
         const now = Date.now();
         const message = Message.fromVector(['Pong', now.toString()]);
-        const pong = JSON.stringify(message.toObject());
-        this.bridge.send(pong);
+        if (this.bridge && this.bridge.key && this.bridge.key.private) {
+          message.signWithKey(this.bridge.key);
+        }
+        this.bridge.send(message.toBuffer());
         break;
       case 'State':
         console.log('RAD STATE:', msg);
