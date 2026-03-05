@@ -6,13 +6,16 @@ const Sandbox = require('../types/sandbox');
 const Server = require('../types/server');
 
 describe('@fabric/http/types/sandbox', function () {
-  before(async () => {
-    this.server = new Server({ port: 8484 });
-    await this.server.start();
+  let server;
+
+  before(async function () {
+    this.timeout(60000);
+    server = new Server({ port: 8484 });
+    await server.start();
   });
 
-  after(async () => {
-    await this.server.stop();
+  after(async function () {
+    if (server) await server.stop();
   });
 
   describe('Sandbox', function () {
