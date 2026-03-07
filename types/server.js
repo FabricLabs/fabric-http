@@ -169,6 +169,28 @@ class FabricHTTPServer extends Service {
       path: '/services/peering'
     });
 
+    // Track WebRTC peers connected via PeerJS signaling
+    this.webrtcPeers = new Map();
+
+    // Set up WebRTC peer tracking events
+    this.coordinator.on('connection', (client) => {
+      const peerId = client.getId();
+      console.log('[SERVER]', 'WebRTC peer connected:', peerId);
+      this.webrtcPeers.set(peerId, {
+        id: peerId,
+        connectedAt: Date.now(),
+        status: 'connected'
+      });
+      this.emit('webrtc:connection', { peerId });
+    });
+
+    this.coordinator.on('disconnect', (client) => {
+      const peerId = client.getId();
+      console.log('[SERVER]', 'WebRTC peer disconnected:', peerId);
+      this.webrtcPeers.delete(peerId);
+      this.emit('webrtc:disconnect', { peerId });
+    });
+
     return this;
   }
 
@@ -186,6 +208,14 @@ class FabricHTTPServer extends Service {
 
   get port () {
     return this.settings.port || 9999;
+  }
+
+  /**
+   * Get a list of WebRTC peers connected via PeerJS signaling.
+   * @returns {Array} Array of WebRTC peer objects
+   */
+  get webrtcPeerList () {
+    return Array.from(this.webrtcPeers.values());
   }
 
   async commit () {
@@ -523,7 +553,7 @@ class FabricHTTPServer extends Service {
             console.log('[SERVER]', 'unhandled type:', messageType || message.type);
             break;
           case 'JSONCall':
-            console.trace('[SERVER]', 'received JSON call:', message.body);
+            // console.trace('[SERVER]', 'received JSON call:', message.body);
             try {
               const request = JSON.parse(message.body);
               const preimage = crypto.createHash('sha256').update(message.body).digest('hex');
