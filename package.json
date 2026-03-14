@@ -100,6 +100,11 @@
     "showdown": "=1.9.1",
     "typescript": "=5.7.3"
   },
+  "overrides": {
+    "elliptic": "npm:@soatok/elliptic-to-noble@^9999.0.0",
+    "serialize-javascript": "^7.0.3",
+    "yauzl": "^3.2.1"
+  },
   "browser": {
     "ws": false
   },
