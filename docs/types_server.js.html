@@ -38,6 +38,7 @@ const {
 
 // Dependencies
 const http = require('http');
+const fs = require('fs');
 const crypto = require('crypto');
 const merge = require('lodash.merge');
 const pluralize = require('pluralize');
@@ -62,8 +63,8 @@ const pathToRegexp = require('path-to-regexp').pathToRegexp;
 
 // Fabric Types
 const Actor = require('@fabric/core/types/actor');
-// const Oracle = require('@fabric/core/types/oracle');
 const Collection = require('@fabric/core/types/collection');
+const Key = require('@fabric/core/types/key');
 // const Resource = require('@fabric/core/types/resource');
 const Service = require('@fabric/core/types/service');
 const Message = require('@fabric/core/types/message');
@@ -73,6 +74,7 @@ const Peer = require('@fabric/core/types/peer');
 
 // Internal Types
 const auth = require('../middlewares/auth');
+const payments = require('../middlewares/payments');
 
 // Internal Components
 // const App = require('./app');
@@ -107,9 +109,11 @@ class FabricHTTPServer extends Service {
       assets: 'assets',
       // TODO: document host as listening on all interfaces by default
       host: '0.0.0.0',
+      key: null,
       path: './stores/server',
       port: HTTP_SERVER_PORT,
       listen: true,
+      accessLog: 'access.log',
       resources: {},
       components: {},
       middlewares: {},
@@ -125,13 +129,20 @@ class FabricHTTPServer extends Service {
       sessions: false,
       state: {
         status: 'PAUSED'
+      },
+      websocket: {
+        requireClientToken: false,
+        clientToken: null
       }
     }, settings);
+
+    this._rootKey = new Key(this.settings.key);
 
     this.connections = {};
     this.definitions = {};
     this.methods = {};
     this.stores = {};
+    this.subscriptions = new Map(); // Track subscriptions by path
 
     // ## Fabric Agent
     // Establishes network connectivity with Fabric.  Manages peers, connections, and messages.
@@ -140,7 +151,8 @@ class FabricHTTPServer extends Service {
       networking: true,
       peers: this.settings.peers,
       state: this.settings.state,
-      upnp: false
+      upnp: false,
+      xpub: this._rootKey.xpub
     });
 
     // this.browser = new Browser(this.settings);
@@ -160,6 +172,7 @@ class FabricHTTPServer extends Service {
     this.routes = [];
     this.customRoutes = [];
     this.keys = new Set();
+    this.accessLogStream = null;
 
     // Setup for Express application
     this.express = express();
@@ -171,10 +184,38 @@ class FabricHTTPServer extends Service {
     });
 
     // Local State Setup
-    this._state = {};
+    this._state = {
+      actors: {},
+      content: this.settings.state,
+      history: [],
+      messages: []
+    };
+
     this.observer = monitor.observe(this.state);
     this.coordinator = new PeerServer(this.express, {
       path: '/services/peering'
+    });
+
+    // Track WebRTC peers connected via PeerJS signaling
+    this.webrtcPeers = new Map();
+
+    // Set up WebRTC peer tracking events
+    this.coordinator.on('connection', (client) => {
+      const peerId = client.getId();
+      console.log('[SERVER]', 'WebRTC peer connected:', peerId);
+      this.webrtcPeers.set(peerId, {
+        id: peerId,
+        connectedAt: Date.now(),
+        status: 'connected'
+      });
+      this.emit('webrtc:connection', { peerId });
+    });
+
+    this.coordinator.on('disconnect', (client) => {
+      const peerId = client.getId();
+      console.log('[SERVER]', 'WebRTC peer disconnected:', peerId);
+      this.webrtcPeers.delete(peerId);
+      this.emit('webrtc:disconnect', { peerId });
     });
 
     return this;
@@ -194,6 +235,14 @@ class FabricHTTPServer extends Service {
 
   get port () {
     return this.settings.port || 9999;
+  }
+
+  /**
+   * Get a list of WebRTC peers connected via PeerJS signaling.
+   * @returns {Array} Array of WebRTC peer objects
+   */
+  get webrtcPeerList () {
+    return Array.from(this.webrtcPeers.values());
   }
 
   async commit () {
@@ -329,13 +378,32 @@ class FabricHTTPServer extends Service {
   async handleFabricMessage (message) {
     this.emit('debug', `Handling trusted Fabric message: ${message}`);
     // TODO: validation
-    await this.agent.broadcast(message);
+    // TODO: migrate to Message instances throughout; buffer only transparently when sending to peers
+    // Peer.broadcast expects a Buffer, not a Message instance
+    // TODO: is that true?  Message instances seem to be the correct type...
+    if (message &amp;&amp; typeof message.toBuffer === 'function') {
+      await this.agent.broadcast(message.toBuffer());
+    } else if (Buffer.isBuffer(message)) {
+      await this.agent.broadcast(message);
+    } else {
+      console.error('[SERVER]', 'Invalid message type passed to handleFabricMessage:', typeof message);
+    }
   }
 
   broadcast (message) {
+    let buf = null;
+    if (Buffer.isBuffer(message)) {
+      buf = message;
+    } else if (message &amp;&amp; typeof message.toBuffer === 'function') {
+      buf = message.toBuffer();
+    }
+    if (!buf) {
+      console.error('[SERVER] broadcast: expected Buffer or Message with toBuffer(), got:', typeof message);
+      return;
+    }
+
     const peers = Object.keys(this.connections);
 
-    // Send to all connected peers
     for (let i = 0; i &lt; peers.length; i++) {
       const peer = peers[i];
 
@@ -344,11 +412,53 @@ class FabricHTTPServer extends Service {
       }
 
       try {
-        this.connections[peer].send(message.toBuffer());
+        this.connections[peer].send(buf);
       } catch (E) {
         console.error('Could not send message to peer:', E);
       }
     }
+  }
+
+  /**
+   * Optional WebSocket handshake gate when `settings.websocket.requireClientToken` and `clientToken` are set.
+   * Token may appear in query string (?token= / ?clientToken=), Authorization: Bearer, or Sec-WebSocket-Protocol fabric.token.*
+   * @param {{ req: import('http').IncomingMessage }} info
+   */
+  _verifyWebSocketClient (info) {
+    const wsCfg = this.settings.websocket || {};
+    const secret = wsCfg.clientToken || wsCfg.sharedSecret || null;
+    const required = wsCfg.requireClientToken === true || wsCfg.requireClientToken === '1' || wsCfg.requireClientToken === 1;
+    if (!required || !secret) return true;
+
+    const req = info.req;
+    let token = null;
+    try {
+      const rawUrl = req.url || '/';
+      const u = new URL(rawUrl, 'http://localhost');
+      token = u.searchParams.get('token') || u.searchParams.get('clientToken');
+    } catch (e) {}
+
+    const auth = req.headers &amp;&amp; req.headers.authorization;
+    if (!token &amp;&amp; auth &amp;&amp; typeof auth === 'string' &amp;&amp; auth.startsWith('Bearer ')) {
+      token = auth.slice(7).trim();
+    }
+
+    if (!token &amp;&amp; req.headers &amp;&amp; req.headers['sec-websocket-protocol']) {
+      const protos = String(req.headers['sec-websocket-protocol']).split(',').map((s) => s.trim());
+      for (let i = 0; i &lt; protos.length; i++) {
+        const p = protos[i];
+        if (p.startsWith('fabric.token.')) {
+          token = decodeURIComponent(p.slice('fabric.token.'.length));
+          break;
+        }
+      }
+    }
+
+    const ok = token === secret;
+    if (!ok) {
+      console.warn('[SERVER] WebSocket handshake rejected: missing or invalid client token');
+    }
+    return ok;
   }
 
   debug (content) {
@@ -374,9 +484,28 @@ class FabricHTTPServer extends Service {
   _addAllRoutes () {
     for (let i = 0; i &lt; this.settings.routes.length; i++) {
       const route = this.settings.routes[i];
-      this._addRoute(route.method, route.route, route.handler);
+
+      // Validate route before adding
+      if (!route || !route.method || typeof route.method !== 'string') {
+        console.warn('[HTTP:SERVER]', 'Skipping invalid route in settings.routes:', route);
+        continue;
+      }
+
+      // Support both 'route' and 'path' keys
+      const path = route.route || route.path;
+      if (!path || !route.handler) {
+        console.warn('[HTTP:SERVER]', 'Skipping route with missing path or handler:', route);
+        continue;
+      }
+
+      this._addRoute(route.method, path, route.handler);
     }
 
+    return this;
+  }
+
+  _registerBitcoin (bitcoin) {
+    this.bitcoin = bitcoin;
     return this;
   }
 
@@ -413,11 +542,19 @@ class FabricHTTPServer extends Service {
       entropy: buffer.toString('hex')
     });
 
+    // Initialize socket subscriptions
+    socket.subscriptions = new Set();
+
     socket._resetKeepAlive = function () {
       clearInterval(socket._heartbeat);
       socket._heartbeat = setInterval(function () {
         const now = Date.now();
         const ping = Message.fromVector(['Ping', now.toString()]);
+
+        // Sign the ping message before sending
+        if (server._rootKey &amp;&amp; server._rootKey.private) {
+          ping.signWithKey(server._rootKey);
+        }
 
         try {
           server._sendTo(handle, ping.toBuffer());
@@ -433,123 +570,181 @@ class FabricHTTPServer extends Service {
     // Clean up memory when the connection has been safely closed (ideal case).
     socket.on('close', function () {
       clearInterval(socket._heartbeat);
+      // Clear subscriptions for this socket
+      socket.subscriptions.clear();
       delete server.connections[player['@data'].connection];
     });
 
     // TODO: message handler on base class
-    socket.on('message', async function handler (msg) {
-      // console.log('[SERVER:WEBSOCKET]', 'incoming message:', typeof msg, msg);
-
+    socket.on('message', async (msg) => {
       let message = null;
       let type = null;
 
-      if (msg.type &amp;&amp; msg.data) {
-        console.log('spec:', {
-          type: msg.type,
-          data: msg.data
-        });
-      }
-
       try {
-        message = Message.fromRaw(msg);
-        type = message.type;
-      } catch (exception) {
-        console.error('could not parse message:', exception);
-      }
-
-      if (!message) {
-        // Fall back to JSON parsing
-        try {
-          if (msg instanceof Buffer) {
-            msg = msg.toString('utf8');
+        // Handle binary messages
+        if (msg instanceof Buffer) {
+          message = Message.fromBuffer(msg);
+        } else if (msg.data instanceof Buffer) {
+          message = Message.fromBuffer(msg.data);
+        } else {
+          // Try to parse as JSON if not binary
+          const data = typeof msg === 'string' ? msg : msg.toString('utf8');
+          const parsed = JSON.parse(data);
+          // Extract type from parsed JSON if available (support both @type and type)
+          if (parsed &amp;&amp; (parsed.type || parsed['@type'])) {
+            type = parsed.type || parsed['@type'];
           }
-
-          message = JSON.parse(msg);
-          type = message['@type'] || message.type;
-        } catch (E) {
-          console.error('could not parse message:', typeof msg, msg, E);
-          // TODO: disconnect from peer
-          console.warn('you should disconnect from this peer:', handle);
+          // If it's a JSON object, create message from object, otherwise try fromRaw
+          if (parsed &amp;&amp; typeof parsed === 'object' &amp;&amp; !Buffer.isBuffer(parsed)) {
+            message = new Message(parsed);
+          } else {
+            message = Message.fromRaw(parsed);
+          }
         }
-      }
 
-      const obj = message.toObject();
-      const actor = new Actor(obj);
-
-      let local = null;
-
-      switch (type) {
-        default:
-          console.log('[SERVER]', 'unhandled type:', type);
-          break;
-        case 'GET':
-          let answer = await server._GET(message['@data']['path']);
-          console.log('answer:', answer);
-          return answer;
-        case 'POST':
-          let link = await server._POST(message['@data']['path'], message['@data']['value']);
-          console.log('[SERVER]', 'posted link:', link);
-          break;
-        case 'PATCH':
-          let result = await server._PATCH(message['@data']['path'], message['@data']['value']);
-          console.log('[SERVER]', 'patched:', result);
-          break;
-        case 'Ping':
-          const now = Date.now();
-          local = Message.fromVector(['Pong', now.toString()]);
-          let sendResult = null
-          try {
-            sendResult = server._sendTo(handle, local.toBuffer());
-          } catch (exception) {
-            console.error('[FABRIC:EDGE]', '[SERVER]', 'Could not send Pong:', exception);
-          }
-          return sendResult;
-        case 'GenericMessage':
-          local = Message.fromVector(['GenericMessage', JSON.stringify({
-            type: 'GenericMessageReceipt',
-            content: actor.id
-          })]);
-
-          let msg = null;
-
-          try {
-            msg = JSON.parse(obj.data);
-          } catch (exception) {}
-
-          if (msg) {
-            server.emit('call', msg.data || {
-              method: 'GenericMessage',
-              params: [msg.data]
-            });
-
-            await server.handleFabricMessage(message);
-          }
-
-          break;
-        case 'Pong':
-          socket._resetKeepAlive();
+        if (!message) {
+          console.error('Could not parse message:', msg);
           return;
-          break;
-        case 'Call':
-          server.emit('call', {
-            method: message['@data'].data.method,
-            params: message['@data'].data.params
-          });
-          break;
+        }
+
+        // Use extracted type or fall back to message.type
+        const messageType = type || message.type;
+
+        // System messages (HEARTBEAT, Ping, Pong) may not have signatures
+        const systemMessageTypes = ['HEARTBEAT', 'Ping', 'Pong'];
+        if (!message.raw.signature.toString() &amp;&amp; !systemMessageTypes.includes(messageType)) {
+          console.trace('[SERVER]', 'Message has no signature:', message, message.header, message.body);
+        }
+        // if (!message.verify()) console.warn('[SERVER]', 'Message signature verification failed:', message);
+
+        const obj = message.toObject();
+        const actor = new Actor(obj);
+
+        let local = null;
+
+        // Use extracted messageType for switch statement
+        switch (messageType || message.type) {
+          case 'HEARTBEAT':
+            // HEARTBEAT messages are keepalive signals, no action needed
+            if (server.settings.debug) console.debug('[SERVER]', 'Received HEARTBEAT from:', handle);
+            break;
+          case 'JSONCall':
+            // console.trace('[SERVER]', 'received JSON call:', message.body);
+            try {
+              const request = JSON.parse(message.body);
+              const preimage = crypto.createHash('sha256').update(message.body).digest('hex');
+              const hash = crypto.createHash('sha256').update(preimage).digest('hex');
+              const kernel = new Actor(request);
+              const result = await server._handleCall({
+                hash: hash,
+                method: request.method,
+                params: request.params
+              });
+
+              if (server.settings.debug) {
+                console.debug('[SERVER]', 'JSONCall completed:', request.method);
+              }
+
+              this.commit();
+
+
+              // Create a response message
+              const callResultMessage = Message.fromVector(['JSONCall', JSON.stringify({
+                method: 'JSONCallResult',
+                params: [hash, result]
+              })]).signWithKey(this._rootKey);
+
+              socket.send(callResultMessage.toBuffer());
+            } catch (exception) {
+              console.error('[SERVER]', 'Could not parse JSON blob:', exception);
+              return;
+            }
+            break;
+          case 'GET':
+            let answer = await server._GET(message['@data']['path']);
+            console.log('answer:', answer);
+            return answer;
+          case 'POST':
+            let link = await server._POST(message['@data']['path'], message['@data']['value']);
+            console.log('[SERVER]', 'posted link:', link);
+            break;
+          case 'PATCH':
+            let result = await server._PATCH(message['@data']['path'], message['@data']['value']);
+            console.log('[SERVER]', 'patched:', result);
+            break;
+          case 'Ping':
+            const now = Date.now();
+            local = Message.fromVector(['Pong', now.toString()]);
+            if (server._rootKey &amp;&amp; server._rootKey.private) local.signWithKey(server._rootKey);
+            let sendResult = null;
+            try {
+              sendResult = server._sendTo(handle, local.toBuffer());
+            } catch (exception) {
+              console.error('[FABRIC:EDGE]', '[SERVER]', 'Could not send Pong:', exception);
+            }
+            return sendResult;
+          case 'GenericMessage':
+            local = Message.fromVector(['GenericMessage', JSON.stringify({
+              type: 'GenericMessageReceipt',
+              content: actor.id
+            })]);
+
+            if (server._rootKey &amp;&amp; server._rootKey.private) local.signWithKey(server._rootKey);
+            let msgData = null;
+
+            try {
+              msgData = JSON.parse(obj.data);
+            } catch (exception) {}
+
+            if (msgData) {
+              server.emit('call', msgData.data || {
+                method: 'GenericMessage',
+                params: [msgData.data]
+              });
+
+              await server.handleFabricMessage(message);
+            }
+            break;
+          case 'Pong':
+            socket._resetKeepAlive();
+            return;
+          case 'Call':
+            server.emit('call', {
+              method: message['@data'].data.method,
+              params: message['@data'].data.params
+            });
+            break;
+          case 'SUBSCRIBE':
+            const subscribePath = message['@data'];
+            socket.subscriptions.add(subscribePath);
+            if (server.settings.debug) console.debug('[SERVER]', 'Added subscription:', handle, 'to path:', subscribePath);
+            break;
+          case 'UNSUBSCRIBE':
+            const unsubscribePath = message['@data'];
+            socket.subscriptions.delete(unsubscribePath);
+            if (server.settings.debug) console.debug('[SERVER]', 'Removed subscription:', handle, 'from path:', unsubscribePath);
+            break;
+          default:
+            if (server.settings.debug) {
+              console.debug('[SERVER]', 'WebSocket message type not handled in switch:', messageType || message.type);
+            }
+            break;
+        }
+
+        // Send receipt of acknowledgement
+        const receipt = Message.fromVector(['P2P_MESSAGE_RECEIPT', {
+          '@type': 'Receipt',
+          '@actor': handle,
+          '@data': message,
+          '@version': 1
+        }]);
+
+        if (server._rootKey &amp;&amp; server._rootKey.private) receipt.signWithKey(server._rootKey);
+        socket.send(receipt.toBuffer());
+      } catch (error) {
+        console.debug('[SERVER]', 'Error handling message:', error);
+        socket.close(1002);
       }
-
-      // TODO: enable relays
-      // server._relayFrom(handle, msg);
-
-      // always send a receipt of acknowledgement
-      const receipt = Message.fromVector(['P2P_MESSAGE_RECEIPT', {
-        '@type': 'Receipt',
-        '@actor': handle,
-        '@data': message,
-        '@version': 1
-      }]);
-
-      socket.send(receipt.toBuffer());
     });
 
     // set up an oracle, which listens to patches from server
@@ -563,7 +758,7 @@ class FabricHTTPServer extends Service {
 
     const ack = Message.fromVector([P2P_SESSION_ACK, crypto.randomBytes(32).toString('hex')]);
     const raw = ack.toBuffer();
-    socket.send(raw);
+    // socket.send(raw);
 
     // send result
     /* socket.send(JSON.stringify({
@@ -574,19 +769,26 @@ class FabricHTTPServer extends Service {
     if (this.app) {
       const inventory = Message.fromVector(['InventoryRequest', { parent: server.app.id, version: 0 }]);
       const state = Message.fromVector(['State', { content: server.app.state }]);
-      socket.send(inventory.toBuffer());
-      socket.send(state.toBuffer());
+      // socket.send(inventory.toBuffer());
+      // socket.send(state.toBuffer());
     }
 
     return socket;
   }
 
   _sendTo (actor, msg) {
+    // Ensure only Fabric Message buffers are sent
+    let payload = msg;
+
+    if (!Buffer.isBuffer(msg)) {
+      const message = Message.fromVector(['GenericMessage', JSON.stringify(msg)]);
+      if (this._rootKey &amp;&amp; this._rootKey.private) message.signWithKey(this._rootKey);
+      payload = message.toBuffer();
+    }
+
     const target = this.connections[actor];
     if (!target) throw new Error('No such target.');
-
-    const result = target.send(msg);
-
+    const result = target.send(payload);
     return {
       destination: actor,
       result: result
@@ -595,6 +797,15 @@ class FabricHTTPServer extends Service {
 
   // TODO: consolidate with Peer
   _relayFrom (actor, msg) {
+    // Ensure only Fabric Message buffers are sent
+    let payload = msg;
+
+    if (!Buffer.isBuffer(msg)) {
+      const message = Message.fromVector(['GenericMessage', JSON.stringify(msg)]);
+      if (this._rootKey &amp;&amp; this._rootKey.private) message.signWithKey(this._rootKey);
+      payload = message.toBuffer();
+    }
+
     let peers = Object.keys(this.connections).filter(key => {
       return key !== actor;
     });
@@ -603,7 +814,7 @@ class FabricHTTPServer extends Service {
 
     for (let i = 0; i &lt; peers.length; i++) {
       try {
-        this.connections[peers[i]].send(msg);
+        this.connections[peers[i]].send(payload);
       } catch (E) {
         console.error('Could not relay to peer:', E);
       }
@@ -647,7 +858,12 @@ class FabricHTTPServer extends Service {
       res.getHeader('content-length')
     ].join(' ');
 
-    this.emit('log', asApache);
+    // Write to access log file if stream is available
+    if (this.accessLogStream) {
+      this.accessLogStream.write(asApache + '\n');
+    }
+
+    // this.emit('log', asApache);
 
     return next();
   }
@@ -657,7 +873,8 @@ class FabricHTTPServer extends Service {
     // TODO: only enable when requested
     // @ChronicSmoke
     res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'content-type');
+    res.header('Access-Control-Allow-Headers', 'accept, content-type');
+    res.header('Allow', 'GET, POST, OPTIONS, PUT, DELETE, PATCH, HEAD, SEARCH');
     return next();
   }
 
@@ -693,9 +910,51 @@ class FabricHTTPServer extends Service {
     next();
   }
 
+  /**
+   * Notify subscribers of a state change
+   * @param {String} path - The path that changed
+   * @param {*} value - The new value
+   */
+  _notifySubscribers (path, value) {
+    const message = Message.fromVector(['PATCH', {
+      path,
+      value
+    }]);
+
+    if (this._rootKey &amp;&amp; this._rootKey.private) message.signWithKey(this._rootKey);
+
+    // Iterate through all connections and notify those subscribed to this path
+    Object.entries(this.connections).forEach(([handle, socket]) => {
+      if (socket.subscriptions &amp;&amp; socket.subscriptions.has(path)) {
+        try {
+          this._sendTo(handle, message.toBuffer());
+        } catch (error) {
+          console.error('[SERVER]', 'Failed to notify subscriber:', handle, error);
+        }
+      }
+    });
+  }
+
   async _applyChanges (ops) {
+    const sample = Object.assign({}, this.state);
+    const reference = new Actor(sample);
+
     try {
-      monitor.applyPatch(this.state, ops);
+      // Apply changes to state
+      monitor.applyPatch(sample, ops, function isValid () {
+        return true;
+      }, true);
+
+      this._state.parent = reference.id;
+      this._state.content = sample;
+
+      // Notify subscribers of changes
+      ops.forEach(op => {
+        if (op.op === 'replace' || op.op === 'add') {
+          this._notifySubscribers(op.path, op.value);
+        }
+      });
+
       await this.commit();
     } catch (E) {
       this.error('Error applying changes:', E);
@@ -782,18 +1041,9 @@ class FabricHTTPServer extends Service {
     }
 
     // If no result found, return 404
-    if (!result) {
-      return res.status(404).send({
-        status: 'error',
-        message: 'Document not found.',
-        request: {
-          method: req.method.toUpperCase(),
-          path: req.path
-        }
-      });
-    }
+    if (!result) return next();
 
-    console.debug('Preparing to format:', req.path);
+    // console.debug('Preparing to format:', req.path);
 
     return res.format({
       json: function () {
@@ -810,6 +1060,89 @@ class FabricHTTPServer extends Service {
         }
 
         return res.send(server.app._renderWith(output));
+      }
+    });
+  }
+
+  /**
+   * Standardized content negotiation for route handlers.
+   * Handles JSON/HTML negotiation with proper precedence.
+   * @param {Object} req - Express request object
+   * @param {Object} res - Express response object
+   * @param {*} data - Data to send
+   * @param {Object} options - Formatting options
+   * @param {String} options.title - HTML page title
+   * @param {String} options.resourceName - Resource name for display
+   * @param {String} options.resourceType - Resource type (for HTML rendering)
+   */
+  formatResponse (req, res, data, options = {}) {
+    const { title = 'Hub', resourceName = 'Resource', resourceType = null } = options;
+    const accept = req.headers.accept || '';
+    const hasJson = accept.includes('application/json');
+    const hasHtml = accept.includes('text/html');
+
+    // Prefer JSON when both are present with equal q-values
+    if (hasJson &amp;&amp; hasHtml) {
+      const jsonMatch = accept.match(/application\/json(?:\s*;\s*q=([\d.]+))?/);
+      const htmlMatch = accept.match(/text\/html(?:\s*;\s*q=([\d.]+))?/);
+      const jsonQ = jsonMatch &amp;&amp; jsonMatch[1] ? parseFloat(jsonMatch[1]) : 1.0;
+      const htmlQ = htmlMatch &amp;&amp; htmlMatch[1] ? parseFloat(htmlMatch[1]) : 1.0;
+
+      if (htmlQ &lt;= jsonQ) {
+        res.header('Content-Type', 'application/json');
+        return res.json(data);
+      }
+    }
+
+    // Format content for HTML
+    let content = '';
+    if (data === null || data === undefined) {
+      content = '&lt;p class="empty">No data available.&lt;/p>';
+    } else if (Array.isArray(data)) {
+      if (data.length === 0) {
+        content = '&lt;p class="empty">No items found.&lt;/p>';
+      } else {
+        content = `&lt;ul>${data.map(item => `&lt;li>&lt;pre>${JSON.stringify(item, null, 2)}&lt;/pre>&lt;/li>`).join('')}&lt;/ul>`;
+      }
+    } else if (typeof data === 'object') {
+      content = `&lt;pre>${JSON.stringify(data, null, 2)}&lt;/pre>`;
+    } else {
+      content = `&lt;p>${String(data)}&lt;/p>`;
+    }
+
+    return res.format({
+      'application/json': function () {
+        res.header('Content-Type', 'application/json');
+        return res.json(data);
+      },
+      'text/html': function () {
+        res.header('Content-Type', 'text/html');
+        const html = `&lt;!DOCTYPE html>
+&lt;html lang="en">
+&lt;head>
+  &lt;meta charset="UTF-8">
+  &lt;meta name="viewport" content="width=device-width, initial-scale=1.0">
+  &lt;title>${title} - Hub&lt;/title>
+  &lt;style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; line-height: 1.6; }
+    h1 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 0.5rem; }
+    ul { list-style: none; padding: 0; }
+    li { padding: 1rem; margin: 0.5rem 0; background: #f5f5f5; border-radius: 4px; }
+    pre { margin: 0; white-space: pre-wrap; word-wrap: break-word; }
+    .empty { color: #666; font-style: italic; }
+    .error { color: #d32f2f; background: #ffebee; padding: 1rem; border-radius: 4px; border-left: 4px solid #d32f2f; }
+  &lt;/style>
+&lt;/head>
+&lt;body>
+  &lt;h1>${resourceName}&lt;/h1>
+  ${content}
+&lt;/body>
+&lt;/html>`;
+        return res.send(html);
+      },
+      default: function () {
+        res.header('Content-Type', 'application/json');
+        return res.json(data);
       }
     });
   }
@@ -831,11 +1164,11 @@ class FabricHTTPServer extends Service {
       }
     }; */
 
-    // console.log('resources:', this.settings.resources);
+    if (this.settings.debug) console.debug('[HTTP:SERVER]', 'resources:', this.settings.resources);
 
     for (let name in this.settings.resources) {
       const definition = this.settings.resources[name];
-      const resource = await this._defineResource(name, definition);
+      const resource = await this.define(name, definition);
 
       // console.log('resource:', name, definition, resource);
 
@@ -858,6 +1191,7 @@ class FabricHTTPServer extends Service {
 
     // Middlewares
     this.express.use(this._logMiddleware.bind(this));
+    this.express.use(extractor());
     this.express.use(auth.bind(this));
 
     // Custom Headers
@@ -867,7 +1201,6 @@ class FabricHTTPServer extends Service {
     // TODO: defer to an in-memory datastore for requested files
     // NOTE: disable this line to compile on-the-fly
     this.express.use(express.static(this.settings.assets));
-    this.express.use(extractor());
     this.express.use(this._roleMiddleware.bind(this));
 
     // this.express.all('/services/graphql', graphql({ schema: this.graphQLSchema }))
@@ -900,7 +1233,22 @@ class FabricHTTPServer extends Service {
     // TODO: abolish this garbage in favor of resources.
     for (let i = 0; i &lt; this.customRoutes.length; i++) {
       const route = this.customRoutes[i];
-      switch (route.method.toLowerCase()) {
+
+      // Skip invalid routes
+      if (!route || !route.method || typeof route.method !== 'string') {
+        console.warn('[HTTP:SERVER]', 'Skipping invalid route:', route);
+        continue;
+      }
+
+      // Support both 'path' and 'route' keys for path
+      const path = route.path || route.route;
+      if (!path || !route.handler) {
+        console.warn('[HTTP:SERVER]', 'Skipping route with missing path or handler:', route);
+        continue;
+      }
+
+      const method = route.method.toLowerCase();
+      switch (method) {
         case 'get':
         case 'put':
         case 'post':
@@ -908,7 +1256,10 @@ class FabricHTTPServer extends Service {
         case 'delete':
         case 'search':
         case 'options':
-          this.express[route.method.toLowerCase()](route.path, route.handler);
+          this.express[method](path, route.handler);
+          break;
+        default:
+          console.warn('[HTTP:SERVER]', 'Skipping route with unsupported method:', method);
           break;
       }
     }
@@ -921,17 +1272,24 @@ class FabricHTTPServer extends Service {
     this.express.delete('/*', this._handleRoutableRequest.bind(this));
     this.express.options('/*', this._handleRoutableRequest.bind(this));
 
+    this.express.get('/services/test', payments, (req, res) => {
+      return res.send({
+        message: 'I am the prize!'
+      });
+    });
+
     // create the HTTP server
     // NOTE: stoppable is used here to force immediate termination of
     // all connections.  We may want to defer to default APIs for portability reasons.
     this.http = stoppable(http.createServer(this.express), 0);
 
     // attach a WebSocket handler
-    this.wss = new WebSocket.Server({
-      server: this.http,
-      // TODO: validate entire verification chain
-      // verifyClient: this._verifyClient.bind(this)
-    });
+    const wsOpts = { server: this.http };
+    const wsCfg = this.settings.websocket || {};
+    if (wsCfg.clientToken &amp;&amp; (wsCfg.requireClientToken === true || wsCfg.requireClientToken === '1' || wsCfg.requireClientToken === 1)) {
+      wsOpts.verifyClient = this._verifyWebSocketClient.bind(this);
+    }
+    this.wss = new WebSocket.Server(wsOpts);
 
     // set up the WebSocket connection handler
     this.wss.on('connection', this._handleWebSocket.bind(this));
@@ -980,6 +1338,14 @@ class FabricHTTPServer extends Service {
       }
     }
 
+    // Open access log file stream
+    try {
+      this.accessLogStream = fs.createWriteStream(this.settings.accessLog, { flags: 'a' });
+      this.emit('debug', `[HTTP:SERVER] Access log opened: ${this.settings.accessLog}`);
+    } catch (E) {
+      console.error('[HTTP:SERVER] Could not open access log file:', E);
+    }
+
     if (this.settings.listen) {
       this.http.on('listening', notifyReady);
       await this.http.listen(this.settings.port, this.interface);
@@ -1022,14 +1388,28 @@ class FabricHTTPServer extends Service {
     const server = this;
     this.status = 'stopping';
 
+    // Stop accepting connections
     try {
-      await server.http.stop();
+      if (server.http) await server.http.stop();
     } catch (E) {
       console.error('Could not stop HTTP listener:', E);
     }
 
+    // Close access log stream
+    if (this.accessLogStream) {
+      try {
+        this.accessLogStream.end();
+        this.accessLogStream = null;
+        this.emit('debug', `[HTTP:SERVER] Access log closed: ${this.settings.accessLog}`);
+      } catch (E) {
+        console.error('[HTTP:SERVER] Could not close access log file:', E);
+      }
+    }
+
+    // Stop peer connections
     await this.agent.stop();
 
+    // Stop the server app (if it exists)
     if (server.app) {
       try {
         await server.app.stop();
@@ -1038,10 +1418,11 @@ class FabricHTTPServer extends Service {
       }
     }
 
+    // Set status to stopped and emit stopped event
     this.status = 'stopped';
     server.emit('stopped');
 
-    if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Stopped!');
+    if (this.settings.verbosity >= 4) this.emit('log', '[HTTP:SERVER]', 'Stopped!');
     return server;
   }
 

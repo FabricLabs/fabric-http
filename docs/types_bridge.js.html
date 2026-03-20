@@ -176,6 +176,9 @@ class Bridge extends Service {
     if (this.settings.verbosity >= 2) console.log('[HTTP:BRIDGE]', 'Successful connection...');
     const now = Date.now();
     const message = Message.fromVector(['Ping', now.toString()]);
+    if (this.key &amp;&amp; this.key.private) {
+      message.signWithKey(this.key);
+    }
     const ping = JSON.stringify(message.toObject());
     console.log('ping:', typeof ping, ping);
     // if (this.settings.verbosity >= 5) console.log('[HTTP:BRIDGE]', 'Message To Send:', typeof message, message, message.asRaw());

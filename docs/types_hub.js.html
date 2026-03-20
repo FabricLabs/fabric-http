@@ -73,7 +73,7 @@ class Hub extends Oracle {
     this.express = express();
     this.sessions = session({ secret: this.config.seed });
     this.peer = new PeerServer(this.express, {
-      // path: '/services/peering'
+      path: '/services/peering'
     });
 
     this.server = new Server();
@@ -116,7 +116,7 @@ class Hub extends Oracle {
 
     // TODO: message handler on base class
     socket.on('message', async function handler (msg) {
-      console.log('websocket incoming message:', msg);
+      console.debug('[HUB]', 'WebSocket incoming message:', msg);
 
       socket.send(JSON.stringify({
         '@type': 'Receipt',

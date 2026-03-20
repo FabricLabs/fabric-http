@@ -43,6 +43,33 @@
 <a href="https://codecov.io/gh/FabricLabs/web"><img src="https://img.shields.io/codecov/c/github/FabricLabs/web.svg?style=flat-square" alt="Coverage Status"></a>
 <a href="https://github.com/FabricLabs/web/graphs/contributors"><img src="https://img.shields.io/github/contributors/FabricLabs/web.svg?style=flat-square" alt="GitHub contributors"></a>
 <a href="https://chat.fabric.pub"><img src="https://img.shields.io/matrix/hub:fabric.pub.svg?style=flat-square" alt="Community"></a></p>
+<p><strong>Status:</strong> <code>0.1.0-RC1</code> — run <strong><code>npm run ci</code></strong> before release tags (tests + script build).</p>
+<table>
+<thead>
+<tr>
+<th>Doc</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="docs/PRODUCTION.md">docs/PRODUCTION.md</a></td>
+<td>Deploy, TLS, WebSocket, versioning</td>
+</tr>
+<tr>
+<td><a href="docs/MARKETING_OVERVIEW.md">docs/MARKETING_OVERVIEW.md</a></td>
+<td>Positioning &amp; ecosystem copy</td>
+</tr>
+<tr>
+<td><a href="docs/RELEASE_CHECKLIST.md">docs/RELEASE_CHECKLIST.md</a></td>
+<td>Tag &amp; publish steps</td>
+</tr>
+<tr>
+<td><a href="CHANGELOG.md">CHANGELOG.md</a></td>
+<td>Release notes</td>
+</tr>
+</tbody>
+</table>
 <p>Robust library for implementing Fabric-enabled Web Applications.</p>
 <h2>What is Fabric?</h2>
 <p><a href="https://fabric.pub">Fabric</a> is an attempt at replicating the World Wide Web (&quot;the WWW&quot;) as a peer-to-peer network, using payment relationships to exchange documents and scale the network.  <code>@fabric/http</code> provides a framework for hosting Fabric-enabled applications over HTTP, allowing them to be used as &quot;edge servers&quot; for legacy web users.</p>
@@ -51,6 +78,14 @@
 <pre class="prettyprint source lang-sh"><code>mkdir some-project && cd some-project
 npm init # Initialize the project
 npm i --save @fabric/http # Install the @fabric/http dependency
+</code></pre>
+<p>From a clone of <strong>this</strong> repository:</p>
+<pre class="prettyprint source lang-sh"><code>npm ci
+npm run ci   # tests + build:scripts — use before tags / CI
+</code></pre>
+<h3>Developing against a local <code>@fabric/core</code></h3>
+<p>When <code>@fabric/core</code> is cloned alongside this repo, install it so Message types (e.g. <code>P2P_MESSAGE_RECEIPT</code>) and HTTP behavior stay aligned:</p>
+<pre class="prettyprint source lang-sh"><code>npm install ../fabric --no-save
 </code></pre>
 <p>Create an application by creating a new file (here we've used <code>scripts/node.js</code>), containing the following:</p>
 <h3><code>scripts/node.js</code>:</h3>

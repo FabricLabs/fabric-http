@@ -106,6 +106,10 @@ class FabricHTTPServer extends Service {
       sessions: false,
       state: {
         status: 'PAUSED'
+      },
+      websocket: {
+        requireClientToken: false,
+        clientToken: null
       }
     }, settings);
 
@@ -364,9 +368,19 @@ class FabricHTTPServer extends Service {
   }
 
   broadcast (message) {
+    let buf = null;
+    if (Buffer.isBuffer(message)) {
+      buf = message;
+    } else if (message && typeof message.toBuffer === 'function') {
+      buf = message.toBuffer();
+    }
+    if (!buf) {
+      console.error('[SERVER] broadcast: expected Buffer or Message with toBuffer(), got:', typeof message);
+      return;
+    }
+
     const peers = Object.keys(this.connections);
 
-    // Send to all connected peers
     for (let i = 0; i < peers.length; i++) {
       const peer = peers[i];
 
@@ -375,11 +389,53 @@ class FabricHTTPServer extends Service {
       }
 
       try {
-        this.connections[peer].send(message.toBuffer());
+        this.connections[peer].send(buf);
       } catch (E) {
         console.error('Could not send message to peer:', E);
       }
     }
+  }
+
+  /**
+   * Optional WebSocket handshake gate when `settings.websocket.requireClientToken` and `clientToken` are set.
+   * Token may appear in query string (?token= / ?clientToken=), Authorization: Bearer, or Sec-WebSocket-Protocol fabric.token.*
+   * @param {{ req: import('http').IncomingMessage }} info
+   */
+  _verifyWebSocketClient (info) {
+    const wsCfg = this.settings.websocket || {};
+    const secret = wsCfg.clientToken || wsCfg.sharedSecret || null;
+    const required = wsCfg.requireClientToken === true || wsCfg.requireClientToken === '1' || wsCfg.requireClientToken === 1;
+    if (!required || !secret) return true;
+
+    const req = info.req;
+    let token = null;
+    try {
+      const rawUrl = req.url || '/';
+      const u = new URL(rawUrl, 'http://localhost');
+      token = u.searchParams.get('token') || u.searchParams.get('clientToken');
+    } catch (e) {}
+
+    const auth = req.headers && req.headers.authorization;
+    if (!token && auth && typeof auth === 'string' && auth.startsWith('Bearer ')) {
+      token = auth.slice(7).trim();
+    }
+
+    if (!token && req.headers && req.headers['sec-websocket-protocol']) {
+      const protos = String(req.headers['sec-websocket-protocol']).split(',').map((s) => s.trim());
+      for (let i = 0; i < protos.length; i++) {
+        const p = protos[i];
+        if (p.startsWith('fabric.token.')) {
+          token = decodeURIComponent(p.slice('fabric.token.'.length));
+          break;
+        }
+      }
+    }
+
+    const ok = token === secret;
+    if (!ok) {
+      console.warn('[SERVER] WebSocket handshake rejected: missing or invalid client token');
+    }
+    return ok;
   }
 
   debug (content) {
@@ -549,9 +605,6 @@ class FabricHTTPServer extends Service {
             // HEARTBEAT messages are keepalive signals, no action needed
             if (server.settings.debug) console.debug('[SERVER]', 'Received HEARTBEAT from:', handle);
             break;
-          default:
-            console.log('[SERVER]', 'unhandled type:', messageType || message.type);
-            break;
           case 'JSONCall':
             // console.trace('[SERVER]', 'received JSON call:', message.body);
             try {
@@ -565,7 +618,12 @@ class FabricHTTPServer extends Service {
                 params: request.params
               });
 
+              if (server.settings.debug) {
+                console.debug('[SERVER]', 'JSONCall completed:', request.method);
+              }
+
               this.commit();
+
 
               // Create a response message
               const callResultMessage = Message.fromVector(['JSONCall', JSON.stringify({
@@ -636,12 +694,17 @@ class FabricHTTPServer extends Service {
           case 'SUBSCRIBE':
             const subscribePath = message['@data'];
             socket.subscriptions.add(subscribePath);
-            console.debug('[SERVER]', 'Added subscription:', handle, 'to path:', subscribePath);
+            if (server.settings.debug) console.debug('[SERVER]', 'Added subscription:', handle, 'to path:', subscribePath);
             break;
           case 'UNSUBSCRIBE':
             const unsubscribePath = message['@data'];
             socket.subscriptions.delete(unsubscribePath);
-            console.debug('[SERVER]', 'Removed subscription:', handle, 'from path:', unsubscribePath);
+            if (server.settings.debug) console.debug('[SERVER]', 'Removed subscription:', handle, 'from path:', unsubscribePath);
+            break;
+          default:
+            if (server.settings.debug) {
+              console.debug('[SERVER]', 'WebSocket message type not handled in switch:', messageType || message.type);
+            }
             break;
         }
 
@@ -654,7 +717,6 @@ class FabricHTTPServer extends Service {
         }]);
 
         if (server._rootKey && server._rootKey.private) receipt.signWithKey(server._rootKey);
-
         socket.send(receipt.toBuffer());
       } catch (error) {
         console.debug('[SERVER]', 'Error handling message:', error);
@@ -1077,7 +1139,7 @@ class FabricHTTPServer extends Service {
       }
     }; */
 
-    // console.log('resources:', this.settings.resources);
+    if (this.settings.debug) console.debug('[HTTP:SERVER]', 'resources:', this.settings.resources);
 
     for (let name in this.settings.resources) {
       const definition = this.settings.resources[name];
@@ -1191,11 +1253,12 @@ class FabricHTTPServer extends Service {
     this.http = stoppable(http.createServer(this.express), 0);
 
     // attach a WebSocket handler
-    this.wss = new WebSocket.Server({
-      server: this.http,
-      // TODO: validate entire verification chain
-      // verifyClient: this._verifyClient.bind(this)
-    });
+    const wsOpts = { server: this.http };
+    const wsCfg = this.settings.websocket || {};
+    if (wsCfg.clientToken && (wsCfg.requireClientToken === true || wsCfg.requireClientToken === '1' || wsCfg.requireClientToken === 1)) {
+      wsOpts.verifyClient = this._verifyWebSocketClient.bind(this);
+    }
+    this.wss = new WebSocket.Server(wsOpts);
 
     // set up the WebSocket connection handler
     this.wss.on('connection', this._handleWebSocket.bind(this));
