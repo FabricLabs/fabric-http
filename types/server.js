@@ -16,6 +16,7 @@ const {
 // Dependencies
 const http = require('http');
 const fs = require('fs');
+const path = require('path');
 const crypto = require('crypto');
 const merge = require('lodash.merge');
 const pluralize = require('pluralize');
@@ -110,8 +111,31 @@ class FabricHTTPServer extends Service {
       websocket: {
         requireClientToken: false,
         clientToken: null
-      }
+      },
+      /** POST JSON-RPC over HTTP; same methods as WebSocket `JSONCall` when enabled. */
+      jsonRpc: {
+        enabled: false,
+        paths: ['/rpc', '/services/rpc']
+      },
+      /** Passed to `express.static` (see `start()`). */
+      static: {
+        cacheSeconds: 0,
+        dotfiles: 'ignore',
+        etag: true,
+        index: ['index.html'],
+        fallthrough: true,
+        immutable: false
+      },
+      spaFallback: false,
+      spaFallbackExclude: null,
+      spaFallbackIndex: 'index.html',
+      /** When true, send `Access-Control-Allow-*` for browser clients. */
+      cors: true,
+      /** When true, use `compression` middleware if the package is installed. */
+      compression: true
     }, settings);
+
+    this.settings.assets = settings.assets || settings.path || this.settings.assets || 'assets';
 
     this._rootKey = new Key(this.settings.key);
 
@@ -399,7 +423,7 @@ class FabricHTTPServer extends Service {
   /**
    * Optional WebSocket handshake gate when `settings.websocket.requireClientToken` and `clientToken` are set.
    * Token may appear in query string (?token= / ?clientToken=), Authorization: Bearer, or Sec-WebSocket-Protocol fabric.token.*
-   * @param {{ req: import('http').IncomingMessage }} info
+   * @param {Object} info `ws` handshake object; `info.req` is the Node.js HTTP {@link external:https://nodejs.org/api/http.html#class-httpincomingmessage IncomingMessage}.
    */
   _verifyWebSocketClient (info) {
     const wsCfg = this.settings.websocket || {};
@@ -495,10 +519,12 @@ class FabricHTTPServer extends Service {
   }
 
   _handleCall (call) {
-    if (!call.method) throw new Error('Call requires "method" parameter.');
-    if (!call.params) throw new Error('Call requires "params" parameter.');
+    if (!call || !call.method) throw new Error('Call requires "method" parameter.');
+    let params = call.params;
+    if (params === undefined || params === null) params = [];
+    if (!Array.isArray(params)) params = [params];
     if (!this.methods[call.method]) throw new Error(`Method "${call.method}" has not been registered.`);
-    return this.methods[call.method].apply(this, call.params);
+    return this.methods[call.method].apply(this, params);
   }
 
   /**
@@ -840,15 +866,18 @@ class FabricHTTPServer extends Service {
       this.accessLogStream.write(asApache + '\n');
     }
 
+    // this.emit('log', asApache);
+
     return next();
   }
 
   _headerMiddleware (req, res, next) {
     res.header('X-Powered-By', '@fabric/http');
-    // TODO: only enable when requested
-    // @ChronicSmoke
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'accept, content-type');
+    if (this.settings.cors) {
+      res.header('Access-Control-Allow-Origin', '*');
+      res.header('Access-Control-Allow-Headers', 'accept, content-type, authorization');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE, PATCH, HEAD');
+    }
     res.header('Allow', 'GET, POST, OPTIONS, PUT, DELETE, PATCH, HEAD, SEARCH');
     return next();
   }
@@ -883,6 +912,112 @@ class FabricHTTPServer extends Service {
 
   _roleMiddleware (req, res, next) {
     next();
+  }
+
+  /**
+   * Register POST JSON-RPC endpoints that delegate to `_handleCall` (same surface as WebSocket JSONCall).
+   * @private
+   */
+  _attachJsonRpcHttpRoutes () {
+    const cfg = this.settings.jsonRpc;
+    if (!cfg || cfg.enabled === false) return;
+
+    const paths = Array.isArray(cfg.paths) && cfg.paths.length ? cfg.paths : ['/rpc', '/services/rpc'];
+    const handler = async (req, res) => {
+      try {
+        const body = req && req.body ? req.body : {};
+        const method = body.method;
+        let params = body.params;
+        if (params === undefined || params === null) params = [];
+        if (!Array.isArray(params)) params = [params];
+        const id = body.id != null ? body.id : null;
+
+        if (!method) {
+          res.status(400).json({
+            jsonrpc: '2.0',
+            id,
+            error: { code: -32600, message: 'Invalid Request: method required' }
+          });
+          return;
+        }
+
+        let result = null;
+        try {
+          result = await this._handleCall({ method, params });
+        } catch (callErr) {
+          console.error('[HTTP:SERVER] RPC call error:', callErr);
+          res.status(500).json({
+            jsonrpc: '2.0',
+            id,
+            error: {
+              code: -32603,
+              message: callErr && callErr.message ? callErr.message : 'Internal error'
+            }
+          });
+          return;
+        }
+
+        res.status(200).json({
+          jsonrpc: '2.0',
+          id,
+          result
+        });
+      } catch (err) {
+        console.error('[HTTP:SERVER] RPC handler error:', err);
+        res.status(500).json({
+          jsonrpc: '2.0',
+          id: null,
+          error: {
+            code: -32603,
+            message: err && err.message ? err.message : 'Internal error'
+          }
+        });
+      }
+    };
+
+    for (let p = 0; p < paths.length; p++) {
+      this.express.post(paths[p], handler);
+    }
+  }
+
+  /**
+   * SPA-style fallback: after static misses, serve `index.html` for navigational GETs (html Accept, no file extension).
+   * @private
+   */
+  _maybeServeSpaShell (req, res, next) {
+    if (!this.settings.spaFallback) return next();
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    const accept = req.headers.accept || '';
+    if (!accept.includes('text/html')) return next();
+
+    const pth = req.path || '';
+    const ex = this.settings.spaFallbackExclude;
+    if (ex && typeof ex.test === 'function' && ex.test(pth)) return next();
+
+    const last = path.basename(pth);
+    if (last.includes('.') && last !== this.settings.spaFallbackIndex) {
+      const ext = last.slice(last.lastIndexOf('.') + 1);
+      if (ext.length <= 8 && /^[a-z0-9]+$/i.test(ext)) return next();
+    }
+
+    const indexFile = path.join(this._staticRoot, this.settings.spaFallbackIndex || 'index.html');
+    if (!fs.existsSync(indexFile)) return next();
+
+    if (req.method === 'HEAD') {
+      try {
+        const st = fs.statSync(indexFile);
+        res.status(200);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Content-Length', st.size);
+        return res.end();
+      } catch (e) {
+        return next();
+      }
+    }
+
+    return res.sendFile(path.resolve(indexFile), (err) => {
+      if (err) next();
+    });
   }
 
   /**
@@ -1164,6 +1299,8 @@ class FabricHTTPServer extends Service {
       })
     }); */
 
+    this._staticRoot = path.resolve(process.cwd(), this.settings.assets);
+
     // Middlewares
     this.express.use(this._logMiddleware.bind(this));
     this.express.use(extractor());
@@ -1173,9 +1310,32 @@ class FabricHTTPServer extends Service {
     this.express.use(this._headerMiddleware.bind(this));
     this.express.use(this._redirectMiddleware.bind(this));
 
-    // TODO: defer to an in-memory datastore for requested files
-    // NOTE: disable this line to compile on-the-fly
-    this.express.use(express.static(this.settings.assets));
+    if (this.settings.compression !== false) {
+      try {
+        const compression = require('compression');
+        this.express.use(compression());
+      } catch (err) {
+        this.emit('debug', '[HTTP:SERVER] compression not available; npm i compression for gzip');
+      }
+    }
+
+    const st = this.settings.static || {};
+    const maxAgeMs = st.maxAge != null
+      ? Number(st.maxAge)
+      : (Number(st.cacheSeconds) || 0) * 1000;
+
+    let indexOpt = ['index.html'];
+    if (st.index === false) indexOpt = false;
+    else if (Array.isArray(st.index)) indexOpt = st.index;
+
+    this.express.use(express.static(this._staticRoot, {
+      maxAge: maxAgeMs,
+      dotfiles: st.dotfiles || 'ignore',
+      etag: st.etag !== false,
+      index: indexOpt,
+      fallthrough: st.fallthrough !== false,
+      immutable: !!st.immutable
+    }));
     this.express.use(this._roleMiddleware.bind(this));
 
     // this.express.all('/services/graphql', graphql({ schema: this.graphQLSchema }))
@@ -1196,10 +1356,9 @@ class FabricHTTPServer extends Service {
       this.express.use(middleware);
     }
 
-    // TODO: render page
+    // OPTIONS `/` — server metadata for API discovery.
     this.express.options('/', this._handleOptionsRequest.bind(this));
-    // TODO: enable this route by disabling or moving the static asset handler above
-    // NOTE: see `this.express.use(express.static('assets'));`
+    // GET `/` — runs after `express.static` above; if `assets/index.html` exists, static serves `/` and this handler is skipped.
     this.express.get('/', this._handleIndexRequest.bind(this));
 
     this._addAllRoutes();
@@ -1239,13 +1398,22 @@ class FabricHTTPServer extends Service {
       }
     }
 
-    // Attach the internal router
-    this.express.get('/*', this._handleRoutableRequest.bind(this));
+    // JSON-RPC over HTTP — after body parsers and `settings.middlewares` (e.g. security headers) so they apply to `POST /rpc`.
+    this._attachJsonRpcHttpRoutes();
+
+    // Attach the internal router (optional SPA shell before resource router)
+    this.express.get('/*', this._maybeServeSpaShell.bind(this), this._handleRoutableRequest.bind(this));
     this.express.put('/*', this._handleRoutableRequest.bind(this));
     this.express.post('/*', this._handleRoutableRequest.bind(this));
     this.express.patch('/*', this._handleRoutableRequest.bind(this));
     this.express.delete('/*', this._handleRoutableRequest.bind(this));
     this.express.options('/*', this._handleRoutableRequest.bind(this));
+
+    this.express.get('/services/test', payments, (req, res) => {
+      return res.send({
+        message: 'I am the prize!'
+      });
+    });
 
     // create the HTTP server
     // NOTE: stoppable is used here to force immediate termination of
@@ -1315,19 +1483,20 @@ class FabricHTTPServer extends Service {
       console.error('[HTTP:SERVER] Could not open access log file:', E);
     }
 
+    const self = this;
+    function notifyReady () {
+      self.status = 'STARTED';
+      self.emit('ready', {
+        id: self.id
+      });
+    }
+
     if (this.settings.listen) {
       this.http.on('listening', notifyReady);
       await this.http.listen(this.settings.port, this.interface);
     } else {
       console.warn('[HTTP:SERVER]', 'Listening is disabled.  Only events will be emitted!');
       notifyReady();
-    }
-
-    function notifyReady () {
-      this.status = 'STARTED';
-      this.emit('ready', {
-        id: this.id
-      });
     }
 
     // commit to our results

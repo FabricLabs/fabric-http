@@ -30,7 +30,8 @@
     "review:coverage": "npm run build:coverage && fabric-http reports/coverage",
     "start": "npm run compile && node scripts/node.js",
     "static": "npm run build:scripts && fabric-http assets",
-    "test": "mocha tests"
+    "test": "mocha tests",
+    "test:standards": "mocha tests/standards.http.js --exit"
   },
   "repository": {
     "type": "git",
@@ -59,6 +60,7 @@
     "babel-loader": "=8.2.5",
     "body-parser": "=1.20.4",
     "buffer": "=6.0.3",
+    "compression": "=1.8.1",
     "cross-fetch": "=4.1.0",
     "crypto-browserify": "=3.12.1",
     "d3": "=7.9.0",
@@ -92,6 +94,7 @@
   "devDependencies": {
     "@babel/preset-env": "=7.26.7",
     "@webcomponents/webcomponentsjs": "=2.8.0",
+    "ajv": "=8.18.0",
     "c8": "=11.0.0",
     "eslint": "=9.30.1",
     "jsdoc": "=4.0.4",

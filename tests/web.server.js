@@ -5,9 +5,22 @@ const TEST_CONFIG = require('../settings/test');
 
 // Test
 const assert = require('assert');
+const net = require('net');
 
 // Dependencies
 const WebSocket = require('ws');
+
+function ephemeralPort () {
+  return new Promise((resolve, reject) => {
+    const s = net.createServer();
+    s.listen(0, '127.0.0.1', () => {
+      const addr = s.address();
+      const p = typeof addr === 'object' && addr ? addr.port : null;
+      s.close((err) => (err ? reject(err) : resolve(p)));
+    });
+    s.on('error', reject);
+  });
+}
 
 // Types
 const Client = require('../types/client');
@@ -22,18 +35,25 @@ describe('@fabric/http/types/server', function () {
     });
 
     it('should start (and stop) smoothly', async function () {
-      const server = new Server(TEST_CONFIG);
+      const port = await ephemeralPort();
+      const server = new Server(Object.assign({}, TEST_CONFIG, {
+        port,
+        host: '127.0.0.1',
+        hostname: '127.0.0.1'
+      }));
 
       try {
         await server.start();
       } catch (E) {
         console.error('Could not start:', E);
+        throw E;
       }
 
       try {
         await server.stop();
       } catch (E) {
         console.error('Could not stop:', E);
+        throw E;
       }
 
       assert.ok(server);
