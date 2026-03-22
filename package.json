@@ -50,6 +50,11 @@
     "url": "https://github.com/FabricLabs/fabric-http/issues"
   },
   "homepage": "https://github.com/FabricLabs/fabric-http#readme",
+  "exports": {
+    ".": "./types/web.js",
+    "./module.js": "./module.js",
+    "./types/*": "./types/*.js"
+  },
   "contributors": [
     "Eric Martindale",
     "Victor Wu"
