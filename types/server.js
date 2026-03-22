@@ -22,7 +22,6 @@ const merge = require('lodash.merge');
 const pluralize = require('pluralize');
 
 // TODO: remove Express entirely...
-// NOTE: current blockers include PeerServer...
 const express = require('express');
 const session = require('express-session');
 const flasher = require('express-flash');
@@ -63,7 +62,6 @@ const SPA = require('./spa');
 
 // Dependencies
 const WebSocket = require('ws');
-const PeerServer = require('peer').ExpressPeerServer;
 
 /**
  * Fabric Service for exposing an {@link Application} to clients over HTTP.
@@ -193,31 +191,10 @@ class FabricHTTPServer extends Service {
     };
 
     this.observer = monitor.observe(this.state);
-    this.coordinator = new PeerServer(this.express, {
-      path: '/services/peering'
-    });
 
-    // Track WebRTC peers connected via PeerJS signaling
+    // Browser WebRTC peers (native RTCPeerConnection + WebSocket signaling from Hub).
+    // The legacy npm `peer` ExpressPeerServer (PeerJS) was removed; register via Hub RPC / Bridge.
     this.webrtcPeers = new Map();
-
-    // Set up WebRTC peer tracking events
-    this.coordinator.on('connection', (client) => {
-      const peerId = client.getId();
-      console.log('[SERVER]', 'WebRTC peer connected:', peerId);
-      this.webrtcPeers.set(peerId, {
-        id: peerId,
-        connectedAt: Date.now(),
-        status: 'connected'
-      });
-      this.emit('webrtc:connection', { peerId });
-    });
-
-    this.coordinator.on('disconnect', (client) => {
-      const peerId = client.getId();
-      console.log('[SERVER]', 'WebRTC peer disconnected:', peerId);
-      this.webrtcPeers.delete(peerId);
-      this.emit('webrtc:disconnect', { peerId });
-    });
 
     return this;
   }
@@ -239,7 +216,7 @@ class FabricHTTPServer extends Service {
   }
 
   /**
-   * Get a list of WebRTC peers connected via PeerJS signaling.
+   * Get a list of WebRTC peers registered with this server (see Hub `RegisterWebRTCPeer`).
    * @returns {Array} Array of WebRTC peer objects
    */
   get webrtcPeerList () {
