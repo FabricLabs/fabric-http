@@ -609,6 +609,7 @@ class FabricHTTPServer extends Service {
             if (server.settings.debug) console.debug('[SERVER]', 'Received HEARTBEAT from:', handle);
             break;
           case 'JSONCall':
+          case 'JSON_CALL':
             // console.trace('[SERVER]', 'received JSON call:', message.body);
             try {
               const request = JSON.parse(message.body);
