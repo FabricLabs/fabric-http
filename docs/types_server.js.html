@@ -45,7 +45,6 @@ const merge = require('lodash.merge');
 const pluralize = require('pluralize');
 
 // TODO: remove Express entirely...
-// NOTE: current blockers include PeerServer...
 const express = require('express');
 const session = require('express-session');
 const flasher = require('express-flash');
@@ -86,7 +85,6 @@ const SPA = require('./spa');
 
 // Dependencies
 const WebSocket = require('ws');
-const PeerServer = require('peer').ExpressPeerServer;
 
 /**
  * Fabric Service for exposing an {@link Application} to clients over HTTP.
@@ -216,31 +214,10 @@ class FabricHTTPServer extends Service {
     };
 
     this.observer = monitor.observe(this.state);
-    this.coordinator = new PeerServer(this.express, {
-      path: '/services/peering'
-    });
 
-    // Track WebRTC peers connected via PeerJS signaling
+    // Browser WebRTC peers (native RTCPeerConnection + WebSocket signaling from Hub).
+    // The legacy npm `peer` ExpressPeerServer (PeerJS) was removed; register via Hub RPC / Bridge.
     this.webrtcPeers = new Map();
-
-    // Set up WebRTC peer tracking events
-    this.coordinator.on('connection', (client) => {
-      const peerId = client.getId();
-      console.log('[SERVER]', 'WebRTC peer connected:', peerId);
-      this.webrtcPeers.set(peerId, {
-        id: peerId,
-        connectedAt: Date.now(),
-        status: 'connected'
-      });
-      this.emit('webrtc:connection', { peerId });
-    });
-
-    this.coordinator.on('disconnect', (client) => {
-      const peerId = client.getId();
-      console.log('[SERVER]', 'WebRTC peer disconnected:', peerId);
-      this.webrtcPeers.delete(peerId);
-      this.emit('webrtc:disconnect', { peerId });
-    });
 
     return this;
   }
@@ -262,7 +239,7 @@ class FabricHTTPServer extends Service {
   }
 
   /**
-   * Get a list of WebRTC peers connected via PeerJS signaling.
+   * Get a list of WebRTC peers registered with this server (see Hub `RegisterWebRTCPeer`).
    * @returns {Array} Array of WebRTC peer objects
    */
   get webrtcPeerList () {
@@ -655,6 +632,7 @@ class FabricHTTPServer extends Service {
             if (server.settings.debug) console.debug('[SERVER]', 'Received HEARTBEAT from:', handle);
             break;
           case 'JSONCall':
+          case 'JSON_CALL':
             // console.trace('[SERVER]', 'received JSON call:', message.body);
             try {
               const request = JSON.parse(message.body);
@@ -1379,10 +1357,9 @@ class FabricHTTPServer extends Service {
       this.express.use(middleware);
     }
 
-    // TODO: render page
+    // OPTIONS `/` — server metadata for API discovery.
     this.express.options('/', this._handleOptionsRequest.bind(this));
-    // TODO: enable this route by disabling or moving the static asset handler above
-    // NOTE: see `this.express.use(express.static('assets'));`
+    // GET `/` — runs after `express.static` above; if `assets/index.html` exists, static serves `/` and this handler is skipped.
     this.express.get('/', this._handleIndexRequest.bind(this));
 
     this._addAllRoutes();
@@ -1422,6 +1399,7 @@ class FabricHTTPServer extends Service {
       }
     }
 
+    // JSON-RPC over HTTP — after body parsers and `settings.middlewares` (e.g. security headers) so they apply to `POST /rpc`.
     this._attachJsonRpcHttpRoutes();
 
     // Attach the internal router (optional SPA shell before resource router)
@@ -1628,7 +1606,7 @@ module.exports = FabricHTTPServer;
 
 
     </div>
-    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul><h3>Global</h3><ul><li><a href="global.html#compression">compression</a></li><li><a href="global.html#cors">cors</a></li><li><a href="global.html#jsonRpc">jsonRpc</a></li><li><a href="global.html#static">static</a></li></ul></nav>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricDistributedExecutionHTTP.html">FabricDistributedExecutionHTTP</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul><h3>Global</h3><ul><li><a href="global.html#compression">compression</a></li><li><a href="global.html#cors">cors</a></li><li><a href="global.html#jsonRpc">jsonRpc</a></li><li><a href="global.html#merge">merge</a></li><li><a href="global.html#static">static</a></li></ul></nav>
     <br class="clear" />
     <footer>
         <a href="https://github.com/FabricLabs/web">git://</a> &middot; <a href="https://chat.fabric.pub/#/room/#web:fabric.pub">Community</a>

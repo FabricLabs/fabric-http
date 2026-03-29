@@ -70,6 +70,7 @@
 </tr>
 </tbody>
 </table>
+<p><strong>Peering / WebRTC:</strong> Browser signaling is <strong>native WebRTC</strong> (Hub <strong><code>Bridge</code></strong> + JSON-RPC), not Fabric TCP <strong><code>P2P_SESSION_OFFER</code>/<code>OPEN</code></strong>. Phase alignment with the CLI mental model lives in <strong><code>@fabric/core</code></strong>: <a href="https://github.com/FabricLabs/fabric/blob/develop/docs/SESSION_AND_WEBRTC.md"><code>docs/SESSION_AND_WEBRTC.md</code></a> (use the path in your pinned core checkout).</p>
 <p>Robust library for implementing Fabric-enabled Web Applications.</p>
 <h2>What is Fabric?</h2>
 <p><a href="https://fabric.pub">Fabric</a> is an attempt at replicating the World Wide Web (&quot;the WWW&quot;) as a peer-to-peer network, using payment relationships to exchange documents and scale the network.  <code>@fabric/http</code> provides a framework for hosting Fabric-enabled applications over HTTP, allowing them to be used as &quot;edge servers&quot; for legacy web users.</p>
@@ -84,7 +85,7 @@ npm i --save @fabric/http # Install the @fabric/http dependency
 npm run ci   # tests + build:scripts — use before tags / CI
 </code></pre>
 <h3><code>fabric-http</code> CLI (http-server–style)</h3>
-<p>The <code>fabric-http</code> binary serves a directory with Express static middleware (correct <code>Content-Type</code>, caching, <code>ETag</code>, dotfile hiding) plus Fabric services (WebSocket <code>/</code>, JSON-RPC when enabled, PeerJS signaling under <code>/services/peering</code>, etc.). Treat it like <a href="https://www.npmjs.com/package/http-server"><code>http-server</code></a> for the filesystem, with extra endpoints.</p>
+<p>The <code>fabric-http</code> binary serves a directory with Express static middleware (correct <code>Content-Type</code>, caching, <code>ETag</code>, dotfile hiding) plus Fabric services (WebSocket <code>/</code>, JSON-RPC when enabled, peering/WebRTC signaling via the <strong>Hub</strong> rather than legacy PeerJS, etc.). Treat it like <a href="https://www.npmjs.com/package/http-server"><code>http-server</code></a> for the filesystem, with extra endpoints.</p>
 <pre class="prettyprint source lang-sh"><code>npx fabric-http ./dist -p 8080 -a 0.0.0.0
 # cache static assets for one hour (seconds, like http-server -c)
 npx fabric-http ./assets -c 3600
@@ -140,7 +141,7 @@ build a browser version.</p></article>
 
 
     </div>
-    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul><h3>Global</h3><ul><li><a href="global.html#compression">compression</a></li><li><a href="global.html#cors">cors</a></li><li><a href="global.html#jsonRpc">jsonRpc</a></li><li><a href="global.html#static">static</a></li></ul></nav>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricDistributedExecutionHTTP.html">FabricDistributedExecutionHTTP</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul><h3>Global</h3><ul><li><a href="global.html#compression">compression</a></li><li><a href="global.html#cors">cors</a></li><li><a href="global.html#jsonRpc">jsonRpc</a></li><li><a href="global.html#merge">merge</a></li><li><a href="global.html#static">static</a></li></ul></nav>
     <br class="clear" />
     <footer>
         <a href="https://github.com/FabricLabs/web">git://</a> &middot; <a href="https://chat.fabric.pub/#/room/#web:fabric.pub">Community</a>

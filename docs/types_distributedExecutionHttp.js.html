@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Source: types/distributedExecutionHttp.js &middot; Docs</title>
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+  </head>
+  <body>
+    <div id="main">
+      <h1 class="page-title">Source: types/distributedExecutionHttp.js</h1>
+      
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>'use strict';
+
+/**
+ * HTTP surface for distributed execution: manifest and epoch status for operators.
+ * Binds routes on a {@link FabricHTTPServer} via `_addRoute` (same pattern as Hub services).
+ */
+const merge = require('lodash.merge');
+const Service = require('@fabric/core/types/service');
+
+class FabricDistributedExecutionHTTP extends Service {
+  /**
+   * @param {Object} [settings]
+   * @param {string} [settings.basePath='/services/distributed']
+   * @param {() => object|Promise&lt;object>} [settings.getManifest] — JSON manifest (see `DistributedExecution.parseDistributedManifestV1`)
+   * @param {() => object|Promise&lt;object>} [settings.getEpochStatus] — beacon / epoch summary for UIs
+   */
+  constructor (settings = {}) {
+    super(settings);
+    this.settings = merge({
+      name: 'FabricDistributedExecutionHTTP',
+      basePath: '/services/distributed',
+      getManifest: null,
+      getEpochStatus: null
+    }, settings);
+  }
+
+  /**
+   * Register routes on an HTTP server instance.
+   * @param {import('./server')} httpServer
+   */
+  bind (httpServer) {
+    if (!httpServer || typeof httpServer._addRoute !== 'function') {
+      throw new Error('FabricDistributedExecutionHTTP.bind requires a server with _addRoute');
+    }
+    const base = String(this.settings.basePath || '/services/distributed').replace(/\/$/, '');
+    if (typeof this.settings.getManifest === 'function') {
+      httpServer._addRoute('GET', `${base}/manifest`, this._handleManifest.bind(this));
+    }
+    if (typeof this.settings.getEpochStatus === 'function') {
+      httpServer._addRoute('GET', `${base}/epoch`, this._handleEpoch.bind(this));
+    }
+  }
+
+  async _handleManifest (req, res) {
+    try {
+      const manifest = await Promise.resolve(this.settings.getManifest(req));
+      res.setHeader('Content-Type', 'application/json');
+      res.status(200).send(JSON.stringify(manifest));
+    } catch (e) {
+      res.status(500).json({ status: 'error', message: e &amp;&amp; e.message ? e.message : String(e) });
+    }
+  }
+
+  async _handleEpoch (req, res) {
+    try {
+      const body = await Promise.resolve(this.settings.getEpochStatus(req));
+      res.setHeader('Content-Type', 'application/json');
+      res.status(200).send(JSON.stringify(body));
+    } catch (e) {
+      res.status(500).json({ status: 'error', message: e &amp;&amp; e.message ? e.message : String(e) });
+    }
+  }
+}
+
+module.exports = FabricDistributedExecutionHTTP;
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+    </div>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricDistributedExecutionHTTP.html">FabricDistributedExecutionHTTP</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul><h3>Global</h3><ul><li><a href="global.html#compression">compression</a></li><li><a href="global.html#cors">cors</a></li><li><a href="global.html#jsonRpc">jsonRpc</a></li><li><a href="global.html#merge">merge</a></li><li><a href="global.html#static">static</a></li></ul></nav>
+    <br class="clear" />
+    <footer>
+        <a href="https://github.com/FabricLabs/web">git://</a> &middot; <a href="https://chat.fabric.pub/#/room/#web:fabric.pub">Community</a>
+    </footer>
+    <script> prettyPrint(); </script>
+    <script src="scripts/linenumber.js"></script>
+  </body>
+</html>

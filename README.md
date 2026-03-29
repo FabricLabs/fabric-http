@@ -13,6 +13,8 @@
 | [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | Tag & publish steps |
 | [CHANGELOG.md](CHANGELOG.md) | Release notes |
 
+**Peering / WebRTC:** Browser signaling is **native WebRTC** (Hub **`Bridge`** + JSON-RPC), not Fabric TCP **`P2P_SESSION_OFFER`/`OPEN`**. Phase alignment with the CLI mental model lives in **`@fabric/core`**: [`docs/SESSION_AND_WEBRTC.md`](https://github.com/FabricLabs/fabric/blob/develop/docs/SESSION_AND_WEBRTC.md) (use the path in your pinned core checkout).
+
 Robust library for implementing Fabric-enabled Web Applications.
 
 ## What is Fabric?
@@ -35,7 +37,7 @@ npm run ci   # tests + build:scripts — use before tags / CI
 ```
 
 ### `fabric-http` CLI (http-server–style)
-The `fabric-http` binary serves a directory with Express static middleware (correct `Content-Type`, caching, `ETag`, dotfile hiding) plus Fabric services (WebSocket `/`, JSON-RPC when enabled, PeerJS signaling under `/services/peering`, etc.). Treat it like [`http-server`](https://www.npmjs.com/package/http-server) for the filesystem, with extra endpoints.
+The `fabric-http` binary serves a directory with Express static middleware (correct `Content-Type`, caching, `ETag`, dotfile hiding) plus Fabric services (WebSocket `/`, JSON-RPC when enabled, peering/WebRTC signaling via the **Hub** rather than legacy PeerJS, etc.). Treat it like [`http-server`](https://www.npmjs.com/package/http-server) for the filesystem, with extra endpoints.
 
 ```sh
 npx fabric-http ./dist -p 8080 -a 0.0.0.0
