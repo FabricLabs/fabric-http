@@ -34,8 +34,8 @@ class FabricDistributedExecutionHTTP extends Service {
   /**
    * @param {Object} [settings]
    * @param {string} [settings.basePath='/services/distributed']
-   * @param {() => object|Promise&lt;object>} [settings.getManifest] — JSON manifest (see `DistributedExecution.parseDistributedManifestV1`)
-   * @param {() => object|Promise&lt;object>} [settings.getEpochStatus] — beacon / epoch summary for UIs
+   * @param {() => object|Promise&lt;object&gt;} [settings.getManifest] — JSON manifest (see `DistributedExecution.parseDistributedManifestV1`)
+   * @param {() => object|Promise&lt;object&gt;} [settings.getEpochStatus] — beacon / epoch summary for UIs
    */
   constructor (settings = {}) {
     super(settings);
