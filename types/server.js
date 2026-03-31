@@ -64,6 +64,23 @@ const SPA = require('./spa');
 const WebSocket = require('ws');
 
 /**
+ * Resolve `relativeCandidate` under `staticRoot` and reject `..` / absolute escape attempts.
+ * @param {string} relativeCandidate
+ * @param {string} staticRoot
+ * @returns {string|null} Absolute path, or null if unsafe / invalid.
+ */
+function resolvedPathUnderStaticRoot (relativeCandidate, staticRoot) {
+  if (relativeCandidate == null) return null;
+  const s = String(relativeCandidate);
+  if (!s.trim() || s.includes('\0')) return null;
+  const root = path.resolve(staticRoot);
+  const resolved = path.resolve(root, s);
+  const rel = path.relative(root, resolved);
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return null;
+  return resolved;
+}
+
+/**
  * Fabric Service for exposing an {@link Application} to clients over HTTP.
  * @extends Service
  */
@@ -113,7 +130,9 @@ class FabricHTTPServer extends Service {
       /** POST JSON-RPC over HTTP; same methods as WebSocket `JSONCall` when enabled. */
       jsonRpc: {
         enabled: false,
-        paths: ['/rpc', '/services/rpc']
+        paths: ['/rpc', '/services/rpc'],
+        /** When true, HTTP JSON-RPC requires a verified bearer token (`request.authenticated`). */
+        requireAuth: false
       },
       /** Passed to `express.static` (see `start()`). */
       static: {
@@ -590,8 +609,9 @@ class FabricHTTPServer extends Service {
         // Use extracted type or fall back to message.type
         const messageType = type || message.type;
 
-        // System messages (HEARTBEAT, Ping, Pong) may not have signatures
-        const systemMessageTypes = ['HEARTBEAT', 'Ping', 'Pong'];
+        // System messages (HEARTBEAT, Ping, Pong) may not have signatures.
+        // `message.type` from `fromBuffer` is wire form (e.g. P2P_PING); parsed JSON may use friendly names.
+        const systemMessageTypes = ['HEARTBEAT', 'Ping', 'Pong', 'P2P_PING', 'P2P_PONG'];
         if (!message.raw.signature.toString() && !systemMessageTypes.includes(messageType)) {
           console.trace('[SERVER]', 'Message has no signature:', message, message.header, message.body);
         }
@@ -654,6 +674,7 @@ class FabricHTTPServer extends Service {
             console.log('[SERVER]', 'patched:', result);
             break;
           case 'Ping':
+          case 'P2P_PING':
             const now = Date.now();
             local = Message.fromVector(['Pong', now.toString()]);
             if (server._rootKey && server._rootKey.private) local.signWithKey(server._rootKey);
@@ -687,6 +708,7 @@ class FabricHTTPServer extends Service {
             }
             break;
           case 'Pong':
+          case 'P2P_PONG':
             socket._resetKeepAlive();
             return;
           case 'Call':
@@ -904,11 +926,18 @@ class FabricHTTPServer extends Service {
     const handler = async (req, res) => {
       try {
         const body = req && req.body ? req.body : {};
+        const id = body.id != null ? body.id : null;
+        if (cfg.requireAuth === true && !req.authenticated) {
+          return res.status(401).json({
+            jsonrpc: '2.0',
+            id,
+            error: { code: -32001, message: 'Unauthorized: valid bearer token required for JSON-RPC' }
+          });
+        }
         const method = body.method;
         let params = body.params;
         if (params === undefined || params === null) params = [];
         if (!Array.isArray(params)) params = [params];
-        const id = body.id != null ? body.id : null;
 
         if (!method) {
           res.status(400).json({
@@ -978,8 +1007,11 @@ class FabricHTTPServer extends Service {
       if (ext.length <= 8 && /^[a-z0-9]+$/i.test(ext)) return next();
     }
 
-    const indexFile = path.join(this._staticRoot, this.settings.spaFallbackIndex || 'index.html');
-    if (!fs.existsSync(indexFile)) return next();
+    const indexFile = resolvedPathUnderStaticRoot(
+      this.settings.spaFallbackIndex || 'index.html',
+      this._staticRoot
+    );
+    if (!indexFile || !fs.existsSync(indexFile)) return next();
 
     if (req.method === 'HEAD') {
       try {
@@ -1279,6 +1311,12 @@ class FabricHTTPServer extends Service {
 
     this._staticRoot = path.resolve(process.cwd(), this.settings.assets);
 
+    const listenPort = Number(this.settings.port);
+    if (!Number.isInteger(listenPort) || listenPort < 1 || listenPort > 65535) {
+      throw new Error(`[HTTP:SERVER] Invalid port: ${this.settings.port} (require integer 1-65535)`);
+    }
+    this.settings.port = listenPort;
+
     // Middlewares
     this.express.use(this._logMiddleware.bind(this));
     this.express.use(extractor());
@@ -1298,9 +1336,15 @@ class FabricHTTPServer extends Service {
     }
 
     const st = this.settings.static || {};
-    const maxAgeMs = st.maxAge != null
-      ? Number(st.maxAge)
-      : (Number(st.cacheSeconds) || 0) * 1000;
+    let maxAgeMs = 0;
+    if (st.maxAge != null) {
+      const m = Number(st.maxAge);
+      maxAgeMs = Number.isInteger(m) && m >= 0 ? m : 0;
+    } else {
+      let cs = Number(st.cacheSeconds);
+      if (!Number.isInteger(cs) || cs < 0) cs = 0;
+      maxAgeMs = cs * 1000;
+    }
 
     let indexOpt = ['index.html'];
     if (st.index === false) indexOpt = false;

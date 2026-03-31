@@ -49,6 +49,27 @@ npx fabric-http ./build --spa
 
 Programmatic options on `new HTTPServer({ ... })` include `assets` (or `path` alias for the static root), `static: { cacheSeconds, ... }`, `spaFallback`, `jsonRpc: { enabled, paths }`, `cors`, and `compression`. HTTP JSON-RPC (`POST /rpc`) uses the same `_handleCall` surface as WebSocket `JSONCall` when `jsonRpc.enabled` is true (e.g. hub.fabric.pub).
 
+### Deterministic avatars (`types/avatar`)
+`@fabric/http` includes a deterministic, Gravatar-like `Avatar` class with a Fabric-themed palette and an academic visual-hash approach inspired by "drunken bishop" / marching-bishop algorithms:
+
+```js
+const Avatar = require('@fabric/http/types/avatar');
+const avatar = new Avatar('alice@example.edu', { size: 96 });
+const svg = avatar.toSVG();
+const dataURI = avatar.toDataURI();
+const imgHTML = avatar.render(); // <img class="fabric-avatar" ...>
+const ascii = avatar.toASCII(); // terminal-friendly visual hash
+```
+
+The same input always yields the same SVG; different identities produce different board walks.
+
+For browser custom-elements, `@fabric/http` also exposes `FabricAvatar` on `types/web`:
+
+```js
+const { FabricAvatar } = require('@fabric/http');
+customElements.define('fabric-avatar', FabricAvatar);
+```
+
 ### Standards & compliance tests
 [`tests/standards.http.js`](tests/standards.http.js) covers RFC 6902 JSON Patch (`fast-json-patch`), JSON Schema checks for JSON-RPC 2.0 bodies ([`tests/schemas/jsonrpc.js`](tests/schemas/jsonrpc.js), [AJV](https://ajv.js.org/) as a devDependency), HTML5-shaped responses with [`jsdom`](https://github.com/jsdom/jsdom) ([`tests/helpers/htmlCompliance.js`](tests/helpers/htmlCompliance.js)), `Accept` / `formatResponse` negotiation, static files, `POST /rpc`, and `OPTIONS /`. Run: `npx mocha tests/standards.http.js --exit`.
 

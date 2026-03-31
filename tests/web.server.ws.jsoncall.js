@@ -66,7 +66,7 @@ describe('@fabric/http/types/server', function () {
       const callMessage = Message.fromVector(['JSONCall', callBody]).signWithKey(clientKey);
 
       function isJSONCallResultFrame (msg) {
-        if (!msg || msg.type !== 'JSONCall') return false;
+        if (!msg || msg.friendlyType !== 'JSONCall') return false;
         try {
           const inner = JSON.parse(msg.body);
           return inner && inner.method === 'JSONCallResult';

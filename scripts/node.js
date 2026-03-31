@@ -24,6 +24,27 @@ const { HTTP_SERVER_PORT } = require('../constants');
 const Environment = require('@fabric/core/types/environment');
 const HTTPServer = require('../types/server');
 
+/**
+ * @param {number} n
+ * @returns {number|null}
+ */
+function parseTcpPort (n) {
+  const v = Number(n);
+  if (!Number.isInteger(v) || v < 1 || v > 65535) return null;
+  return v;
+}
+
+/**
+ * @param {number} n
+ * @param {number} maxSec
+ * @returns {number|null}
+ */
+function parseCacheSeconds (n, maxSec = 315360000) {
+  const v = Number(n);
+  if (!Number.isInteger(v) || v < 0 || v > maxSec) return null;
+  return v;
+}
+
 function parseArgs (argv) {
   const out = {
     positional: [],
@@ -95,10 +116,19 @@ const input = Object.assign({}, settings, {
   xprv: environment.xprv
 });
 
-if (parsed.port != null && Number.isFinite(parsed.port)) input.port = parsed.port;
+if (parsed.port != null) {
+  const p = parseTcpPort(parsed.port);
+  if (p != null) input.port = p;
+  else console.warn('[FABRIC:HTTP] Ignoring invalid --port (need integer 1–65535):', parsed.port);
+}
 if (parsed.address) input.host = parsed.address;
-if (parsed.cacheSeconds != null && Number.isFinite(parsed.cacheSeconds)) {
-  input.static = Object.assign({}, settings.static || {}, { cacheSeconds: parsed.cacheSeconds });
+if (parsed.cacheSeconds != null) {
+  const c = parseCacheSeconds(parsed.cacheSeconds);
+  if (c != null) {
+    input.static = Object.assign({}, settings.static || {}, { cacheSeconds: c });
+  } else {
+    console.warn('[FABRIC:HTTP] Ignoring invalid --cache (need integer >= 0):', parsed.cacheSeconds);
+  }
 }
 if (parsed.spa) input.spaFallback = true;
 if (parsed.compression === false) input.compression = false;

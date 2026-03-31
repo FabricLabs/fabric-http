@@ -613,8 +613,9 @@ class FabricHTTPServer extends Service {
         // Use extracted type or fall back to message.type
         const messageType = type || message.type;
 
-        // System messages (HEARTBEAT, Ping, Pong) may not have signatures
-        const systemMessageTypes = ['HEARTBEAT', 'Ping', 'Pong'];
+        // System messages (HEARTBEAT, Ping, Pong) may not have signatures.
+        // `message.type` from `fromBuffer` is wire form (e.g. P2P_PING); parsed JSON may use friendly names.
+        const systemMessageTypes = ['HEARTBEAT', 'Ping', 'Pong', 'P2P_PING', 'P2P_PONG'];
         if (!message.raw.signature.toString() &amp;&amp; !systemMessageTypes.includes(messageType)) {
           console.trace('[SERVER]', 'Message has no signature:', message, message.header, message.body);
         }
@@ -677,6 +678,7 @@ class FabricHTTPServer extends Service {
             console.log('[SERVER]', 'patched:', result);
             break;
           case 'Ping':
+          case 'P2P_PING':
             const now = Date.now();
             local = Message.fromVector(['Pong', now.toString()]);
             if (server._rootKey &amp;&amp; server._rootKey.private) local.signWithKey(server._rootKey);
@@ -710,6 +712,7 @@ class FabricHTTPServer extends Service {
             }
             break;
           case 'Pong':
+          case 'P2P_PONG':
             socket._resetKeepAlive();
             return;
           case 'Call':
@@ -1606,7 +1609,7 @@ module.exports = FabricHTTPServer;
 
 
     </div>
-    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricDistributedExecutionHTTP.html">FabricDistributedExecutionHTTP</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul><h3>Global</h3><ul><li><a href="global.html#compression">compression</a></li><li><a href="global.html#cors">cors</a></li><li><a href="global.html#jsonRpc">jsonRpc</a></li><li><a href="global.html#merge">merge</a></li><li><a href="global.html#static">static</a></li></ul></nav>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Avatar.html">Avatar</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricDistributedExecutionHTTP.html">FabricDistributedExecutionHTTP</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul><h3>Global</h3><ul><li><a href="global.html#compression">compression</a></li><li><a href="global.html#cors">cors</a></li><li><a href="global.html#jsonRpc">jsonRpc</a></li><li><a href="global.html#merge">merge</a></li><li><a href="global.html#static">static</a></li></ul></nav>
     <br class="clear" />
     <footer>
         <a href="https://github.com/FabricLabs/web">git://</a> &middot; <a href="https://chat.fabric.pub/#/room/#web:fabric.pub">Community</a>

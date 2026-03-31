@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>Class: FabricComponent &middot; Docs</title>
+    <title>Class: Avatar &middot; Docs</title>
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
     <!--[if lt IE 9]>
@@ -13,7 +13,7 @@
   </head>
   <body>
     <div id="main">
-      <h1 class="page-title">Class: FabricComponent</h1>
+      <h1 class="page-title">Class: Avatar</h1>
       
 
 
@@ -23,9 +23,13 @@
 
 <header>
     
-        <h2><span class="attribs"><span class="type-signature"></span></span>FabricComponent<span class="signature">(settings<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {Component}</span></h2>
+        <h2><span class="attribs"><span class="type-signature"></span></span>Avatar<span class="signature">()</span><span class="type-signature"></span></h2>
         
-            <div class="class-description">Generic component.</div>
+            <div class="class-description">Deterministic avatar generator inspired by academic visual hash work
+(e.g. Perrig/Song "Hash Visualization", a.k.a. "drunken bishop").
+
+The algorithm walks a diagonal "bishop" across a board using bits from
+SHA-256(input), accumulating visit counts to produce a stable identicon.</div>
         
     
 </header>
@@ -40,7 +44,111 @@
     
 
     
-    <h4 class="name" id="FabricComponent"><span class="type-signature"></span>new FabricComponent<span class="signature">(settings<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {Component}</span></h4>
+    <h4 class="name" id="Avatar"><span class="type-signature"></span>new Avatar<span class="signature">()</span><span class="type-signature"></span></h4>
+    
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="types_avatar.js.html">types/avatar.js</a>, <a href="types_avatar.js.html#line35">line 35</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+        <h3 class="subsection-title">Methods</h3>
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="render"><span class="type-signature"></span>render<span class="signature">(settings<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {String}</span></h4>
     
 
     
@@ -48,7 +156,7 @@
 
 
 <div class="description">
-    Create a component.
+    Render a consumable HTML snippet.
 </div>
 
 
@@ -75,8 +183,6 @@
         <th>Attributes</th>
         
 
-        
-        <th>Default</th>
         
 
         <th class="last">Description</th>
@@ -113,153 +219,10 @@
             
 
             
-                <td class="default">
+
+            <td class="description last">
+                <h6>Properties</h6>
                 
-                    {}
-                
-                </td>
-            
-
-            <td class="description last">Settings for the component.</td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="types_component.js.html">types/component.js</a>, <a href="types_component.js.html#line11">line 11</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h5>Returns:</h5>
-
-        
-<div class="param-desc">
-    Fully-configured component.
-</div>
-
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type">Component</span>
-
-
-    </dd>
-</dl>
-
-    
-
-
-
-
-
-    
-    </div>
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-        <h3 class="subsection-title">Methods</h3>
-
-        
-            
-
-    
-
-    
-    <h4 class="name" id="_loadHTML"><span class="type-signature"></span>_loadHTML<span class="signature">(content<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {String}</span></h4>
-    
-
-    
-
-
-
-<div class="description">
-    Load an HTML string into the Component.
-</div>
-
-
-
-
-
-
-
-
-
-    <h5>Parameters:</h5>
-    
 
 <table class="params">
     <thead>
@@ -275,6 +238,8 @@
         
 
         
+        <th>Default</th>
+        
 
         <th class="last">Description</th>
     </tr>
@@ -285,7 +250,49 @@
 
         <tr>
             
-                <td class="name"><code>content</code></td>
+                <td class="name"><code>format</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">'img'</span>
+|
+
+<span class="param-type">'svg'</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                    'img'
+                
+                </td>
+            
+
+            <td class="description last">Output format.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>className</code></td>
             
 
             <td class="type">
@@ -310,8 +317,60 @@
             
 
             
+                <td class="default">
+                
+                    'fabric-avatar'
+                
+                </td>
+            
 
-            <td class="description last">HTML string to load (empty by default).</td>
+            <td class="description last">CSS class for wrapper output.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>alt</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                    'Fabric Avatar'
+                
+                </td>
+            
+
+            <td class="description last">alt label for image output.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
         </tr>
 
     
@@ -352,7 +411,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="types_component.js.html">types/component.js</a>, <a href="types_component.js.html#line125">line 125</a>
+        <a href="types_avatar.js.html">types/avatar.js</a>, <a href="types_avatar.js.html#line215">line 215</a>
     </li></ul></dd>
     
 
@@ -380,10 +439,6 @@
 <h5>Returns:</h5>
 
         
-<div class="param-desc">
-    HTML document.
-</div>
-
 
 
 <dl>
@@ -410,7 +465,7 @@
     
 
     
-    <h4 class="name" id="toHTML"><span class="type-signature"></span>toHTML<span class="signature">()</span><span class="type-signature"> &rarr; {String}</span></h4>
+    <h4 class="name" id="toASCII"><span class="type-signature"></span>toASCII<span class="signature">()</span><span class="type-signature"> &rarr; {String}</span></h4>
     
 
     
@@ -418,7 +473,8 @@
 
 
 <div class="description">
-    Generate an HTML representation of the component.
+    Render a deterministic ASCII visual hash for terminal/text comparison.
+Lower visit counts use lighter glyphs; higher counts use denser glyphs.
 </div>
 
 
@@ -462,7 +518,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="types_component.js.html">types/component.js</a>, <a href="types_component.js.html#line160">line 160</a>
+        <a href="types_avatar.js.html">types/avatar.js</a>, <a href="types_avatar.js.html#line184">line 184</a>
     </li></ul></dd>
     
 
@@ -490,10 +546,6 @@
 <h5>Returns:</h5>
 
         
-<div class="param-desc">
-    HTML of the rendered component.
-</div>
-
 
 
 <dl>

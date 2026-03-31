@@ -1,4 +1,27 @@
-'use strict';
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Source: types/avatar.js &middot; Docs</title>
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+  </head>
+  <body>
+    <div id="main">
+      <h1 class="page-title">Source: types/avatar.js</h1>
+      
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>'use strict';
 
 const crypto = require('crypto');
 
@@ -66,7 +89,7 @@ class Avatar {
   _readBitPair (buffer, index) {
     const byte = buffer[Math.floor(index / 4) % buffer.length];
     const shift = (index % 4) * 2;
-    return (byte >> shift) & 0x03;
+    return (byte >> shift) &amp; 0x03;
   }
 
   _buildBoard () {
@@ -86,8 +109,8 @@ class Avatar {
     let pairIndex = 0;
     board[y][x] += 2; // emphasize origin
 
-    for (let i = 0; i < steps; i++) {
-      if (pairIndex > 0 && pairIndex % (entropy.length * 4) === 0) {
+    for (let i = 0; i &lt; steps; i++) {
+      if (pairIndex > 0 &amp;&amp; pairIndex % (entropy.length * 4) === 0) {
         entropy = sha256(entropy);
       }
 
@@ -96,8 +119,8 @@ class Avatar {
       let dy = dirs[dir][1];
 
       // Reflect at edges so the walk stays on-board.
-      if (x + dx < 0 || x + dx >= cells) dx *= -1;
-      if (y + dy < 0 || y + dy >= cells) dy *= -1;
+      if (x + dx &lt; 0 || x + dx >= cells) dx *= -1;
+      if (y + dy &lt; 0 || y + dy >= cells) dy *= -1;
 
       x += dx;
       y += dy;
@@ -117,14 +140,14 @@ class Avatar {
     const cell = inner / grid;
 
     let max = 0;
-    for (let y = 0; y < grid; y++) {
-      for (let x = 0; x < grid; x++) max = Math.max(max, board[y][x]);
+    for (let y = 0; y &lt; grid; y++) {
+      for (let x = 0; x &lt; grid; x++) max = Math.max(max, board[y][x]);
     }
-    if (max < 1) max = 1;
+    if (max &lt; 1) max = 1;
 
     const rects = [];
-    for (let y = 0; y < grid; y++) {
-      for (let x = 0; x < grid; x++) {
+    for (let y = 0; y &lt; grid; y++) {
+      for (let x = 0; x &lt; grid; x++) {
         const value = board[y][x];
         if (!value) continue;
         const t = Math.min(1, value / max);
@@ -154,15 +177,15 @@ class Avatar {
       const w = r.w.toFixed(3);
       const h = r.h.toFixed(3);
       const o = r.alpha.toFixed(3);
-      return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${Math.max(1, w * 0.16).toFixed(3)}" fill="${r.fill}" fill-opacity="${o}" />`;
+      return `&lt;rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${Math.max(1, w * 0.16).toFixed(3)}" fill="${r.fill}" fill-opacity="${o}" />`;
     }).join('');
 
     return [
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 ${px} ${px}" role="img" aria-label="Fabric Avatar">`,
-      `<rect width="${px}" height="${px}" rx="${radius}" fill="${background}" />`,
+      `&lt;svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 ${px} ${px}" role="img" aria-label="Fabric Avatar">`,
+      `&lt;rect width="${px}" height="${px}" rx="${radius}" fill="${background}" />`,
       cells,
-      `<rect x="0.5" y="0.5" width="${px - 1}" height="${px - 1}" rx="${radius}" fill="none" stroke="${stroke}" stroke-opacity="0.75" />`,
-      '</svg>'
+      `&lt;rect x="0.5" y="0.5" width="${px - 1}" height="${px - 1}" rx="${radius}" fill="none" stroke="${stroke}" stroke-opacity="0.75" />`,
+      '&lt;/svg>'
     ].join('');
   }
 
@@ -185,15 +208,15 @@ class Avatar {
     const board = this._state.board;
     const glyphs = ' .:-=+*#%@';
     let max = 0;
-    for (let y = 0; y < board.length; y++) {
-      for (let x = 0; x < board[y].length; x++) max = Math.max(max, board[y][x]);
+    for (let y = 0; y &lt; board.length; y++) {
+      for (let x = 0; x &lt; board[y].length; x++) max = Math.max(max, board[y][x]);
     }
-    if (max < 1) max = 1;
+    if (max &lt; 1) max = 1;
 
     const lines = [];
-    for (let y = 0; y < board.length; y++) {
+    for (let y = 0; y &lt; board.length; y++) {
       let line = '';
-      for (let x = 0; x < board[y].length; x++) {
+      for (let x = 0; x &lt; board[y].length; x++) {
         const v = board[y][x];
         const idx = Math.min(glyphs.length - 1, Math.round((v / max) * (glyphs.length - 1)));
         line += glyphs[idx];
@@ -222,8 +245,8 @@ class Avatar {
     if (opts.format === 'svg') return this.toSVG();
 
     const classAttr = opts.className ? ` class="${String(opts.className)}"` : '';
-    const altAttr = String(opts.alt || 'Fabric Avatar').replace(/"/g, '&quot;');
-    return `<img${classAttr} src="${this.toDataURI()}" alt="${altAttr}" />`;
+    const altAttr = String(opts.alt || 'Fabric Avatar').replace(/"/g, '&amp;quot;');
+    return `&lt;img${classAttr} src="${this.toDataURI()}" alt="${altAttr}" />`;
   }
 
   toHTML (settings = {}) {
@@ -232,3 +255,20 @@ class Avatar {
 }
 
 module.exports = Avatar;
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+    </div>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Avatar.html">Avatar</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricDistributedExecutionHTTP.html">FabricDistributedExecutionHTTP</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul><h3>Global</h3><ul><li><a href="global.html#compression">compression</a></li><li><a href="global.html#cors">cors</a></li><li><a href="global.html#jsonRpc">jsonRpc</a></li><li><a href="global.html#merge">merge</a></li><li><a href="global.html#static">static</a></li></ul></nav>
+    <br class="clear" />
+    <footer>
+        <a href="https://github.com/FabricLabs/web">git://</a> &middot; <a href="https://chat.fabric.pub/#/room/#web:fabric.pub">Community</a>
+    </footer>
+    <script> prettyPrint(); </script>
+    <script src="scripts/linenumber.js"></script>
+  </body>
+</html>

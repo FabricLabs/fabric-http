@@ -93,6 +93,20 @@ npx fabric-http ./assets -c 3600
 npx fabric-http ./build --spa
 </code></pre>
 <p>Programmatic options on <code>new HTTPServer({ ... })</code> include <code>assets</code> (or <code>path</code> alias for the static root), <code>static: { cacheSeconds, ... }</code>, <code>spaFallback</code>, <code>jsonRpc: { enabled, paths }</code>, <code>cors</code>, and <code>compression</code>. HTTP JSON-RPC (<code>POST /rpc</code>) uses the same <code>_handleCall</code> surface as WebSocket <code>JSONCall</code> when <code>jsonRpc.enabled</code> is true (e.g. hub.fabric.pub).</p>
+<h3>Deterministic avatars (<code>types/avatar</code>)</h3>
+<p><code>@fabric/http</code> includes a deterministic, Gravatar-like <code>Avatar</code> class with a Fabric-themed palette and an academic visual-hash approach inspired by &quot;drunken bishop&quot; / marching-bishop algorithms:</p>
+<pre class="prettyprint source lang-js"><code>const Avatar = require('@fabric/http/types/avatar');
+const avatar = new Avatar('alice@example.edu', { size: 96 });
+const svg = avatar.toSVG();
+const dataURI = avatar.toDataURI();
+const imgHTML = avatar.render(); // &lt;img class=&quot;fabric-avatar&quot; ...>
+const ascii = avatar.toASCII(); // terminal-friendly visual hash
+</code></pre>
+<p>The same input always yields the same SVG; different identities produce different board walks.</p>
+<p>For browser custom-elements, <code>@fabric/http</code> also exposes <code>FabricAvatar</code> on <code>types/web</code>:</p>
+<pre class="prettyprint source lang-js"><code>const { FabricAvatar } = require('@fabric/http');
+customElements.define('fabric-avatar', FabricAvatar);
+</code></pre>
 <h3>Standards &amp; compliance tests</h3>
 <p><a href="tests/standards.http.js"><code>tests/standards.http.js</code></a> covers RFC 6902 JSON Patch (<code>fast-json-patch</code>), JSON Schema checks for JSON-RPC 2.0 bodies (<a href="tests/schemas/jsonrpc.js"><code>tests/schemas/jsonrpc.js</code></a>, <a href="https://ajv.js.org/">AJV</a> as a devDependency), HTML5-shaped responses with <a href="https://github.com/jsdom/jsdom"><code>jsdom</code></a> (<a href="tests/helpers/htmlCompliance.js"><code>tests/helpers/htmlCompliance.js</code></a>), <code>Accept</code> / <code>formatResponse</code> negotiation, static files, <code>POST /rpc</code>, and <code>OPTIONS /</code>. Run: <code>npx mocha tests/standards.http.js --exit</code>.</p>
 <h3>Developing against a local <code>@fabric/core</code></h3>
@@ -141,7 +155,7 @@ build a browser version.</p></article>
 
 
     </div>
-    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricDistributedExecutionHTTP.html">FabricDistributedExecutionHTTP</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul><h3>Global</h3><ul><li><a href="global.html#compression">compression</a></li><li><a href="global.html#cors">cors</a></li><li><a href="global.html#jsonRpc">jsonRpc</a></li><li><a href="global.html#merge">merge</a></li><li><a href="global.html#static">static</a></li></ul></nav>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Avatar.html">Avatar</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricDistributedExecutionHTTP.html">FabricDistributedExecutionHTTP</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul><h3>Global</h3><ul><li><a href="global.html#compression">compression</a></li><li><a href="global.html#cors">cors</a></li><li><a href="global.html#jsonRpc">jsonRpc</a></li><li><a href="global.html#merge">merge</a></li><li><a href="global.html#static">static</a></li></ul></nav>
     <br class="clear" />
     <footer>
         <a href="https://github.com/FabricLabs/web">git://</a> &middot; <a href="https://chat.fabric.pub/#/room/#web:fabric.pub">Community</a>

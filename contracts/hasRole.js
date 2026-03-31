@@ -1,5 +1,6 @@
 module.exports = function hasRole (role) {
   if (!role) return false;
+  if (!this.authenticated) return false;
 
   const payload = this.tokenPayload || {};
   if (payload.role && payload.role === role) return true;
