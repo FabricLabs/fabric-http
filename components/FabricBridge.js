@@ -136,7 +136,7 @@ class FabricBridge extends FabricComponent {
   }
 
   async start () {
-    const onReady = async () => {
+    const onReady = async (...args) => {
       try {
         await this._handleRemoteReady();
       } catch (err) {
@@ -147,7 +147,7 @@ class FabricBridge extends FabricComponent {
         : null;
       if (extra) {
         try {
-          await extra.call(this);
+          await extra.apply(this, args);
         } catch (err) {
           console.error('[FabricBridge] props.remoteReady failed:', err);
         }

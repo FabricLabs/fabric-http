@@ -97,7 +97,7 @@ describe('@fabric/http standards', function () {
         listen: true,
         assets: tmpDir,
         accessLog,
-        jsonRpc: { enabled: true, paths: ['/rpc'] }
+        jsonRpc: { enabled: true, paths: ['/rpc'], requireAuth: false }
       });
 
       server._registerMethod('StandardsEcho', (x) => ({ echoed: x }));

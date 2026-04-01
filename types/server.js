@@ -117,8 +117,7 @@ class FabricHTTPServer extends Service {
           address: '/devices/audio'
         }
       },
-      // TODO: replace with crypto random
-      seed: Math.random(),
+      seed: crypto.randomBytes(32).toString('hex'),
       sessions: false,
       state: {
         status: 'PAUSED'
@@ -132,7 +131,7 @@ class FabricHTTPServer extends Service {
         enabled: false,
         paths: ['/rpc', '/services/rpc'],
         /** When true, HTTP JSON-RPC requires a verified bearer token (`request.authenticated`). */
-        requireAuth: false
+        requireAuth: true
       },
       /** Passed to `express.static` (see `start()`). */
       static: {
@@ -451,7 +450,9 @@ class FabricHTTPServer extends Service {
       }
     }
 
-    const ok = token === secret;
+    const tokenDigest = crypto.createHash('sha256').update(String(token || '')).digest();
+    const secretDigest = crypto.createHash('sha256').update(String(secret || '')).digest();
+    const ok = crypto.timingSafeEqual(tokenDigest, secretDigest);
     if (!ok) {
       console.warn('[SERVER] WebSocket handshake rejected: missing or invalid client token');
     }
@@ -459,10 +460,12 @@ class FabricHTTPServer extends Service {
   }
 
   debug (content) {
+    if ((this.settings.verbosity || 0) < 4) return;
     console.debug('[FABRIC:EDGE]', (new Date().toISOString()), content);
   }
 
   log (content) {
+    if ((this.settings.verbosity || 0) < 3) return;
     console.log('[FABRIC:EDGE]', (new Date().toISOString()), content);
   }
 
@@ -475,6 +478,7 @@ class FabricHTTPServer extends Service {
   }
 
   warn (content) {
+    if ((this.settings.verbosity || 0) < 2) return;
     console.warn('[FABRIC:EDGE]', (new Date().toISOString()), content);
   }
 
@@ -621,9 +625,10 @@ class FabricHTTPServer extends Service {
         const actor = new Actor(obj);
 
         let local = null;
+        const switchType = messageType || message.type;
 
         // Use extracted messageType for switch statement
-        switch (messageType || message.type) {
+        switch (switchType) {
           case 'HEARTBEAT':
             // HEARTBEAT messages are keepalive signals, no action needed
             if (server.settings.debug) console.debug('[SERVER]', 'Received HEARTBEAT from:', handle);
@@ -662,77 +667,98 @@ class FabricHTTPServer extends Service {
             }
             break;
           case 'GET':
-            let answer = await server._GET(message['@data']['path']);
-            console.log('answer:', answer);
-            return answer;
+            {
+              const answer = await server._GET(message['@data']['path']);
+              console.log('answer:', answer);
+              return answer;
+            }
           case 'POST':
-            let link = await server._POST(message['@data']['path'], message['@data']['value']);
-            console.log('[SERVER]', 'posted link:', link);
-            break;
+            {
+              const link = await server._POST(message['@data']['path'], message['@data']['value']);
+              console.log('[SERVER]', 'posted link:', link);
+              break;
+            }
           case 'PATCH':
-            let result = await server._PATCH(message['@data']['path'], message['@data']['value']);
-            console.log('[SERVER]', 'patched:', result);
-            break;
+            {
+              const result = await server._PATCH(message['@data']['path'], message['@data']['value']);
+              console.log('[SERVER]', 'patched:', result);
+              break;
+            }
           case 'Ping':
           case 'P2P_PING':
-            const now = Date.now();
-            local = Message.fromVector(['Pong', now.toString()]);
-            if (server._rootKey && server._rootKey.private) local.signWithKey(server._rootKey);
-            let sendResult = null;
-            try {
-              sendResult = server._sendTo(handle, local.toBuffer());
-            } catch (exception) {
-              console.error('[FABRIC:EDGE]', '[SERVER]', 'Could not send Pong:', exception);
+            {
+              const now = Date.now();
+              local = Message.fromVector(['Pong', now.toString()]);
+              if (server._rootKey && server._rootKey.private) local.signWithKey(server._rootKey);
+              let sendResult = null;
+              try {
+                sendResult = server._sendTo(handle, local.toBuffer());
+              } catch (exception) {
+                console.error('[FABRIC:EDGE]', '[SERVER]', 'Could not send Pong:', exception);
+              }
+              return sendResult;
             }
-            return sendResult;
           case 'GenericMessage':
-            local = Message.fromVector(['GenericMessage', JSON.stringify({
-              type: 'GenericMessageReceipt',
-              content: actor.id
-            })]);
+            {
+              local = Message.fromVector(['GenericMessage', JSON.stringify({
+                type: 'GenericMessageReceipt',
+                content: actor.id
+              })]);
 
-            if (server._rootKey && server._rootKey.private) local.signWithKey(server._rootKey);
-            let msgData = null;
+              if (server._rootKey && server._rootKey.private) local.signWithKey(server._rootKey);
+              let msgData = null;
 
-            try {
-              msgData = JSON.parse(obj.data);
-            } catch (exception) {}
+              try {
+                msgData = JSON.parse(obj.data);
+              } catch (exception) {}
 
-            if (msgData) {
-              server.emit('call', msgData.data || {
-                method: 'GenericMessage',
-                params: [msgData.data]
-              });
+              if (msgData) {
+                server.emit('call', msgData.data || {
+                  method: 'GenericMessage',
+                  params: [msgData.data]
+                });
 
-              await server.handleFabricMessage(message);
+                await server.handleFabricMessage(message);
+              }
+              break;
             }
-            break;
           case 'Pong':
           case 'P2P_PONG':
-            socket._resetKeepAlive();
-            return;
+            {
+              socket._resetKeepAlive();
+              return;
+            }
           case 'Call':
-            server.emit('call', {
-              method: message['@data'].data.method,
-              params: message['@data'].data.params
-            });
-            break;
+            {
+              server.emit('call', {
+                method: message['@data'].data.method,
+                params: message['@data'].data.params
+              });
+              break;
+            }
           case 'SUBSCRIBE':
-            const subscribePath = message['@data'];
-            socket.subscriptions.add(subscribePath);
-            if (server.settings.debug) console.debug('[SERVER]', 'Added subscription:', handle, 'to path:', subscribePath);
-            break;
+            {
+              const subscribePath = message['@data'];
+              socket.subscriptions.add(subscribePath);
+              if (server.settings.debug) console.debug('[SERVER]', 'Added subscription:', handle, 'to path:', subscribePath);
+              break;
+            }
           case 'UNSUBSCRIBE':
-            const unsubscribePath = message['@data'];
-            socket.subscriptions.delete(unsubscribePath);
-            if (server.settings.debug) console.debug('[SERVER]', 'Removed subscription:', handle, 'from path:', unsubscribePath);
-            break;
+            {
+              const unsubscribePath = message['@data'];
+              socket.subscriptions.delete(unsubscribePath);
+              if (server.settings.debug) console.debug('[SERVER]', 'Removed subscription:', handle, 'from path:', unsubscribePath);
+              break;
+            }
           default:
             if (server.settings.debug) {
               console.debug('[SERVER]', 'WebSocket message type not handled in switch:', messageType || message.type);
             }
             break;
         }
+
+        // Skip receipt for keepalive/system message types.
+        if (systemMessageTypes.includes(switchType)) return;
 
         // Send receipt of acknowledgement
         const receipt = Message.fromVector(['P2P_MESSAGE_RECEIPT', {
@@ -1268,7 +1294,7 @@ class FabricHTTPServer extends Service {
   }
 
   async start () {
-    console.debug('[HTTP:SERVER]', 'Starting...');
+    if ((this.settings.verbosity || 0) >= 4) console.debug('[HTTP:SERVER]', 'Starting...');
     this.emit('debug', '[HTTP:SERVER] Starting...');
 
     this.status = 'starting';
@@ -1422,6 +1448,9 @@ class FabricHTTPServer extends Service {
 
     // JSON-RPC over HTTP — after body parsers and `settings.middlewares` (e.g. security headers) so they apply to `POST /rpc`.
     this._attachJsonRpcHttpRoutes();
+    if (this.settings.jsonRpc && this.settings.jsonRpc.enabled && this.settings.jsonRpc.requireAuth !== true) {
+      this.emit('warning', '[HTTP:SERVER] JSON-RPC auth is disabled (jsonRpc.requireAuth=false). Endpoints are publicly callable.');
+    }
 
     // Attach the internal router (optional SPA shell before resource router)
     this.express.get('/*', this._maybeServeSpaShell.bind(this), this._handleRoutableRequest.bind(this));
@@ -1454,11 +1483,11 @@ class FabricHTTPServer extends Service {
     this.wss.on('connection', this._handleWebSocket.bind(this));
 
     this.agent.on('debug', (msg) => {
-      console.debug('debug:', msg);
+      if ((this.settings.verbosity || 0) >= 5) console.debug('debug:', msg);
     });
 
     this.agent.on('log', (msg) => {
-      console.log('log:', msg);
+      if ((this.settings.verbosity || 0) >= 4) console.log('log:', msg);
     });
 
     // Handle messages from internal app
@@ -1499,8 +1528,15 @@ class FabricHTTPServer extends Service {
 
     // Open access log file stream
     try {
-      this.accessLogStream = fs.createWriteStream(this.settings.accessLog, { flags: 'a' });
-      this.emit('debug', `[HTTP:SERVER] Access log opened: ${this.settings.accessLog}`);
+      const logsRoot = path.resolve(process.cwd(), 'logs');
+      const requestedPath = path.resolve(String(this.settings.accessLog || 'access.log'));
+      const logPath = requestedPath.startsWith(logsRoot + path.sep) || requestedPath === logsRoot
+        ? requestedPath
+        : path.join(logsRoot, path.basename(requestedPath));
+      fs.mkdirSync(path.dirname(logPath), { recursive: true });
+      this.settings.accessLog = logPath;
+      this.accessLogStream = fs.createWriteStream(logPath, { flags: 'a' });
+      this.emit('debug', `[HTTP:SERVER] Access log opened: ${logPath}`);
     } catch (E) {
       console.error('[HTTP:SERVER] Could not open access log file:', E);
     }

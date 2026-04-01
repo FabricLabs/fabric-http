@@ -11,8 +11,8 @@ class FabricDistributedExecutionHTTP extends Service {
   /**
    * @param {Object} [settings]
    * @param {string} [settings.basePath='/services/distributed']
-   * @param {() => object|Promise<object>} [settings.getManifest] — JSON manifest (see `DistributedExecution.parseDistributedManifestV1`)
-   * @param {() => object|Promise<object>} [settings.getEpochStatus] — beacon / epoch summary for UIs
+   * @param {Function} [settings.getManifest] Returns `Object` or `Promise.<Object>` JSON manifest.
+   * @param {Function} [settings.getEpochStatus] Returns `Object` or `Promise.<Object>` epoch summary.
    */
   constructor (settings = {}) {
     super(settings);
@@ -26,7 +26,7 @@ class FabricDistributedExecutionHTTP extends Service {
 
   /**
    * Register routes on an HTTP server instance.
-   * @param {import('./server')} httpServer
+   * @param {Object} httpServer HTTP server instance exposing `_addRoute(method, path, handler)`.
    */
   bind (httpServer) {
     if (!httpServer || typeof httpServer._addRoute !== 'function') {

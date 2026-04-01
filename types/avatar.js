@@ -33,6 +33,10 @@ function mixHex (fromHex, toHex, t) {
  * SHA-256(input), accumulating visit counts to produce a stable identicon.
  */
 class Avatar {
+  /**
+   * @param {string} [input=''] Seed input used to derive deterministic avatar bytes.
+   * @param {Object} [settings={}] Optional rendering configuration (size, colors, grid, steps).
+   */
   constructor (input = '', settings = {}) {
     this.input = String(input);
     this.settings = Object.assign({
@@ -47,10 +51,9 @@ class Avatar {
       stroke: '#1f2937'
     }, settings);
 
-    this._state = {
-      seed: sha256(this.input),
-      board: this._buildBoard()
-    };
+    const seed = sha256(this.input);
+    this._state = { seed };
+    this._state.board = this._buildBoard();
 
     return this;
   }
@@ -82,7 +85,7 @@ class Avatar {
 
     let x = Math.floor(cells / 2);
     let y = Math.floor(cells / 2);
-    let entropy = this._state ? this._state.seed : sha256(this.input);
+    let entropy = this._state.seed;
     let pairIndex = 0;
     board[y][x] += 2; // emphasize origin
 

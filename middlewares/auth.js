@@ -13,7 +13,6 @@ const Token = require('@fabric/core/types/token');
 // const Peer = require('@fabric/core/types/peer');
 
 const hasRole = require('../contracts/hasRole');
-const DEFAULT_TOKEN_SECRET = '97eb31a7dc28667402863f4db08de04981a3902670d36e6ea4528dfec20fb4c4';
 
 function safeEqual (left, right) {
   if (!left || !right) return false;
@@ -24,6 +23,10 @@ function safeEqual (left, right) {
 }
 
 function verifyBearerToken (token, secret) {
+  if (!secret || typeof secret !== 'string') {
+    return { valid: false, error: 'missing_secret' };
+  }
+
   if (!token || typeof token !== 'string') {
     return { valid: false, error: 'missing_token' };
   }
@@ -87,7 +90,7 @@ module.exports = function FabricAuthenticationMiddleware (request, response, nex
   }
 
   if (request.token) {
-    const secret = this.settings.tokenSecret || this.settings.seed || DEFAULT_TOKEN_SECRET;
+    const secret = this.settings.tokenSecret || this.settings.seed;
     const verification = verifyBearerToken(request.token, secret);
     request.tokenHeader = verification.header;
     request.tokenPayload = verification.payload;

@@ -5,6 +5,12 @@
 <dd><p>Applications can be deployed to the legacy web using <a href="#App">App</a>, a powerful
 template for building modern web applications.</p>
 </dd>
+<dt><a href="#Avatar">Avatar</a></dt>
+<dd><p>Deterministic avatar generator inspired by academic visual hash work
+(e.g. Perrig/Song &quot;Hash Visualization&quot;, a.k.a. &quot;drunken bishop&quot;).</p>
+<p>The algorithm walks a diagonal &quot;bishop&quot; across a board using bits from
+SHA-256(input), accumulating visit counts to produce a stable identicon.</p>
+</dd>
 <dt><a href="#Bridge">Bridge</a></dt>
 <dd><p>The <a href="#Bridge">Bridge</a> type extends a Fabric application to the web.</p>
 </dd>
@@ -18,6 +24,8 @@ template for building modern web applications.</p>
 <dd><p>Generic component.</p>
 </dd>
 <dt><a href="#Definition">Definition</a> : <code>Object</code></dt>
+<dd></dd>
+<dt><a href="#FabricDistributedExecutionHTTP">FabricDistributedExecutionHTTP</a></dt>
 <dd></dd>
 <dt><a href="#Hub">Hub</a> ⇐ <code>Oracle</code></dt>
 <dd><p>The <a href="#Hub">Hub</a> is a temporary class in the Fabric HTTP library
@@ -55,6 +63,40 @@ be moved to @fabric/http before final release!</p>
 </dd>
 <dt><del><a href="#Stash">Stash</a></del></dt>
 <dd><p>Deprecated 2021-10-16.</p>
+</dd>
+</dl>
+
+## Members
+
+<dl>
+<dt><a href="#jsonRpc">jsonRpc</a></dt>
+<dd><p>POST JSON-RPC over HTTP; same methods as WebSocket <code>JSONCall</code> when enabled.</p>
+</dd>
+<dt><a href="#static">static</a></dt>
+<dd><p>Passed to <code>express.static</code> (see <code>start()</code>).</p>
+</dd>
+<dt><a href="#cors">cors</a></dt>
+<dd><p>When true, send <code>Access-Control-Allow-*</code> for browser clients.</p>
+</dd>
+<dt><a href="#compression">compression</a></dt>
+<dd><p>When true, use <code>compression</code> middleware if the package is installed.</p>
+</dd>
+</dl>
+
+## Constants
+
+<dl>
+<dt><a href="#merge">merge</a></dt>
+<dd><p>HTTP surface for distributed execution: manifest and epoch status for operators.
+Binds routes on a <a href="#FabricHTTPServer">FabricHTTPServer</a> via <code>_addRoute</code> (same pattern as Hub services).</p>
+</dd>
+</dl>
+
+## Functions
+
+<dl>
+<dt><a href="#resolvedPathUnderStaticRoot">resolvedPathUnderStaticRoot(relativeCandidate, staticRoot)</a> ⇒ <code>string</code> | <code>null</code></dt>
+<dd><p>Resolve <code>relativeCandidate</code> under <code>staticRoot</code> and reject <code>..</code> / absolute escape attempts.</p>
 </dd>
 </dl>
 
@@ -113,6 +155,52 @@ Launches any necessary processes and notifies the user on ready.
 
 **Kind**: instance method of [<code>App</code>](#App)  
 **Returns**: <code>Promise</code> - Resolves on completion.  
+<a name="Avatar"></a>
+
+## Avatar
+Deterministic avatar generator inspired by academic visual hash work
+(e.g. Perrig/Song "Hash Visualization", a.k.a. "drunken bishop").
+
+The algorithm walks a diagonal "bishop" across a board using bits from
+SHA-256(input), accumulating visit counts to produce a stable identicon.
+
+**Kind**: global class  
+
+* [Avatar](#Avatar)
+    * [new Avatar([input], [settings])](#new_Avatar_new)
+    * [.toASCII()](#Avatar+toASCII) ⇒ <code>String</code>
+    * [.render([settings])](#Avatar+render) ⇒ <code>String</code>
+
+<a name="new_Avatar_new"></a>
+
+### new Avatar([input], [settings])
+
+| Param | Type | Default | Description |
+| --- | --- | --- | --- |
+| [input] | <code>string</code> | <code>&quot;&#x27;&#x27;&quot;</code> | Seed input used to derive deterministic avatar bytes. |
+| [settings] | <code>Object</code> | <code>{}</code> | Optional rendering configuration (size, colors, grid, steps). |
+
+<a name="Avatar+toASCII"></a>
+
+### avatar.toASCII() ⇒ <code>String</code>
+Render a deterministic ASCII visual hash for terminal/text comparison.
+Lower visit counts use lighter glyphs; higher counts use denser glyphs.
+
+**Kind**: instance method of [<code>Avatar</code>](#Avatar)  
+<a name="Avatar+render"></a>
+
+### avatar.render([settings]) ⇒ <code>String</code>
+Render a consumable HTML snippet.
+
+**Kind**: instance method of [<code>Avatar</code>](#Avatar)  
+
+| Param | Type | Default | Description |
+| --- | --- | --- | --- |
+| [settings] | <code>Object</code> |  |  |
+| [settings.format] | <code>&#x27;img&#x27;</code> \| <code>&#x27;svg&#x27;</code> | <code>&#x27;img&#x27;</code> | Output format. |
+| [settings.className] | <code>String</code> | <code>&#x27;fabric-avatar&#x27;</code> | CSS class for wrapper output. |
+| [settings.alt] | <code>String</code> | <code>&#x27;Fabric Avatar&#x27;</code> | alt label for image output. |
+
 <a name="Bridge"></a>
 
 ## Bridge
@@ -273,6 +361,37 @@ Generate an HTML representation of the component.
 | routes | <code>Object</code> | Path hint for retrieving an index. |
 | routes.list | <code>String</code> | Path hint for retrieving an index. |
 | routes.view | <code>String</code> | Path hint for retrieving a single entity. |
+
+<a name="FabricDistributedExecutionHTTP"></a>
+
+## FabricDistributedExecutionHTTP
+**Kind**: global class  
+
+* [FabricDistributedExecutionHTTP](#FabricDistributedExecutionHTTP)
+    * [new FabricDistributedExecutionHTTP([settings])](#new_FabricDistributedExecutionHTTP_new)
+    * [.bind(httpServer)](#FabricDistributedExecutionHTTP+bind)
+
+<a name="new_FabricDistributedExecutionHTTP_new"></a>
+
+### new FabricDistributedExecutionHTTP([settings])
+
+| Param | Type | Default | Description |
+| --- | --- | --- | --- |
+| [settings] | <code>Object</code> |  |  |
+| [settings.basePath] | <code>string</code> | <code>&quot;&#x27;/services/distributed&#x27;&quot;</code> |  |
+| [settings.getManifest] | <code>function</code> |  | Returns `Object` or `Promise.<Object>` JSON manifest. |
+| [settings.getEpochStatus] | <code>function</code> |  | Returns `Object` or `Promise.<Object>` epoch summary. |
+
+<a name="FabricDistributedExecutionHTTP+bind"></a>
+
+### fabricDistributedExecutionHTTP.bind(httpServer)
+Register routes on an HTTP server instance.
+
+**Kind**: instance method of [<code>FabricDistributedExecutionHTTP</code>](#FabricDistributedExecutionHTTP)  
+
+| Param | Type | Description |
+| --- | --- | --- |
+| httpServer | <code>Object</code> | HTTP server instance exposing `_addRoute(method, path, handler)`. |
 
 <a name="Hub"></a>
 
@@ -437,7 +556,9 @@ Fabric Service for exposing an [Application](Application) to clients over HTTP.
 
 * [FabricHTTPServer](#FabricHTTPServer) ⇐ <code>Service</code>
     * [new FabricHTTPServer([settings])](#new_FabricHTTPServer_new)
+    * [.webrtcPeerList](#FabricHTTPServer+webrtcPeerList) ⇒ <code>Array</code>
     * [.define(name, definition)](#FabricHTTPServer+define) ⇒ [<code>FabricHTTPServer</code>](#FabricHTTPServer)
+    * [._verifyWebSocketClient(info)](#FabricHTTPServer+_verifyWebSocketClient)
     * [._handleWebSocket(socket, request)](#FabricHTTPServer+_handleWebSocket) ⇒ <code>WebSocket</code>
     * [._handleIndexRequest(req, res)](#FabricHTTPServer+_handleIndexRequest)
     * [._addRoute(method, path, handler)](#FabricHTTPServer+_addRoute)
@@ -457,6 +578,13 @@ Create an instance of the HTTP server.
 | [settings.name] | <code>String</code> | <code>&quot;FabricHTTPServer&quot;</code> | User-friendly name of this server. |
 | [settings.port] | <code>Number</code> | <code>9999</code> | Port to listen for HTTP connections on. |
 
+<a name="FabricHTTPServer+webrtcPeerList"></a>
+
+### fabricHTTPServer.webrtcPeerList ⇒ <code>Array</code>
+Get a list of WebRTC peers registered with this server (see Hub `RegisterWebRTCPeer`).
+
+**Kind**: instance property of [<code>FabricHTTPServer</code>](#FabricHTTPServer)  
+**Returns**: <code>Array</code> - Array of WebRTC peer objects  
 <a name="FabricHTTPServer+define"></a>
 
 ### fabricHTTPServer.define(name, definition) ⇒ [<code>FabricHTTPServer</code>](#FabricHTTPServer)
@@ -469,6 +597,18 @@ Define a [Type](Type) by name.
 | --- | --- | --- |
 | name | <code>String</code> | Human-friendly name of the type. |
 | definition | [<code>Definition</code>](#Definition) | Configuration object for the type. |
+
+<a name="FabricHTTPServer+_verifyWebSocketClient"></a>
+
+### fabricHTTPServer.\_verifyWebSocketClient(info)
+Optional WebSocket handshake gate when `settings.websocket.requireClientToken` and `clientToken` are set.
+Token may appear in query string (?token= / ?clientToken=), Authorization: Bearer, or Sec-WebSocket-Protocol fabric.token.*
+
+**Kind**: instance method of [<code>FabricHTTPServer</code>](#FabricHTTPServer)  
+
+| Param | Type | Description |
+| --- | --- | --- |
+| info | <code>Object</code> | `ws` handshake object; `info.req` is the Node.js HTTP [IncomingMessage](external:https://nodejs.org/api/http.html#class-httpincomingmessage). |
 
 <a name="FabricHTTPServer+_handleWebSocket"></a>
 
@@ -644,3 +784,53 @@ Create an instance of a [Wallet](#Wallet).
 Deprecated 2021-10-16.
 
 **Kind**: global class  
+<a name="jsonRpc"></a>
+
+## jsonRpc
+POST JSON-RPC over HTTP; same methods as WebSocket `JSONCall` when enabled.
+
+**Kind**: global variable  
+<a name="jsonRpc.requireAuth"></a>
+
+### jsonRpc.requireAuth
+When true, HTTP JSON-RPC requires a verified bearer token (`request.authenticated`).
+
+**Kind**: static property of [<code>jsonRpc</code>](#jsonRpc)  
+<a name="static"></a>
+
+## static
+Passed to `express.static` (see `start()`).
+
+**Kind**: global variable  
+<a name="cors"></a>
+
+## cors
+When true, send `Access-Control-Allow-*` for browser clients.
+
+**Kind**: global variable  
+<a name="compression"></a>
+
+## compression
+When true, use `compression` middleware if the package is installed.
+
+**Kind**: global variable  
+<a name="merge"></a>
+
+## merge
+HTTP surface for distributed execution: manifest and epoch status for operators.
+Binds routes on a [FabricHTTPServer](#FabricHTTPServer) via `_addRoute` (same pattern as Hub services).
+
+**Kind**: global constant  
+<a name="resolvedPathUnderStaticRoot"></a>
+
+## resolvedPathUnderStaticRoot(relativeCandidate, staticRoot) ⇒ <code>string</code> \| <code>null</code>
+Resolve `relativeCandidate` under `staticRoot` and reject `..` / absolute escape attempts.
+
+**Kind**: global function  
+**Returns**: <code>string</code> \| <code>null</code> - Absolute path, or null if unsafe / invalid.  
+
+| Param | Type |
+| --- | --- |
+| relativeCandidate | <code>string</code> | 
+| staticRoot | <code>string</code> | 
+
