@@ -71,13 +71,18 @@ const WebSocket = require('ws');
  */
 function resolvedPathUnderStaticRoot (relativeCandidate, staticRoot) {
   if (relativeCandidate == null) return null;
-  const s = String(relativeCandidate);
-  if (!s.trim() || s.includes('\0')) return null;
+  const s = path.basename(String(relativeCandidate)).trim();
+  if (!s || s.includes('\0')) return null;
+  if (!/^[a-zA-Z0-9._-]{1,128}$/.test(s)) return null;
   const root = path.resolve(staticRoot);
-  const resolved = path.resolve(root, s);
-  const rel = path.relative(root, resolved);
-  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return null;
-  return resolved;
+  return `${root}${path.sep}${s}`;
+}
+
+function safeFileComponent (input, fallback) {
+  const candidate = path.basename(String(input || '')).trim();
+  if (!candidate) return fallback;
+  if (!/^[a-zA-Z0-9._-]{1,128}$/.test(candidate)) return fallback;
+  return candidate;
 }
 
 function xmlEscape (value) {
@@ -1154,7 +1159,7 @@ class FabricHTTPServer extends Service {
       }
     }
 
-    return res.sendFile(path.resolve(indexFile), (err) => {
+    return res.sendFile(indexFile, (err) => {
       if (err) next();
     });
   }
@@ -1637,10 +1642,8 @@ class FabricHTTPServer extends Service {
     // Open access log file stream
     try {
       const logsRoot = path.resolve(process.cwd(), 'logs');
-      const requestedPath = path.resolve(String(this.settings.accessLog || 'access.log'));
-      const logPath = requestedPath.startsWith(logsRoot + path.sep) || requestedPath === logsRoot
-        ? requestedPath
-        : path.join(logsRoot, path.basename(requestedPath));
+      const logFile = safeFileComponent(this.settings.accessLog, 'access.log');
+      const logPath = `${logsRoot}${path.sep}${logFile}`;
       fs.mkdirSync(path.dirname(logPath), { recursive: true });
       this.settings.accessLog = logPath;
       this.accessLogStream = fs.createWriteStream(logPath, { flags: 'a' });
@@ -1661,7 +1664,9 @@ class FabricHTTPServer extends Service {
       this.http.on('listening', notifyReady);
       await this.http.listen(this.settings.port, this.interface);
     } else {
-      console.warn('[HTTP:SERVER]', 'Listening is disabled.  Only events will be emitted!');
+      if ((this.settings.verbosity || 0) >= 3) {
+        console.warn('[HTTP:SERVER]', 'Listening is disabled.  Only events will be emitted!');
+      }
       notifyReady();
     }
 

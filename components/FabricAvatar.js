@@ -33,10 +33,30 @@ class FabricAvatar extends BaseElement {
     const size = parseInt(this.getAttribute('size') || '64', 10);
     const format = this.getAttribute('format') || 'img';
     const className = this.getAttribute('class') || 'fabric-avatar';
+    const safeSize = Number.isFinite(size) && size > 0 ? size : 64;
+    const safeClassName = String(className).replace(/[^a-zA-Z0-9 _-]/g, '').trim() || 'fabric-avatar';
 
-    const avatar = new Avatar(identity, { size });
-    const html = avatar.render({ format, className, alt: 'Fabric Avatar' });
-    if (this.shadowRoot) this.shadowRoot.innerHTML = html;
+    const avatar = new Avatar(identity, { size: safeSize });
+    if (!this.shadowRoot) return;
+
+    if (format === 'svg') {
+      const hostDoc = this.ownerDocument || (typeof document !== 'undefined' ? document : null);
+      if (!hostDoc) return;
+      const parser = new hostDoc.defaultView.DOMParser();
+      const svgDoc = parser.parseFromString(avatar.toSVG(), 'image/svg+xml');
+      const svgEl = svgDoc.documentElement;
+      const imported = hostDoc.importNode(svgEl, true);
+      this.shadowRoot.replaceChildren(imported);
+      return;
+    }
+
+    const hostDoc = this.ownerDocument || (typeof document !== 'undefined' ? document : null);
+    if (!hostDoc) return;
+    const img = hostDoc.createElement('img');
+    img.setAttribute('class', safeClassName);
+    img.setAttribute('src', avatar.toDataURI());
+    img.setAttribute('alt', 'Fabric Avatar');
+    this.shadowRoot.replaceChildren(img);
   }
 }
 
