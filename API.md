@@ -81,6 +81,9 @@ be moved to @fabric/http before final release!</p>
 <dt><a href="#compression">compression</a></dt>
 <dd><p>When true, use <code>compression</code> middleware if the package is installed.</p>
 </dd>
+<dt><a href="#sitemap">sitemap</a></dt>
+<dd><p>Sitemap generation settings for <code>/sitemap.xml</code>.</p>
+</dd>
 </dl>
 
 ## Constants
@@ -558,7 +561,7 @@ Fabric Service for exposing an [Application](Application) to clients over HTTP.
     * [new FabricHTTPServer([settings])](#new_FabricHTTPServer_new)
     * [.webrtcPeerList](#FabricHTTPServer+webrtcPeerList) ⇒ <code>Array</code>
     * [.define(name, definition)](#FabricHTTPServer+define) ⇒ [<code>FabricHTTPServer</code>](#FabricHTTPServer)
-    * [._verifyWebSocketClient(info)](#FabricHTTPServer+_verifyWebSocketClient)
+    * [._isJsonRpcTransportAuthorized(req)](#FabricHTTPServer+_isJsonRpcTransportAuthorized) ⇒ <code>boolean</code>
     * [._handleWebSocket(socket, request)](#FabricHTTPServer+_handleWebSocket) ⇒ <code>WebSocket</code>
     * [._handleIndexRequest(req, res)](#FabricHTTPServer+_handleIndexRequest)
     * [._addRoute(method, path, handler)](#FabricHTTPServer+_addRoute)
@@ -598,17 +601,17 @@ Define a [Type](Type) by name.
 | name | <code>String</code> | Human-friendly name of the type. |
 | definition | [<code>Definition</code>](#Definition) | Configuration object for the type. |
 
-<a name="FabricHTTPServer+_verifyWebSocketClient"></a>
+<a name="FabricHTTPServer+_isJsonRpcTransportAuthorized"></a>
 
-### fabricHTTPServer.\_verifyWebSocketClient(info)
-Optional WebSocket handshake gate when `settings.websocket.requireClientToken` and `clientToken` are set.
-Token may appear in query string (?token= / ?clientToken=), Authorization: Bearer, or Sec-WebSocket-Protocol fabric.token.*
+### fabricHTTPServer.\_isJsonRpcTransportAuthorized(req) ⇒ <code>boolean</code>
+Same authorization inputs as HTTP POST JSON-RPC: verified bearer (`req.authenticated`),
+raw `Bearer` on the upgrade/request, or websocket client-token channels.
 
 **Kind**: instance method of [<code>FabricHTTPServer</code>](#FabricHTTPServer)  
 
 | Param | Type | Description |
 | --- | --- | --- |
-| info | <code>Object</code> | `ws` handshake object; `info.req` is the Node.js HTTP [IncomingMessage](external:https://nodejs.org/api/http.html#class-httpincomingmessage). |
+| req | <code>Object</code> | Node.js `IncomingMessage` (HTTP upgrade or Express `req`). |
 
 <a name="FabricHTTPServer+_handleWebSocket"></a>
 
@@ -812,6 +815,12 @@ When true, send `Access-Control-Allow-*` for browser clients.
 
 ## compression
 When true, use `compression` middleware if the package is installed.
+
+**Kind**: global variable  
+<a name="sitemap"></a>
+
+## sitemap
+Sitemap generation settings for `/sitemap.xml`.
 
 **Kind**: global variable  
 <a name="merge"></a>

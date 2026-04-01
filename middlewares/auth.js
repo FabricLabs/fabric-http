@@ -105,3 +105,5 @@ module.exports = function FabricAuthenticationMiddleware (request, response, nex
 
   return next();
 };
+
+module.exports.verifyBearerToken = verifyBearerToken;
