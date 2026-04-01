@@ -1,3 +1,16 @@
+node_modules/
+coverage/
+reports/
+docs/
+libraries/
+scripts/
+tests/
+backups/
+.github/
+.cursor/
+.vscode/
+*.log
+.env*
 webpack.local.config.js
 webpack.production.config.js
 .eslintrc
