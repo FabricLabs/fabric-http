@@ -467,7 +467,17 @@ class FabricHTTPServer extends Service {
       const verification = auth.verifyBearerToken(req.token, secret);
       rpcAuthenticated = verification.valid === true;
     }
-    if (!rpcAuthenticated) rpcAuthenticated = this._verifyWebSocketClient({ req });
+    // Do not treat "websocket client token not configured" as JSON-RPC authorization:
+    // `_verifyWebSocketClient` returns true when `requireClientToken` is off, which would
+    // leave JSON-RPC open to any peer that can open a socket when `jsonRpc.requireAuth` is on.
+    if (!rpcAuthenticated) {
+      const wsCfg = this.settings.websocket || {};
+      const wsSecret = wsCfg.clientToken || wsCfg.sharedSecret || null;
+      const wsRequired = wsCfg.requireClientToken === true || wsCfg.requireClientToken === '1' || wsCfg.requireClientToken === 1;
+      if (wsRequired && wsSecret) {
+        rpcAuthenticated = this._verifyWebSocketClient({ req });
+      }
+    }
     return !!rpcAuthenticated;
   }
 
@@ -622,7 +632,10 @@ class FabricHTTPServer extends Service {
     socket._resetKeepAlive();
 
     const jsonRpcCfg = this.settings.jsonRpc || {};
-    socket._fabricJsonRpcTransportAuthorized = jsonRpcCfg.requireAuth === true
+    // Align WS JSONCall with HTTP JSON-RPC: enforce transport auth only when HTTP JSON-RPC
+    // is enabled and `requireAuth` is on. Otherwise leave JSONCall behavior unchanged for
+    // servers that use WebSocket calls without registering POST `/services/rpc`.
+    socket._fabricJsonRpcTransportAuthorized = (jsonRpcCfg.enabled === true && jsonRpcCfg.requireAuth === true)
       ? this._isJsonRpcTransportAuthorized(request)
       : true;
 
@@ -1610,7 +1623,7 @@ class FabricHTTPServer extends Service {
     this.express.delete('/*', this._handleRoutableRequest.bind(this));
     this.express.options('/*', this._handleRoutableRequest.bind(this));
 
-    this.express.get('/services/test', payments, (req, res) => {
+    this.express.get('/services/test', payments.bind(this), (req, res) => {
       return res.send({
         message: 'I am the prize!'
       });

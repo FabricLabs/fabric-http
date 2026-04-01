@@ -116,6 +116,61 @@ describe('@fabric/http security hardening', function () {
     }
   });
 
+  it('denies WebSocket JSONCall when jsonRpc is enabled with requireAuth but no bearer or client token', async function () {
+    const port = await ephemeralPort();
+    const server = new HTTPServer({
+      port,
+      host: '127.0.0.1',
+      interface: '127.0.0.1',
+      hostname: '127.0.0.1',
+      listen: true,
+      jsonRpc: { enabled: true, paths: ['/services/rpc'], requireAuth: true },
+      websocket: { requireClientToken: false }
+    });
+    server._registerMethod('NoAuthEcho', (x) => x);
+
+    await server.start();
+    try {
+      const clientKey = new Key();
+      const callBody = JSON.stringify({ method: 'NoAuthEcho', params: [1] });
+      const callMessage = Message.fromVector(['JSONCall', callBody]).signWithKey(clientKey);
+
+      const denied = await new Promise((resolve, reject) => {
+        const ws = new WebSocket(`ws://127.0.0.1:${port}/`);
+        const t = setTimeout(() => {
+          ws.close();
+          reject(new Error('timeout waiting for denied JSONCall'));
+        }, 8000);
+        ws.on('open', () => ws.send(callMessage.toBuffer()));
+        ws.on('message', (data) => {
+          try {
+            const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
+            const msg = Message.fromBuffer(buf);
+            if (msg.friendlyType === 'JSONCall') {
+              const inner = JSON.parse(msg.body);
+              if (inner.method === 'JSONCallResult' && inner.error) {
+                clearTimeout(t);
+                ws.close();
+                resolve(inner);
+              }
+            }
+          } catch (e) {
+            clearTimeout(t);
+            reject(e);
+          }
+        });
+        ws.on('error', (e) => {
+          clearTimeout(t);
+          reject(e);
+        });
+      });
+
+      assert.strictEqual(denied.error && denied.error.code, -32001);
+    } finally {
+      await server.stop().catch(() => {});
+    }
+  });
+
   it('WebSocket JSONCall requires the same transport auth as HTTP when jsonRpc.requireAuth', async function () {
     const port = await ephemeralPort();
     const shared = 'ws-rpc-shared';
