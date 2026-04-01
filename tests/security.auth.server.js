@@ -2,10 +2,12 @@
 
 const assert = require('assert');
 const crypto = require('crypto');
+const net = require('net');
 
 const Token = require('@fabric/core/types/token');
 const HTTPServer = require('../types/server');
 const authMiddleware = require('../middlewares/auth');
+const { httpRequest } = require('./helpers/httpRequest');
 
 function makeBearerToken (secret, payload = {}) {
   const header = { alg: 'SHA256', typ: 'JWT' };
@@ -17,6 +19,18 @@ function makeBearerToken (secret, payload = {}) {
     .digest('hex');
   const signature = Token.base64UrlEncode(signatureHex);
   return `${encodedHeader}.${encodedPayload}.${signature}`;
+}
+
+function ephemeralPort () {
+  return new Promise((resolve, reject) => {
+    const s = net.createServer();
+    s.listen(0, '127.0.0.1', () => {
+      const addr = s.address();
+      const port = typeof addr === 'object' && addr ? addr.port : null;
+      s.close((err) => (err ? reject(err) : resolve(port)));
+    });
+    s.on('error', reject);
+  });
 }
 
 describe('@fabric/http security hardening', function () {
@@ -54,5 +68,45 @@ describe('@fabric/http security hardening', function () {
       req: { url: '/?token=wrong', headers: {} }
     });
     assert.strictEqual(ok, false);
+  });
+
+  it('authorizes /services/rpc via websocket-style client token fallback', async function () {
+    const port = await ephemeralPort();
+    const server = new HTTPServer({
+      port,
+      host: '127.0.0.1',
+      interface: '127.0.0.1',
+      hostname: '127.0.0.1',
+      listen: true,
+      jsonRpc: { enabled: true, paths: ['/services/rpc'], requireAuth: true },
+      websocket: { requireClientToken: true, clientToken: 'super-secret' }
+    });
+
+    server._registerMethod('SecurityEcho', (x) => ({ echoed: x }));
+    await server.start();
+    try {
+      const body = JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'SecurityEcho',
+        params: [{ ok: true }]
+      });
+      const r = await httpRequest({
+        port,
+        method: 'POST',
+        path: '/services/rpc',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: 'Bearer super-secret'
+        },
+        body
+      });
+      assert.strictEqual(r.statusCode, 200);
+      const payload = JSON.parse(r.body);
+      assert.deepStrictEqual(payload.result.echoed, { ok: true });
+    } finally {
+      await server.stop().catch(() => {});
+    }
   });
 });

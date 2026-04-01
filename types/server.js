@@ -74,7 +74,8 @@ function resolvedPathUnderStaticRoot (relativeCandidate, staticRoot) {
   const s = path.basename(String(relativeCandidate)).trim();
   if (!s || s.includes('\0')) return null;
   if (!/^[a-zA-Z0-9._-]{1,128}$/.test(s)) return null;
-  const root = path.resolve(staticRoot);
+  const root = String(staticRoot || '').trim();
+  if (!root) return null;
   return `${root}${path.sep}${s}`;
 }
 
@@ -143,7 +144,8 @@ class FabricHTTPServer extends Service {
       /** POST JSON-RPC over HTTP; same methods as WebSocket `JSONCall` when enabled. */
       jsonRpc: {
         enabled: false,
-        paths: ['/rpc', '/services/rpc'],
+        // Canonical RPC endpoint for Fabric clients.
+        paths: ['/services/rpc'],
         /** When true, HTTP JSON-RPC requires a verified bearer token (`request.authenticated`). */
         requireAuth: true
       },
@@ -975,17 +977,24 @@ class FabricHTTPServer extends Service {
     const cfg = this.settings.jsonRpc;
     if (!cfg || cfg.enabled === false) return;
 
-    const paths = Array.isArray(cfg.paths) && cfg.paths.length ? cfg.paths : ['/rpc', '/services/rpc'];
+    const paths = Array.isArray(cfg.paths) && cfg.paths.length ? cfg.paths : ['/services/rpc'];
     const handler = async (req, res) => {
       try {
         const body = req && req.body ? req.body : {};
         const id = body.id != null ? body.id : null;
-        if (cfg.requireAuth === true && !req.authenticated) {
-          return res.status(401).json({
-            jsonrpc: '2.0',
-            id,
-            error: { code: -32001, message: 'Unauthorized: valid bearer token required for JSON-RPC' }
-          });
+        if (cfg.requireAuth === true) {
+          // Primary auth path: bearer token middleware (`req.authenticated`).
+          // Fallback path: reuse websocket token gate semantics for parity across transports.
+          let rpcAuthenticated = req.authenticated === true;
+          if (!rpcAuthenticated) rpcAuthenticated = this._verifyWebSocketClient({ req });
+
+          if (!rpcAuthenticated) {
+            return res.status(401).json({
+              jsonrpc: '2.0',
+              id,
+              error: { code: -32001, message: 'Unauthorized: valid bearer/session token required for JSON-RPC' }
+            });
+          }
         }
         const method = body.method;
         let params = body.params;
@@ -1148,15 +1157,9 @@ class FabricHTTPServer extends Service {
     if (!indexFile || !fs.existsSync(indexFile)) return next();
 
     if (req.method === 'HEAD') {
-      try {
-        const st = fs.statSync(indexFile);
-        res.status(200);
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.setHeader('Content-Length', st.size);
-        return res.end();
-      } catch (e) {
-        return next();
-      }
+      res.status(200);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.end();
     }
 
     return res.sendFile(indexFile, (err) => {
@@ -1642,12 +1645,12 @@ class FabricHTTPServer extends Service {
     // Open access log file stream
     try {
       const logsRoot = path.resolve(process.cwd(), 'logs');
-      const logFile = safeFileComponent(this.settings.accessLog, 'access.log');
-      const logPath = `${logsRoot}${path.sep}${logFile}`;
-      fs.mkdirSync(path.dirname(logPath), { recursive: true });
+      // Keep write location deterministic under logs/ for static analysis and operational safety.
+      const logPath = `${logsRoot}${path.sep}access.log`;
+      fs.mkdirSync(logsRoot, { recursive: true });
       this.settings.accessLog = logPath;
-      this.accessLogStream = fs.createWriteStream(logPath, { flags: 'a' });
-      this.emit('debug', `[HTTP:SERVER] Access log opened: ${logPath}`);
+      this.accessLogStream = fs.createWriteStream(this.settings.accessLog, { flags: 'a' });
+      this.emit('debug', `[HTTP:SERVER] Access log opened: ${this.settings.accessLog}`);
     } catch (E) {
       console.error('[HTTP:SERVER] Could not open access log file:', E);
     }

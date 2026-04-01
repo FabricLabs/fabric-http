@@ -97,7 +97,7 @@ describe('@fabric/http standards', function () {
         listen: true,
         assets: tmpDir,
         accessLog,
-        jsonRpc: { enabled: true, paths: ['/rpc'], requireAuth: false },
+        jsonRpc: { enabled: true, paths: ['/services/rpc'], requireAuth: false },
         sitemap: {
           includeJsonRpc: true,
           urls: ['/docs', 'https://example.com/external']
@@ -181,7 +181,7 @@ describe('@fabric/http standards', function () {
       assert.ok((r.headers['content-type'] || '').includes('application/json'));
     });
 
-    it('POST /rpc returns JSON-RPC 2.0 success matching schema', async function () {
+    it('POST /services/rpc returns JSON-RPC 2.0 success matching schema', async function () {
       const ajv = new Ajv({ strict: false });
       const okSuccess = ajv.compile(jsonRpcSuccessResponse);
       const body = JSON.stringify({
@@ -193,7 +193,7 @@ describe('@fabric/http standards', function () {
       const r = await httpRequest({
         port,
         method: 'POST',
-        path: '/rpc',
+        path: '/services/rpc',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json'
@@ -206,7 +206,7 @@ describe('@fabric/http standards', function () {
       assert.strictEqual(j.result.echoed.hello, 'fabric');
     });
 
-    it('POST /rpc error envelope matches JSON-RPC error schema', async function () {
+    it('POST /services/rpc error envelope matches JSON-RPC error schema', async function () {
       const ajv = new Ajv({ strict: false });
       const okError = ajv.compile(jsonRpcErrorResponse);
       const body = JSON.stringify({
@@ -218,7 +218,7 @@ describe('@fabric/http standards', function () {
       const r = await httpRequest({
         port,
         method: 'POST',
-        path: '/rpc',
+        path: '/services/rpc',
         headers: { 'Content-Type': 'application/json' },
         body
       });
@@ -254,7 +254,7 @@ describe('@fabric/http standards', function () {
       assert.ok(r.body.includes('<loc>http://127.0.0.1:'));
       assert.ok(r.body.includes('<loc>https://example.com/external</loc>'));
       assert.ok(r.body.includes('/standards/negotiate</loc>'), 'includes custom GET route');
-      assert.ok(r.body.includes('/rpc</loc>'), 'includes configured JSON-RPC path when enabled');
+      assert.ok(r.body.includes('/services/rpc</loc>'), 'includes configured JSON-RPC path when enabled');
       assert.ok(r.body.includes('/docs</loc>'), 'includes runtime-configured sitemap URLs');
     });
   });
