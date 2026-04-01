@@ -97,7 +97,11 @@ describe('@fabric/http standards', function () {
         listen: true,
         assets: tmpDir,
         accessLog,
-        jsonRpc: { enabled: true, paths: ['/rpc'], requireAuth: false }
+        jsonRpc: { enabled: true, paths: ['/rpc'], requireAuth: false },
+        sitemap: {
+          includeJsonRpc: true,
+          urls: ['/docs', 'https://example.com/external']
+        }
       });
 
       server._registerMethod('StandardsEcho', (x) => ({ echoed: x }));
@@ -236,6 +240,22 @@ describe('@fabric/http standards', function () {
       const j = JSON.parse(r.body);
       assert.ok(typeof j.name === 'string');
       assert.ok('description' in j);
+    });
+
+    it('serves /sitemap.xml with collected runtime URLs', async function () {
+      const r = await httpRequest({
+        port,
+        path: '/sitemap.xml',
+        headers: { Accept: 'application/xml' }
+      });
+      assert.strictEqual(r.statusCode, 200);
+      assert.ok((r.headers['content-type'] || '').includes('application/xml'));
+      assert.ok(r.body.includes('<urlset'));
+      assert.ok(r.body.includes('<loc>http://127.0.0.1:'));
+      assert.ok(r.body.includes('<loc>https://example.com/external</loc>'));
+      assert.ok(r.body.includes('/standards/negotiate</loc>'), 'includes custom GET route');
+      assert.ok(r.body.includes('/rpc</loc>'), 'includes configured JSON-RPC path when enabled');
+      assert.ok(r.body.includes('/docs</loc>'), 'includes runtime-configured sitemap URLs');
     });
   });
 });

@@ -80,6 +80,15 @@ function resolvedPathUnderStaticRoot (relativeCandidate, staticRoot) {
   return resolved;
 }
 
+function xmlEscape (value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
 /**
  * Fabric Service for exposing an {@link Application} to clients over HTTP.
  * @extends Service
@@ -148,7 +157,20 @@ class FabricHTTPServer extends Service {
       /** When true, send `Access-Control-Allow-*` for browser clients. */
       cors: true,
       /** When true, use `compression` middleware if the package is installed. */
-      compression: true
+      compression: true,
+      /** Sitemap generation settings for `/sitemap.xml`. */
+      sitemap: {
+        enabled: true,
+        path: '/sitemap.xml',
+        protocol: 'http',
+        includeRoot: true,
+        includeStaticIndex: true,
+        includeCustomRoutes: true,
+        includeResourceRoutes: true,
+        includeJsonRpc: false,
+        includeParameterized: false,
+        urls: []
+      }
     }, settings);
 
     this.settings.assets = settings.assets || settings.path || this.settings.assets || 'assets';
@@ -453,7 +475,7 @@ class FabricHTTPServer extends Service {
     const tokenDigest = crypto.createHash('sha256').update(String(token || '')).digest();
     const secretDigest = crypto.createHash('sha256').update(String(secret || '')).digest();
     const ok = crypto.timingSafeEqual(tokenDigest, secretDigest);
-    if (!ok) {
+    if (!ok && (this.settings.verbosity || 0) >= 3) {
       console.warn('[SERVER] WebSocket handshake rejected: missing or invalid client token');
     }
     return ok;
@@ -978,7 +1000,7 @@ class FabricHTTPServer extends Service {
         try {
           result = await this._handleCall({ method, params });
         } catch (callErr) {
-          console.error('[HTTP:SERVER] RPC call error:', callErr);
+          if ((this.settings.verbosity || 0) >= 3) console.error('[HTTP:SERVER] RPC call error:', callErr);
           res.status(500).json({
             jsonrpc: '2.0',
             id,
@@ -1011,6 +1033,87 @@ class FabricHTTPServer extends Service {
     for (let p = 0; p < paths.length; p++) {
       this.express.post(paths[p], handler);
     }
+  }
+
+  _computeSitemapUrls () {
+    const cfg = this.settings.sitemap || {};
+    const includeParameterized = cfg.includeParameterized === true;
+    const protocol = cfg.protocol || 'http';
+    const host = cfg.hostname || this.settings.hostname || 'localhost';
+    const port = Number(this.settings.port);
+    const defaultPort = (protocol === 'https') ? 443 : 80;
+    const authority = (port && port !== defaultPort) ? `${host}:${port}` : host;
+    const base = cfg.baseUrl || `${protocol}://${authority}`;
+    const seen = new Set();
+    const urls = [];
+
+    const shouldIncludePath = (p) => {
+      if (!p || typeof p !== 'string') return false;
+      if (!includeParameterized && /[:*]/.test(p)) return false;
+      return true;
+    };
+
+    const pushUrl = (candidate) => {
+      if (!candidate) return;
+      const s = String(candidate).trim();
+      if (!s) return;
+
+      let absolute = s;
+      if (!/^https?:\/\//i.test(s)) {
+        const normalized = s.startsWith('/') ? s : `/${s}`;
+        absolute = `${base}${normalized}`;
+      }
+
+      if (seen.has(absolute)) return;
+      seen.add(absolute);
+      urls.push(absolute);
+    };
+
+    if (cfg.includeRoot !== false) pushUrl('/');
+    if (cfg.includeStaticIndex === true) pushUrl('/index.html');
+
+    if (cfg.includeCustomRoutes !== false) {
+      for (let i = 0; i < this.customRoutes.length; i++) {
+        const route = this.customRoutes[i] || {};
+        const method = String(route.method || '').toUpperCase();
+        const routePath = route.path || route.route;
+        if ((method === 'GET' || method === 'HEAD') && shouldIncludePath(routePath)) pushUrl(routePath);
+      }
+    }
+
+    if (cfg.includeResourceRoutes !== false) {
+      for (let i = 0; i < this.routes.length; i++) {
+        const route = this.routes[i] || {};
+        if (shouldIncludePath(route.path)) pushUrl(route.path);
+      }
+    }
+
+    if (cfg.includeJsonRpc === true && this.settings.jsonRpc && this.settings.jsonRpc.enabled) {
+      const rpcPaths = Array.isArray(this.settings.jsonRpc.paths) ? this.settings.jsonRpc.paths : ['/rpc', '/services/rpc'];
+      for (let i = 0; i < rpcPaths.length; i++) {
+        if (shouldIncludePath(rpcPaths[i])) pushUrl(rpcPaths[i]);
+      }
+    }
+
+    const extras = Array.isArray(cfg.urls) ? cfg.urls : [];
+    for (let i = 0; i < extras.length; i++) {
+      pushUrl(extras[i]);
+    }
+
+    return urls;
+  }
+
+  _handleSitemapRequest (req, res) {
+    const urls = this._computeSitemapUrls();
+    const body = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+      ...urls.map((u) => `  <url><loc>${xmlEscape(u)}</loc></url>`),
+      '</urlset>'
+    ].join('\n');
+
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.status(200).send(body);
   }
 
   /**
@@ -1406,6 +1509,11 @@ class FabricHTTPServer extends Service {
 
     // OPTIONS `/` — server metadata for API discovery.
     this.express.options('/', this._handleOptionsRequest.bind(this));
+    const sitemapCfg = this.settings.sitemap || {};
+    if (sitemapCfg.enabled !== false) {
+      const sitemapPath = sitemapCfg.path || '/sitemap.xml';
+      this.express.get(sitemapPath, this._handleSitemapRequest.bind(this));
+    }
     // GET `/` — runs after `express.static` above; if `assets/index.html` exists, static serves `/` and this handler is skipped.
     this.express.get('/', this._handleIndexRequest.bind(this));
 
@@ -1560,7 +1668,9 @@ class FabricHTTPServer extends Service {
     // commit to our results
     // await this.commit();
 
-    this.emit('warning', '[WARNING] Unencrypted transport!  You should consider changing the `host` property in your config, or set up a TLS server to encrypt traffic to and from this node.');
+    if ((this.settings.verbosity || 0) >= 3) {
+      this.emit('warning', '[WARNING] Unencrypted transport!  You should consider changing the `host` property in your config, or set up a TLS server to encrypt traffic to and from this node.');
+    }
     this.emit('log', `[HTTP:SERVER] Started!  Link: ${this.link}`);
 
     return this;
