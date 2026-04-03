@@ -15,7 +15,7 @@
     "build:coverage": "npm run coverage && c8 report --reporter=html",
     "build:fast": "npm run build:scripts",
     "build:scripts": "node scripts/build.js",
-    "build:semantic": "cd libraries/fomantic && npx gulp build && cp dist/*.js ../../assets/scripts && cp dist/*.css ../../assets/styles && cp -r dist/themes ../../assets && cd ../..",
+    "build:semantic": "node scripts/build-semantic.js",
     "build:views": "jade --pretty -o assets/ views/site.jade",
     "ci": "npm test && npm run build:scripts",
     "compile": "npm run build:scripts",
@@ -95,6 +95,14 @@
     "ws": "=8.18.0"
   },
   "devDependencies": {
+    "better-console": "npm:@fomantic/better-console@^1.0.2",
+    "fomantic-ui": "=2.9.4",
+    "gulp-concat-css": "npm:@fomantic/gulp-concat-css@^3.3.0",
+    "gulp-concat-filenames": "npm:@fomantic/gulp-concat-filenames@^1.2.1",
+    "gulp-dedupe": "npm:@fomantic/gulp-dedupe@^0.0.3",
+    "gulp-git": "npm:@fomantic/gulp-git@^2.11.1",
+    "gulp-header": "npm:@fomantic/gulp-header@^2.1.1",
+    "gulp-plumber": "npm:@fomantic/gulp-plumber@^1.2.2",
     "@babel/preset-env": "=7.26.7",
     "@webcomponents/webcomponentsjs": "=2.8.0",
     "ajv": "=8.18.0",

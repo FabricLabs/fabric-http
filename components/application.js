@@ -283,7 +283,7 @@ class Application extends App {
       // temporary measure for demo
       // TODO: fix with webpack/maki
       script = document.createElement('script');
-      script.setAttribute('src', '/scripts/semantic.js');
+      script.setAttribute('src', '/semantic.js');
 
       setTimeout(function () {
         document.querySelector('#ephemeral-content').appendChild(script);

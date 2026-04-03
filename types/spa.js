@@ -253,10 +253,10 @@ class SPA extends App {
     <meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>${this.title || this.settings.title}</title>
     <!-- <link rel="manifest" href="/manifest.json"> -->
-    <link rel="stylesheet" type="text/css" href="/styles/semantic.min.css" />
+    <link rel="stylesheet" type="text/css" href="/semantic.min.css" />
     <link rel="stylesheet" type="text/css" href="/styles/screen.css" />
     <script src="/scripts/jquery-3.4.1.js"></script>
-    <script src="/scripts/semantic.min.js"></script>
+    <script src="/semantic.min.js"></script>
   </head>
   <body>
     <div data-hash="${hash}" id="application-target">${html}</div>

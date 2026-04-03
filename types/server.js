@@ -96,6 +96,22 @@ function xmlEscape (value) {
 }
 
 /**
+ * Packaged Fomantic (Semantic) UI: `assets/semantic.min.css` (site root), `assets/styles`, `assets/scripts`, `assets/themes`, etc.
+ * Built by `npm run build:semantic` (Fomantic **fabric** theme + Arvo; assets under `libraries/fomantic/src/themes/fabric/assets/`).
+ * Resolved from the consuming app's `node_modules` so Hub/Sensemaker need not copy vendor files.
+ * @returns {string|null}
+ */
+function fabricHttpVendorAssetsDir () {
+  try {
+    const entry = require.resolve('@fabric/http');
+    const assets = path.join(path.resolve(path.dirname(entry), '..'), 'assets');
+    return fs.existsSync(assets) ? assets : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+/**
  * Fabric Service for exposing an {@link Application} to clients over HTTP.
  * @extends Service
  */
@@ -686,7 +702,13 @@ class FabricHTTPServer extends Service {
         // `message.type` from `fromBuffer` is wire form (e.g. P2P_PING); parsed JSON may use friendly names.
         const systemMessageTypes = ['HEARTBEAT', 'Ping', 'Pong', 'P2P_PING', 'P2P_PONG'];
         if (!message.raw.signature.toString() && !systemMessageTypes.includes(messageType)) {
-          console.trace('[SERVER]', 'Message has no signature:', message, message.header, message.body);
+          let headerForLog;
+          try {
+            headerForLog = message.header;
+          } catch (headerErr) {
+            headerForLog = `(header: ${headerErr.message})`;
+          }
+          console.trace('[SERVER]', 'Message has no signature:', message, headerForLog, message.body);
         }
         // if (!message.verify()) console.warn('[SERVER]', 'Message signature verification failed:', message);
 
@@ -1542,6 +1564,19 @@ class FabricHTTPServer extends Service {
       fallthrough: st.fallthrough !== false,
       immutable: !!st.immutable
     }));
+
+    const vendorAssets = fabricHttpVendorAssetsDir();
+    if (vendorAssets) {
+      this.express.use(express.static(vendorAssets, {
+        maxAge: maxAgeMs,
+        dotfiles: st.dotfiles || 'ignore',
+        etag: st.etag !== false,
+        index: false,
+        fallthrough: st.fallthrough !== false,
+        immutable: !!st.immutable
+      }));
+    }
+
     this.express.use(this._roleMiddleware.bind(this));
 
     // this.express.all('/services/graphql', graphql({ schema: this.graphQLSchema }))
