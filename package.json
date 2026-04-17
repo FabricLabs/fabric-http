@@ -53,7 +53,9 @@
   "exports": {
     ".": "./types/web.js",
     "./module.js": "./module.js",
-    "./types/*": "./types/*.js"
+    "./types/*": "./types/*.js",
+    "./middlewares/auth": "./middlewares/auth.js",
+    "./middlewares/payments": "./middlewares/payments.js"
   },
   "contributors": [
     "Eric Martindale",
