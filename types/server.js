@@ -215,6 +215,13 @@ class FabricHTTPServer extends Service {
         detail: 'Complete payment to continue.',
         /** When true and `payments.enabled`, `GET /services/test` runs the payment wall before the demo body. */
         exposePaymentTestRoute: true
+      },
+      /** JSON-RPC `RegisterWebRTCPeer` / `ListWebRTCPeers` / `UnregisterWebRTCPeer` limits. */
+      webrtc: {
+        maxPeers: 256,
+        idMaxLen: 128,
+        labelMaxLen: 256,
+        metaMaxJsonBytes: 16384
       }
     }, settings);
 
@@ -280,6 +287,8 @@ class FabricHTTPServer extends Service {
     // Browser WebRTC peers (native RTCPeerConnection + WebSocket signaling from Hub).
     // The legacy npm `peer` ExpressPeerServer (PeerJS) was removed; register via Hub RPC / Bridge.
     this.webrtcPeers = new Map();
+    /** @type {Map<string, string>} peer id → unregister secret (from last successful Register) */
+    this.webrtcPeerSecrets = new Map();
 
     return this;
   }
@@ -613,6 +622,129 @@ class FabricHTTPServer extends Service {
 
   _registerMethod (name, method) {
     this.methods[name] = method.bind(this);
+  }
+
+  /**
+   * @returns {{ maxPeers: number, idMaxLen: number, labelMaxLen: number, metaMaxJsonBytes: number }}
+   */
+  _getWebRtcLimits () {
+    const w = this.settings.webrtc || {};
+    const maxPeers = Number(w.maxPeers);
+    const idMax = Number(w.idMaxLen);
+    const labelMax = Number(w.labelMaxLen);
+    const metaMax = Number(w.metaMaxJsonBytes);
+    return {
+      maxPeers: Number.isFinite(maxPeers) && maxPeers > 0 ? Math.min(maxPeers, 100000) : 256,
+      idMaxLen: Number.isFinite(idMax) && idMax > 0 ? Math.min(idMax, 512) : 128,
+      labelMaxLen: Number.isFinite(labelMax) && labelMax >= 0 ? Math.min(labelMax, 1024) : 256,
+      metaMaxJsonBytes: Number.isFinite(metaMax) && metaMax > 0 ? Math.min(metaMax, 1048576) : 16384
+    };
+  }
+
+  _assertWebRtcPeerId (raw, maxLen) {
+    if (raw == null || raw === '') throw new Error('RegisterWebRTCPeer: missing id (or peerId)');
+    const id = String(raw).trim();
+    if (!id || id.length > maxLen) {
+      throw new Error(`RegisterWebRTCPeer: id length 1..${maxLen} required`);
+    }
+    for (let i = 0; i < id.length; i++) {
+      const c = id.charCodeAt(i);
+      if (c < 32 || c === 127) throw new Error('RegisterWebRTCPeer: id contains control characters');
+    }
+    return id;
+  }
+
+  _assertWebRtcUnregisterId (raw, maxLen) {
+    if (raw == null || raw === '') throw new Error('UnregisterWebRTCPeer: missing id (or peerId)');
+    const id = String(raw).trim();
+    if (!id || id.length > maxLen) {
+      throw new Error(`UnregisterWebRTCPeer: id length 1..${maxLen} required`);
+    }
+    for (let i = 0; i < id.length; i++) {
+      const c = id.charCodeAt(i);
+      if (c < 32 || c === 127) throw new Error('UnregisterWebRTCPeer: id contains control characters');
+    }
+    return id;
+  }
+
+  _normalizeWebRtcLabel (raw, maxLen) {
+    if (raw == null || raw === '') return null;
+    let s = String(raw);
+    if (s.length > maxLen) s = s.slice(0, maxLen);
+    return s;
+  }
+
+  /**
+   * @param {unknown} raw
+   * @param {number} maxBytes
+   * @returns {Object|null} Clone via JSON round-trip
+   */
+  _normalizeWebRtcMeta (raw, maxBytes) {
+    if (raw == null || raw === undefined) return null;
+    if (typeof raw !== 'object' || Array.isArray(raw)) {
+      throw new Error('RegisterWebRTCPeer: meta / metadata must be a plain object or omitted');
+    }
+    const proto = Object.getPrototypeOf(raw);
+    if (proto !== null && proto !== Object.prototype) {
+      throw new Error('RegisterWebRTCPeer: meta / metadata must be a plain object or omitted');
+    }
+    const j = JSON.stringify(raw);
+    if (j.length > maxBytes) {
+      throw new Error('RegisterWebRTCPeer: meta / metadata JSON exceeds size limit');
+    }
+    return /** @type {Object} */ (JSON.parse(j));
+  }
+
+  _timingEqualUtf8 (a, b) {
+    if (a == null || b == null) return false;
+    const ab = Buffer.from(String(a), 'utf8');
+    const bb = Buffer.from(String(b), 'utf8');
+    if (ab.length !== bb.length) return false;
+    return crypto.timingSafeEqual(ab, bb);
+  }
+
+  _rpcRegisterWebRtcPeer (reg) {
+    const peer = reg && typeof reg === 'object' ? reg : {};
+    const limits = this._getWebRtcLimits();
+    const id = this._assertWebRtcPeerId(peer.id || peer.peerId, limits.idMaxLen);
+    if (this.webrtcPeers.size >= limits.maxPeers && !this.webrtcPeers.has(id)) {
+      throw new Error('RegisterWebRTCPeer: peer registry full');
+    }
+    const label = this._normalizeWebRtcLabel(peer.label, limits.labelMaxLen);
+    const meta = this._normalizeWebRtcMeta(
+      peer.meta !== undefined ? peer.meta : peer.metadata,
+      limits.metaMaxJsonBytes
+    );
+    const secret = crypto.randomBytes(24).toString('hex');
+    this.webrtcPeerSecrets.set(id, secret);
+    this.webrtcPeers.set(id, {
+      id,
+      label,
+      meta,
+      registeredAt: Date.now()
+    });
+    return { ok: true, id, total: this.webrtcPeers.size, secret };
+  }
+
+  _rpcUnregisterWebRtcPeer (reg) {
+    const peer = reg && typeof reg === 'object' ? reg : {};
+    const limits = this._getWebRtcLimits();
+    const id = this._assertWebRtcUnregisterId(peer.id || peer.peerId, limits.idMaxLen);
+    const secret = peer.secret != null ? String(peer.secret).trim() : '';
+    if (!secret) {
+      throw new Error('UnregisterWebRTCPeer: secret is required (value returned from RegisterWebRTCPeer)');
+    }
+    const expected = this.webrtcPeerSecrets.get(id);
+    if (!expected || !this._timingEqualUtf8(secret, expected)) {
+      throw new Error('UnregisterWebRTCPeer: invalid secret or unknown id');
+    }
+    this.webrtcPeerSecrets.delete(id);
+    const ok = this.webrtcPeers.delete(id);
+    return { ok, id, total: this.webrtcPeers.size };
+  }
+
+  _rpcListWebRtcPeers () {
+    return { ok: true, peers: Array.from(this.webrtcPeers.values()) };
   }
 
   _handleAppMessage (msg) {
@@ -1030,7 +1162,7 @@ class FabricHTTPServer extends Service {
     res.header('X-Powered-By', '@fabric/http');
     if (this.settings.cors) {
       res.header('Access-Control-Allow-Origin', '*');
-      res.header('Access-Control-Allow-Headers', 'accept, content-type, authorization');
+      res.header('Access-Control-Allow-Headers', 'accept, content-type, authorization, x-fabric-identity');
       res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE, PATCH, HEAD');
     }
     res.header('Allow', 'GET, POST, OPTIONS, PUT, DELETE, PATCH, HEAD, SEARCH');
@@ -1138,7 +1270,13 @@ class FabricHTTPServer extends Service {
     };
 
     for (let p = 0; p < paths.length; p++) {
-      this.express.post(paths[p], handler);
+      const pathStr = paths[p];
+      if (this.settings.cors) {
+        this.express.options(pathStr, (req, res) => {
+          res.status(204).end();
+        });
+      }
+      this.express.post(pathStr, handler);
     }
   }
 
@@ -1696,8 +1834,11 @@ class FabricHTTPServer extends Service {
 
     const servicesTestPrize = (req, res) => res.send({ message: 'I am the prize!' });
     const pay = this.settings.payments || {};
-    const payOnTest = pay.enabled === true || pay.enabled === 1 || pay.enabled === '1';
-    if (payOnTest && pay.exposePaymentTestRoute !== false && pay.exposePaymentTestRoute !== '0') {
+    const testPaymentWall =
+      payments.isPaymentsEnabled(pay) &&
+      pay.exposePaymentTestRoute !== false &&
+      pay.exposePaymentTestRoute !== '0';
+    if (testPaymentWall) {
       this.express.get('/services/test', payments.bind(this), servicesTestPrize);
     } else {
       this.express.get('/services/test', servicesTestPrize);
@@ -1755,30 +1896,9 @@ class FabricHTTPServer extends Service {
       // console.log('GENERIC:', msg);
     });
 
-    this._registerMethod('RegisterWebRTCPeer', function (reg) {
-      const peer = reg && typeof reg === 'object' ? reg : {};
-      const id = peer.id || peer.peerId;
-      if (!id) throw new Error('RegisterWebRTCPeer: missing id (or peerId)');
-      this.webrtcPeers.set(String(id), {
-        id: String(id),
-        label: peer.label || null,
-        meta: peer.meta || null,
-        registeredAt: Date.now()
-      });
-      return { ok: true, id: String(id), total: this.webrtcPeers.size };
-    });
-
-    this._registerMethod('UnregisterWebRTCPeer', function (reg) {
-      const peer = reg && typeof reg === 'object' ? reg : {};
-      const id = peer.id || peer.peerId;
-      if (!id) throw new Error('UnregisterWebRTCPeer: missing id (or peerId)');
-      const ok = this.webrtcPeers.delete(String(id));
-      return { ok, id: String(id), total: this.webrtcPeers.size };
-    });
-
-    this._registerMethod('ListWebRTCPeers', function () {
-      return { ok: true, peers: Array.from(this.webrtcPeers.values()) };
-    });
+    this._registerMethod('RegisterWebRTCPeer', this._rpcRegisterWebRtcPeer);
+    this._registerMethod('UnregisterWebRTCPeer', this._rpcUnregisterWebRtcPeer);
+    this._registerMethod('ListWebRTCPeers', this._rpcListWebRtcPeers);
 
     await this.agent.start();
 

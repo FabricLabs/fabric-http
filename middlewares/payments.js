@@ -1,6 +1,15 @@
 'use strict';
 
 /**
+ * @param {Record<string, unknown> | null | undefined} p `settings.payments` (or equivalent)
+ * @returns {boolean} Whether payments are enabled in settings.
+ */
+function isPaymentsEnabled (p) {
+  if (!p || typeof p !== 'object') return false;
+  return p.enabled === true || p.enabled === 1 || p.enabled === '1';
+}
+
+/**
  * HTTP 402 Payment Required handler for routes that mount this middleware.
  * Must be bound to the HTTPServer instance (`payments.bind(server)`).
  *
@@ -11,9 +20,9 @@
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
  */
-module.exports = function paymentsMiddleware (req, res, next) {
+function paymentsMiddleware (req, res, next) {
   const p = (this && this.settings && this.settings.payments) || {};
-  if (p.enabled !== true && p.enabled !== 1 && p.enabled !== '1') {
+  if (!isPaymentsEnabled(p)) {
     return next();
   }
 
@@ -31,14 +40,16 @@ module.exports = function paymentsMiddleware (req, res, next) {
     });
   }
 
-  const amount = p.amount != null ? Number(p.amount) : 0.01;
+  const defaultAmount = 0.01;
+  const n = p.amount != null ? Number(p.amount) : defaultAmount;
+  const amount = Number.isFinite(n) && n > 0 ? n : defaultAmount;
   const description = typeof p.description === 'string' && p.description.trim()
     ? p.description.trim()
     : 'Fabric access';
   const currency = typeof p.currency === 'string' && p.currency.trim() ? p.currency.trim() : 'BTC';
 
   this.bitcoin
-    .createInvoice({ amount, description })
+    .createInvoice({ amount, description, currency })
     .then((invoice) => {
       if (!this.invoices) this.invoices = {};
       this.invoices[invoice.id] = invoice;
@@ -64,4 +75,7 @@ module.exports = function paymentsMiddleware (req, res, next) {
         detail: 'Could not create an invoice.'
       });
     });
-};
+}
+
+module.exports = paymentsMiddleware;
+module.exports.isPaymentsEnabled = isPaymentsEnabled;
