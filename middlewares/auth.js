@@ -61,6 +61,7 @@ function verifyBearerToken (token, secret) {
 
   return {
     valid,
+    error: valid ? null : 'invalid_signature',
     header,
     payload,
     signature,

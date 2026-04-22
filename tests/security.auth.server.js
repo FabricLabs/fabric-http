@@ -76,6 +76,17 @@ describe('@fabric/http security hardening', function () {
     assert.strictEqual(ok, false);
   });
 
+  it('rejects WebSocket when requireClientToken is set but no clientToken or sharedSecret is configured', function () {
+    const server = new HTTPServer({
+      listen: false,
+      websocket: { requireClientToken: true, clientToken: null, sharedSecret: null }
+    });
+    const ok = server._verifyWebSocketClient({
+      req: { url: '/?token=any', headers: {} }
+    });
+    assert.strictEqual(ok, false);
+  });
+
   it('authorizes /services/rpc via websocket-style client token fallback', async function () {
     const port = await ephemeralPort();
     const server = new HTTPServer({

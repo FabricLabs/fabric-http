@@ -501,7 +501,13 @@ class FabricHTTPServer extends Service {
     const wsCfg = this.settings.websocket || {};
     const secret = wsCfg.clientToken || wsCfg.sharedSecret || null;
     const required = wsCfg.requireClientToken === true || wsCfg.requireClientToken === '1' || wsCfg.requireClientToken === 1;
-    if (!required || !secret) return true;
+    if (!required) return true;
+    if (!secret) {
+      if ((this.settings.verbosity || 0) >= 2) {
+        console.warn('[SERVER] WebSocket handshake rejected: requireClientToken is set but neither websocket.clientToken nor websocket.sharedSecret is configured');
+      }
+      return false;
+    }
 
     const req = info.req;
     let token = null;
@@ -1672,7 +1678,9 @@ class FabricHTTPServer extends Service {
     // attach a WebSocket handler
     const wsOpts = { server: this.http };
     const wsCfg = this.settings.websocket || {};
-    if (wsCfg.clientToken && (wsCfg.requireClientToken === true || wsCfg.requireClientToken === '1' || wsCfg.requireClientToken === 1)) {
+    const wsTokenConfigured = Boolean(wsCfg.clientToken || wsCfg.sharedSecret);
+    const wsTokenRequired = wsCfg.requireClientToken === true || wsCfg.requireClientToken === '1' || wsCfg.requireClientToken === 1;
+    if (wsTokenConfigured && wsTokenRequired) {
       wsOpts.verifyClient = this._verifyWebSocketClient.bind(this);
     }
     this.wss = new WebSocket.Server(wsOpts);

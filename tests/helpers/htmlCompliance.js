@@ -15,7 +15,7 @@ function assertHtml5LikeDocument (html, options = {}) {
   if (typeof html !== 'string' || !html.trim()) {
     throw new Error('HTML body is empty');
   }
-  if (requireDoctype && !/<!DOCTYPE\s+html/i.test(html)) {
+  if (requireDoctype && !/^\s*<!doctype\s+html\s*>/i.test(html)) {
     throw new Error('Expected <!DOCTYPE html> for HTML5 documents');
   }
   const dom = new JSDOM(html);
