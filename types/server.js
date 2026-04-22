@@ -76,7 +76,10 @@ function resolvedPathUnderStaticRoot (relativeCandidate, staticRoot) {
   if (!/^[a-zA-Z0-9._-]{1,128}$/.test(s)) return null;
   const root = String(staticRoot || '').trim();
   if (!root) return null;
-  return `${root}${path.sep}${s}`;
+  const full = path.join(root, s);
+  const rel = path.relative(root, full);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) return null;
+  return full;
 }
 
 function safeFileComponent (input, fallback) {
@@ -103,10 +106,9 @@ function xmlEscape (value) {
  */
 function fabricHttpVendorAssetsDir () {
   try {
-    const entry = require.resolve('@fabric/http');
-    const pkgRoot = path.resolve(path.dirname(entry), '..');
-    // Single fixed subdirectory name (not derived from user input). Constrain to one segment under pkgRoot.
-    const assets = path.resolve(pkgRoot, 'assets');
+    // This file is `types/server.js`; package root is its parent (no `..` / no tainted resolve).
+    const pkgRoot = path.dirname(__dirname);
+    const assets = path.join(pkgRoot, 'assets');
     const rel = path.relative(pkgRoot, assets);
     if (rel.startsWith('..') || path.isAbsolute(rel) || rel !== 'assets') return null;
     if (!fs.existsSync(assets)) return null;
@@ -1526,7 +1528,19 @@ class FabricHTTPServer extends Service {
       })
     }); */
 
-    this._staticRoot = path.resolve(process.cwd(), this.settings.assets);
+    {
+      const raw = String(this.settings.assets != null ? this.settings.assets : 'assets').trim() || 'assets';
+      if (path.isAbsolute(raw)) {
+        this._staticRoot = path.resolve(raw);
+      } else {
+        const cwd = process.cwd();
+        this._staticRoot = path.resolve(cwd, raw);
+        const under = path.relative(cwd, this._staticRoot);
+        if (under.startsWith('..')) {
+          throw new Error(`[HTTP:SERVER] settings.assets must not escape process.cwd() (resolved from ${raw})`);
+        }
+      }
+    }
 
     const listenPort = Number(this.settings.port);
     if (!Number.isInteger(listenPort) || listenPort < 1 || listenPort > 65535) {
@@ -1743,7 +1757,7 @@ class FabricHTTPServer extends Service {
       fs.mkdirSync('logs', { recursive: true });
       const logRel = 'logs/access.log';
       this.settings.accessLog = path.resolve(process.cwd(), logRel);
-      this.accessLogStream = fs.createWriteStream(logRel, { flags: 'a' });
+      this.accessLogStream = fs.createWriteStream(this.settings.accessLog, { flags: 'a' });
       this.emit('debug', `[HTTP:SERVER] Access log opened: ${this.settings.accessLog}`);
     } catch (E) {
       console.error('[HTTP:SERVER] Could not open access log file:', E);
