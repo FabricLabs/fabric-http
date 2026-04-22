@@ -79,6 +79,21 @@ function resolvedPathUnderStaticRoot (relativeCandidate, staticRoot) {
   return `${root}${path.sep}${s}`;
 }
 
+/**
+ * Resolve `...segments` under `baseDir` and return the absolute path only if it stays inside `baseDir`.
+ * @param {string} baseDir
+ * @param {...string} segments Controlled path segments (not end-user input).
+ * @returns {string|null}
+ */
+function resolveUnderBaseDir (baseDir, ...segments) {
+  const base = path.resolve(baseDir);
+  const target = path.resolve(base, ...segments);
+  const rel = path.relative(base, target);
+  if (rel === '') return target;
+  if (rel.startsWith('..') || path.isAbsolute(rel)) return null;
+  return target;
+}
+
 function safeFileComponent (input, fallback) {
   const candidate = path.basename(String(input || '')).trim();
   if (!candidate) return fallback;
@@ -104,7 +119,9 @@ function xmlEscape (value) {
 function fabricHttpVendorAssetsDir () {
   try {
     const entry = require.resolve('@fabric/http');
-    const assets = path.join(path.resolve(path.dirname(entry), '..'), 'assets');
+    const pkgRoot = path.resolve(path.dirname(entry), '..');
+    const assets = resolveUnderBaseDir(pkgRoot, 'assets');
+    if (!assets) return null;
     return fs.existsSync(assets) ? assets : null;
   } catch (err) {
     return null;
