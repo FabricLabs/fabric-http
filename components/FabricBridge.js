@@ -39,8 +39,6 @@ class FabricBridge extends FabricComponent {
       }
     }, this.settings);
 
-    console.log('bridge settings:', this.settings);
-
     this.remote = new Remote({
       host: this.settings.host,
       port: this.settings.port,
@@ -126,12 +124,36 @@ class FabricBridge extends FabricComponent {
     );
   }
 
+  async _handleRemoteReady () {
+    this._syncState();
+    console.log('Remote ready!');
+    const balances = await this.executeMethod('btc_getbalances');
+    console.log('balances:', balances);
+  }
+
   async send (message) {
     return this.remote.send(message);
   }
 
   async start () {
-    this.remote.on('ready', this.props.remoteReady.bind(this));
+    const onReady = async (...args) => {
+      try {
+        await this._handleRemoteReady();
+      } catch (err) {
+        console.error('[FabricBridge] _handleRemoteReady failed:', err);
+      }
+      const extra = this.props && typeof this.props.remoteReady === 'function'
+        ? this.props.remoteReady
+        : null;
+      if (extra) {
+        try {
+          await extra.apply(this, args);
+        } catch (err) {
+          console.error('[FabricBridge] props.remoteReady failed:', err);
+        }
+      }
+    };
+    this.remote.on('ready', onReady);
     this.remote.on('message', this._handleRemoteMessage.bind(this));
     this.remote.on('error', this._handleRemoteError.bind(this));
     this.connect();

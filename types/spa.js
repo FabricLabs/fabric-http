@@ -253,10 +253,10 @@ class SPA extends App {
     <meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>${this.title || this.settings.title}</title>
     <!-- <link rel="manifest" href="/manifest.json"> -->
-    <link rel="stylesheet" type="text/css" href="/styles/semantic.min.css" />
+    <link rel="stylesheet" type="text/css" href="/semantic.min.css" />
     <link rel="stylesheet" type="text/css" href="/styles/screen.css" />
     <script src="/scripts/jquery-3.4.1.js"></script>
-    <script src="/scripts/semantic.min.js"></script>
+    <script src="/semantic.min.js"></script>
   </head>
   <body>
     <div data-hash="${hash}" id="application-target">${html}</div>
@@ -326,8 +326,10 @@ class SPA extends App {
       case 'Ping':
         const now = Date.now();
         const message = Message.fromVector(['Pong', now.toString()]);
-        const pong = JSON.stringify(message.toObject());
-        this.bridge.send(pong);
+        if (this.bridge && this.bridge.key && this.bridge.key.private) {
+          message.signWithKey(this.bridge.key);
+        }
+        this.bridge.send(message.toBuffer());
         break;
       case 'State':
         console.log('RAD STATE:', msg);

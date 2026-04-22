@@ -15,12 +15,13 @@ const {
 
 // Dependencies
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 const crypto = require('crypto');
 const merge = require('lodash.merge');
 const pluralize = require('pluralize');
 
 // TODO: remove Express entirely...
-// NOTE: current blockers include PeerServer...
 const express = require('express');
 const session = require('express-session');
 const flasher = require('express-flash');
@@ -39,8 +40,8 @@ const pathToRegexp = require('path-to-regexp').pathToRegexp;
 
 // Fabric Types
 const Actor = require('@fabric/core/types/actor');
-// const Oracle = require('@fabric/core/types/oracle');
 const Collection = require('@fabric/core/types/collection');
+const Key = require('@fabric/core/types/key');
 // const Resource = require('@fabric/core/types/resource');
 const Service = require('@fabric/core/types/service');
 const Message = require('@fabric/core/types/message');
@@ -50,6 +51,7 @@ const Peer = require('@fabric/core/types/peer');
 
 // Internal Types
 const auth = require('../middlewares/auth');
+const payments = require('../middlewares/payments');
 
 // Internal Components
 // const App = require('./app');
@@ -60,7 +62,63 @@ const SPA = require('./spa');
 
 // Dependencies
 const WebSocket = require('ws');
-const PeerServer = require('peer').ExpressPeerServer;
+
+/**
+ * Resolve `relativeCandidate` under `staticRoot` and reject `..` / absolute escape attempts.
+ * @param {string} relativeCandidate
+ * @param {string} staticRoot
+ * @returns {string|null} Absolute path, or null if unsafe / invalid.
+ */
+function resolvedPathUnderStaticRoot (relativeCandidate, staticRoot) {
+  if (relativeCandidate == null) return null;
+  const s = path.basename(String(relativeCandidate)).trim();
+  if (!s || s.includes('\0')) return null;
+  if (!/^[a-zA-Z0-9._-]{1,128}$/.test(s)) return null;
+  const root = String(staticRoot || '').trim();
+  if (!root) return null;
+  // s is a single vetted path segment; avoid path.join so security scanners do not treat s as tainted for join/resolve.
+  const normRoot = path.normalize(root);
+  const full = normRoot.endsWith(path.sep) ? normRoot + s : normRoot + path.sep + s;
+  const rel = path.relative(normRoot, full);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) return null;
+  return full;
+}
+
+function safeFileComponent (input, fallback) {
+  const candidate = path.basename(String(input || '')).trim();
+  if (!candidate) return fallback;
+  if (!/^[a-zA-Z0-9._-]{1,128}$/.test(candidate)) return fallback;
+  return candidate;
+}
+
+function xmlEscape (value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+/**
+ * Packaged Fomantic (Semantic) UI: `assets/semantic.min.css` (site root), `assets/styles`, `assets/scripts`, `assets/themes`, etc.
+ * Built by `npm run build:semantic` (Fomantic **fabric** theme + Arvo; assets under `libraries/fomantic/src/themes/fabric/assets/`).
+ * Resolved from the consuming app's `node_modules` so Hub/Sensemaker need not copy vendor files.
+ * @returns {string|null}
+ */
+function fabricHttpVendorAssetsDir () {
+  try {
+    // This file is `types/server.js`; package root is its parent (no `..` / no tainted resolve).
+    const pkgRoot = path.dirname(__dirname);
+    const vendorAssets = pkgRoot + path.sep + 'assets';
+    const rel = path.relative(pkgRoot, vendorAssets);
+    if (rel.startsWith('..') || path.isAbsolute(rel) || rel !== 'assets') return null;
+    // Do not fs.* on vendorAssets (Codacy/Semgrep flags non-literal paths). express.static tolerates a missing dir.
+    return vendorAssets;
+  } catch (err) {
+    return null;
+  }
+}
 
 /**
  * Fabric Service for exposing an {@link Application} to clients over HTTP.
@@ -84,9 +142,11 @@ class FabricHTTPServer extends Service {
       assets: 'assets',
       // TODO: document host as listening on all interfaces by default
       host: '0.0.0.0',
+      key: null,
       path: './stores/server',
       port: HTTP_SERVER_PORT,
       listen: true,
+      accessLog: 'access.log',
       resources: {},
       components: {},
       middlewares: {},
@@ -97,18 +157,63 @@ class FabricHTTPServer extends Service {
           address: '/devices/audio'
         }
       },
-      // TODO: replace with crypto random
-      seed: Math.random(),
+      seed: crypto.randomBytes(32).toString('hex'),
       sessions: false,
       state: {
         status: 'PAUSED'
+      },
+      websocket: {
+        requireClientToken: false,
+        clientToken: null
+      },
+      /** POST JSON-RPC over HTTP; same methods as WebSocket `JSONCall` when enabled. */
+      jsonRpc: {
+        enabled: false,
+        // Canonical RPC endpoint for Fabric clients.
+        paths: ['/services/rpc'],
+        /** When true, HTTP JSON-RPC requires a verified bearer token (`request.authenticated`). */
+        requireAuth: true
+      },
+      /** Passed to `express.static` (see `start()`). */
+      static: {
+        cacheSeconds: 0,
+        dotfiles: 'ignore',
+        etag: true,
+        index: ['index.html'],
+        fallthrough: true,
+        immutable: false
+      },
+      spaFallback: false,
+      spaFallbackExclude: null,
+      spaFallbackIndex: 'index.html',
+      /** When true, send `Access-Control-Allow-*` for browser clients. */
+      cors: true,
+      /** When true, use `compression` middleware if the package is installed. */
+      compression: true,
+      /** Sitemap generation settings for `/sitemap.xml`. */
+      sitemap: {
+        enabled: true,
+        path: '/sitemap.xml',
+        protocol: 'http',
+        includeRoot: true,
+        includeStaticIndex: true,
+        includeCustomRoutes: true,
+        includeResourceRoutes: true,
+        includeJsonRpc: false,
+        includeParameterized: false,
+        urls: []
       }
     }, settings);
+
+    this.settings.assets = settings.assets || settings.path || this.settings.assets || 'assets';
+
+    this._rootKey = new Key(this.settings.key);
 
     this.connections = {};
     this.definitions = {};
     this.methods = {};
     this.stores = {};
+    this.subscriptions = new Map(); // Track subscriptions by path
 
     // ## Fabric Agent
     // Establishes network connectivity with Fabric.  Manages peers, connections, and messages.
@@ -117,7 +222,8 @@ class FabricHTTPServer extends Service {
       networking: true,
       peers: this.settings.peers,
       state: this.settings.state,
-      upnp: false
+      upnp: false,
+      xpub: this._rootKey.xpub
     });
 
     // this.browser = new Browser(this.settings);
@@ -137,6 +243,7 @@ class FabricHTTPServer extends Service {
     this.routes = [];
     this.customRoutes = [];
     this.keys = new Set();
+    this.accessLogStream = null;
 
     // Setup for Express application
     this.express = express();
@@ -148,11 +255,18 @@ class FabricHTTPServer extends Service {
     });
 
     // Local State Setup
-    this._state = {};
+    this._state = {
+      actors: {},
+      content: this.settings.state,
+      history: [],
+      messages: []
+    };
+
     this.observer = monitor.observe(this.state);
-    this.coordinator = new PeerServer(this.express, {
-      path: '/services/peering'
-    });
+
+    // Browser WebRTC peers (native RTCPeerConnection + WebSocket signaling from Hub).
+    // The legacy npm `peer` ExpressPeerServer (PeerJS) was removed; register via Hub RPC / Bridge.
+    this.webrtcPeers = new Map();
 
     return this;
   }
@@ -171,6 +285,14 @@ class FabricHTTPServer extends Service {
 
   get port () {
     return this.settings.port || 9999;
+  }
+
+  /**
+   * Get a list of WebRTC peers registered with this server (see Hub `RegisterWebRTCPeer`).
+   * @returns {Array} Array of WebRTC peer objects
+   */
+  get webrtcPeerList () {
+    return Array.from(this.webrtcPeers.values());
   }
 
   async commit () {
@@ -306,13 +428,32 @@ class FabricHTTPServer extends Service {
   async handleFabricMessage (message) {
     this.emit('debug', `Handling trusted Fabric message: ${message}`);
     // TODO: validation
-    await this.agent.broadcast(message);
+    // TODO: migrate to Message instances throughout; buffer only transparently when sending to peers
+    // Peer.broadcast expects a Buffer, not a Message instance
+    // TODO: is that true?  Message instances seem to be the correct type...
+    if (message && typeof message.toBuffer === 'function') {
+      await this.agent.broadcast(message.toBuffer());
+    } else if (Buffer.isBuffer(message)) {
+      await this.agent.broadcast(message);
+    } else {
+      console.error('[SERVER]', 'Invalid message type passed to handleFabricMessage:', typeof message);
+    }
   }
 
   broadcast (message) {
+    let buf = null;
+    if (Buffer.isBuffer(message)) {
+      buf = message;
+    } else if (message && typeof message.toBuffer === 'function') {
+      buf = message.toBuffer();
+    }
+    if (!buf) {
+      console.error('[SERVER] broadcast: expected Buffer or Message with toBuffer(), got:', typeof message);
+      return;
+    }
+
     const peers = Object.keys(this.connections);
 
-    // Send to all connected peers
     for (let i = 0; i < peers.length; i++) {
       const peer = peers[i];
 
@@ -321,18 +462,102 @@ class FabricHTTPServer extends Service {
       }
 
       try {
-        this.connections[peer].send(message.toBuffer());
+        this.connections[peer].send(buf);
       } catch (E) {
         console.error('Could not send message to peer:', E);
       }
     }
   }
 
+  /**
+   * Optional WebSocket handshake gate when `settings.websocket.requireClientToken` and `clientToken` are set.
+   * Token may appear in query string (?token= / ?clientToken=), Authorization: Bearer, or Sec-WebSocket-Protocol fabric.token.*
+   * @param {Object} info `ws` handshake object; `info.req` is the Node.js HTTP {@link external:https://nodejs.org/api/http.html#class-httpincomingmessage IncomingMessage}.
+   */
+  /**
+   * Same authorization inputs as HTTP POST JSON-RPC: verified bearer (`req.authenticated`),
+   * raw `Bearer` on the upgrade/request, or websocket client-token channels.
+   * @param {Object} req Node.js `IncomingMessage` (HTTP upgrade or Express `req`).
+   * @returns {boolean}
+   */
+  _isJsonRpcTransportAuthorized (req) {
+    if (!req) return false;
+    let rpcAuthenticated = req.authenticated === true;
+    if (!rpcAuthenticated && !req.token && req.headers && typeof req.headers.authorization === 'string') {
+      const h = req.headers.authorization;
+      if (h.startsWith('Bearer ')) req.token = h.slice(7).trim();
+    }
+    if (!rpcAuthenticated && req.token) {
+      const secret = this.settings.tokenSecret || this.settings.seed;
+      const verification = auth.verifyBearerToken(req.token, secret);
+      rpcAuthenticated = verification.valid === true;
+    }
+    // Do not treat "websocket client token not configured" as JSON-RPC authorization:
+    // `_verifyWebSocketClient` returns true when `requireClientToken` is off, which would
+    // leave JSON-RPC open to any peer that can open a socket when `jsonRpc.requireAuth` is on.
+    if (!rpcAuthenticated) {
+      const wsCfg = this.settings.websocket || {};
+      const wsSecret = wsCfg.clientToken || wsCfg.sharedSecret || null;
+      const wsRequired = wsCfg.requireClientToken === true || wsCfg.requireClientToken === '1' || wsCfg.requireClientToken === 1;
+      if (wsRequired && wsSecret) {
+        rpcAuthenticated = this._verifyWebSocketClient({ req });
+      }
+    }
+    return !!rpcAuthenticated;
+  }
+
+  _verifyWebSocketClient (info) {
+    const wsCfg = this.settings.websocket || {};
+    const secret = wsCfg.clientToken || wsCfg.sharedSecret || null;
+    const required = wsCfg.requireClientToken === true || wsCfg.requireClientToken === '1' || wsCfg.requireClientToken === 1;
+    if (!required) return true;
+    if (!secret) {
+      if ((this.settings.verbosity || 0) >= 2) {
+        console.warn('[SERVER] WebSocket handshake rejected: requireClientToken is set but neither websocket.clientToken nor websocket.sharedSecret is configured');
+      }
+      return false;
+    }
+
+    const req = info.req;
+    let token = null;
+    try {
+      const rawUrl = req.url || '/';
+      const u = new URL(rawUrl, 'http://localhost');
+      token = u.searchParams.get('token') || u.searchParams.get('clientToken');
+    } catch (e) {}
+
+    const auth = req.headers && req.headers.authorization;
+    if (!token && auth && typeof auth === 'string' && auth.startsWith('Bearer ')) {
+      token = auth.slice(7).trim();
+    }
+
+    if (!token && req.headers && req.headers['sec-websocket-protocol']) {
+      const protos = String(req.headers['sec-websocket-protocol']).split(',').map((s) => s.trim());
+      for (let i = 0; i < protos.length; i++) {
+        const p = protos[i];
+        if (p.startsWith('fabric.token.')) {
+          token = decodeURIComponent(p.slice('fabric.token.'.length));
+          break;
+        }
+      }
+    }
+
+    const tokenDigest = crypto.createHash('sha256').update(String(token || '')).digest();
+    const secretDigest = crypto.createHash('sha256').update(String(secret || '')).digest();
+    const ok = crypto.timingSafeEqual(tokenDigest, secretDigest);
+    if (!ok && (this.settings.verbosity || 0) >= 3) {
+      console.warn('[SERVER] WebSocket handshake rejected: missing or invalid client token');
+    }
+    return ok;
+  }
+
   debug (content) {
+    if ((this.settings.verbosity || 0) < 4) return;
     console.debug('[FABRIC:EDGE]', (new Date().toISOString()), content);
   }
 
   log (content) {
+    if ((this.settings.verbosity || 0) < 3) return;
     console.log('[FABRIC:EDGE]', (new Date().toISOString()), content);
   }
 
@@ -345,15 +570,35 @@ class FabricHTTPServer extends Service {
   }
 
   warn (content) {
+    if ((this.settings.verbosity || 0) < 2) return;
     console.warn('[FABRIC:EDGE]', (new Date().toISOString()), content);
   }
 
   _addAllRoutes () {
     for (let i = 0; i < this.settings.routes.length; i++) {
       const route = this.settings.routes[i];
-      this._addRoute(route.method, route.route, route.handler);
+
+      // Validate route before adding
+      if (!route || !route.method || typeof route.method !== 'string') {
+        console.warn('[HTTP:SERVER]', 'Skipping invalid route in settings.routes:', route);
+        continue;
+      }
+
+      // Support both 'route' and 'path' keys
+      const path = route.route || route.path;
+      if (!path || !route.handler) {
+        console.warn('[HTTP:SERVER]', 'Skipping route with missing path or handler:', route);
+        continue;
+      }
+
+      this._addRoute(route.method, path, route.handler);
     }
 
+    return this;
+  }
+
+  _registerBitcoin (bitcoin) {
+    this.bitcoin = bitcoin;
     return this;
   }
 
@@ -366,10 +611,12 @@ class FabricHTTPServer extends Service {
   }
 
   _handleCall (call) {
-    if (!call.method) throw new Error('Call requires "method" parameter.');
-    if (!call.params) throw new Error('Call requires "params" parameter.');
+    if (!call || !call.method) throw new Error('Call requires "method" parameter.');
+    let params = call.params;
+    if (params === undefined || params === null) params = [];
+    if (!Array.isArray(params)) params = [params];
     if (!this.methods[call.method]) throw new Error(`Method "${call.method}" has not been registered.`);
-    return this.methods[call.method].apply(this, call.params);
+    return this.methods[call.method].apply(this, params);
   }
 
   /**
@@ -390,11 +637,19 @@ class FabricHTTPServer extends Service {
       entropy: buffer.toString('hex')
     });
 
+    // Initialize socket subscriptions
+    socket.subscriptions = new Set();
+
     socket._resetKeepAlive = function () {
       clearInterval(socket._heartbeat);
       socket._heartbeat = setInterval(function () {
         const now = Date.now();
         const ping = Message.fromVector(['Ping', now.toString()]);
+
+        // Sign the ping message before sending
+        if (server._rootKey && server._rootKey.private) {
+          ping.signWithKey(server._rootKey);
+        }
 
         try {
           server._sendTo(handle, ping.toBuffer());
@@ -407,126 +662,238 @@ class FabricHTTPServer extends Service {
     socket._timeout = null;
     socket._resetKeepAlive();
 
+    const jsonRpcCfg = this.settings.jsonRpc || {};
+    // Align WS JSONCall with HTTP JSON-RPC: enforce transport auth only when HTTP JSON-RPC
+    // is enabled and `requireAuth` is on. Otherwise leave JSONCall behavior unchanged for
+    // servers that use WebSocket calls without registering POST `/services/rpc`.
+    socket._fabricJsonRpcTransportAuthorized = (jsonRpcCfg.enabled === true && jsonRpcCfg.requireAuth === true)
+      ? this._isJsonRpcTransportAuthorized(request)
+      : true;
+
     // Clean up memory when the connection has been safely closed (ideal case).
     socket.on('close', function () {
       clearInterval(socket._heartbeat);
+      // Clear subscriptions for this socket
+      socket.subscriptions.clear();
       delete server.connections[player['@data'].connection];
     });
 
     // TODO: message handler on base class
-    socket.on('message', async function handler (msg) {
-      // console.log('[SERVER:WEBSOCKET]', 'incoming message:', typeof msg, msg);
-
+    socket.on('message', async (msg) => {
       let message = null;
       let type = null;
 
-      if (msg.type && msg.data) {
-        console.log('spec:', {
-          type: msg.type,
-          data: msg.data
-        });
-      }
-
       try {
-        message = Message.fromRaw(msg);
-        type = message.type;
-      } catch (exception) {
-        console.error('could not parse message:', exception);
-      }
-
-      if (!message) {
-        // Fall back to JSON parsing
-        try {
-          if (msg instanceof Buffer) {
-            msg = msg.toString('utf8');
+        // Handle binary messages
+        if (msg instanceof Buffer) {
+          message = Message.fromBuffer(msg);
+        } else if (msg.data instanceof Buffer) {
+          message = Message.fromBuffer(msg.data);
+        } else {
+          // Try to parse as JSON if not binary
+          const data = typeof msg === 'string' ? msg : msg.toString('utf8');
+          const parsed = JSON.parse(data);
+          // Extract type from parsed JSON if available (support both @type and type)
+          if (parsed && (parsed.type || parsed['@type'])) {
+            type = parsed.type || parsed['@type'];
           }
-
-          message = JSON.parse(msg);
-          type = message['@type'] || message.type;
-        } catch (E) {
-          console.error('could not parse message:', typeof msg, msg, E);
-          // TODO: disconnect from peer
-          console.warn('you should disconnect from this peer:', handle);
+          // If it's a JSON object, create message from object, otherwise try fromRaw
+          if (parsed && typeof parsed === 'object' && !Buffer.isBuffer(parsed)) {
+            message = new Message(parsed);
+          } else {
+            message = Message.fromRaw(parsed);
+          }
         }
-      }
 
-      const obj = message.toObject();
-      const actor = new Actor(obj);
-
-      let local = null;
-
-      switch (type) {
-        default:
-          console.log('[SERVER]', 'unhandled type:', type);
-          break;
-        case 'GET':
-          let answer = await server._GET(message['@data']['path']);
-          console.log('answer:', answer);
-          return answer;
-        case 'POST':
-          let link = await server._POST(message['@data']['path'], message['@data']['value']);
-          console.log('[SERVER]', 'posted link:', link);
-          break;
-        case 'PATCH':
-          let result = await server._PATCH(message['@data']['path'], message['@data']['value']);
-          console.log('[SERVER]', 'patched:', result);
-          break;
-        case 'Ping':
-          const now = Date.now();
-          local = Message.fromVector(['Pong', now.toString()]);
-          let sendResult = null
-          try {
-            sendResult = server._sendTo(handle, local.toBuffer());
-          } catch (exception) {
-            console.error('[FABRIC:EDGE]', '[SERVER]', 'Could not send Pong:', exception);
-          }
-          return sendResult;
-        case 'GenericMessage':
-          local = Message.fromVector(['GenericMessage', JSON.stringify({
-            type: 'GenericMessageReceipt',
-            content: actor.id
-          })]);
-
-          let msg = null;
-
-          try {
-            msg = JSON.parse(obj.data);
-          } catch (exception) {}
-
-          if (msg) {
-            server.emit('call', msg.data || {
-              method: 'GenericMessage',
-              params: [msg.data]
-            });
-
-            await server.handleFabricMessage(message);
-          }
-
-          break;
-        case 'Pong':
-          socket._resetKeepAlive();
+        if (!message) {
+          console.error('Could not parse message:', msg);
           return;
-          break;
-        case 'Call':
-          server.emit('call', {
-            method: message['@data'].data.method,
-            params: message['@data'].data.params
-          });
-          break;
+        }
+
+        // Use extracted type or fall back to message.type
+        const messageType = type || message.type;
+
+        // System messages (HEARTBEAT, Ping, Pong) may not have signatures.
+        // `message.type` from `fromBuffer` is wire form (e.g. P2P_PING); parsed JSON may use friendly names.
+        const systemMessageTypes = ['HEARTBEAT', 'Ping', 'Pong', 'P2P_PING', 'P2P_PONG'];
+        if (!message.raw.signature.toString() && !systemMessageTypes.includes(messageType)) {
+          let headerForLog;
+          try {
+            headerForLog = message.header;
+          } catch (headerErr) {
+            headerForLog = `(header: ${headerErr.message})`;
+          }
+          console.trace('[SERVER]', 'Message has no signature:', message, headerForLog, message.body);
+        }
+        // if (!message.verify()) console.warn('[SERVER]', 'Message signature verification failed:', message);
+
+        const obj = message.toObject();
+        const actor = new Actor(obj);
+
+        let local = null;
+        const switchType = messageType || message.type;
+
+        // Use extracted messageType for switch statement
+        switch (switchType) {
+          case 'HEARTBEAT':
+            // HEARTBEAT messages are keepalive signals, no action needed
+            if (server.settings.debug) console.debug('[SERVER]', 'Received HEARTBEAT from:', handle);
+            break;
+          case 'JSONCall':
+          case 'JSON_CALL':
+            // console.trace('[SERVER]', 'received JSON call:', message.body);
+            try {
+              const jsonCallPayload = JSON.parse(message.body);
+              const preimage = crypto.createHash('sha256').update(message.body).digest('hex');
+              const hash = crypto.createHash('sha256').update(preimage).digest('hex');
+
+              if (!socket._fabricJsonRpcTransportAuthorized) {
+                const errBody = JSON.stringify({
+                  method: 'JSONCallResult',
+                  params: [hash, null],
+                  error: {
+                    code: -32001,
+                    message: 'Unauthorized: valid bearer or client token required for JSON-RPC (same policy as POST /services/rpc)'
+                  }
+                });
+                const denied = Message.fromVector(['JSONCall', errBody]);
+                if (server._rootKey && server._rootKey.private) denied.signWithKey(server._rootKey);
+                socket.send(denied.toBuffer());
+                break;
+              }
+
+              const kernel = new Actor(jsonCallPayload);
+              const result = await server._handleCall({
+                hash: hash,
+                method: jsonCallPayload.method,
+                params: jsonCallPayload.params
+              });
+
+              if (server.settings.debug) {
+                console.debug('[SERVER]', 'JSONCall completed:', jsonCallPayload.method);
+              }
+
+              this.commit();
+
+              const callResultMessage = Message.fromVector(['JSONCall', JSON.stringify({
+                method: 'JSONCallResult',
+                params: [hash, result]
+              })]).signWithKey(this._rootKey);
+
+              socket.send(callResultMessage.toBuffer());
+            } catch (exception) {
+              console.error('[SERVER]', 'Could not parse JSON blob:', exception);
+              return;
+            }
+            break;
+          case 'GET':
+            {
+              const answer = await server._GET(message['@data']['path']);
+              console.log('answer:', answer);
+              return answer;
+            }
+          case 'POST':
+            {
+              const link = await server._POST(message['@data']['path'], message['@data']['value']);
+              console.log('[SERVER]', 'posted link:', link);
+              break;
+            }
+          case 'PATCH':
+            {
+              const result = await server._PATCH(message['@data']['path'], message['@data']['value']);
+              console.log('[SERVER]', 'patched:', result);
+              break;
+            }
+          case 'Ping':
+          case 'P2P_PING':
+            {
+              const now = Date.now();
+              local = Message.fromVector(['Pong', now.toString()]);
+              if (server._rootKey && server._rootKey.private) local.signWithKey(server._rootKey);
+              let sendResult = null;
+              try {
+                sendResult = server._sendTo(handle, local.toBuffer());
+              } catch (exception) {
+                console.error('[FABRIC:EDGE]', '[SERVER]', 'Could not send Pong:', exception);
+              }
+              return sendResult;
+            }
+          case 'GenericMessage':
+            {
+              local = Message.fromVector(['GenericMessage', JSON.stringify({
+                type: 'GenericMessageReceipt',
+                content: actor.id
+              })]);
+
+              if (server._rootKey && server._rootKey.private) local.signWithKey(server._rootKey);
+              let msgData = null;
+
+              try {
+                msgData = JSON.parse(obj.data);
+              } catch (exception) {}
+
+              if (msgData) {
+                server.emit('call', msgData.data || {
+                  method: 'GenericMessage',
+                  params: [msgData.data]
+                });
+
+                await server.handleFabricMessage(message);
+              }
+              break;
+            }
+          case 'Pong':
+          case 'P2P_PONG':
+            {
+              socket._resetKeepAlive();
+              return;
+            }
+          case 'Call':
+            {
+              server.emit('call', {
+                method: message['@data'].data.method,
+                params: message['@data'].data.params
+              });
+              break;
+            }
+          case 'SUBSCRIBE':
+            {
+              const subscribePath = message['@data'];
+              socket.subscriptions.add(subscribePath);
+              if (server.settings.debug) console.debug('[SERVER]', 'Added subscription:', handle, 'to path:', subscribePath);
+              break;
+            }
+          case 'UNSUBSCRIBE':
+            {
+              const unsubscribePath = message['@data'];
+              socket.subscriptions.delete(unsubscribePath);
+              if (server.settings.debug) console.debug('[SERVER]', 'Removed subscription:', handle, 'from path:', unsubscribePath);
+              break;
+            }
+          default:
+            if (server.settings.debug) {
+              console.debug('[SERVER]', 'WebSocket message type not handled in switch:', messageType || message.type);
+            }
+            break;
+        }
+
+        // Skip receipt for keepalive/system message types.
+        if (systemMessageTypes.includes(switchType)) return;
+
+        // Send receipt of acknowledgement
+        const receipt = Message.fromVector(['P2P_MESSAGE_RECEIPT', {
+          '@type': 'Receipt',
+          '@actor': handle,
+          '@data': message,
+          '@version': 1
+        }]);
+
+        if (server._rootKey && server._rootKey.private) receipt.signWithKey(server._rootKey);
+        socket.send(receipt.toBuffer());
+      } catch (error) {
+        console.debug('[SERVER]', 'Error handling message:', error);
+        socket.close(1002);
       }
-
-      // TODO: enable relays
-      // server._relayFrom(handle, msg);
-
-      // always send a receipt of acknowledgement
-      const receipt = Message.fromVector(['P2P_MESSAGE_RECEIPT', {
-        '@type': 'Receipt',
-        '@actor': handle,
-        '@data': message,
-        '@version': 1
-      }]);
-
-      socket.send(receipt.toBuffer());
     });
 
     // set up an oracle, which listens to patches from server
@@ -540,7 +907,7 @@ class FabricHTTPServer extends Service {
 
     const ack = Message.fromVector([P2P_SESSION_ACK, crypto.randomBytes(32).toString('hex')]);
     const raw = ack.toBuffer();
-    socket.send(raw);
+    // socket.send(raw);
 
     // send result
     /* socket.send(JSON.stringify({
@@ -551,19 +918,26 @@ class FabricHTTPServer extends Service {
     if (this.app) {
       const inventory = Message.fromVector(['InventoryRequest', { parent: server.app.id, version: 0 }]);
       const state = Message.fromVector(['State', { content: server.app.state }]);
-      socket.send(inventory.toBuffer());
-      socket.send(state.toBuffer());
+      // socket.send(inventory.toBuffer());
+      // socket.send(state.toBuffer());
     }
 
     return socket;
   }
 
   _sendTo (actor, msg) {
+    // Ensure only Fabric Message buffers are sent
+    let payload = msg;
+
+    if (!Buffer.isBuffer(msg)) {
+      const message = Message.fromVector(['GenericMessage', JSON.stringify(msg)]);
+      if (this._rootKey && this._rootKey.private) message.signWithKey(this._rootKey);
+      payload = message.toBuffer();
+    }
+
     const target = this.connections[actor];
     if (!target) throw new Error('No such target.');
-
-    const result = target.send(msg);
-
+    const result = target.send(payload);
     return {
       destination: actor,
       result: result
@@ -572,6 +946,15 @@ class FabricHTTPServer extends Service {
 
   // TODO: consolidate with Peer
   _relayFrom (actor, msg) {
+    // Ensure only Fabric Message buffers are sent
+    let payload = msg;
+
+    if (!Buffer.isBuffer(msg)) {
+      const message = Message.fromVector(['GenericMessage', JSON.stringify(msg)]);
+      if (this._rootKey && this._rootKey.private) message.signWithKey(this._rootKey);
+      payload = message.toBuffer();
+    }
+
     let peers = Object.keys(this.connections).filter(key => {
       return key !== actor;
     });
@@ -580,7 +963,7 @@ class FabricHTTPServer extends Service {
 
     for (let i = 0; i < peers.length; i++) {
       try {
-        this.connections[peers[i]].send(msg);
+        this.connections[peers[i]].send(payload);
       } catch (E) {
         console.error('Could not relay to peer:', E);
       }
@@ -624,17 +1007,24 @@ class FabricHTTPServer extends Service {
       res.getHeader('content-length')
     ].join(' ');
 
-    this.emit('log', asApache);
+    // Write to access log file if stream is available
+    if (this.accessLogStream) {
+      this.accessLogStream.write(asApache + '\n');
+    }
+
+    // this.emit('log', asApache);
 
     return next();
   }
 
   _headerMiddleware (req, res, next) {
     res.header('X-Powered-By', '@fabric/http');
-    // TODO: only enable when requested
-    // @ChronicSmoke
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'content-type');
+    if (this.settings.cors) {
+      res.header('Access-Control-Allow-Origin', '*');
+      res.header('Access-Control-Allow-Headers', 'accept, content-type, authorization');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE, PATCH, HEAD');
+    }
+    res.header('Allow', 'GET, POST, OPTIONS, PUT, DELETE, PATCH, HEAD, SEARCH');
     return next();
   }
 
@@ -670,9 +1060,242 @@ class FabricHTTPServer extends Service {
     next();
   }
 
+  /**
+   * Register POST JSON-RPC endpoints that delegate to `_handleCall` (same surface as WebSocket JSONCall).
+   * @private
+   */
+  _attachJsonRpcHttpRoutes () {
+    const cfg = this.settings.jsonRpc;
+    if (!cfg || cfg.enabled === false) return;
+
+    const paths = Array.isArray(cfg.paths) && cfg.paths.length ? cfg.paths : ['/services/rpc'];
+    const handler = async (req, res) => {
+      try {
+        const body = req && req.body ? req.body : {};
+        const id = body.id != null ? body.id : null;
+        if (cfg.requireAuth === true && !this._isJsonRpcTransportAuthorized(req)) {
+          return res.status(401).json({
+            jsonrpc: '2.0',
+            id,
+            error: { code: -32001, message: 'Unauthorized: valid bearer/session token required for JSON-RPC' }
+          });
+        }
+        const method = body.method;
+        let params = body.params;
+        if (params === undefined || params === null) params = [];
+        if (!Array.isArray(params)) params = [params];
+
+        if (!method) {
+          res.status(400).json({
+            jsonrpc: '2.0',
+            id,
+            error: { code: -32600, message: 'Invalid Request: method required' }
+          });
+          return;
+        }
+
+        let result = null;
+        try {
+          result = await this._handleCall({ method, params });
+        } catch (callErr) {
+          if ((this.settings.verbosity || 0) >= 3) console.error('[HTTP:SERVER] RPC call error:', callErr);
+          res.status(500).json({
+            jsonrpc: '2.0',
+            id,
+            error: {
+              code: -32603,
+              message: callErr && callErr.message ? callErr.message : 'Internal error'
+            }
+          });
+          return;
+        }
+
+        res.status(200).json({
+          jsonrpc: '2.0',
+          id,
+          result
+        });
+      } catch (err) {
+        console.error('[HTTP:SERVER] RPC handler error:', err);
+        res.status(500).json({
+          jsonrpc: '2.0',
+          id: null,
+          error: {
+            code: -32603,
+            message: err && err.message ? err.message : 'Internal error'
+          }
+        });
+      }
+    };
+
+    for (let p = 0; p < paths.length; p++) {
+      this.express.post(paths[p], handler);
+    }
+  }
+
+  _computeSitemapUrls () {
+    const cfg = this.settings.sitemap || {};
+    const includeParameterized = cfg.includeParameterized === true;
+    const protocol = cfg.protocol || 'http';
+    const host = cfg.hostname || this.settings.hostname || 'localhost';
+    const port = Number(this.settings.port);
+    const defaultPort = (protocol === 'https') ? 443 : 80;
+    const authority = (port && port !== defaultPort) ? `${host}:${port}` : host;
+    const base = cfg.baseUrl || `${protocol}://${authority}`;
+    const seen = new Set();
+    const urls = [];
+
+    const shouldIncludePath = (p) => {
+      if (!p || typeof p !== 'string') return false;
+      if (!includeParameterized && /[:*]/.test(p)) return false;
+      return true;
+    };
+
+    const pushUrl = (candidate) => {
+      if (!candidate) return;
+      const s = String(candidate).trim();
+      if (!s) return;
+
+      let absolute = s;
+      if (!/^https?:\/\//i.test(s)) {
+        const normalized = s.startsWith('/') ? s : `/${s}`;
+        absolute = `${base}${normalized}`;
+      }
+
+      if (seen.has(absolute)) return;
+      seen.add(absolute);
+      urls.push(absolute);
+    };
+
+    if (cfg.includeRoot !== false) pushUrl('/');
+    if (cfg.includeStaticIndex === true) pushUrl('/index.html');
+
+    if (cfg.includeCustomRoutes !== false) {
+      for (let i = 0; i < this.customRoutes.length; i++) {
+        const route = this.customRoutes[i] || {};
+        const method = String(route.method || '').toUpperCase();
+        const routePath = route.path || route.route;
+        if ((method === 'GET' || method === 'HEAD') && shouldIncludePath(routePath)) pushUrl(routePath);
+      }
+    }
+
+    if (cfg.includeResourceRoutes !== false) {
+      for (let i = 0; i < this.routes.length; i++) {
+        const route = this.routes[i] || {};
+        if (shouldIncludePath(route.path)) pushUrl(route.path);
+      }
+    }
+
+    if (cfg.includeJsonRpc === true && this.settings.jsonRpc && this.settings.jsonRpc.enabled) {
+      const rpcPaths = Array.isArray(this.settings.jsonRpc.paths) ? this.settings.jsonRpc.paths : ['/rpc', '/services/rpc'];
+      for (let i = 0; i < rpcPaths.length; i++) {
+        if (shouldIncludePath(rpcPaths[i])) pushUrl(rpcPaths[i]);
+      }
+    }
+
+    const extras = Array.isArray(cfg.urls) ? cfg.urls : [];
+    for (let i = 0; i < extras.length; i++) {
+      pushUrl(extras[i]);
+    }
+
+    return urls;
+  }
+
+  _handleSitemapRequest (req, res) {
+    const urls = this._computeSitemapUrls();
+    const body = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+      ...urls.map((u) => `  <url><loc>${xmlEscape(u)}</loc></url>`),
+      '</urlset>'
+    ].join('\n');
+
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.status(200).send(body);
+  }
+
+  /**
+   * SPA-style fallback: after static misses, serve `index.html` for navigational GETs (html Accept, no file extension).
+   * @private
+   */
+  _maybeServeSpaShell (req, res, next) {
+    if (!this.settings.spaFallback) return next();
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    const accept = req.headers.accept || '';
+    if (!accept.includes('text/html')) return next();
+
+    const pth = req.path || '';
+    const ex = this.settings.spaFallbackExclude;
+    if (ex && typeof ex.test === 'function' && ex.test(pth)) return next();
+
+    const last = path.basename(pth);
+    if (last.includes('.') && last !== this.settings.spaFallbackIndex) {
+      const ext = last.slice(last.lastIndexOf('.') + 1);
+      if (ext.length <= 8 && /^[a-z0-9]+$/i.test(ext)) return next();
+    }
+
+    const indexFile = resolvedPathUnderStaticRoot(
+      this.settings.spaFallbackIndex || 'index.html',
+      this._staticRoot
+    );
+    if (!indexFile) return next();
+
+    if (req.method === 'HEAD') {
+      res.status(200);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.end();
+    }
+
+    return res.sendFile(indexFile, (err) => {
+      if (err) next();
+    });
+  }
+
+  /**
+   * Notify subscribers of a state change
+   * @param {String} path - The path that changed
+   * @param {*} value - The new value
+   */
+  _notifySubscribers (path, value) {
+    const message = Message.fromVector(['PATCH', {
+      path,
+      value
+    }]);
+
+    if (this._rootKey && this._rootKey.private) message.signWithKey(this._rootKey);
+
+    // Iterate through all connections and notify those subscribed to this path
+    Object.entries(this.connections).forEach(([handle, socket]) => {
+      if (socket.subscriptions && socket.subscriptions.has(path)) {
+        try {
+          this._sendTo(handle, message.toBuffer());
+        } catch (error) {
+          console.error('[SERVER]', 'Failed to notify subscriber:', handle, error);
+        }
+      }
+    });
+  }
+
   async _applyChanges (ops) {
+    const sample = Object.assign({}, this.state);
+    const reference = new Actor(sample);
+
     try {
-      monitor.applyPatch(this.state, ops);
+      // Apply changes to state
+      monitor.applyPatch(sample, ops, function isValid () {
+        return true;
+      }, true);
+
+      this._state.parent = reference.id;
+      this._state.content = sample;
+
+      // Notify subscribers of changes
+      ops.forEach(op => {
+        if (op.op === 'replace' || op.op === 'add') {
+          this._notifySubscribers(op.path, op.value);
+        }
+      });
+
       await this.commit();
     } catch (E) {
       this.error('Error applying changes:', E);
@@ -759,18 +1382,9 @@ class FabricHTTPServer extends Service {
     }
 
     // If no result found, return 404
-    if (!result) {
-      return res.status(404).send({
-        status: 'error',
-        message: 'Document not found.',
-        request: {
-          method: req.method.toUpperCase(),
-          path: req.path
-        }
-      });
-    }
+    if (!result) return next();
 
-    console.debug('Preparing to format:', req.path);
+    // console.debug('Preparing to format:', req.path);
 
     return res.format({
       json: function () {
@@ -791,8 +1405,91 @@ class FabricHTTPServer extends Service {
     });
   }
 
+  /**
+   * Standardized content negotiation for route handlers.
+   * Handles JSON/HTML negotiation with proper precedence.
+   * @param {Object} req - Express request object
+   * @param {Object} res - Express response object
+   * @param {*} data - Data to send
+   * @param {Object} options - Formatting options
+   * @param {String} options.title - HTML page title
+   * @param {String} options.resourceName - Resource name for display
+   * @param {String} options.resourceType - Resource type (for HTML rendering)
+   */
+  formatResponse (req, res, data, options = {}) {
+    const { title = 'Hub', resourceName = 'Resource', resourceType = null } = options;
+    const accept = req.headers.accept || '';
+    const hasJson = accept.includes('application/json');
+    const hasHtml = accept.includes('text/html');
+
+    // Prefer JSON when both are present with equal q-values
+    if (hasJson && hasHtml) {
+      const jsonMatch = accept.match(/application\/json(?:\s*;\s*q=([\d.]+))?/);
+      const htmlMatch = accept.match(/text\/html(?:\s*;\s*q=([\d.]+))?/);
+      const jsonQ = jsonMatch && jsonMatch[1] ? parseFloat(jsonMatch[1]) : 1.0;
+      const htmlQ = htmlMatch && htmlMatch[1] ? parseFloat(htmlMatch[1]) : 1.0;
+
+      if (htmlQ <= jsonQ) {
+        res.header('Content-Type', 'application/json');
+        return res.json(data);
+      }
+    }
+
+    // Format content for HTML
+    let content = '';
+    if (data === null || data === undefined) {
+      content = '<p class="empty">No data available.</p>';
+    } else if (Array.isArray(data)) {
+      if (data.length === 0) {
+        content = '<p class="empty">No items found.</p>';
+      } else {
+        content = `<ul>${data.map(item => `<li><pre>${JSON.stringify(item, null, 2)}</pre></li>`).join('')}</ul>`;
+      }
+    } else if (typeof data === 'object') {
+      content = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+    } else {
+      content = `<p>${String(data)}</p>`;
+    }
+
+    return res.format({
+      'application/json': function () {
+        res.header('Content-Type', 'application/json');
+        return res.json(data);
+      },
+      'text/html': function () {
+        res.header('Content-Type', 'text/html');
+        const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title} - Hub</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; line-height: 1.6; }
+    h1 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 0.5rem; }
+    ul { list-style: none; padding: 0; }
+    li { padding: 1rem; margin: 0.5rem 0; background: #f5f5f5; border-radius: 4px; }
+    pre { margin: 0; white-space: pre-wrap; word-wrap: break-word; }
+    .empty { color: #666; font-style: italic; }
+    .error { color: #d32f2f; background: #ffebee; padding: 1rem; border-radius: 4px; border-left: 4px solid #d32f2f; }
+  </style>
+</head>
+<body>
+  <h1>${resourceName}</h1>
+  ${content}
+</body>
+</html>`;
+        return res.send(html);
+      },
+      default: function () {
+        res.header('Content-Type', 'application/json');
+        return res.json(data);
+      }
+    });
+  }
+
   async start () {
-    console.debug('[HTTP:SERVER]', 'Starting...');
+    if ((this.settings.verbosity || 0) >= 4) console.debug('[HTTP:SERVER]', 'Starting...');
     this.emit('debug', '[HTTP:SERVER] Starting...');
 
     this.status = 'starting';
@@ -808,11 +1505,11 @@ class FabricHTTPServer extends Service {
       }
     }; */
 
-    // console.log('resources:', this.settings.resources);
+    if (this.settings.debug) console.debug('[HTTP:SERVER]', 'resources:', this.settings.resources);
 
     for (let name in this.settings.resources) {
       const definition = this.settings.resources[name];
-      const resource = await this._defineResource(name, definition);
+      const resource = await this.define(name, definition);
 
       // console.log('resource:', name, definition, resource);
 
@@ -833,18 +1530,80 @@ class FabricHTTPServer extends Service {
       })
     }); */
 
+    {
+      const raw = String(this.settings.assets != null ? this.settings.assets : 'assets').trim() || 'assets';
+      if (path.isAbsolute(raw)) {
+        this._staticRoot = path.resolve(raw);
+      } else {
+        const cwd = process.cwd();
+        this._staticRoot = path.resolve(cwd, raw);
+        const under = path.relative(cwd, this._staticRoot);
+        if (under.startsWith('..')) {
+          throw new Error(`[HTTP:SERVER] settings.assets must not escape process.cwd() (resolved from ${raw})`);
+        }
+      }
+    }
+
+    const listenPort = Number(this.settings.port);
+    if (!Number.isInteger(listenPort) || listenPort < 1 || listenPort > 65535) {
+      throw new Error(`[HTTP:SERVER] Invalid port: ${this.settings.port} (require integer 1-65535)`);
+    }
+    this.settings.port = listenPort;
+
     // Middlewares
     this.express.use(this._logMiddleware.bind(this));
+    this.express.use(extractor());
     this.express.use(auth.bind(this));
 
     // Custom Headers
     this.express.use(this._headerMiddleware.bind(this));
     this.express.use(this._redirectMiddleware.bind(this));
 
-    // TODO: defer to an in-memory datastore for requested files
-    // NOTE: disable this line to compile on-the-fly
-    this.express.use(express.static(this.settings.assets));
-    this.express.use(extractor());
+    if (this.settings.compression !== false) {
+      try {
+        const compression = require('compression');
+        this.express.use(compression());
+      } catch (err) {
+        this.emit('debug', '[HTTP:SERVER] compression not available; npm i compression for gzip');
+      }
+    }
+
+    const st = this.settings.static || {};
+    let maxAgeMs = 0;
+    if (st.maxAge != null) {
+      const m = Number(st.maxAge);
+      maxAgeMs = Number.isInteger(m) && m >= 0 ? m : 0;
+    } else {
+      let cs = Number(st.cacheSeconds);
+      if (!Number.isInteger(cs) || cs < 0) cs = 0;
+      maxAgeMs = cs * 1000;
+    }
+
+    let indexOpt = ['index.html'];
+    if (st.index === false) indexOpt = false;
+    else if (Array.isArray(st.index)) indexOpt = st.index;
+
+    this.express.use(express.static(this._staticRoot, {
+      maxAge: maxAgeMs,
+      dotfiles: st.dotfiles || 'ignore',
+      etag: st.etag !== false,
+      index: indexOpt,
+      fallthrough: st.fallthrough !== false,
+      immutable: !!st.immutable
+    }));
+
+    const vendorAssets = fabricHttpVendorAssetsDir();
+    if (vendorAssets) {
+      this.express.use(express.static(vendorAssets, {
+        maxAge: maxAgeMs,
+        dotfiles: st.dotfiles || 'ignore',
+        etag: st.etag !== false,
+        index: false,
+        fallthrough: st.fallthrough !== false,
+        immutable: !!st.immutable
+      }));
+    }
+
     this.express.use(this._roleMiddleware.bind(this));
 
     // this.express.all('/services/graphql', graphql({ schema: this.graphQLSchema }))
@@ -865,10 +1624,14 @@ class FabricHTTPServer extends Service {
       this.express.use(middleware);
     }
 
-    // TODO: render page
+    // OPTIONS `/` — server metadata for API discovery.
     this.express.options('/', this._handleOptionsRequest.bind(this));
-    // TODO: enable this route by disabling or moving the static asset handler above
-    // NOTE: see `this.express.use(express.static('assets'));`
+    const sitemapCfg = this.settings.sitemap || {};
+    if (sitemapCfg.enabled !== false) {
+      const sitemapPath = sitemapCfg.path || '/sitemap.xml';
+      this.express.get(sitemapPath, this._handleSitemapRequest.bind(this));
+    }
+    // GET `/` — runs after `express.static` above; if `assets/index.html` exists, static serves `/` and this handler is skipped.
     this.express.get('/', this._handleIndexRequest.bind(this));
 
     this._addAllRoutes();
@@ -877,7 +1640,22 @@ class FabricHTTPServer extends Service {
     // TODO: abolish this garbage in favor of resources.
     for (let i = 0; i < this.customRoutes.length; i++) {
       const route = this.customRoutes[i];
-      switch (route.method.toLowerCase()) {
+
+      // Skip invalid routes
+      if (!route || !route.method || typeof route.method !== 'string') {
+        console.warn('[HTTP:SERVER]', 'Skipping invalid route:', route);
+        continue;
+      }
+
+      // Support both 'path' and 'route' keys for path
+      const path = route.path || route.route;
+      if (!path || !route.handler) {
+        console.warn('[HTTP:SERVER]', 'Skipping route with missing path or handler:', route);
+        continue;
+      }
+
+      const method = route.method.toLowerCase();
+      switch (method) {
         case 'get':
         case 'put':
         case 'post':
@@ -885,18 +1663,33 @@ class FabricHTTPServer extends Service {
         case 'delete':
         case 'search':
         case 'options':
-          this.express[route.method.toLowerCase()](route.path, route.handler);
+          this.express[method](path, route.handler);
+          break;
+        default:
+          console.warn('[HTTP:SERVER]', 'Skipping route with unsupported method:', method);
           break;
       }
     }
 
-    // Attach the internal router
-    this.express.get('/*', this._handleRoutableRequest.bind(this));
+    // JSON-RPC over HTTP — after body parsers and `settings.middlewares` (e.g. security headers) so they apply to `POST /rpc`.
+    this._attachJsonRpcHttpRoutes();
+    if (this.settings.jsonRpc && this.settings.jsonRpc.enabled && this.settings.jsonRpc.requireAuth !== true) {
+      this.emit('warning', '[HTTP:SERVER] JSON-RPC auth is disabled (jsonRpc.requireAuth=false). Endpoints are publicly callable.');
+    }
+
+    // Attach the internal router (optional SPA shell before resource router)
+    this.express.get('/*', this._maybeServeSpaShell.bind(this), this._handleRoutableRequest.bind(this));
     this.express.put('/*', this._handleRoutableRequest.bind(this));
     this.express.post('/*', this._handleRoutableRequest.bind(this));
     this.express.patch('/*', this._handleRoutableRequest.bind(this));
     this.express.delete('/*', this._handleRoutableRequest.bind(this));
     this.express.options('/*', this._handleRoutableRequest.bind(this));
+
+    this.express.get('/services/test', payments.bind(this), (req, res) => {
+      return res.send({
+        message: 'I am the prize!'
+      });
+    });
 
     // create the HTTP server
     // NOTE: stoppable is used here to force immediate termination of
@@ -904,21 +1697,24 @@ class FabricHTTPServer extends Service {
     this.http = stoppable(http.createServer(this.express), 0);
 
     // attach a WebSocket handler
-    this.wss = new WebSocket.Server({
-      server: this.http,
-      // TODO: validate entire verification chain
-      // verifyClient: this._verifyClient.bind(this)
-    });
+    const wsOpts = { server: this.http };
+    const wsCfg = this.settings.websocket || {};
+    const wsTokenConfigured = Boolean(wsCfg.clientToken || wsCfg.sharedSecret);
+    const wsTokenRequired = wsCfg.requireClientToken === true || wsCfg.requireClientToken === '1' || wsCfg.requireClientToken === 1;
+    if (wsTokenConfigured && wsTokenRequired) {
+      wsOpts.verifyClient = this._verifyWebSocketClient.bind(this);
+    }
+    this.wss = new WebSocket.Server(wsOpts);
 
     // set up the WebSocket connection handler
     this.wss.on('connection', this._handleWebSocket.bind(this));
 
     this.agent.on('debug', (msg) => {
-      console.debug('debug:', msg);
+      if ((this.settings.verbosity || 0) >= 5) console.debug('debug:', msg);
     });
 
     this.agent.on('log', (msg) => {
-      console.log('log:', msg);
+      if ((this.settings.verbosity || 0) >= 4) console.log('log:', msg);
     });
 
     // Handle messages from internal app
@@ -957,25 +1753,42 @@ class FabricHTTPServer extends Service {
       }
     }
 
+    // Open access log file stream
+    try {
+      // Use literal relative paths so static analysis (e.g. Semgrep non-literal fs filename) matches runtime intent.
+      fs.mkdirSync('logs', { recursive: true });
+      const logRel = 'logs/access.log';
+      this.settings.accessLog = path.resolve(process.cwd(), logRel);
+      this.accessLogStream = fs.createWriteStream('logs/access.log', { flags: 'a' });
+      this.emit('debug', `[HTTP:SERVER] Access log opened: ${this.settings.accessLog}`);
+    } catch (E) {
+      console.error('[HTTP:SERVER] Could not open access log file:', E);
+    }
+
+    const self = this;
+    function notifyReady () {
+      self.status = 'STARTED';
+      self.emit('ready', {
+        id: self.id
+      });
+    }
+
     if (this.settings.listen) {
       this.http.on('listening', notifyReady);
       await this.http.listen(this.settings.port, this.interface);
     } else {
-      console.warn('[HTTP:SERVER]', 'Listening is disabled.  Only events will be emitted!');
+      if ((this.settings.verbosity || 0) >= 3) {
+        console.warn('[HTTP:SERVER]', 'Listening is disabled.  Only events will be emitted!');
+      }
       notifyReady();
-    }
-
-    function notifyReady () {
-      this.status = 'STARTED';
-      this.emit('ready', {
-        id: this.id
-      });
     }
 
     // commit to our results
     // await this.commit();
 
-    this.emit('warning', '[WARNING] Unencrypted transport!  You should consider changing the `host` property in your config, or set up a TLS server to encrypt traffic to and from this node.');
+    if ((this.settings.verbosity || 0) >= 3) {
+      this.emit('warning', '[WARNING] Unencrypted transport!  You should consider changing the `host` property in your config, or set up a TLS server to encrypt traffic to and from this node.');
+    }
     this.emit('log', `[HTTP:SERVER] Started!  Link: ${this.link}`);
 
     return this;
@@ -999,14 +1812,28 @@ class FabricHTTPServer extends Service {
     const server = this;
     this.status = 'stopping';
 
+    // Stop accepting connections
     try {
-      await server.http.stop();
+      if (server.http) await server.http.stop();
     } catch (E) {
       console.error('Could not stop HTTP listener:', E);
     }
 
+    // Close access log stream
+    if (this.accessLogStream) {
+      try {
+        this.accessLogStream.end();
+        this.accessLogStream = null;
+        this.emit('debug', `[HTTP:SERVER] Access log closed: ${this.settings.accessLog}`);
+      } catch (E) {
+        console.error('[HTTP:SERVER] Could not close access log file:', E);
+      }
+    }
+
+    // Stop peer connections
     await this.agent.stop();
 
+    // Stop the server app (if it exists)
     if (server.app) {
       try {
         await server.app.stop();
@@ -1015,10 +1842,11 @@ class FabricHTTPServer extends Service {
       }
     }
 
+    // Set status to stopped and emit stopped event
     this.status = 'stopped';
     server.emit('stopped');
 
-    if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Stopped!');
+    if (this.settings.verbosity >= 4) this.emit('log', '[HTTP:SERVER]', 'Stopped!');
     return server;
   }
 

@@ -15,7 +15,6 @@ const parsers = require('body-parser');
 
 // WebRTC & WebSockets
 const WebSocket = require('ws');
-const PeerServer = require('peer').ExpressPeerServer;
 
 // Fabric Types
 const Machine = require('@fabric/core/types/machine');
@@ -49,9 +48,6 @@ class Hub extends Oracle {
     this.http = null;
     this.express = express();
     this.sessions = session({ secret: this.config.seed });
-    this.peer = new PeerServer(this.express, {
-      // path: '/services/peering'
-    });
 
     this.server = new Server();
     this.timer = setInterval(this._tick.bind(this), TICK_INTERVAL);
@@ -93,7 +89,7 @@ class Hub extends Oracle {
 
     // TODO: message handler on base class
     socket.on('message', async function handler (msg) {
-      console.log('websocket incoming message:', msg);
+      console.debug('[HUB]', 'WebSocket incoming message:', msg);
 
       socket.send(JSON.stringify({
         '@type': 'Receipt',

@@ -1,7 +1,10 @@
 'use strict';
 
+// Dependencies
 const merge = require('lodash.merge');
 const puppeteer = require('puppeteer');
+
+// Fabric Types
 const Service = require('@fabric/core/types/service');
 
 class Sandbox extends Service {
@@ -13,8 +16,8 @@ class Sandbox extends Service {
         headless: true,
         slowMo: 1, // limit to 0.001 hz
         viewport: {
-          height: 480,
-          width: 640
+          height: 768,
+          width: 1024
         }
       },
       state: {
@@ -84,8 +87,8 @@ class Sandbox extends Service {
   }
 
   async stop () {
-    await this.browser.close();
-    await this.chromium.close();
+    if (this.browser) await this.browser.close();
+    if (this.chromium) await this.chromium.close();
     return this;
   }
 

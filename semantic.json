@@ -17,7 +17,7 @@
   },
   "permission": "744",
   "autoInstall": false,
-  "rtl": false,
-  "components": ["reset", "site", "button", "container", "divider", "flag", "header", "icon", "image", "input", "label", "list", "loader", "rail", "reveal", "segment", "step", "breadcrumb", "form", "grid", "menu", "message", "table", "ad", "card", "comment", "feed", "item", "statistic", "accordion", "calendar", "checkbox", "dimmer", "dropdown", "embed", "modal", "nag", "placeholder", "popup", "progress", "slider", "rating", "search", "shape", "sidebar", "sticky", "tab", "text", "toast", "transition", "api", "form", "state", "visibility", "reset", "site", "button", "container", "divider", "emoji", "flag", "header", "icon", "image", "input", "label", "list", "loader", "rail", "reveal", "segment", "step", "breadcrumb", "form", "grid", "menu", "message", "table", "ad", "card", "comment", "feed", "item", "statistic", "accordion", "calendar", "checkbox", "dimmer", "dropdown", "embed", "modal", "nag", "placeholder", "popup", "progress", "slider", "rating", "search", "shape", "sidebar", "sticky", "tab", "text", "toast", "transition", "api", "form", "state", "visibility"],
+  "rtl": "both",
+  "components": ["reset", "site", "button", "container", "divider", "emoji", "flag", "header", "icon", "image", "input", "label", "list", "loader", "rail", "reveal", "segment", "step", "text", "breadcrumb", "form", "grid", "menu", "message", "table", "ad", "card", "comment", "feed", "item", "statistic", "accordion", "calendar", "checkbox", "dimmer", "dropdown", "embed", "modal", "nag", "placeholder", "popup", "progress", "slider", "rating", "search", "shape", "sidebar", "sticky", "tab", "toast", "transition", "api", "form", "state", "visibility"],
   "version": "2.9.0"
 }

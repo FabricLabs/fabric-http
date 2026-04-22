@@ -43,6 +43,34 @@
 <a href="https://codecov.io/gh/FabricLabs/web"><img src="https://img.shields.io/codecov/c/github/FabricLabs/web.svg?style=flat-square" alt="Coverage Status"></a>
 <a href="https://github.com/FabricLabs/web/graphs/contributors"><img src="https://img.shields.io/github/contributors/FabricLabs/web.svg?style=flat-square" alt="GitHub contributors"></a>
 <a href="https://chat.fabric.pub"><img src="https://img.shields.io/matrix/hub:fabric.pub.svg?style=flat-square" alt="Community"></a></p>
+<p><strong>Status:</strong> <code>0.1.0-RC1</code> — run <strong><code>npm run ci</code></strong> before release tags (tests + script build).</p>
+<table>
+<thead>
+<tr>
+<th>Doc</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="docs/PRODUCTION.md">docs/PRODUCTION.md</a></td>
+<td>Deploy, TLS, WebSocket, versioning</td>
+</tr>
+<tr>
+<td><a href="docs/MARKETING_OVERVIEW.md">docs/MARKETING_OVERVIEW.md</a></td>
+<td>Positioning &amp; ecosystem copy</td>
+</tr>
+<tr>
+<td><a href="docs/RELEASE_CHECKLIST.md">docs/RELEASE_CHECKLIST.md</a></td>
+<td>Tag &amp; publish steps</td>
+</tr>
+<tr>
+<td><a href="CHANGELOG.md">CHANGELOG.md</a></td>
+<td>Release notes</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Peering / WebRTC:</strong> Browser signaling is <strong>native WebRTC</strong> (Hub <strong><code>Bridge</code></strong> + JSON-RPC), not Fabric TCP <strong><code>P2P_SESSION_OFFER</code>/<code>OPEN</code></strong>. Phase alignment with the CLI mental model lives in <strong><code>@fabric/core</code></strong>: <a href="https://github.com/FabricLabs/fabric/blob/develop/docs/SESSION_AND_WEBRTC.md"><code>docs/SESSION_AND_WEBRTC.md</code></a> (use the path in your pinned core checkout).</p>
 <p>Robust library for implementing Fabric-enabled Web Applications.</p>
 <h2>What is Fabric?</h2>
 <p><a href="https://fabric.pub">Fabric</a> is an attempt at replicating the World Wide Web (&quot;the WWW&quot;) as a peer-to-peer network, using payment relationships to exchange documents and scale the network.  <code>@fabric/http</code> provides a framework for hosting Fabric-enabled applications over HTTP, allowing them to be used as &quot;edge servers&quot; for legacy web users.</p>
@@ -51,6 +79,39 @@
 <pre class="prettyprint source lang-sh"><code>mkdir some-project && cd some-project
 npm init # Initialize the project
 npm i --save @fabric/http # Install the @fabric/http dependency
+</code></pre>
+<p>From a clone of <strong>this</strong> repository:</p>
+<pre class="prettyprint source lang-sh"><code>npm ci
+npm run ci   # tests + build:scripts — use before tags / CI
+</code></pre>
+<h3><code>fabric-http</code> CLI (http-server–style)</h3>
+<p>The <code>fabric-http</code> binary serves a directory with Express static middleware (correct <code>Content-Type</code>, caching, <code>ETag</code>, dotfile hiding) plus Fabric services (WebSocket <code>/</code>, JSON-RPC when enabled, peering/WebRTC signaling via the <strong>Hub</strong> rather than legacy PeerJS, etc.). Treat it like <a href="https://www.npmjs.com/package/http-server"><code>http-server</code></a> for the filesystem, with extra endpoints.</p>
+<pre class="prettyprint source lang-sh"><code>npx fabric-http ./dist -p 8080 -a 0.0.0.0
+# cache static assets for one hour (seconds, like http-server -c)
+npx fabric-http ./assets -c 3600
+# client-side routing: serve index.html when no matching file exists
+npx fabric-http ./build --spa
+</code></pre>
+<p>Programmatic options on <code>new HTTPServer({ ... })</code> include <code>assets</code> (or <code>path</code> alias for the static root), <code>static: { cacheSeconds, ... }</code>, <code>spaFallback</code>, <code>jsonRpc: { enabled, paths }</code>, <code>cors</code>, and <code>compression</code>. HTTP JSON-RPC (<code>POST /rpc</code>) uses the same <code>_handleCall</code> surface as WebSocket <code>JSONCall</code> when <code>jsonRpc.enabled</code> is true (e.g. hub.fabric.pub).</p>
+<h3>Deterministic avatars (<code>types/avatar</code>)</h3>
+<p><code>@fabric/http</code> includes a deterministic, Gravatar-like <code>Avatar</code> class with a Fabric-themed palette and an academic visual-hash approach inspired by &quot;drunken bishop&quot; / marching-bishop algorithms:</p>
+<pre class="prettyprint source lang-js"><code>const Avatar = require('@fabric/http/types/avatar');
+const avatar = new Avatar('alice@example.edu', { size: 96 });
+const svg = avatar.toSVG();
+const dataURI = avatar.toDataURI();
+const imgHTML = avatar.render(); // &lt;img class=&quot;fabric-avatar&quot; ...>
+const ascii = avatar.toASCII(); // terminal-friendly visual hash
+</code></pre>
+<p>The same input always yields the same SVG; different identities produce different board walks.</p>
+<p>For browser custom-elements, <code>@fabric/http</code> also exposes <code>FabricAvatar</code> on <code>types/web</code>:</p>
+<pre class="prettyprint source lang-js"><code>const { FabricAvatar } = require('@fabric/http');
+customElements.define('fabric-avatar', FabricAvatar);
+</code></pre>
+<h3>Standards &amp; compliance tests</h3>
+<p><a href="tests/standards.http.js"><code>tests/standards.http.js</code></a> covers RFC 6902 JSON Patch (<code>fast-json-patch</code>), JSON Schema checks for JSON-RPC 2.0 bodies (<a href="tests/schemas/jsonrpc.js"><code>tests/schemas/jsonrpc.js</code></a>, <a href="https://ajv.js.org/">AJV</a> as a devDependency), HTML5-shaped responses with <a href="https://github.com/jsdom/jsdom"><code>jsdom</code></a> (<a href="tests/helpers/htmlCompliance.js"><code>tests/helpers/htmlCompliance.js</code></a>), <code>Accept</code> / <code>formatResponse</code> negotiation, static files, <code>POST /rpc</code>, and <code>OPTIONS /</code>. Run: <code>npx mocha tests/standards.http.js --exit</code>.</p>
+<h3>Developing against a local <code>@fabric/core</code></h3>
+<p>When <code>@fabric/core</code> is cloned alongside this repo, install it so Message types (e.g. <code>P2P_MESSAGE_RECEIPT</code>) and HTTP behavior stay aligned:</p>
+<pre class="prettyprint source lang-sh"><code>npm install ../fabric --no-save
 </code></pre>
 <p>Create an application by creating a new file (here we've used <code>scripts/node.js</code>), containing the following:</p>
 <h3><code>scripts/node.js</code>:</h3>
@@ -94,7 +155,7 @@ build a browser version.</p></article>
 
 
     </div>
-    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul></nav>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Avatar.html">Avatar</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricDistributedExecutionHTTP.html">FabricDistributedExecutionHTTP</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul><h3>Global</h3><ul><li><a href="global.html#compression">compression</a></li><li><a href="global.html#cors">cors</a></li><li><a href="global.html#jsonRpc">jsonRpc</a></li><li><a href="global.html#merge">merge</a></li><li><a href="global.html#static">static</a></li></ul></nav>
     <br class="clear" />
     <footer>
         <a href="https://github.com/FabricLabs/web">git://</a> &middot; <a href="https://chat.fabric.pub/#/room/#web:fabric.pub">Community</a>

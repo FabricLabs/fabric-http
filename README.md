@@ -4,6 +4,17 @@
 [![GitHub contributors](https://img.shields.io/github/contributors/FabricLabs/web.svg?style=flat-square)](https://github.com/FabricLabs/web/graphs/contributors)
 [![Community](https://img.shields.io/matrix/hub:fabric.pub.svg?style=flat-square)](https://chat.fabric.pub)
 
+**Status:** `0.1.0-RC1` — run **`npm run ci`** before release tags (tests + script build).
+
+| Doc | Purpose |
+|-----|---------|
+| [docs/PRODUCTION.md](docs/PRODUCTION.md) | Deploy, TLS, WebSocket, versioning |
+| [docs/MARKETING_OVERVIEW.md](docs/MARKETING_OVERVIEW.md) | Positioning & ecosystem copy |
+| [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | Tag & publish steps |
+| [CHANGELOG.md](CHANGELOG.md) | Release notes |
+
+**Peering / WebRTC:** Browser signaling is **native WebRTC** (Hub **`Bridge`** + JSON-RPC), not Fabric TCP **`P2P_SESSION_OFFER`/`OPEN`**. Phase alignment with the CLI mental model lives in **`@fabric/core`**: [`docs/SESSION_AND_WEBRTC.md`](https://github.com/FabricLabs/fabric/blob/develop/docs/SESSION_AND_WEBRTC.md) (use the path in your pinned core checkout).
+
 Robust library for implementing Fabric-enabled Web Applications.
 
 ## What is Fabric?
@@ -16,6 +27,57 @@ Building applications with `@fabric/http` is easy.
 mkdir some-project && cd some-project
 npm init # Initialize the project
 npm i --save @fabric/http # Install the @fabric/http dependency
+```
+
+From a clone of **this** repository:
+
+```sh
+npm ci
+npm run ci   # tests + build:scripts — use before tags / CI
+```
+
+### `fabric-http` CLI (http-server–style)
+The `fabric-http` binary serves a directory with Express static middleware (correct `Content-Type`, caching, `ETag`, dotfile hiding) plus Fabric services (WebSocket `/`, JSON-RPC when enabled, peering/WebRTC signaling via the **Hub** rather than legacy PeerJS, etc.). Treat it like [`http-server`](https://www.npmjs.com/package/http-server) for the filesystem, with extra endpoints.
+
+```sh
+npx fabric-http ./dist -p 8080 -a 0.0.0.0
+# cache static assets for one hour (seconds, like http-server -c)
+npx fabric-http ./assets -c 3600
+# client-side routing: serve index.html when no matching file exists
+npx fabric-http ./build --spa
+```
+
+Programmatic options on `new HTTPServer({ ... })` include `assets` (or `path` alias for the static root), `static: { cacheSeconds, ... }`, `spaFallback`, `jsonRpc: { enabled, paths }`, `cors`, and `compression`. HTTP JSON-RPC (`POST /rpc`) uses the same `_handleCall` surface as WebSocket `JSONCall` when `jsonRpc.enabled` is true (e.g. hub.fabric.pub).
+
+### Deterministic avatars (`types/avatar`)
+`@fabric/http` includes a deterministic, Gravatar-like `Avatar` class with a Fabric-themed palette and an academic visual-hash approach inspired by "drunken bishop" / marching-bishop algorithms:
+
+```js
+const Avatar = require('@fabric/http/types/avatar');
+const avatar = new Avatar('alice@example.edu', { size: 96 });
+const svg = avatar.toSVG();
+const dataURI = avatar.toDataURI();
+const imgHTML = avatar.render(); // <img class="fabric-avatar" ...>
+const ascii = avatar.toASCII(); // terminal-friendly visual hash
+```
+
+The same input always yields the same SVG; different identities produce different board walks.
+
+For browser custom-elements, `@fabric/http` also exposes `FabricAvatar` on `types/web`:
+
+```js
+const { FabricAvatar } = require('@fabric/http');
+customElements.define('fabric-avatar', FabricAvatar);
+```
+
+### Standards & compliance tests
+[`tests/standards.http.js`](tests/standards.http.js) covers RFC 6902 JSON Patch (`fast-json-patch`), JSON Schema checks for JSON-RPC 2.0 bodies ([`tests/schemas/jsonrpc.js`](tests/schemas/jsonrpc.js), [AJV](https://ajv.js.org/) as a devDependency), HTML5-shaped responses with [`jsdom`](https://github.com/jsdom/jsdom) ([`tests/helpers/htmlCompliance.js`](tests/helpers/htmlCompliance.js)), `Accept` / `formatResponse` negotiation, static files, `POST /rpc`, and `OPTIONS /`. Run: `npx mocha tests/standards.http.js --exit`.
+
+### Developing against a local `@fabric/core`
+When `@fabric/core` is cloned alongside this repo, install it so Message types (e.g. `P2P_MESSAGE_RECEIPT`) and HTTP behavior stay aligned:
+
+```sh
+npm install ../fabric --no-save
 ```
 
 Create an application by creating a new file (here we've used `scripts/node.js`), containing the following:

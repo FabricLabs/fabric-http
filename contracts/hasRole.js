@@ -1,8 +1,12 @@
 module.exports = function hasRole (role) {
-  if (this.identity) {
-    console.debug('[!!!] Identity start:', this.identity);
-    console.debug('[!!!] Checking for role:', role);
-    console.debug('[!!!] Authorization:', this.headers['authorization']);
+  if (!role) return false;
+  if (!this.authenticated) return false;
+
+  const payload = this.tokenPayload || {};
+  if (payload.role && payload.role === role) return true;
+
+  if (Array.isArray(payload.roles) && payload.roles.includes(role)) {
+    return true;
   }
 
   return false;
