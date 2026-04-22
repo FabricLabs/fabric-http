@@ -1,23 +1,67 @@
 'use strict';
 
 /**
- * Demo 402 handler for routes that explicitly mount this middleware.
- * Must be bound to the HTTPServer instance (e.g. `payments.bind(server)`).
+ * HTTP 402 Payment Required handler for routes that mount this middleware.
+ * Must be bound to the HTTPServer instance (`payments.bind(server)`).
+ *
+ * Enable with `settings.payments.enabled === true` and a Bitcoin-capable
+ * `server` (`_registerBitcoin` / `this.bitcoin.createInvoice`).
+ *
+ * @param {import('http').IncomingMessage} req
+ * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
  */
 module.exports = function paymentsMiddleware (req, res, next) {
-  console.debug('Payments middleware invoked:', req.method, req.path, req.id);
-  if (!this.bitcoin || typeof this.bitcoin.createInvoice !== 'function') {
-    return res.status(503).json({ error: 'Payment service unavailable' });
+  const p = (this && this.settings && this.settings.payments) || {};
+  if (p.enabled !== true && p.enabled !== 1 && p.enabled !== '1') {
+    return next();
   }
-  this.bitcoin.createInvoice({ amount: 0.01, description: 'Test payment' }).then((invoice) => {
-    if (!this.invoices) this.invoices = {};
-    this.invoices[invoice.id] = invoice;
-    return res.status(402).json({
-      message: 'Payment required',
-      invoice: invoice
+
+  const v = (this && this.settings && this.settings.verbosity) || 0;
+  if (v >= 5) {
+    console.debug('[payments]', req.method, req.path, req.id);
+  }
+
+  if (!this.bitcoin || typeof this.bitcoin.createInvoice !== 'function') {
+    return res.status(503).json({
+      type: 'https://fabric.pub/problems/bitcoin-unavailable',
+      title: 'Payment service unavailable',
+      status: 503,
+      detail: 'No invoice backend is configured on this server.'
     });
-  }).catch((error) => {
-    console.error('Error creating invoice:', error);
-    return res.status(500).json({ error: 'Internal server error' });
-  });
+  }
+
+  const amount = p.amount != null ? Number(p.amount) : 0.01;
+  const description = typeof p.description === 'string' && p.description.trim()
+    ? p.description.trim()
+    : 'Fabric access';
+  const currency = typeof p.currency === 'string' && p.currency.trim() ? p.currency.trim() : 'BTC';
+
+  this.bitcoin
+    .createInvoice({ amount, description })
+    .then((invoice) => {
+      if (!this.invoices) this.invoices = {};
+      this.invoices[invoice.id] = invoice;
+      return res
+        .status(402)
+        .set('Content-Type', 'application/json; charset=utf-8')
+        .json({
+          type: 'https://fabric.pub/problems/payment-required',
+          title: 'Payment Required',
+          status: 402,
+          detail: p.detail || 'Complete payment to continue.',
+          currency,
+          amount,
+          invoice
+        });
+    })
+    .catch((error) => {
+      console.error('[payments] createInvoice:', error);
+      return res.status(500).json({
+        type: 'https://fabric.pub/problems/invoice-error',
+        title: 'Internal Server Error',
+        status: 500,
+        detail: 'Could not create an invoice.'
+      });
+    });
 };

@@ -68,6 +68,31 @@ function verifyBearerToken (token, secret) {
     expectedSignature
   };
 }
+
+/**
+ * Build a bearer string accepted by {@link verifyBearerToken}, using @fabric/core `Token` encodings and SHA-256.
+ *
+ * @param {string} secret Same as `this.settings.tokenSecret` or `this.settings.seed` on the server.
+ * @param {Object} [payload={}] Decoded token payload; JSON-serializable.
+ * @returns {string} `header.payload.signature` (base64url segments)
+ */
+function buildBearerToken (secret, payload = {}) {
+  if (secret == null || typeof secret !== 'string' || !secret) {
+    throw new Error('buildBearerToken: secret string required');
+  }
+  if (payload != null && typeof payload !== 'object') {
+    throw new Error('buildBearerToken: payload must be a plain object');
+  }
+  const p = /** @type {Record<string, unknown>} */ (payload && typeof payload === 'object' ? payload : {});
+  const header = { alg: 'SHA256', typ: 'FABRIC_TOKEN' };
+  const encodedHeader = Token.base64UrlEncode(JSON.stringify(header));
+  const encodedPayload = Token.base64UrlEncode(JSON.stringify(p));
+  const hashHex = crypto
+    .createHash('sha256')
+    .update(`${encodedHeader}.${encodedPayload}.${secret}`)
+    .digest('hex');
+  return `${encodedHeader}.${encodedPayload}.${Token.base64UrlEncode(hashHex)}`;
+}
 // const hasState = require('./hasState');
 
 module.exports = function FabricAuthenticationMiddleware (request, response, next) {
@@ -108,3 +133,4 @@ module.exports = function FabricAuthenticationMiddleware (request, response, nex
 };
 
 module.exports.verifyBearerToken = verifyBearerToken;
+module.exports.buildBearerToken = buildBearerToken;

@@ -202,6 +202,19 @@ class FabricHTTPServer extends Service {
         includeJsonRpc: false,
         includeParameterized: false,
         urls: []
+      },
+      /**
+       * HTTP 402 Payment Required — used only when routes mount `middlewares/payments`
+       * and `enabled` is true (see `/services/test` when `exposePaymentTestRoute` is true).
+       */
+      payments: {
+        enabled: false,
+        amount: 0.01,
+        currency: 'BTC',
+        description: 'Fabric access',
+        detail: 'Complete payment to continue.',
+        /** When true and `payments.enabled`, `GET /services/test` runs the payment wall before the demo body. */
+        exposePaymentTestRoute: true
       }
     }, settings);
 
@@ -470,13 +483,9 @@ class FabricHTTPServer extends Service {
   }
 
   /**
-   * Optional WebSocket handshake gate when `settings.websocket.requireClientToken` and `clientToken` are set.
-   * Token may appear in query string (?token= / ?clientToken=), Authorization: Bearer, or Sec-WebSocket-Protocol fabric.token.*
-   * @param {Object} info `ws` handshake object; `info.req` is the Node.js HTTP {@link external:https://nodejs.org/api/http.html#class-httpincomingmessage IncomingMessage}.
-   */
-  /**
    * Same authorization inputs as HTTP POST JSON-RPC: verified bearer (`req.authenticated`),
    * raw `Bearer` on the upgrade/request, or websocket client-token channels.
+   * WebSocket handshake may also use `settings.websocket` client token (query / Bearer / Sec-WebSocket-Protocol).
    * @param {Object} req Node.js `IncomingMessage` (HTTP upgrade or Express `req`).
    * @returns {boolean}
    */
@@ -1685,11 +1694,14 @@ class FabricHTTPServer extends Service {
     this.express.delete('/*', this._handleRoutableRequest.bind(this));
     this.express.options('/*', this._handleRoutableRequest.bind(this));
 
-    this.express.get('/services/test', payments.bind(this), (req, res) => {
-      return res.send({
-        message: 'I am the prize!'
-      });
-    });
+    const servicesTestPrize = (req, res) => res.send({ message: 'I am the prize!' });
+    const pay = this.settings.payments || {};
+    const payOnTest = pay.enabled === true || pay.enabled === 1 || pay.enabled === '1';
+    if (payOnTest && pay.exposePaymentTestRoute !== false && pay.exposePaymentTestRoute !== '0') {
+      this.express.get('/services/test', payments.bind(this), servicesTestPrize);
+    } else {
+      this.express.get('/services/test', servicesTestPrize);
+    }
 
     // create the HTTP server
     // NOTE: stoppable is used here to force immediate termination of
@@ -1741,6 +1753,31 @@ class FabricHTTPServer extends Service {
 
     this._registerMethod('GenericMessage', (msg) => {
       // console.log('GENERIC:', msg);
+    });
+
+    this._registerMethod('RegisterWebRTCPeer', function (reg) {
+      const peer = reg && typeof reg === 'object' ? reg : {};
+      const id = peer.id || peer.peerId;
+      if (!id) throw new Error('RegisterWebRTCPeer: missing id (or peerId)');
+      this.webrtcPeers.set(String(id), {
+        id: String(id),
+        label: peer.label || null,
+        meta: peer.meta || null,
+        registeredAt: Date.now()
+      });
+      return { ok: true, id: String(id), total: this.webrtcPeers.size };
+    });
+
+    this._registerMethod('UnregisterWebRTCPeer', function (reg) {
+      const peer = reg && typeof reg === 'object' ? reg : {};
+      const id = peer.id || peer.peerId;
+      if (!id) throw new Error('UnregisterWebRTCPeer: missing id (or peerId)');
+      const ok = this.webrtcPeers.delete(String(id));
+      return { ok, id: String(id), total: this.webrtcPeers.size };
+    });
+
+    this._registerMethod('ListWebRTCPeers', function () {
+      return { ok: true, peers: Array.from(this.webrtcPeers.values()) };
     });
 
     await this.agent.start();
