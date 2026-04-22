@@ -79,21 +79,6 @@ function resolvedPathUnderStaticRoot (relativeCandidate, staticRoot) {
   return `${root}${path.sep}${s}`;
 }
 
-/**
- * Resolve `...segments` under `baseDir` and return the absolute path only if it stays inside `baseDir`.
- * @param {string} baseDir
- * @param {...string} segments Controlled path segments (not end-user input).
- * @returns {string|null}
- */
-function resolveUnderBaseDir (baseDir, ...segments) {
-  const base = path.resolve(baseDir);
-  const target = path.resolve(base, ...segments);
-  const rel = path.relative(base, target);
-  if (rel === '') return target;
-  if (rel.startsWith('..') || path.isAbsolute(rel)) return null;
-  return target;
-}
-
 function safeFileComponent (input, fallback) {
   const candidate = path.basename(String(input || '')).trim();
   if (!candidate) return fallback;
@@ -120,9 +105,12 @@ function fabricHttpVendorAssetsDir () {
   try {
     const entry = require.resolve('@fabric/http');
     const pkgRoot = path.resolve(path.dirname(entry), '..');
-    const assets = resolveUnderBaseDir(pkgRoot, 'assets');
-    if (!assets) return null;
-    return fs.existsSync(assets) ? assets : null;
+    // Single fixed subdirectory name (not derived from user input). Constrain to one segment under pkgRoot.
+    const assets = path.resolve(pkgRoot, 'assets');
+    const rel = path.relative(pkgRoot, assets);
+    if (rel.startsWith('..') || path.isAbsolute(rel) || rel !== 'assets') return null;
+    if (!fs.existsSync(assets)) return null;
+    return assets;
   } catch (err) {
     return null;
   }

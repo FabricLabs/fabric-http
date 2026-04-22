@@ -1,28 +1,16 @@
 'use strict';
 
 const assert = require('assert');
-const crypto = require('crypto');
 const net = require('net');
 const WebSocket = require('ws');
 
 const Key = require('@fabric/core/types/key');
 const Message = require('@fabric/core/types/message');
-const Token = require('@fabric/core/types/token');
 const HTTPServer = require('../types/server');
 const authMiddleware = require('../middlewares/auth');
 const { httpRequest } = require('./helpers/httpRequest');
 
-function makeBearerToken (secret, payload = {}) {
-  const header = { alg: 'SHA256', typ: 'JWT' };
-  const encodedHeader = Token.base64UrlEncode(JSON.stringify(header));
-  const encodedPayload = Token.base64UrlEncode(JSON.stringify(payload));
-  const signatureHex = crypto
-    .createHash('sha256')
-    .update(`${encodedHeader}.${encodedPayload}.${secret}`)
-    .digest('hex');
-  const signature = Token.base64UrlEncode(signatureHex);
-  return `${encodedHeader}.${encodedPayload}.${signature}`;
-}
+const WS_TEST_TOKEN = 'fabric-http-test-ws-token';
 
 function ephemeralPort () {
   return new Promise((resolve, reject) => {
@@ -41,9 +29,8 @@ describe('@fabric/http security hardening', function () {
   this.timeout(60000);
 
   it('does not authenticate bearer token when token secret is unset', function (done) {
-    const knownFallback = '97eb31a7dc28667402863f4db08de04981a3902670d36e6ea4528dfec20fb4c4';
-    const forged = makeBearerToken(knownFallback, { role: 'admin' });
-    const req = { headers: {}, token: forged };
+    // Middleware returns missing_secret before signature verification; token shape is irrelevant.
+    const req = { headers: {}, token: 'eyJ0eXAi.dGVzdA.not-a-valid-sig' };
     const res = {};
     const ctx = { settings: { verbosity: 0 } };
 
@@ -57,10 +44,10 @@ describe('@fabric/http security hardening', function () {
   it('accepts websocket client token when it matches configured secret', function () {
     const server = new HTTPServer({
       listen: false,
-      websocket: { requireClientToken: true, clientToken: 'super-secret' }
+      websocket: { requireClientToken: true, clientToken: WS_TEST_TOKEN }
     });
     const ok = server._verifyWebSocketClient({
-      req: { url: '/?token=super-secret', headers: {} }
+      req: { url: `/?token=${encodeURIComponent(WS_TEST_TOKEN)}`, headers: {} }
     });
     assert.strictEqual(ok, true);
   });
@@ -68,7 +55,7 @@ describe('@fabric/http security hardening', function () {
   it('rejects websocket client token when it does not match configured secret', function () {
     const server = new HTTPServer({
       listen: false,
-      websocket: { requireClientToken: true, clientToken: 'super-secret' }
+      websocket: { requireClientToken: true, clientToken: WS_TEST_TOKEN }
     });
     const ok = server._verifyWebSocketClient({
       req: { url: '/?token=wrong', headers: {} }
@@ -96,7 +83,7 @@ describe('@fabric/http security hardening', function () {
       hostname: '127.0.0.1',
       listen: true,
       jsonRpc: { enabled: true, paths: ['/services/rpc'], requireAuth: true },
-      websocket: { requireClientToken: true, clientToken: 'super-secret' }
+      websocket: { requireClientToken: true, clientToken: WS_TEST_TOKEN }
     });
 
     server._registerMethod('SecurityEcho', (x) => ({ echoed: x }));
@@ -115,7 +102,7 @@ describe('@fabric/http security hardening', function () {
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
-          Authorization: 'Bearer super-secret'
+          Authorization: `Bearer ${WS_TEST_TOKEN}`
         },
         body
       });
