@@ -1,0 +1,96 @@
+'use strict';
+
+/**
+ * Fabric UI semantic build: run Fomantic `gulp build` in `libraries/fomantic`, then mirror
+ * `dist/` into `assets/` (root CSS/JS + `themes/` for icon/Lato/Arvo fonts).
+ *
+ * Theme = Fomantic **fabric** + Arvo (`src/theme.config`, `src/theme.less`, `themes/fabric/assets/fonts/`).
+ * Downstream apps (Hub, Sensemaker) can run the same Gulp tree or consume `assets/` from `@fabric/http`.
+ */
+const path = require('path');
+const { spawnSync } = require('child_process');
+const fs = require('fs');
+
+const root = path.resolve(__dirname, '..');
+const fomanticDir = path.join(root, 'libraries', 'fomantic');
+const rootModules = path.join(root, 'node_modules');
+
+const gulpBin = path.join(rootModules, 'gulp', 'bin', 'gulp.js');
+if (!fs.existsSync(gulpBin)) {
+  console.error('[fabric-http] gulp not found in node_modules. Run: npm install (fomantic-ui pulls gulp, gulp-less, etc.).');
+  process.exit(1);
+}
+
+const nodePath = [rootModules, process.env.NODE_PATH || ''].filter(Boolean).join(path.delimiter);
+const env = { ...process.env, NODE_PATH: nodePath };
+const build = spawnSync(process.execPath, [gulpBin, 'build'], { cwd: fomanticDir, env, stdio: 'inherit' });
+if (build.status !== 0) {
+  process.exit(build.status || 1);
+}
+
+const dist = path.join(fomanticDir, 'dist');
+const srcThemes = path.join(fomanticDir, 'src', 'themes');
+const distThemes = path.join(dist, 'themes');
+
+/** Gulp copies into dist but does not remove deleted theme folders — drop orphans vs src/themes. */
+function pruneOrphanDistThemes () {
+  if (!fs.existsSync(distThemes) || !fs.existsSync(srcThemes)) return;
+  for (const ent of fs.readdirSync(distThemes, { withFileTypes: true })) {
+    if (!ent.isDirectory()) continue;
+    if (!fs.existsSync(path.join(srcThemes, ent.name))) {
+      fs.rmSync(path.join(distThemes, ent.name), { recursive: true, force: true });
+    }
+  }
+}
+pruneOrphanDistThemes();
+const assetsScripts = path.join(root, 'assets', 'scripts');
+const assetsStyles = path.join(root, 'assets', 'styles');
+const assetsThemes = path.join(root, 'assets', 'themes');
+
+function copyPattern (pattern, destDir) {
+  const names = fs.readdirSync(dist).filter((n) => pattern.test(n));
+  for (const n of names) {
+    fs.copyFileSync(path.join(dist, n), path.join(destDir, n));
+  }
+}
+
+fs.mkdirSync(assetsScripts, { recursive: true });
+fs.mkdirSync(assetsStyles, { recursive: true });
+fs.mkdirSync(assetsThemes, { recursive: true });
+
+copyPattern(/\.js$/i, assetsScripts);
+copyPattern(/\.css$/i, assetsStyles);
+
+const themesSrc = path.join(dist, 'themes');
+if (fs.existsSync(themesSrc)) {
+  fs.rmSync(assetsThemes, { recursive: true, force: true });
+  fs.cpSync(themesSrc, assetsThemes, { recursive: true });
+}
+
+const assetsRoot = path.join(root, 'assets');
+function copyIfExists (fromPath, toPath) {
+  if (fs.existsSync(fromPath)) fs.copyFileSync(fromPath, toPath);
+}
+
+/* Packaged CSS uses `themes/...` relative to `/semantic.min.css` at site root. */
+copyIfExists(path.join(assetsStyles, 'semantic.min.css'), path.join(assetsRoot, 'semantic.min.css'));
+copyIfExists(path.join(assetsStyles, 'semantic.css'), path.join(assetsRoot, 'semantic.css'));
+copyIfExists(path.join(assetsScripts, 'semantic.min.js'), path.join(assetsRoot, 'semantic.min.js'));
+copyIfExists(path.join(assetsScripts, 'semantic.js'), path.join(assetsRoot, 'semantic.js'));
+copyIfExists(path.join(assetsStyles, 'semantic.rtl.min.css'), path.join(assetsRoot, 'semantic.rtl.min.css'));
+copyIfExists(path.join(assetsStyles, 'semantic.rtl.css'), path.join(assetsRoot, 'semantic.rtl.css'));
+
+/* Fomantic emits `url(themes/...)`, which resolves from the *stylesheet* path. For `/vendor/semantic.min.css` (e.g. browser extension) that steers to `/vendor/themes/...` on disk. Path-absolute `url(/themes/.../)` is stable for one origin. */
+for (const name of ['semantic.min.css', 'semantic.rtl.min.css', 'semantic.css', 'semantic.rtl.css']) {
+  const p = path.join(assetsRoot, name);
+  if (!fs.existsSync(p)) continue;
+  const before = fs.readFileSync(p, 'utf8');
+  const after = before.split('url(/themes/').length > 1
+    ? before
+    : before.split('url(themes/').join('url(/themes/');
+  if (after !== before) {
+    fs.writeFileSync(p, after, 'utf8');
+  }
+}
+
+console.log('[fabric-http] Fomantic dist → assets/scripts, assets/styles, assets/themes, assets/*.semantic*');

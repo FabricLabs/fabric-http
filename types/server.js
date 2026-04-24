@@ -62,6 +62,7 @@ const SPA = require('./spa');
 
 // Dependencies
 const WebSocket = require('ws');
+const { acceptFirstHtmlNavigation } = require('./acceptNegotiation');
 
 /**
  * Resolve `relativeCandidate` under `staticRoot` and reject `..` / absolute escape attempts.
@@ -101,23 +102,61 @@ function xmlEscape (value) {
 }
 
 /**
- * Packaged Fomantic (Semantic) UI: `assets/semantic.min.css` (site root), `assets/styles`, `assets/scripts`, `assets/themes`, etc.
- * Built by `npm run build:semantic` (Fomantic **fabric** theme + Arvo; assets under `libraries/fomantic/src/themes/fabric/assets/`).
- * Resolved from the consuming app's `node_modules` so Hub/Sensemaker need not copy vendor files.
+ * This package’s `assets/` directory (Fomantic / semantic, etc.). Serves as the second `express.static`
+ * mount so downstream apps that set `path` to their own `assets/` can override; missing paths fall through here.
  * @returns {string|null}
  */
-function fabricHttpVendorAssetsDir () {
+function fabricHttpPackageAssetsDir () {
   try {
     // This file is `types/server.js`; package root is its parent (no `..` / no tainted resolve).
     const pkgRoot = path.dirname(__dirname);
-    const vendorAssets = pkgRoot + path.sep + 'assets';
-    const rel = path.relative(pkgRoot, vendorAssets);
+    const out = pkgRoot + path.sep + 'assets';
+    const rel = path.relative(pkgRoot, out);
     if (rel.startsWith('..') || path.isAbsolute(rel) || rel !== 'assets') return null;
-    // Do not fs.* on vendorAssets (Codacy/Semgrep flags non-literal paths). express.static tolerates a missing dir.
-    return vendorAssets;
+    // Do not fs.* on out (Codacy/Semgrep flags non-literal paths). express.static tolerates a missing dir.
+    return out;
   } catch (err) {
     return null;
   }
+}
+
+/**
+ * `express.send` can label theme fonts as `application/octet-stream`. With `X-Content-Type-Options: nosniff`
+ * (set by @fabric/hub) Chromium/Electron may refuse to load @font-face resources; set explicit font MIME
+ * types for common Fomantic (Semantic) theme files under /themes/…/assets/fonts/
+ * @param {import('http').ServerResponse} res
+ * @param {string} filePath
+ */
+function fabricHttpStaticSetHeaders (res, filePath) {
+  if (!filePath) return;
+  const ext = (path.extname(String(filePath)) || '').toLowerCase();
+  if (ext === '.woff2') {
+    res.setHeader('Content-Type', 'font/woff2');
+  } else if (ext === '.woff') {
+    res.setHeader('Content-Type', 'font/woff');
+  } else if (ext === '.ttf') {
+    res.setHeader('Content-Type', 'font/ttf');
+  } else if (ext === '.eot') {
+    res.setHeader('Content-Type', 'application/vnd.ms-fontobject');
+  } else if (ext === '.otf') {
+    res.setHeader('Content-Type', 'font/otf');
+  } else if (ext === '.svg' && /[/\\]fonts[/\\]/.test(String(filePath))) {
+    res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+  }
+}
+
+/**
+ * @param {import('http').ServerResponse} res
+ * @param {string} filePath
+ * @param {((res: import('http').ServerResponse, p: string) => void) | null | undefined} [user]
+ */
+function mergeStaticSetHeaders (res, filePath, user) {
+  if (typeof user === 'function') {
+    try {
+      user(res, filePath);
+    } catch (_) { /* app hook should not take down static */ }
+  }
+  fabricHttpStaticSetHeaders(res, filePath);
 }
 
 /**
@@ -1129,6 +1168,90 @@ class FabricHTTPServer extends Service {
     res.send(`${html}`);
   }
 
+  /**
+   * In-memory HTML shell for dual JSON/HTML routes. Set with {@link FabricHTTPServer#setApplicationHtml} or
+   * `settings.applicationString` from the app constructor.
+   * @returns {string}
+   */
+  getApplicationHtml () {
+    if (typeof this._applicationHtml === 'string' && this._applicationHtml.length) {
+      return this._applicationHtml;
+    }
+    const s = this.settings && this.settings.applicationString;
+    return typeof s === 'string' ? s : '';
+  }
+
+  /**
+   * @param {string} html - full document for `text/html` in {@link FabricHTTPServer#jsonOrShell} and
+   *   {@link FabricHTTPServer#serveSpaShellIfHtmlNavigation}.
+   */
+  setApplicationHtml (html) {
+    this._applicationHtml = typeof html === 'string' ? html : '';
+  }
+
+  /**
+   * JSON for API clients, HTML application shell for `Accept: text/html` (e.g. SPA deep-link refresh on JSON routes).
+   * @param {import('http').IncomingMessage} req
+   * @param {import('http').ServerResponse} res
+   * @param {() => Promise<void>} onJSON
+   */
+  jsonOrShell (req, res, onJSON) {
+    const html = this.getApplicationHtml();
+    const body = typeof html === 'string' && html
+      ? html
+      : '<!DOCTYPE html><html><body><p>Application shell not configured.</p></body></html>';
+    return res.format({
+      html: () => {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(body);
+      },
+      json: async () => {
+        try {
+          await onJSON();
+        } catch (error) {
+          res.status(500).json({
+            status: 'error',
+            message: error && error.message ? error.message : String(error)
+          });
+        }
+      }
+    });
+  }
+
+  /**
+   * Always JSON (no `Accept` negotiation). For API-only routes.
+   * @param {import('http').IncomingMessage} req
+   * @param {import('http').ServerResponse} res
+   * @param {() => Promise<void>} onJSON
+   */
+  jsonOnly (req, res, onJSON) {
+    return (async () => {
+      try {
+        await onJSON();
+      } catch (error) {
+        res.status(500).json({
+          status: 'error',
+          message: error && error.message ? error.message : String(error)
+        });
+      }
+    })();
+  }
+
+  /**
+   * If the request’s first `Accept` type is `text/html`, send the configured shell; otherwise return false.
+   * @param {import('http').IncomingMessage} req
+   * @param {import('http').ServerResponse} res
+   * @returns {boolean} true if a response was sent
+   */
+  serveSpaShellIfHtmlNavigation (req, res) {
+    if (!acceptFirstHtmlNavigation(req)) return false;
+    const html = this.getApplicationHtml();
+    if (typeof html !== 'string' || !html) return false;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.status(200).send(html);
+    return true;
+  }
+
   _handleOptionsRequest (req, res) {
     res.send({
       name: this.settings.name,
@@ -1736,18 +1859,23 @@ class FabricHTTPServer extends Service {
       etag: st.etag !== false,
       index: indexOpt,
       fallthrough: st.fallthrough !== false,
-      immutable: !!st.immutable
+      immutable: !!st.immutable,
+      setHeaders: (res, filePath) => mergeStaticSetHeaders(res, filePath, st.setHeaders)
     }));
 
-    const vendorAssets = fabricHttpVendorAssetsDir();
-    if (vendorAssets) {
-      this.express.use(express.static(vendorAssets, {
+    /* Second static root: this package’s `assets/` (Fomantic / semantic, etc.). The app’s `path` is
+     * always mounted first — files you ship under that directory win; anything missing falls through
+     * here. See e.g. `fabric-clean/examples/http.js` for a minimal `HTTP.Server` consumer. */
+    const packageAssets = fabricHttpPackageAssetsDir();
+    if (packageAssets) {
+      this.express.use(express.static(packageAssets, {
         maxAge: maxAgeMs,
         dotfiles: st.dotfiles || 'ignore',
         etag: st.etag !== false,
         index: false,
         fallthrough: st.fallthrough !== false,
-        immutable: !!st.immutable
+        immutable: !!st.immutable,
+        setHeaders: (res, filePath) => mergeStaticSetHeaders(res, filePath, st.setHeaders)
       }));
     }
 

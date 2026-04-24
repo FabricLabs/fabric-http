@@ -13,5 +13,9 @@ module.exports = {
   FabricAvatar: FabricAvatar,
   App: SPA,
   SPA: SPA,
-  Site: SPA
+   Site: SPA,
+  acceptNegotiation: require('./acceptNegotiation'),
+  constants: require('../constants'),
+  sampleHubOptions: require('../sampleHubOptions'),
+  resolveAppAssetsDir: require('./resolveAppAssetsDir')
 };

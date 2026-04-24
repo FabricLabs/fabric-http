@@ -10,7 +10,22 @@
 | [docs/PRODUCTION.md](docs/PRODUCTION.md) | Deploy, TLS, WebSocket, versioning |
 | [docs/MARKETING_OVERVIEW.md](docs/MARKETING_OVERVIEW.md) | Positioning & ecosystem copy |
 | [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | Tag & publish steps |
+| [docs/MESSAGE_SPEC.md](docs/MESSAGE_SPEC.md) | `Message` types & `JSONCall` on the WebSocket server |
+| [docs/WEBRTC_FABRIC_HTTP.md](docs/WEBRTC_FABRIC_HTTP.md) | WebRTC vs this server; Hub/extension |
+| [docs/RELEASE_GATE.md](docs/RELEASE_GATE.md) | Downstream extension auth test gate |
+| [middlewares/auth](middlewares/auth.js) | `buildBearerToken` / `verifyBearerToken` (Fabric `Token` + shared secret) |
+| [constants.js](constants.js) | Package ports, header names, and other **literal** values only |
+| [sampleHubOptions.js](sampleHubOptions.js) | `isSampleHubHttpServerOptions` for the `sample-hub-http-server` / Hub port checks |
 | [CHANGELOG.md](CHANGELOG.md) | Release notes |
+
+**WebSockets (general pass / PR #54 goals):**
+
+| Improvement | In this package |
+|-------------|-----------------|
+| **HTTP 402** | [x] `settings.payments` + [middlewares/payments.js](middlewares/payments.js) (problem JSON, opt-in); tests: `tests/payments.http.test.js`. Deeper “finalize” = app-specific payment / settlement hooks. |
+| **Fabric + WebRTC** | [x] Registry + JSON-RPC methods + [docs/WEBRTC_FABRIC_HTTP.md](docs/WEBRTC_FABRIC_HTTP.md). [ ] Full Hub + extension E2E (offer/answer, `Message` on data channel) stays on Hub/extension tracks. |
+| **`Message` spec** | [x] [docs/MESSAGE_SPEC.md](docs/MESSAGE_SPEC.md) (WebSocket contract; wire format in `@fabric/core`). |
+| **Release gate** | [x] `@fabric/passport`: bearer + `POST /services/rpc` — [docs/RELEASE_GATE.md](docs/RELEASE_GATE.md), `npm run test:ui:release-gate`. [ ] `@fabric/browser` when that package has a matching E2E harness. |
 
 **Peering / WebRTC:** Browser signaling is **native WebRTC** (Hub **`Bridge`** + JSON-RPC), not Fabric TCP **`P2P_SESSION_OFFER`/`OPEN`**. Phase alignment with the CLI mental model lives in **`@fabric/core`**: [`docs/SESSION_AND_WEBRTC.md`](https://github.com/FabricLabs/fabric/blob/develop/docs/SESSION_AND_WEBRTC.md) (use the path in your pinned core checkout).
 
@@ -46,7 +61,7 @@ npx fabric-http ./assets -c 3600
 npx fabric-http ./build --spa
 ```
 
-Programmatic options on `new HTTPServer({ ... })` include `assets` (or `path` alias for the static root), `static: { cacheSeconds, ... }`, `spaFallback`, `jsonRpc: { enabled, paths }`, `cors`, and `compression`. HTTP JSON-RPC (`POST /rpc`) uses the same `_handleCall` surface as WebSocket `JSONCall` when `jsonRpc.enabled` is true (e.g. hub.fabric.pub).
+Programmatic options on `new HTTPServer({ ... })` include `assets` (or `path` alias for the static root), `static: { cacheSeconds, ... }`, `spaFallback`, `jsonRpc: { enabled, paths }`, `cors`, and `compression`. HTTP JSON-RPC (`POST /rpc`) uses the same `_handleCall` surface as WebSocket `JSONCall` when `jsonRpc.enabled` is true (e.g. hub.fabric.pub). For a small Hub-shaped dev server (default **8099** so it does not steal **8080** from a real @fabric/hub, CORS, `POST /services/rpc`, `hub-mesh-bridge.html` for the extension), use **`npm run sample:hub`** (see [docs/WEBRTC_FABRIC_HTTP.md](docs/WEBRTC_FABRIC_HTTP.md)). Set `PORT=8080` only when you are not running hub.fabric.pub on the same machine.
 
 ### Deterministic avatars (`types/avatar`)
 `@fabric/http` includes a deterministic, Gravatar-like `Avatar` class with a Fabric-themed palette and an academic visual-hash approach inspired by "drunken bishop" / marching-bishop algorithms:

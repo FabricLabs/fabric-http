@@ -55,6 +55,11 @@
     ".": "./types/web.js",
     "./module.js": "./module.js",
     "./types/*": "./types/*.js",
+    "./acceptNegotiation": "./types/acceptNegotiation.js",
+    "./constants": "./constants.js",
+    "./sampleHubOptions": "./sampleHubOptions.js",
+    "./resolveAppAssetsDir": "./types/resolveAppAssetsDir.js",
+    "./fomanticAssetsDir": "./types/fomanticAssetsDir.js",
     "./middlewares/auth": "./middlewares/auth.js",
     "./middlewares/payments": "./middlewares/payments.js"
   },
@@ -122,7 +127,14 @@
     "diff": "=8.0.4",
     "elliptic": "npm:@soatok/elliptic-to-noble@^9999.0.0",
     "serialize-javascript": "=7.0.5",
-    "yauzl": "=3.2.1"
+    "yauzl": "=3.2.1",
+    "jayson": {
+      "uuid": "14.0.0"
+    },
+    "@actions/http-client": {
+      "undici": "6.25.0"
+    },
+    "@adobe/css-tools": "4.4.4"
   },
   "browser": {
     "ws": false

@@ -7,15 +7,19 @@
  * - JSON-RPC on POST /services/rpc (optional bearer via jsonRpc.requireAuth)
  * - Static tree from examples/hub-local-dev-assets (hub-mesh-bridge.html)
  *
- * Default listen: 127.0.0.1:8080 — same conventional port as `settings/local.js` Hub dev.
- * Override: PORT=3044 HOST=127.0.0.1 node scripts/sample-hub-http-server.js
+ * Default listen: 127.0.0.1:8099 — **not** 8080, so a real @fabric/hub (see hub.fabric.pub) can use 8080.
+ * Override: PORT=8080 node scripts/sample-hub-http-server.js to align with a Hub on the same port.
  */
 
 const path = require('path');
 const HTTPServer = require('../types/server');
+const {
+  SAMPLE_HUB_HTTP_SERVER_NAME,
+  DEFAULT_SAMPLE_HUB_HTTP_PORT
+} = require('../constants');
 
 const host = process.env.HOST || '127.0.0.1';
-const port = Number(process.env.PORT || 8080);
+const port = Number(process.env.PORT != null && String(process.env.PORT).trim() !== '' ? process.env.PORT : DEFAULT_SAMPLE_HUB_HTTP_PORT);
 
 const requireAuth =
   process.env.FABRIC_JSONRPC_REQUIRE_AUTH === '1' ||
@@ -26,7 +30,7 @@ const tokenSecret = process.env.FABRIC_HTTP_TOKEN_SECRET || null;
 const assetsRoot = path.join(__dirname, '..', 'examples', 'hub-local-dev-assets');
 
 const server = new HTTPServer({
-  name: 'fabric-http-hub-local-stub',
+  name: SAMPLE_HUB_HTTP_SERVER_NAME,
   host,
   hostname: host,
   interface: host,
