@@ -2,8 +2,8 @@
 
 /**
  * Main package export (`require('@fabric/http')`):
- * - **Server** — `FabricHTTPServer` class; all framework helpers are `static` methods on it (Accept / SPA,
- *   package `assets/`, sample `OPTIONS` probe).
+ * - **Server** — `FabricHTTPServer` class; the same module also exports `resolveFabricHttpPackageAssetsDir`
+ *   and `acceptFirstHtmlNavigation` (Fomantic **Fabric** theme `assets/`, SPA HTML `Accept` gate) — re-exported here.
  * - **resolveAppAssetsDir** — path to an app’s static `assets/` (not the package tree); for app wiring only.
  * - **constants** — numeric and string literals from `constants.js` (no functions).
  */
@@ -42,5 +42,7 @@ module.exports = {
   SPA: SPA,
   Site: SPA,
   constants: require('../constants'),
-  resolveAppAssetsDir
+  resolveAppAssetsDir,
+  resolveFabricHttpPackageAssetsDir: Server.resolveFabricHttpPackageAssetsDir,
+  acceptFirstHtmlNavigation: Server.acceptFirstHtmlNavigation
 };

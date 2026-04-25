@@ -8,6 +8,10 @@
  * `@fabric/hub`’s `libraries/semantic/src/themes/fabric/` (e.g. `rsync -a hub/.../themes/fabric/
  * libraries/fomantic/src/themes/fabric/`) so page colors (e.g. @pageBackground) and font binaries
  * stay in sync, then re-run this script and commit the resulting `assets/`.
+ *
+ * **Installed as a dependency** (e.g. Hub after `npm i`): this package has no `libraries/`; if prebuilt
+ * `assets/semantic.min.css` is present, this script exits 0 and does not run Gulp. Rebuilds require
+ * a full fabric-http clone (or `npm link`) with `libraries/fomantic`.
  */
 const path = require('path');
 const { spawnSync } = require('child_process');
@@ -16,6 +20,7 @@ const fs = require('fs');
 const root = path.resolve(__dirname, '..');
 const fomanticDir = path.join(root, 'libraries', 'fomantic');
 const fomanticGulpfile = path.join(fomanticDir, 'gulpfile.js');
+const shippedSemantic = path.join(root, 'assets', 'semantic.min.css');
 const fomanticPkg = path.join(root, 'node_modules', 'fomantic-ui');
 
 /**
@@ -46,11 +51,25 @@ function findGulpBin (startRoot) {
   return null;
 }
 
+if (!fs.existsSync(fomanticGulpfile)) {
+  if (fs.existsSync(shippedSemantic)) {
+    console.log(
+      '[fabric-http] No ./libraries/fomantic (omitted in the published package). Using shipped assets/semantic.min.css and themes/ — no Gulp run.'
+    );
+    process.exit(0);
+  }
+  console.error(
+    '[fabric-http] No Fomantic sources and no shipped semantic.min.css. Expected ./libraries/fomantic/gulpfile.js or assets/ from the package. ' +
+    'Clone the fabric-http repository, run `npm install` and `npm run build:semantic` there, or `npm link` a local @fabric/http.'
+  );
+  process.exit(1);
+}
+
 const gulpBin = findGulpBin(root);
 if (!gulpBin) {
   console.error(
-    '[fabric-http] gulp CLI not found. From this package root run: npm install (includes devDependencies: gulp, fomantic-ui). ' +
-    'If this package is linked into another app, run npm install in the @fabric/http repo or from the app root without omitting dev deps for linked packages.'
+    '[fabric-http] gulp CLI not found. From the fabric-http package root run: npm install (devDependencies: gulp, fomantic-ui). ' +
+    'If this tree is linked into an app, install dev deps in the linked @fabric/http checkout.'
   );
   process.exit(1);
 }
@@ -59,15 +78,6 @@ const rootModules = path.join(root, 'node_modules');
 
 const nodePath = [rootModules, process.env.NODE_PATH || ''].filter(Boolean).join(path.delimiter);
 const env = { ...process.env, NODE_PATH: nodePath };
-if (!fs.existsSync(fomanticGulpfile)) {
-  console.error(
-    '[fabric-http] No Fomantic tree here (expected ./libraries/fomantic/gulpfile.js). ' +
-    'The npm package omits ./libraries/ to keep size down; it ships prebuilt files under assets/. ' +
-    'To compile the theme, clone the fabric-http repository and run `npm install` and `npm run build:semantic` there, ' +
-    'or use `npm link` to a local clone. (Hub `report:install` uses the registry/git install — link @fabric/http for a dev build.)'
-  );
-  process.exit(1);
-}
 
 console.log('[fabric-http] Gulp CLI:', gulpBin);
 console.log('[fabric-http] Fomantic cwd:', fomanticDir);

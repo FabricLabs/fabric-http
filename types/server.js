@@ -10,8 +10,7 @@ const {
   HTTPS_SERVER_PORT,
   MAXIMUM_PING,
   P2P_SESSION_ACK,
-  WEBSOCKET_KEEPALIVE,
-  SAMPLE_HUB_HTTP_SERVER_NAME
+  WEBSOCKET_KEEPALIVE
 } = require('../constants');
 
 // Dependencies
@@ -138,6 +137,34 @@ function mergeStaticSetHeaders (res, filePath, user) {
     } catch (_) { /* app hook should not take down static */ }
   }
   fabricHttpStaticSetHeaders(res, filePath);
+}
+
+/**
+ * This package’s `assets/` (Fomantic **Fabric** theme, etc.): the second `express.static` root after the app’s `path`.
+ * @returns {string|null}
+ */
+function resolveFabricHttpPackageAssetsDir () {
+  try {
+    const pkgRoot = path.join(__dirname, '..');
+    const out = pkgRoot + path.sep + 'assets';
+    const rel = path.relative(pkgRoot, out);
+    if (rel.startsWith('..') || path.isAbsolute(rel) || rel !== 'assets') return null;
+    return out;
+  } catch (err) {
+    return null;
+  }
+}
+
+/**
+ * True when the client’s first `Accept` is `text/html` (browser navigation / refresh), for SPA HTML shell.
+ * @param {import('http').IncomingMessage} req
+ * @returns {boolean}
+ */
+function acceptFirstHtmlNavigation (req) {
+  const a = req.headers && req.headers.accept;
+  if (typeof a !== 'string') return false;
+  const first = a.split(',')[0].trim().toLowerCase().split(';')[0];
+  return first === 'text/html';
 }
 
 /**
@@ -1225,7 +1252,7 @@ class FabricHTTPServer extends Service {
    * @returns {boolean} true if a response was sent
    */
   serveSpaShellIfHtmlNavigation (req, res) {
-    if (!FabricHTTPServer.acceptFirstHtmlNavigation(req)) return false;
+    if (!acceptFirstHtmlNavigation(req)) return false;
     const html = this.getApplicationHtml();
     if (typeof html !== 'string' || !html) return false;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -1847,7 +1874,7 @@ class FabricHTTPServer extends Service {
     /* Second static root: this package’s `assets/` (Fomantic / semantic, etc.). The app’s `path` is
      * always mounted first — files you ship under that directory win; anything missing falls through
      * here. See e.g. `fabric-clean/examples/http.js` for a minimal `HTTP.Server` consumer. */
-    const packageAssets = FabricHTTPServer.resolveFabricHttpPackageAssetsDir();
+    const packageAssets = resolveFabricHttpPackageAssetsDir();
     if (packageAssets) {
       this.express.use(express.static(packageAssets, {
         maxAge: maxAgeMs,
@@ -2146,47 +2173,8 @@ class FabricHTTPServer extends Service {
     if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling DELETE to', path);
     return this.app.store._DELETE(path);
   }
-
-  /**
-   * This package’s `assets/` directory (Fomantic / semantic, etc.): the second `express.static` mount
-   * after the app’s own `path`.
-   * @returns {string|null}
-   */
-  static resolveFabricHttpPackageAssetsDir () {
-    try {
-      const pkgRoot = path.dirname(__dirname);
-      const out = pkgRoot + path.sep + 'assets';
-      const rel = path.relative(pkgRoot, out);
-      if (rel.startsWith('..') || path.isAbsolute(rel) || rel !== 'assets') return null;
-      return out;
-    } catch (err) {
-      return null;
-    }
-  }
-
-  /**
-   * True when the client’s first Accept type is “text/html” (browser navigation / refresh), not a wildcard
-   * or JSON-only Accept.
-   * @param {import('http').IncomingMessage} req
-   * @returns {boolean}
-   */
-  static acceptFirstHtmlNavigation (req) {
-    const a = req.headers && req.headers.accept;
-    if (typeof a !== 'string') return false;
-    const first = a.split(',')[0].trim().toLowerCase().split(';')[0];
-    return first === 'text/html';
-  }
-
-  /**
-   * True when `OPTIONS /` JSON was produced by the local `sample-hub-http-server` (body `name` equals
-   * `SAMPLE_HUB_HTTP_SERVER_NAME` in `constants.js`).
-   * @param {object|null|undefined} optionsBody
-   * @returns {boolean}
-   */
-  static isSampleHubHttpServerOptions (optionsBody) {
-    if (!optionsBody || typeof optionsBody !== 'object') return false;
-    return String(optionsBody.name || '') === SAMPLE_HUB_HTTP_SERVER_NAME;
-  }
 }
 
 module.exports = FabricHTTPServer;
+module.exports.resolveFabricHttpPackageAssetsDir = resolveFabricHttpPackageAssetsDir;
+module.exports.acceptFirstHtmlNavigation = acceptFirstHtmlNavigation;
