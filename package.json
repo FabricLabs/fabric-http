@@ -99,6 +99,7 @@
     "ws": "=8.18.0"
   },
   "devDependencies": {
+    "gulp": "=5.0.0",
     "better-console": "npm:@fomantic/better-console@^1.0.2",
     "fomantic-ui": "=2.9.4",
     "gulp-concat-css": "npm:@fomantic/gulp-concat-css@^3.3.0",

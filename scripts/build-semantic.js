@@ -15,13 +15,46 @@ const fs = require('fs');
 
 const root = path.resolve(__dirname, '..');
 const fomanticDir = path.join(root, 'libraries', 'fomantic');
-const rootModules = path.join(root, 'node_modules');
+const fomanticPkg = path.join(root, 'node_modules', 'fomantic-ui');
 
-const gulpBin = path.join(rootModules, 'gulp', 'bin', 'gulp.js');
-if (!fs.existsSync(gulpBin)) {
-  console.error('[fabric-http] gulp not found in node_modules. Run: npm install (fomantic-ui pulls gulp, gulp-less, etc.).');
+/**
+ * Gulp is required for `libraries/fomantic`’s Gulpfile. It may live in this package’s `node_modules`,
+ * under `fomantic-ui`’s tree, or be hoisted to a parent (e.g. `hub/node_modules` when @fabric/http is linked).
+ * @returns {string|null} Absolute path to `gulp.js`, or null.
+ */
+function findGulpBin (startRoot) {
+  const relative = [
+    ['node_modules', 'gulp', 'bin', 'gulp.js'],
+    ['node_modules', 'fomantic-ui', 'node_modules', 'gulp', 'bin', 'gulp.js']
+  ];
+  let dir = startRoot;
+  for (let depth = 0; depth < 5; depth++) {
+    for (const segs of relative) {
+      const candidate = path.join(dir, ...segs);
+      if (fs.existsSync(candidate)) return candidate;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  try {
+    const pkg = require.resolve('gulp/package.json', { paths: [startRoot, fomanticPkg] });
+    const p = path.join(path.dirname(pkg), 'bin', 'gulp.js');
+    if (fs.existsSync(p)) return p;
+  } catch (_) { /* not installed */ }
+  return null;
+}
+
+const gulpBin = findGulpBin(root);
+if (!gulpBin) {
+  console.error(
+    '[fabric-http] gulp CLI not found. From this package root run: npm install (includes devDependencies: gulp, fomantic-ui). ' +
+    'If this package is linked into another app, run npm install in the @fabric/http repo or from the app root without omitting dev deps for linked packages.'
+  );
   process.exit(1);
 }
+
+const rootModules = path.join(root, 'node_modules');
 
 const nodePath = [rootModules, process.env.NODE_PATH || ''].filter(Boolean).join(path.delimiter);
 const env = { ...process.env, NODE_PATH: nodePath };
