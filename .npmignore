@@ -3,7 +3,6 @@ coverage/
 reports/
 docs/
 libraries/
-scripts/
 tests/
 backups/
 .github/

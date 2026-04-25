@@ -15,6 +15,7 @@ const fs = require('fs');
 
 const root = path.resolve(__dirname, '..');
 const fomanticDir = path.join(root, 'libraries', 'fomantic');
+const fomanticGulpfile = path.join(fomanticDir, 'gulpfile.js');
 const fomanticPkg = path.join(root, 'node_modules', 'fomantic-ui');
 
 /**
@@ -58,12 +59,34 @@ const rootModules = path.join(root, 'node_modules');
 
 const nodePath = [rootModules, process.env.NODE_PATH || ''].filter(Boolean).join(path.delimiter);
 const env = { ...process.env, NODE_PATH: nodePath };
+if (!fs.existsSync(fomanticGulpfile)) {
+  console.error(
+    '[fabric-http] No Fomantic tree here (expected ./libraries/fomantic/gulpfile.js). ' +
+    'The npm package omits ./libraries/ to keep size down; it ships prebuilt files under assets/. ' +
+    'To compile the theme, clone the fabric-http repository and run `npm install` and `npm run build:semantic` there, ' +
+    'or use `npm link` to a local clone. (Hub `report:install` uses the registry/git install — link @fabric/http for a dev build.)'
+  );
+  process.exit(1);
+}
+
+console.log('[fabric-http] Gulp CLI:', gulpBin);
+console.log('[fabric-http] Fomantic cwd:', fomanticDir);
+
 const build = spawnSync(process.execPath, [gulpBin, 'build'], { cwd: fomanticDir, env, stdio: 'inherit' });
-if (build.status !== 0) {
-  process.exit(build.status || 1);
+if (build.error) {
+  console.error('[fabric-http] gulp spawn failed:', build.error);
+  process.exit(1);
+}
+if (build.status == null || build.status !== 0) {
+  process.exit(build.status == null ? 1 : build.status);
 }
 
 const dist = path.join(fomanticDir, 'dist');
+const distMain = path.join(dist, 'semantic.min.css');
+if (!fs.existsSync(distMain)) {
+  console.error('[fabric-http] Gulp reported success but dist/semantic.min.css is missing.');
+  process.exit(1);
+}
 const srcThemes = path.join(fomanticDir, 'src', 'themes');
 const distThemes = path.join(dist, 'themes');
 
