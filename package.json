@@ -16,6 +16,7 @@
     "build:fast": "npm run build:scripts",
     "build:scripts": "node scripts/build.js",
     "build:semantic": "node scripts/build-semantic.js",
+    "make:fonts": "node scripts/download-fonts.js",
     "build:views": "jade --pretty -o assets/ views/site.jade",
     "ci": "npm test && npm run build:scripts",
     "compile": "npm run build:scripts",

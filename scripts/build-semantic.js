@@ -99,6 +99,8 @@ if (!fs.existsSync(distMain)) {
 }
 const srcThemes = path.join(fomanticDir, 'src', 'themes');
 const distThemes = path.join(dist, 'themes');
+const fabricThemeSrc = path.join(srcThemes, 'fabric');
+const fabricThemeDist = path.join(distThemes, 'fabric');
 
 /** Gulp copies into dist but does not remove deleted theme folders — drop orphans vs src/themes. */
 function pruneOrphanDistThemes () {
@@ -111,6 +113,24 @@ function pruneOrphanDistThemes () {
   }
 }
 pruneOrphanDistThemes();
+
+/**
+ * Preserve canonical Fabric theme assets from source.
+ *
+ * Fomantic build steps can rewrite or replace theme asset binaries in dist/. For @fabric/http we
+ * treat `libraries/fomantic/src/themes/fabric/assets` as the canonical source of icon and Arvo
+ * font files that should be shipped to consumers (Hub, extension, etc.).
+ */
+function syncFabricThemeAssetsFromSource () {
+  const srcAssets = path.join(fabricThemeSrc, 'assets');
+  const distAssets = path.join(fabricThemeDist, 'assets');
+  if (!fs.existsSync(srcAssets)) return;
+  fs.mkdirSync(fabricThemeDist, { recursive: true });
+  fs.rmSync(distAssets, { recursive: true, force: true });
+  fs.cpSync(srcAssets, distAssets, { recursive: true });
+}
+syncFabricThemeAssetsFromSource();
+
 const assetsScripts = path.join(root, 'assets', 'scripts');
 const assetsStyles = path.join(root, 'assets', 'styles');
 const assetsThemes = path.join(root, 'assets', 'themes');
