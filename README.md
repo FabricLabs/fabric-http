@@ -14,8 +14,7 @@
 | [docs/WEBRTC_FABRIC_HTTP.md](docs/WEBRTC_FABRIC_HTTP.md) | WebRTC vs this server; Hub/extension |
 | [docs/RELEASE_GATE.md](docs/RELEASE_GATE.md) | Downstream extension auth test gate |
 | [middlewares/auth](middlewares/auth.js) | `buildBearerToken` / `verifyBearerToken` (Fabric `Token` + shared secret) |
-| [constants.js](constants.js) | Package ports, header names, and other **literal** values only |
-| [sampleHubOptions.js](sampleHubOptions.js) | `isSampleHubHttpServerOptions` for the `sample-hub-http-server` / Hub port checks |
+| [constants.js](constants.js) | Ports, header names, sample-hub string literals (no functions; use `Server` statics in `types/server.js`) |
 | [CHANGELOG.md](CHANGELOG.md) | Release notes |
 
 **WebSockets (general pass / PR #54 goals):**

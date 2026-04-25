@@ -55,11 +55,7 @@
     ".": "./types/web.js",
     "./module.js": "./module.js",
     "./types/*": "./types/*.js",
-    "./acceptNegotiation": "./types/acceptNegotiation.js",
     "./constants": "./constants.js",
-    "./sampleHubOptions": "./sampleHubOptions.js",
-    "./resolveAppAssetsDir": "./types/resolveAppAssetsDir.js",
-    "./fomanticAssetsDir": "./types/fomanticAssetsDir.js",
     "./middlewares/auth": "./middlewares/auth.js",
     "./middlewares/payments": "./middlewares/payments.js"
   },

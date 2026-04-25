@@ -2,10 +2,12 @@
 
 /**
  * Fabric UI semantic build: run Fomantic `gulp build` in `libraries/fomantic`, then mirror
- * `dist/` into `assets/` (root CSS/JS + `themes/` for icon/Lato/Arvo fonts).
+ * `dist/` into `assets/` (root CSS/JS + `themes/` for icon fonts and Arvo).
  *
- * Theme = Fomantic **fabric** + Arvo (`src/theme.config`, `src/theme.less`, `themes/fabric/assets/fonts/`).
- * Downstream apps (Hub, Sensemaker) can run the same Gulp tree or consume `assets/` from `@fabric/http`.
+ * The **fabric** theme source is under `libraries/fomantic/src/themes/fabric/`. It should match
+ * `@fabric/hub`’s `libraries/semantic/src/themes/fabric/` (e.g. `rsync -a hub/.../themes/fabric/
+ * libraries/fomantic/src/themes/fabric/`) so page colors (e.g. @pageBackground) and font binaries
+ * stay in sync, then re-run this script and commit the resulting `assets/`.
  */
 const path = require('path');
 const { spawnSync } = require('child_process');
@@ -72,7 +74,6 @@ function copyIfExists (fromPath, toPath) {
   if (fs.existsSync(fromPath)) fs.copyFileSync(fromPath, toPath);
 }
 
-/* Packaged CSS uses `themes/...` relative to `/semantic.min.css` at site root. */
 copyIfExists(path.join(assetsStyles, 'semantic.min.css'), path.join(assetsRoot, 'semantic.min.css'));
 copyIfExists(path.join(assetsStyles, 'semantic.css'), path.join(assetsRoot, 'semantic.css'));
 copyIfExists(path.join(assetsScripts, 'semantic.min.js'), path.join(assetsRoot, 'semantic.min.js'));
@@ -80,17 +81,6 @@ copyIfExists(path.join(assetsScripts, 'semantic.js'), path.join(assetsRoot, 'sem
 copyIfExists(path.join(assetsStyles, 'semantic.rtl.min.css'), path.join(assetsRoot, 'semantic.rtl.min.css'));
 copyIfExists(path.join(assetsStyles, 'semantic.rtl.css'), path.join(assetsRoot, 'semantic.rtl.css'));
 
-/* Fomantic emits `url(themes/...)`, which resolves from the *stylesheet* path. For `/vendor/semantic.min.css` (e.g. browser extension) that steers to `/vendor/themes/...` on disk. Path-absolute `url(/themes/.../)` is stable for one origin. */
-for (const name of ['semantic.min.css', 'semantic.rtl.min.css', 'semantic.css', 'semantic.rtl.css']) {
-  const p = path.join(assetsRoot, name);
-  if (!fs.existsSync(p)) continue;
-  const before = fs.readFileSync(p, 'utf8');
-  const after = before.split('url(/themes/').length > 1
-    ? before
-    : before.split('url(themes/').join('url(/themes/');
-  if (after !== before) {
-    fs.writeFileSync(p, after, 'utf8');
-  }
-}
-
+/* Gulp output uses `url(themes/...)` relative to `/semantic.min.css` — no post-processing. `themes/fabric/`
+   paths come from `src/themes/fabric/globals/site.variables` (`@fontPath` / `@imagePath`). */
 console.log('[fabric-http] Fomantic dist → assets/scripts, assets/styles, assets/themes, assets/*.semantic*');

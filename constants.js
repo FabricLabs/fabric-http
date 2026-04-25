@@ -35,7 +35,7 @@ const BROWSER_TARGET = '#browser-content';
 const SAMPLE_HUB_HTTP_SERVER_NAME = 'fabric-http-hub-local-stub';
 const DEFAULT_SAMPLE_HUB_HTTP_PORT = 8099;
 
-// exports
+// exports (literals only — no functions; see FabricHTTPServer statics in `types/server.js`.)
 module.exports = {
   TICK_INTERVAL,
   SESSION_SEED,

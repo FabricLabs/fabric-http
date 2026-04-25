@@ -352,13 +352,13 @@ h6.ui.header .sub.header {
 --------------------*/
 
 .ui.primary.header {
-  color: #2185D0;
+  color: #336699;
 }
 a.ui.primary.header:hover {
-  color: #1678c2;
+  color: #28598a;
 }
 .ui.primary.dividing.header {
-  border-bottom: 2px solid #2185D0;
+  border-bottom: 2px solid #336699;
 }
 .ui.inverted.primary.header.header.header {
   color: #54C8FF;
@@ -697,7 +697,7 @@ a.ui.inverted.black.header.header.header:hover {
   -webkit-box-shadow: none;
           box-shadow: none;
   border: 1px solid #D4D4D5;
-  border-radius: 0;
+  border-radius: 0.28571429rem;
 }
 .ui.block.header:not(h1):not(h2):not(h3):not(h4):not(h5):not(h6) {
   font-size: 1rem;
@@ -744,10 +744,10 @@ a.ui.inverted.black.header.header.header:hover {
   border-top: none;
 }
 .ui.top.attached.header {
-  border-radius: 0 0 0 0;
+  border-radius: 0.28571429rem 0.28571429rem 0 0;
 }
 .ui.bottom.attached.header {
-  border-radius: 0 0 0 0;
+  border-radius: 0 0 0.28571429rem 0.28571429rem;
 }
 
 /* Attached Sizes */

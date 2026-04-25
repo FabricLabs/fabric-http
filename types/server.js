@@ -10,7 +10,8 @@ const {
   HTTPS_SERVER_PORT,
   MAXIMUM_PING,
   P2P_SESSION_ACK,
-  WEBSOCKET_KEEPALIVE
+  WEBSOCKET_KEEPALIVE,
+  SAMPLE_HUB_HTTP_SERVER_NAME
 } = require('../constants');
 
 // Dependencies
@@ -62,7 +63,6 @@ const SPA = require('./spa');
 
 // Dependencies
 const WebSocket = require('ws');
-const { acceptFirstHtmlNavigation } = require('./acceptNegotiation');
 
 /**
  * Resolve `relativeCandidate` under `staticRoot` and reject `..` / absolute escape attempts.
@@ -99,25 +99,6 @@ function xmlEscape (value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
-}
-
-/**
- * This package’s `assets/` directory (Fomantic / semantic, etc.). Serves as the second `express.static`
- * mount so downstream apps that set `path` to their own `assets/` can override; missing paths fall through here.
- * @returns {string|null}
- */
-function fabricHttpPackageAssetsDir () {
-  try {
-    // This file is `types/server.js`; package root is its parent (no `..` / no tainted resolve).
-    const pkgRoot = path.dirname(__dirname);
-    const out = pkgRoot + path.sep + 'assets';
-    const rel = path.relative(pkgRoot, out);
-    if (rel.startsWith('..') || path.isAbsolute(rel) || rel !== 'assets') return null;
-    // Do not fs.* on out (Codacy/Semgrep flags non-literal paths). express.static tolerates a missing dir.
-    return out;
-  } catch (err) {
-    return null;
-  }
 }
 
 /**
@@ -1244,7 +1225,7 @@ class FabricHTTPServer extends Service {
    * @returns {boolean} true if a response was sent
    */
   serveSpaShellIfHtmlNavigation (req, res) {
-    if (!acceptFirstHtmlNavigation(req)) return false;
+    if (!FabricHTTPServer.acceptFirstHtmlNavigation(req)) return false;
     const html = this.getApplicationHtml();
     if (typeof html !== 'string' || !html) return false;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -1866,7 +1847,7 @@ class FabricHTTPServer extends Service {
     /* Second static root: this package’s `assets/` (Fomantic / semantic, etc.). The app’s `path` is
      * always mounted first — files you ship under that directory win; anything missing falls through
      * here. See e.g. `fabric-clean/examples/http.js` for a minimal `HTTP.Server` consumer. */
-    const packageAssets = fabricHttpPackageAssetsDir();
+    const packageAssets = FabricHTTPServer.resolveFabricHttpPackageAssetsDir();
     if (packageAssets) {
       this.express.use(express.static(packageAssets, {
         maxAge: maxAgeMs,
@@ -2164,6 +2145,47 @@ class FabricHTTPServer extends Service {
   async _DELETE (path) {
     if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling DELETE to', path);
     return this.app.store._DELETE(path);
+  }
+
+  /**
+   * This package’s `assets/` directory (Fomantic / semantic, etc.): the second `express.static` mount
+   * after the app’s own `path`.
+   * @returns {string|null}
+   */
+  static resolveFabricHttpPackageAssetsDir () {
+    try {
+      const pkgRoot = path.dirname(__dirname);
+      const out = pkgRoot + path.sep + 'assets';
+      const rel = path.relative(pkgRoot, out);
+      if (rel.startsWith('..') || path.isAbsolute(rel) || rel !== 'assets') return null;
+      return out;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  /**
+   * True when the client’s first Accept type is “text/html” (browser navigation / refresh), not a wildcard
+   * or JSON-only Accept.
+   * @param {import('http').IncomingMessage} req
+   * @returns {boolean}
+   */
+  static acceptFirstHtmlNavigation (req) {
+    const a = req.headers && req.headers.accept;
+    if (typeof a !== 'string') return false;
+    const first = a.split(',')[0].trim().toLowerCase().split(';')[0];
+    return first === 'text/html';
+  }
+
+  /**
+   * True when `OPTIONS /` JSON was produced by the local `sample-hub-http-server` (body `name` equals
+   * `SAMPLE_HUB_HTTP_SERVER_NAME` in `constants.js`).
+   * @param {object|null|undefined} optionsBody
+   * @returns {boolean}
+   */
+  static isSampleHubHttpServerOptions (optionsBody) {
+    if (!optionsBody || typeof optionsBody !== 'object') return false;
+    return String(optionsBody.name || '') === SAMPLE_HUB_HTTP_SERVER_NAME;
   }
 }
 
