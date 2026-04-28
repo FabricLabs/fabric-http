@@ -58,7 +58,9 @@
     "./types/*": "./types/*.js",
     "./constants": "./constants.js",
     "./middlewares/auth": "./middlewares/auth.js",
-    "./middlewares/payments": "./middlewares/payments.js"
+    "./middlewares/payments": "./middlewares/payments.js",
+    "./functions/fabricDocumentPayment402": "./functions/fabricDocumentPayment402.js",
+    "./functions/sendPaymentRequired402Response": "./functions/sendPaymentRequired402Response.js"
   },
   "contributors": [
     "Eric Martindale",

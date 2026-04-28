@@ -260,6 +260,12 @@ class FabricHTTPServer extends Service {
         currency: 'BTC',
         description: 'Fabric access',
         detail: 'Complete payment to continue.',
+        /** When true with a BOLT11 on the invoice, add `WWW-Authenticate: L402 invoice="…"` (optional `macaroon`). */
+        lightningL402: false,
+        /** Full L402: base64 macaroon (optional; many deployments use header + bolt11 only first). */
+        l402MacaroonBase64: null,
+        /** Optional `{ documentId?, contentHashHex?, purchasePriceSats?, network? }` for `X-Fabric-Payment-Request`. */
+        documentOffer: null,
         /** When true and `payments.enabled`, `GET /services/test` runs the payment wall before the demo body. */
         exposePaymentTestRoute: true
       },
@@ -1295,6 +1301,10 @@ class FabricHTTPServer extends Service {
       res.header('Access-Control-Allow-Origin', '*');
       res.header('Access-Control-Allow-Headers', 'accept, content-type, authorization, x-fabric-identity');
       res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE, PATCH, HEAD');
+      res.header(
+        'Access-Control-Expose-Headers',
+        'authorization, www-authenticate, x-fabric-payment-request'
+      );
     }
     res.header('Allow', 'GET, POST, OPTIONS, PUT, DELETE, PATCH, HEAD, SEARCH');
     return next();
