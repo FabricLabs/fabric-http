@@ -101,23 +101,70 @@ function xmlEscape (value) {
 }
 
 /**
- * Packaged Fomantic (Semantic) UI: `assets/semantic.min.css` (site root), `assets/styles`, `assets/scripts`, `assets/themes`, etc.
- * Built by `npm run build:semantic` (Fomantic **fabric** theme + Arvo; assets under `libraries/fomantic/src/themes/fabric/assets/`).
- * Resolved from the consuming app's `node_modules` so Hub/Sensemaker need not copy vendor files.
+ * `express.send` can label theme fonts as `application/octet-stream`. With `X-Content-Type-Options: nosniff`
+ * (set by @fabric/hub) Chromium/Electron may refuse to load @font-face resources; set explicit font MIME
+ * types for common Fomantic (Semantic) theme files under /themes/…/assets/fonts/
+ * @param {import('http').ServerResponse} res
+ * @param {string} filePath
+ */
+function fabricHttpStaticSetHeaders (res, filePath) {
+  if (!filePath) return;
+  const ext = (path.extname(String(filePath)) || '').toLowerCase();
+  if (ext === '.woff2') {
+    res.setHeader('Content-Type', 'font/woff2');
+  } else if (ext === '.woff') {
+    res.setHeader('Content-Type', 'font/woff');
+  } else if (ext === '.ttf') {
+    res.setHeader('Content-Type', 'font/ttf');
+  } else if (ext === '.eot') {
+    res.setHeader('Content-Type', 'application/vnd.ms-fontobject');
+  } else if (ext === '.otf') {
+    res.setHeader('Content-Type', 'font/otf');
+  } else if (ext === '.svg' && /[/\\]fonts[/\\]/.test(String(filePath))) {
+    res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+  }
+}
+
+/**
+ * @param {import('http').ServerResponse} res
+ * @param {string} filePath
+ * @param {((res: import('http').ServerResponse, p: string) => void) | null | undefined} [user]
+ */
+function mergeStaticSetHeaders (res, filePath, user) {
+  if (typeof user === 'function') {
+    try {
+      user(res, filePath);
+    } catch (_) { /* app hook should not take down static */ }
+  }
+  fabricHttpStaticSetHeaders(res, filePath);
+}
+
+/**
+ * This package’s `assets/` (Fomantic **Fabric** theme, etc.): the second `express.static` root after the app’s `path`.
  * @returns {string|null}
  */
-function fabricHttpVendorAssetsDir () {
+function resolveFabricHttpPackageAssetsDir () {
   try {
-    // This file is `types/server.js`; package root is its parent (no `..` / no tainted resolve).
-    const pkgRoot = path.dirname(__dirname);
-    const vendorAssets = pkgRoot + path.sep + 'assets';
-    const rel = path.relative(pkgRoot, vendorAssets);
+    const pkgRoot = path.join(__dirname, '..');
+    const out = pkgRoot + path.sep + 'assets';
+    const rel = path.relative(pkgRoot, out);
     if (rel.startsWith('..') || path.isAbsolute(rel) || rel !== 'assets') return null;
-    // Do not fs.* on vendorAssets (Codacy/Semgrep flags non-literal paths). express.static tolerates a missing dir.
-    return vendorAssets;
+    return out;
   } catch (err) {
     return null;
   }
+}
+
+/**
+ * True when the client’s first `Accept` is `text/html` (browser navigation / refresh), for SPA HTML shell.
+ * @param {import('http').IncomingMessage} req
+ * @returns {boolean}
+ */
+function acceptFirstHtmlNavigation (req) {
+  const a = req.headers && req.headers.accept;
+  if (typeof a !== 'string') return false;
+  const first = a.split(',')[0].trim().toLowerCase().split(';')[0];
+  return first === 'text/html';
 }
 
 /**
@@ -202,6 +249,32 @@ class FabricHTTPServer extends Service {
         includeJsonRpc: false,
         includeParameterized: false,
         urls: []
+      },
+      /**
+       * HTTP 402 Payment Required — used only when routes mount `middlewares/payments`
+       * and `enabled` is true (see `/services/test` when `exposePaymentTestRoute` is true).
+       */
+      payments: {
+        enabled: false,
+        amount: 0.01,
+        currency: 'BTC',
+        description: 'Fabric access',
+        detail: 'Complete payment to continue.',
+        /** When true with a BOLT11 on the invoice, add `WWW-Authenticate: L402 invoice="…"` (optional `macaroon`). */
+        lightningL402: false,
+        /** Full L402: base64 macaroon (optional; many deployments use header + bolt11 only first). */
+        l402MacaroonBase64: null,
+        /** Optional `{ documentId?, contentHashHex?, purchasePriceSats?, network? }` for `X-Fabric-Payment-Request`. */
+        documentOffer: null,
+        /** When true and `payments.enabled`, `GET /services/test` runs the payment wall before the demo body. */
+        exposePaymentTestRoute: true
+      },
+      /** JSON-RPC `RegisterWebRTCPeer` / `ListWebRTCPeers` / `UnregisterWebRTCPeer` limits. */
+      webrtc: {
+        maxPeers: 256,
+        idMaxLen: 128,
+        labelMaxLen: 256,
+        metaMaxJsonBytes: 16384
       }
     }, settings);
 
@@ -267,6 +340,8 @@ class FabricHTTPServer extends Service {
     // Browser WebRTC peers (native RTCPeerConnection + WebSocket signaling from Hub).
     // The legacy npm `peer` ExpressPeerServer (PeerJS) was removed; register via Hub RPC / Bridge.
     this.webrtcPeers = new Map();
+    /** @type {Map<string, string>} peer id → unregister secret (from last successful Register) */
+    this.webrtcPeerSecrets = new Map();
 
     return this;
   }
@@ -470,13 +545,9 @@ class FabricHTTPServer extends Service {
   }
 
   /**
-   * Optional WebSocket handshake gate when `settings.websocket.requireClientToken` and `clientToken` are set.
-   * Token may appear in query string (?token= / ?clientToken=), Authorization: Bearer, or Sec-WebSocket-Protocol fabric.token.*
-   * @param {Object} info `ws` handshake object; `info.req` is the Node.js HTTP {@link external:https://nodejs.org/api/http.html#class-httpincomingmessage IncomingMessage}.
-   */
-  /**
    * Same authorization inputs as HTTP POST JSON-RPC: verified bearer (`req.authenticated`),
    * raw `Bearer` on the upgrade/request, or websocket client-token channels.
+   * WebSocket handshake may also use `settings.websocket` client token (query / Bearer / Sec-WebSocket-Protocol).
    * @param {Object} req Node.js `IncomingMessage` (HTTP upgrade or Express `req`).
    * @returns {boolean}
    */
@@ -604,6 +675,129 @@ class FabricHTTPServer extends Service {
 
   _registerMethod (name, method) {
     this.methods[name] = method.bind(this);
+  }
+
+  /**
+   * @returns {{ maxPeers: number, idMaxLen: number, labelMaxLen: number, metaMaxJsonBytes: number }}
+   */
+  _getWebRtcLimits () {
+    const w = this.settings.webrtc || {};
+    const maxPeers = Number(w.maxPeers);
+    const idMax = Number(w.idMaxLen);
+    const labelMax = Number(w.labelMaxLen);
+    const metaMax = Number(w.metaMaxJsonBytes);
+    return {
+      maxPeers: Number.isFinite(maxPeers) && maxPeers > 0 ? Math.min(maxPeers, 100000) : 256,
+      idMaxLen: Number.isFinite(idMax) && idMax > 0 ? Math.min(idMax, 512) : 128,
+      labelMaxLen: Number.isFinite(labelMax) && labelMax >= 0 ? Math.min(labelMax, 1024) : 256,
+      metaMaxJsonBytes: Number.isFinite(metaMax) && metaMax > 0 ? Math.min(metaMax, 1048576) : 16384
+    };
+  }
+
+  _assertWebRtcPeerId (raw, maxLen) {
+    if (raw == null || raw === '') throw new Error('RegisterWebRTCPeer: missing id (or peerId)');
+    const id = String(raw).trim();
+    if (!id || id.length > maxLen) {
+      throw new Error(`RegisterWebRTCPeer: id length 1..${maxLen} required`);
+    }
+    for (let i = 0; i < id.length; i++) {
+      const c = id.charCodeAt(i);
+      if (c < 32 || c === 127) throw new Error('RegisterWebRTCPeer: id contains control characters');
+    }
+    return id;
+  }
+
+  _assertWebRtcUnregisterId (raw, maxLen) {
+    if (raw == null || raw === '') throw new Error('UnregisterWebRTCPeer: missing id (or peerId)');
+    const id = String(raw).trim();
+    if (!id || id.length > maxLen) {
+      throw new Error(`UnregisterWebRTCPeer: id length 1..${maxLen} required`);
+    }
+    for (let i = 0; i < id.length; i++) {
+      const c = id.charCodeAt(i);
+      if (c < 32 || c === 127) throw new Error('UnregisterWebRTCPeer: id contains control characters');
+    }
+    return id;
+  }
+
+  _normalizeWebRtcLabel (raw, maxLen) {
+    if (raw == null || raw === '') return null;
+    let s = String(raw);
+    if (s.length > maxLen) s = s.slice(0, maxLen);
+    return s;
+  }
+
+  /**
+   * @param {unknown} raw
+   * @param {number} maxBytes
+   * @returns {Object|null} Clone via JSON round-trip
+   */
+  _normalizeWebRtcMeta (raw, maxBytes) {
+    if (raw == null || raw === undefined) return null;
+    if (typeof raw !== 'object' || Array.isArray(raw)) {
+      throw new Error('RegisterWebRTCPeer: meta / metadata must be a plain object or omitted');
+    }
+    const proto = Object.getPrototypeOf(raw);
+    if (proto !== null && proto !== Object.prototype) {
+      throw new Error('RegisterWebRTCPeer: meta / metadata must be a plain object or omitted');
+    }
+    const j = JSON.stringify(raw);
+    if (j.length > maxBytes) {
+      throw new Error('RegisterWebRTCPeer: meta / metadata JSON exceeds size limit');
+    }
+    return /** @type {Object} */ (JSON.parse(j));
+  }
+
+  _timingEqualUtf8 (a, b) {
+    if (a == null || b == null) return false;
+    const ab = Buffer.from(String(a), 'utf8');
+    const bb = Buffer.from(String(b), 'utf8');
+    if (ab.length !== bb.length) return false;
+    return crypto.timingSafeEqual(ab, bb);
+  }
+
+  _rpcRegisterWebRtcPeer (reg) {
+    const peer = reg && typeof reg === 'object' ? reg : {};
+    const limits = this._getWebRtcLimits();
+    const id = this._assertWebRtcPeerId(peer.id || peer.peerId, limits.idMaxLen);
+    if (this.webrtcPeers.size >= limits.maxPeers && !this.webrtcPeers.has(id)) {
+      throw new Error('RegisterWebRTCPeer: peer registry full');
+    }
+    const label = this._normalizeWebRtcLabel(peer.label, limits.labelMaxLen);
+    const meta = this._normalizeWebRtcMeta(
+      peer.meta !== undefined ? peer.meta : peer.metadata,
+      limits.metaMaxJsonBytes
+    );
+    const secret = crypto.randomBytes(24).toString('hex');
+    this.webrtcPeerSecrets.set(id, secret);
+    this.webrtcPeers.set(id, {
+      id,
+      label,
+      meta,
+      registeredAt: Date.now()
+    });
+    return { ok: true, id, total: this.webrtcPeers.size, secret };
+  }
+
+  _rpcUnregisterWebRtcPeer (reg) {
+    const peer = reg && typeof reg === 'object' ? reg : {};
+    const limits = this._getWebRtcLimits();
+    const id = this._assertWebRtcUnregisterId(peer.id || peer.peerId, limits.idMaxLen);
+    const secret = peer.secret != null ? String(peer.secret).trim() : '';
+    if (!secret) {
+      throw new Error('UnregisterWebRTCPeer: secret is required (value returned from RegisterWebRTCPeer)');
+    }
+    const expected = this.webrtcPeerSecrets.get(id);
+    if (!expected || !this._timingEqualUtf8(secret, expected)) {
+      throw new Error('UnregisterWebRTCPeer: invalid secret or unknown id');
+    }
+    this.webrtcPeerSecrets.delete(id);
+    const ok = this.webrtcPeers.delete(id);
+    return { ok, id, total: this.webrtcPeers.size };
+  }
+
+  _rpcListWebRtcPeers () {
+    return { ok: true, peers: Array.from(this.webrtcPeers.values()) };
   }
 
   _handleAppMessage (msg) {
@@ -988,6 +1182,90 @@ class FabricHTTPServer extends Service {
     res.send(`${html}`);
   }
 
+  /**
+   * In-memory HTML shell for dual JSON/HTML routes. Set with {@link FabricHTTPServer#setApplicationHtml} or
+   * `settings.applicationString` from the app constructor.
+   * @returns {string}
+   */
+  getApplicationHtml () {
+    if (typeof this._applicationHtml === 'string' && this._applicationHtml.length) {
+      return this._applicationHtml;
+    }
+    const s = this.settings && this.settings.applicationString;
+    return typeof s === 'string' ? s : '';
+  }
+
+  /**
+   * @param {string} html - full document for `text/html` in {@link FabricHTTPServer#jsonOrShell} and
+   *   {@link FabricHTTPServer#serveSpaShellIfHtmlNavigation}.
+   */
+  setApplicationHtml (html) {
+    this._applicationHtml = typeof html === 'string' ? html : '';
+  }
+
+  /**
+   * JSON for API clients, HTML application shell for `Accept: text/html` (e.g. SPA deep-link refresh on JSON routes).
+   * @param {import('http').IncomingMessage} req
+   * @param {import('http').ServerResponse} res
+   * @param {() => Promise<void>} onJSON
+   */
+  jsonOrShell (req, res, onJSON) {
+    const html = this.getApplicationHtml();
+    const body = typeof html === 'string' && html
+      ? html
+      : '<!DOCTYPE html><html><body><p>Application shell not configured.</p></body></html>';
+    return res.format({
+      html: () => {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(body);
+      },
+      json: async () => {
+        try {
+          await onJSON();
+        } catch (error) {
+          res.status(500).json({
+            status: 'error',
+            message: error && error.message ? error.message : String(error)
+          });
+        }
+      }
+    });
+  }
+
+  /**
+   * Always JSON (no `Accept` negotiation). For API-only routes.
+   * @param {import('http').IncomingMessage} req
+   * @param {import('http').ServerResponse} res
+   * @param {() => Promise<void>} onJSON
+   */
+  jsonOnly (req, res, onJSON) {
+    return (async () => {
+      try {
+        await onJSON();
+      } catch (error) {
+        res.status(500).json({
+          status: 'error',
+          message: error && error.message ? error.message : String(error)
+        });
+      }
+    })();
+  }
+
+  /**
+   * If the request’s first `Accept` type is `text/html`, send the configured shell; otherwise return false.
+   * @param {import('http').IncomingMessage} req
+   * @param {import('http').ServerResponse} res
+   * @returns {boolean} true if a response was sent
+   */
+  serveSpaShellIfHtmlNavigation (req, res) {
+    if (!acceptFirstHtmlNavigation(req)) return false;
+    const html = this.getApplicationHtml();
+    if (typeof html !== 'string' || !html) return false;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.status(200).send(html);
+    return true;
+  }
+
   _handleOptionsRequest (req, res) {
     res.send({
       name: this.settings.name,
@@ -1021,8 +1299,12 @@ class FabricHTTPServer extends Service {
     res.header('X-Powered-By', '@fabric/http');
     if (this.settings.cors) {
       res.header('Access-Control-Allow-Origin', '*');
-      res.header('Access-Control-Allow-Headers', 'accept, content-type, authorization');
+      res.header('Access-Control-Allow-Headers', 'accept, content-type, authorization, x-fabric-identity');
       res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE, PATCH, HEAD');
+      res.header(
+        'Access-Control-Expose-Headers',
+        'authorization, www-authenticate, x-fabric-payment-request'
+      );
     }
     res.header('Allow', 'GET, POST, OPTIONS, PUT, DELETE, PATCH, HEAD, SEARCH');
     return next();
@@ -1129,7 +1411,13 @@ class FabricHTTPServer extends Service {
     };
 
     for (let p = 0; p < paths.length; p++) {
-      this.express.post(paths[p], handler);
+      const pathStr = paths[p];
+      if (this.settings.cors) {
+        this.express.options(pathStr, (req, res) => {
+          res.status(204).end();
+        });
+      }
+      this.express.post(pathStr, handler);
     }
   }
 
@@ -1589,18 +1877,23 @@ class FabricHTTPServer extends Service {
       etag: st.etag !== false,
       index: indexOpt,
       fallthrough: st.fallthrough !== false,
-      immutable: !!st.immutable
+      immutable: !!st.immutable,
+      setHeaders: (res, filePath) => mergeStaticSetHeaders(res, filePath, st.setHeaders)
     }));
 
-    const vendorAssets = fabricHttpVendorAssetsDir();
-    if (vendorAssets) {
-      this.express.use(express.static(vendorAssets, {
+    /* Second static root: this package’s `assets/` (Fomantic / semantic, etc.). The app’s `path` is
+     * always mounted first — files you ship under that directory win; anything missing falls through
+     * here. See e.g. `fabric-clean/examples/http.js` for a minimal `HTTP.Server` consumer. */
+    const packageAssets = resolveFabricHttpPackageAssetsDir();
+    if (packageAssets) {
+      this.express.use(express.static(packageAssets, {
         maxAge: maxAgeMs,
         dotfiles: st.dotfiles || 'ignore',
         etag: st.etag !== false,
         index: false,
         fallthrough: st.fallthrough !== false,
-        immutable: !!st.immutable
+        immutable: !!st.immutable,
+        setHeaders: (res, filePath) => mergeStaticSetHeaders(res, filePath, st.setHeaders)
       }));
     }
 
@@ -1685,11 +1978,17 @@ class FabricHTTPServer extends Service {
     this.express.delete('/*', this._handleRoutableRequest.bind(this));
     this.express.options('/*', this._handleRoutableRequest.bind(this));
 
-    this.express.get('/services/test', payments.bind(this), (req, res) => {
-      return res.send({
-        message: 'I am the prize!'
-      });
-    });
+    const servicesTestPrize = (req, res) => res.send({ message: 'I am the prize!' });
+    const pay = this.settings.payments || {};
+    const testPaymentWall =
+      payments.isPaymentsEnabled(pay) &&
+      pay.exposePaymentTestRoute !== false &&
+      pay.exposePaymentTestRoute !== '0';
+    if (testPaymentWall) {
+      this.express.get('/services/test', payments.bind(this), servicesTestPrize);
+    } else {
+      this.express.get('/services/test', servicesTestPrize);
+    }
 
     // create the HTTP server
     // NOTE: stoppable is used here to force immediate termination of
@@ -1742,6 +2041,10 @@ class FabricHTTPServer extends Service {
     this._registerMethod('GenericMessage', (msg) => {
       // console.log('GENERIC:', msg);
     });
+
+    this._registerMethod('RegisterWebRTCPeer', this._rpcRegisterWebRtcPeer);
+    this._registerMethod('UnregisterWebRTCPeer', this._rpcUnregisterWebRtcPeer);
+    this._registerMethod('ListWebRTCPeers', this._rpcListWebRtcPeers);
 
     await this.agent.start();
 
@@ -1883,3 +2186,5 @@ class FabricHTTPServer extends Service {
 }
 
 module.exports = FabricHTTPServer;
+module.exports.resolveFabricHttpPackageAssetsDir = resolveFabricHttpPackageAssetsDir;
+module.exports.acceptFirstHtmlNavigation = acceptFirstHtmlNavigation;

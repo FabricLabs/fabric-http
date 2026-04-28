@@ -22,6 +22,17 @@ function safeEqual (left, right) {
   return crypto.timingSafeEqual(leftBuffer, rightBuffer);
 }
 
+/**
+ * @param {unknown} value
+ * @returns {boolean} True for plain `Object` instances (incl. `Object.create(null)`), not arrays, `Date`, etc.
+ */
+function isPlainObject (value) {
+  if (value === null || typeof value !== 'object') return false;
+  if (Array.isArray(value)) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === null || proto === Object.prototype;
+}
+
 function verifyBearerToken (token, secret) {
   if (!secret || typeof secret !== 'string') {
     return { valid: false, error: 'missing_secret' };
@@ -52,9 +63,13 @@ function verifyBearerToken (token, secret) {
     return { valid: false, error: 'invalid_payload' };
   }
 
+  if (!header || typeof header !== 'object' || header.alg !== 'HMAC-SHA256') {
+    return { valid: false, error: 'invalid_header', header, payload, signature };
+  }
+
   const hashHex = crypto
-    .createHash('sha256')
-    .update(`${encodedHeader}.${encodedPayload}.${secret}`)
+    .createHmac('sha256', secret)
+    .update(`${encodedHeader}.${encodedPayload}`)
     .digest('hex');
   const expectedSignature = Token.base64UrlEncode(hashHex);
   const valid = safeEqual(signature, expectedSignature);
@@ -67,6 +82,35 @@ function verifyBearerToken (token, secret) {
     signature,
     expectedSignature
   };
+}
+
+/**
+ * Build a bearer string accepted by {@link verifyBearerToken}, using @fabric/core `Token` encodings
+ * and HMAC-SHA256 over `headerB64 + '.' + payloadB64` (not a hash of the concatenation with the secret as “salt”).
+ *
+ * @param {string} secret Same as `this.settings.tokenSecret` or `this.settings.seed` on the server.
+ * @param {Object} [payload={}] Decoded token payload; must be a plain object, JSON-serializable.
+ * @returns {string} `header.payload.signature` (base64url segments)
+ */
+function buildBearerToken (secret, payload = {}) {
+  if (secret == null || typeof secret !== 'string' || !secret) {
+    throw new Error('buildBearerToken: secret string required');
+  }
+  if (payload == null) {
+    throw new Error('buildBearerToken: payload must be a plain object');
+  }
+  if (!isPlainObject(payload)) {
+    throw new Error('buildBearerToken: payload must be a plain object');
+  }
+  const p = /** @type {Record<string, unknown>} */ (payload);
+  const header = { alg: 'HMAC-SHA256', typ: 'FABRIC_TOKEN' };
+  const encodedHeader = Token.base64UrlEncode(JSON.stringify(header));
+  const encodedPayload = Token.base64UrlEncode(JSON.stringify(p));
+  const hashHex = crypto
+    .createHmac('sha256', secret)
+    .update(`${encodedHeader}.${encodedPayload}`)
+    .digest('hex');
+  return `${encodedHeader}.${encodedPayload}.${Token.base64UrlEncode(hashHex)}`;
 }
 // const hasState = require('./hasState');
 
@@ -108,3 +152,4 @@ module.exports = function FabricAuthenticationMiddleware (request, response, nex
 };
 
 module.exports.verifyBearerToken = verifyBearerToken;
+module.exports.buildBearerToken = buildBearerToken;

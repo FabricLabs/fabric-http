@@ -16,6 +16,7 @@
     "build:fast": "npm run build:scripts",
     "build:scripts": "node scripts/build.js",
     "build:semantic": "node scripts/build-semantic.js",
+    "make:fonts": "node scripts/download-fonts.js",
     "build:views": "jade --pretty -o assets/ views/site.jade",
     "ci": "npm test && npm run build:scripts",
     "compile": "npm run build:scripts",
@@ -28,6 +29,7 @@
     "report:install": "rm -rf node_modules && echo \"\n\" > package-lock.json && echo \"$ npm i\" > reports/install.log && npm i >> reports/install.log",
     "report:todo": "grep --exclude-dir=.git --exclude-dir=backups --exclude-dir=_book --exclude-dir=assets --exclude-dir=node_modules --exclude-dir=reports --exclude-dir=coverage --exclude-dir=docs -rEI \"TODO|FIXME\" . > reports/TODO.txt",
     "review:coverage": "npm run build:coverage && fabric-http reports/coverage",
+    "sample:hub": "node scripts/sample-hub-http-server.js",
     "start": "npm run compile && node scripts/node.js",
     "static": "npm run build:scripts && fabric-http assets",
     "test": "mocha tests",
@@ -54,8 +56,11 @@
     ".": "./types/web.js",
     "./module.js": "./module.js",
     "./types/*": "./types/*.js",
+    "./constants": "./constants.js",
     "./middlewares/auth": "./middlewares/auth.js",
-    "./middlewares/payments": "./middlewares/payments.js"
+    "./middlewares/payments": "./middlewares/payments.js",
+    "./functions/fabricDocumentPayment402": "./functions/fabricDocumentPayment402.js",
+    "./functions/sendPaymentRequired402Response": "./functions/sendPaymentRequired402Response.js"
   },
   "contributors": [
     "Eric Martindale",
@@ -97,6 +102,7 @@
     "ws": "=8.18.0"
   },
   "devDependencies": {
+    "gulp": "=5.0.0",
     "better-console": "npm:@fomantic/better-console@^1.0.2",
     "fomantic-ui": "=2.9.4",
     "gulp-concat-css": "npm:@fomantic/gulp-concat-css@^3.3.0",
@@ -121,7 +127,14 @@
     "diff": "=8.0.4",
     "elliptic": "npm:@soatok/elliptic-to-noble@^9999.0.0",
     "serialize-javascript": "=7.0.5",
-    "yauzl": "=3.2.1"
+    "yauzl": "=3.2.1",
+    "jayson": {
+      "uuid": "14.0.0"
+    },
+    "@actions/http-client": {
+      "undici": "6.25.0"
+    },
+    "@adobe/css-tools": "4.4.4"
   },
   "browser": {
     "ws": false
