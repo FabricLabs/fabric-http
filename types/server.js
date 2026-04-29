@@ -48,6 +48,7 @@ const Message = require('@fabric/core/types/message');
 const Entity = require('@fabric/core/types/entity');
 const State = require('@fabric/core/types/state');
 const Peer = require('@fabric/core/types/peer');
+const Store = require('@fabric/core/types/store');
 
 // Internal Types
 const auth = require('../middlewares/auth');
@@ -167,6 +168,14 @@ function acceptFirstHtmlNavigation (req) {
   return first === 'text/html';
 }
 
+function parseRequestPathname (rawUrl) {
+  try {
+    return new URL(rawUrl || '/', 'http://localhost').pathname || '/';
+  } catch (_) {
+    return '/';
+  }
+}
+
 /**
  * Fabric Service for exposing an {@link Application} to clients over HTTP.
  * @extends Service
@@ -275,6 +284,9 @@ class FabricHTTPServer extends Service {
         idMaxLen: 128,
         labelMaxLen: 256,
         metaMaxJsonBytes: 16384
+      },
+      security: {
+        resourceWriteAuthRequired: false
       }
     }, settings);
 
@@ -317,6 +329,15 @@ class FabricHTTPServer extends Service {
     this.customRoutes = [];
     this.keys = new Set();
     this.accessLogStream = null;
+    this.resourceRouteIndex = new Map();
+
+    // Canonical local state store for all resources and non-resource paths.
+    this.localStore = new Store({
+      name: 'FabricHTTPServerStore',
+      path: this.settings.path || './stores/server',
+      persistent: false,
+      verbosity: this.settings.verbosity
+    });
 
     // Setup for Express application
     this.express = express();
@@ -335,7 +356,7 @@ class FabricHTTPServer extends Service {
       messages: []
     };
 
-    this.observer = monitor.observe(this.state);
+    this.observer = monitor.observe(this._state.content);
 
     // Browser WebRTC peers (native RTCPeerConnection + WebSocket signaling from Hub).
     // The legacy npm `peer` ExpressPeerServer (PeerJS) was removed; register via Hub RPC / Bridge.
@@ -370,6 +391,59 @@ class FabricHTTPServer extends Service {
     return Array.from(this.webrtcPeers.values());
   }
 
+  _normalizeCollectionPath (path) {
+    if (typeof path !== 'string' || !path) return '/';
+    if (path === '/') return '/';
+    return path.endsWith('/') ? path.slice(0, -1) : path;
+  }
+
+  _matchResourceRoute (requestPath) {
+    const normalized = this._normalizeCollectionPath(requestPath);
+    for (let i = 0; i < this.routes.length; i++) {
+      const route = this.routes[i];
+      if (normalized.match(route.route)) {
+        const meta = this.resourceRouteIndex.get(route.resource);
+        return { route, resource: route.resource, meta };
+      }
+    }
+    return null;
+  }
+
+  _deriveWebSocketAutoSubscriptions (rawUrl) {
+    const pathname = this._normalizeCollectionPath(parseRequestPathname(rawUrl));
+    if (pathname === '/') return ['/'];
+    const match = this._matchResourceRoute(pathname);
+    if (!match) return [pathname];
+    const paths = new Set([pathname]);
+    if (match.meta && match.meta.list) paths.add(match.meta.list);
+    return Array.from(paths);
+  }
+
+  _subscriptionMatchesPath (subscriptionPath, changePath) {
+    const sub = this._normalizeCollectionPath(subscriptionPath);
+    const changed = this._normalizeCollectionPath(changePath);
+    if (sub === '/') return true;
+    if (sub === changed) return true;
+    return changed.startsWith(`${sub}/`);
+  }
+
+  async _syncResourceToLocalStore (resourceName) {
+    const meta = this.resourceRouteIndex.get(resourceName);
+    const store = this.stores[resourceName];
+    if (!meta || !store) return;
+
+    const listValue = store.map() || {};
+    await this.localStore._PUT(meta.list, listValue);
+    this._state.content[meta.address] = listValue;
+    this._notifySubscribers(meta.list, listValue);
+  }
+
+  _broadcastStateUpdate () {
+    const message = Message.fromVector(['StateUpdate', JSON.stringify(this.state)]);
+    if (this._rootKey && this._rootKey.private) message.signWithKey(this._rootKey);
+    this.broadcast(message);
+  }
+
   async commit () {
     ++this.clock;
 
@@ -397,7 +471,9 @@ class FabricHTTPServer extends Service {
       this.emit('message', message);
 
       // Broadcast to connected peers
-      this.broadcast(message);
+      const outbound = Message.fromVector(['Transaction', JSON.stringify(message['@data'])]);
+      if (this._rootKey && this._rootKey.private) outbound.signWithKey(this._rootKey);
+      this.broadcast(outbound);
     }
 
     return this;
@@ -426,7 +502,12 @@ class FabricHTTPServer extends Service {
     }, resource);
 
     const address = snapshot.routes.list.split('/')[1];
-    const store = new Collection(snapshot);
+    const store = new Collection({
+      name,
+      routes: snapshot.routes,
+      type: Entity,
+      data: {}
+    });
 
     if (this.settings.verbosity >= 6) console.debug('[HTTP:SERVER]', 'Collection as store:', store);
     if (this.settings.verbosity >= 6) console.debug('[HTTP:SERVER]', 'Snapshot:', snapshot);
@@ -435,6 +516,11 @@ class FabricHTTPServer extends Service {
     this.definitions[name] = snapshot;
     this.collections.push(snapshot.routes.list);
     this.keys.add(snapshot.routes.list);
+    this.resourceRouteIndex.set(name, {
+      list: snapshot.routes.list,
+      view: snapshot.routes.view,
+      address
+    });
 
     this.stores[name].on('error', async (error) => {
       console.error('[HTTP:SERVER]', '[ERROR]', error);
@@ -455,26 +541,22 @@ class FabricHTTPServer extends Service {
 
           console.log('[HTTP:SERVER]', `Resource "${name}" created:`, entity.data);
           server.emit('message', entity.data);
+          await server._syncResourceToLocalStore(name);
           break;
         case 'Transaction':
           await server._applyChanges(message['@data'].changes);
+          await server._syncResourceToLocalStore(name);
           break;
         default:
           console.warn('[HTTP:SERVER]', 'Unhandled message type:', message['@type']);
           break;
       }
 
-      server.broadcast({
-        '@type': 'StateUpdate',
-        '@data': server.state
-      });
+      server._broadcastStateUpdate();
     });
 
     this.stores[name].on('commit', (commit) => {
-      server.broadcast({
-        '@type': 'StateUpdate',
-        '@data': server.state
-      });
+      server._broadcastStateUpdate();
     });
 
     this.routes.push({
@@ -493,8 +575,11 @@ class FabricHTTPServer extends Service {
     await this.app.define(name, definition);
 
     // TODO: document pathing
-    this.state[address] = {};
-    this.app.state[address] = {};
+    this._state.content[address] = {};
+    if (this.app && this.app._state) {
+      this.app._state[address] = {};
+    }
+    await this.localStore._PUT(snapshot.routes.list, {});
 
     // if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Routes:', this.routes);
     return this;
@@ -833,6 +918,10 @@ class FabricHTTPServer extends Service {
 
     // Initialize socket subscriptions
     socket.subscriptions = new Set();
+    const autoSubscriptions = server._deriveWebSocketAutoSubscriptions(request.url);
+    for (let i = 0; i < autoSubscriptions.length; i++) {
+      socket.subscriptions.add(autoSubscriptions[i]);
+    }
 
     socket._resetKeepAlive = function () {
       clearInterval(socket._heartbeat);
@@ -1053,14 +1142,14 @@ class FabricHTTPServer extends Service {
           case 'SUBSCRIBE':
             {
               const subscribePath = message['@data'];
-              socket.subscriptions.add(subscribePath);
+              socket.subscriptions.add(server._normalizeCollectionPath(subscribePath));
               if (server.settings.debug) console.debug('[SERVER]', 'Added subscription:', handle, 'to path:', subscribePath);
               break;
             }
           case 'UNSUBSCRIBE':
             {
               const unsubscribePath = message['@data'];
-              socket.subscriptions.delete(unsubscribePath);
+              socket.subscriptions.delete(server._normalizeCollectionPath(unsubscribePath));
               if (server.settings.debug) console.debug('[SERVER]', 'Removed subscription:', handle, 'from path:', unsubscribePath);
               break;
             }
@@ -1545,8 +1634,9 @@ class FabricHTTPServer extends Service {
    * @param {*} value - The new value
    */
   _notifySubscribers (path, value) {
+    const normalized = this._normalizeCollectionPath(path);
     const message = Message.fromVector(['PATCH', {
-      path,
+      path: normalized,
       value
     }]);
 
@@ -1554,7 +1644,11 @@ class FabricHTTPServer extends Service {
 
     // Iterate through all connections and notify those subscribed to this path
     Object.entries(this.connections).forEach(([handle, socket]) => {
-      if (socket.subscriptions && socket.subscriptions.has(path)) {
+      if (!socket.subscriptions || !socket.subscriptions.size) return;
+      const isSubscribed = Array.from(socket.subscriptions).some((subscriptionPath) => {
+        return this._subscriptionMatchesPath(subscriptionPath, normalized);
+      });
+      if (isSubscribed) {
         try {
           this._sendTo(handle, message.toBuffer());
         } catch (error) {
@@ -1565,17 +1659,15 @@ class FabricHTTPServer extends Service {
   }
 
   async _applyChanges (ops) {
-    const sample = Object.assign({}, this.state);
-    const reference = new Actor(sample);
+    const reference = new Actor(this._state.content);
 
     try {
-      // Apply changes to state
-      monitor.applyPatch(sample, ops, function isValid () {
+      // Apply changes to canonical state in-place.
+      monitor.applyPatch(this._state.content, ops, function isValid () {
         return true;
       }, true);
 
       this._state.parent = reference.id;
-      this._state.content = sample;
 
       // Notify subscribers of changes
       ops.forEach(op => {
@@ -1612,7 +1704,16 @@ class FabricHTTPServer extends Service {
 
     if (this.settings.debug) this.debug('Resource mounted:', resource);
 
-    switch (req.method.toUpperCase()) {
+    const method = String(req.method || '').toUpperCase();
+    const mutating = (method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE');
+    if (resource && mutating && this.settings.security && this.settings.security.resourceWriteAuthRequired === true && req.authenticated !== true) {
+      return res.status(401).json({
+        status: 'error',
+        message: 'Unauthorized: bearer token required for resource write actions'
+      });
+    }
+
+    switch (method) {
       // Discard unhandled methods
       default:
         return next();
@@ -1641,20 +1742,11 @@ class FabricHTTPServer extends Service {
         result = await server._PUT(req.path, req.body);
         break;
       case 'POST':
-        if (resource) {
-          result = await server.stores[resource].create(req.body);
-        }
-
+        result = await server._POST(req.path, req.body);
         if (!result) return res.status(500).end();
 
-        // Call parent method (2 options)
-        // Option 1 (original): Assigns the direct result
-        // let link = await server._POST(req.path, result);
-        // Option 2 (testing): Assigns the raw body
-        let link = await server._POST(req.path, req.body);
-
         // POST requests return a 303 header with a pointer to the object
-        return res.redirect(303, link);
+        return res.redirect(303, result);
       case 'PATCH':
         let patch = await server._PATCH(req.path, req.body);
         result = patch;
@@ -1794,6 +1886,12 @@ class FabricHTTPServer extends Service {
     }; */
 
     if (this.settings.debug) console.debug('[HTTP:SERVER]', 'resources:', this.settings.resources);
+
+    try {
+      await this.localStore.start();
+    } catch (error) {
+      this.emit('warning', `[HTTP:SERVER] Could not start local store: ${error && error.message ? error.message : error}`);
+    }
 
     for (let name in this.settings.resources) {
       const definition = this.settings.resources[name];
@@ -2136,6 +2234,12 @@ class FabricHTTPServer extends Service {
     // Stop peer connections
     await this.agent.stop();
 
+    try {
+      if (this.localStore) await this.localStore.stop();
+    } catch (E) {
+      console.error('Could not stop local store:', E);
+    }
+
     // Stop the server app (if it exists)
     if (server.app) {
       try {
@@ -2154,34 +2258,68 @@ class FabricHTTPServer extends Service {
   }
 
   async _GET (path) {
-    if (!this.app || !this.app.store) return null;
+    const normalized = this._normalizeCollectionPath(path);
     if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling GET to', path);
-    let result = await this.app.store._GET(path);
+    const match = this._matchResourceRoute(normalized);
+    let result = null;
+
+    if (match) {
+      const listPath = match.meta && match.meta.list ? match.meta.list : normalized;
+      if (normalized === listPath) {
+        result = match.meta && match.meta.address ? this._state.content[match.meta.address] : null;
+      } else {
+        const parts = normalized.split('/');
+        const id = parts[parts.length - 1];
+        result = this.stores[match.resource] && this.stores[match.resource].getByID
+          ? this.stores[match.resource].getByID(id)
+          : null;
+      }
+    }
+
+    if (result == null) {
+      result = await this.localStore._GET(normalized);
+    }
+
     if (this.settings.verbosity >= 5) console.log('[HTTP:SERVER]', 'Retrieved:', result);
-    if (!result && this.collections.includes(path)) result = [];
+    if (!result && this.collections.includes(normalized)) result = {};
     return result;
   }
 
   async _PUT (path, data) {
-    if (!this.app || !this.app.store) return null;
+    const normalized = this._normalizeCollectionPath(path);
     if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling PUT to', path, data);
-    return this.app.store._PUT(path, data);
+    const result = await this.localStore._PUT(normalized, data);
+    this._notifySubscribers(normalized, data);
+    return result;
   }
 
   async _POST (path, data) {
+    const normalized = this._normalizeCollectionPath(path);
     if (this.settings.verbosity >= 4) console.trace('[HTTP:SERVER]', 'Handling POST to', path, data);
-    return this.app.store._POST(path, data);
+    const match = this._matchResourceRoute(normalized);
+    if (match && match.meta && normalized === match.meta.list) {
+      const created = await this.stores[match.resource].create(data);
+      this._notifySubscribers(`${match.meta.list}/${created.id}`, created);
+      await this._syncResourceToLocalStore(match.resource);
+      return `${match.meta.list}/${created.id}`;
+    }
+    return this.localStore._POST(normalized, data);
   }
 
   async _PATCH (path, data) {
-    if (!this.app || !this.app.store) return null;
+    const normalized = this._normalizeCollectionPath(path);
     if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling PATCH to', path, data);
-    return this.app.store._PATCH(path, data);
+    const result = await this.localStore._PATCH(normalized, data);
+    this._notifySubscribers(normalized, result);
+    return result;
   }
 
   async _DELETE (path) {
+    const normalized = this._normalizeCollectionPath(path);
     if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling DELETE to', path);
-    return this.app.store._DELETE(path);
+    const result = await this.localStore._DELETE(normalized);
+    this._notifySubscribers(normalized, null);
+    return result;
   }
 }
 

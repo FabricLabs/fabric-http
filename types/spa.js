@@ -32,6 +32,14 @@ const Message = require('@fabric/core/types/message');
 const Resource = require('@fabric/core/types/resource');
 // const Store = require('@fabric/core/types/store');
 
+function cloneState (value) {
+  try {
+    return JSON.parse(JSON.stringify(value || {}));
+  } catch (_) {
+    return {};
+  }
+}
+
 /**
  * Fully-managed HTML application.
  * @extends App
@@ -80,14 +88,10 @@ class SPA extends App {
     };
 
     this._state = {
-      content: this.settings.state
+      content: cloneState(this.settings.state)
     };
 
     return this;
-  }
-
-  get state () {
-    return this._state.content;
   }
 
   get title () {
@@ -105,7 +109,12 @@ class SPA extends App {
     this.browser = new Browser(this.settings);
     // this.store = new Store(Object.assign({}, this.settings, { path: './stores/spa' }));
     this.settings = Object.assign({}, this.settings, settings);
-    this._state = (window.app && window.app.state) ? window.app.state : {};
+    const prior = (typeof window !== 'undefined' && window.app && window.app.state)
+      ? window.app.state
+      : this.settings.state;
+    this._state = {
+      content: cloneState(prior || {})
+    };
   }
 
   get handler () {
@@ -114,12 +123,12 @@ class SPA extends App {
 
   set state (state) {
     if (!state) throw new Error('State must be provided.');
-    this._state = state;
-    this._redraw(this._state);
+    this._state.content = cloneState(state);
+    this._redraw(this._state.content);
   }
 
   get state () {
-    return Object.assign({}, this._state);
+    return cloneState(this._state.content);
   }
 
   define (name, definition) {
@@ -142,7 +151,7 @@ class SPA extends App {
     this.types.state[name] = definition;
     this.resources[name] = definition;
 
-    this.state[address] = {};
+    this._state.content[address] = {};
 
     return this.resources[name];
   }

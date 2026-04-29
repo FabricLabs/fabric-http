@@ -29,6 +29,14 @@ const Introduction = require('../components/introduction');
 const ResourceList = require('../components/resource-list');
 const Menu = require('../components/menu');
 
+function cloneState (value) {
+  try {
+    return JSON.parse(JSON.stringify(value || {}));
+  } catch (_) {
+    return {};
+  }
+}
+
 /**
  * Applications can be deployed to the legacy web using {@link App}, a powerful
  * template for building modern web applications.
@@ -87,7 +95,9 @@ class App extends Component {
       resources: {},
       messages: {}
     }; */
-    this._state = {};
+    this._state = {
+      content: {}
+    };
 
     this.modal = null;
     this.target = null;
@@ -171,11 +181,16 @@ class App extends Component {
   }
 
   get state () {
-    return this._state;
+    return cloneState(this._state.content);
   }
 
   set state (value) {
-    return this._state = value;
+    if (!value || typeof value !== 'object') {
+      this._state.content = {};
+      return this._state.content;
+    }
+    this._state.content = cloneState(value);
+    return this._state.content;
   }
 
   get version () {
@@ -191,7 +206,7 @@ class App extends Component {
     if (this.settings.verbosity >= 4) console.log('[WEB:APP]', 'Defining', name, route);
     this.types.state[name] = definition;
     this.resources[name] = definition;
-    this._state[pluralize(name).toLowerCase()] = definition.data || {};
+    this._state.content[pluralize(name).toLowerCase()] = definition.data || {};
   }
 
   dispatch (name, data = {}) {
