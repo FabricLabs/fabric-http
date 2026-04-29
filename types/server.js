@@ -1635,7 +1635,7 @@ class FabricHTTPServer extends Service {
    */
   _notifySubscribers (path, value) {
     const normalized = this._normalizeCollectionPath(path);
-    const message = Message.fromVector(['PATCH', {
+    const message = Message.fromVector(['JSONPatch', {
       path: normalized,
       value
     }]);
