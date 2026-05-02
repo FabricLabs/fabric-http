@@ -38,6 +38,9 @@ const stoppable = require('stoppable');
 // Pathing
 const pathToRegexp = require('path-to-regexp').pathToRegexp;
 
+// Fabric Core constants (AMP wire)
+const { MAGIC_BYTES, HEADER_SIZE } = require('@fabric/core/constants');
+
 // Fabric Types
 const Actor = require('@fabric/core/types/actor');
 const Collection = require('@fabric/core/types/collection');
@@ -63,6 +66,16 @@ const SPA = require('./spa');
 
 // Dependencies
 const WebSocket = require('ws');
+
+/** First four bytes of every Fabric AMP frame on the wire (binary WebSocket payloads must match). */
+const FABRIC_AMP_MAGIC = Buffer.from(
+  MAGIC_BYTES.toString(16).padStart(8, '0'),
+  'hex'
+);
+
+function bufferStartsWithFabricAmpMagic (buf) {
+  return Buffer.isBuffer(buf) && buf.length >= 4 && buf.subarray(0, 4).equals(FABRIC_AMP_MAGIC);
+}
 
 /**
  * Resolve `relativeCandidate` under `staticRoot` and reject `..` / absolute escape attempts.
@@ -967,22 +980,59 @@ class FabricHTTPServer extends Service {
       let type = null;
 
       try {
-        // Handle binary messages
+        // Binary WebSocket frames MUST be Fabric AMP (`Message.toBuffer()`). WS is only a carrier.
+        // JSON-shaped control messages MUST use **text** frames (UTF-8 string), not binary UTF-8 bytes.
+        let payloadBuf = null;
         if (msg instanceof Buffer) {
-          message = Message.fromBuffer(msg);
-        } else if (msg.data instanceof Buffer) {
-          message = Message.fromBuffer(msg.data);
+          payloadBuf = msg;
+        } else if (msg && msg.data instanceof Buffer) {
+          payloadBuf = msg.data;
+        }
+
+        if (payloadBuf) {
+          if (!bufferStartsWithFabricAmpMagic(payloadBuf)) {
+            if ((server.settings.verbosity || 0) >= 2) {
+              console.warn('[SERVER]', 'Ignoring WebSocket binary frame: not Fabric AMP magic.');
+            }
+            return;
+          }
+          if (payloadBuf.length < HEADER_SIZE) {
+            if ((server.settings.verbosity || 0) >= 2) {
+              console.warn('[SERVER]', 'Ignoring WebSocket binary frame: shorter than AMP header.');
+            }
+            return;
+          }
+          message = Message.fromBuffer(payloadBuf);
         } else {
-          // Try to parse as JSON if not binary
           const data = typeof msg === 'string' ? msg : msg.toString('utf8');
           const parsed = JSON.parse(data);
+          if (parsed && typeof parsed === 'object' && !Buffer.isBuffer(parsed)) {
+            const ctrl = parsed.type ?? parsed['@type'];
+            if (typeof ctrl === 'string' && ctrl.toUpperCase() === 'HEARTBEAT' && ctrl !== 'HEARTBEAT') {
+              if ((server.settings.verbosity || 0) >= 2) {
+                console.warn('[SERVER]', 'Ignoring WebSocket text frame: canonical type is HEARTBEAT.');
+              }
+              return;
+            }
+          }
           // Extract type from parsed JSON if available (support both @type and type)
           if (parsed && (parsed.type || parsed['@type'])) {
             type = parsed.type || parsed['@type'];
           }
-          // If it's a JSON object, create message from object, otherwise try fromRaw
+          // If it's a JSON object, create message from object, otherwise try fromRaw.
+          // Plain JSON keepalives (`{"type":"HEARTBEAT"}`) must use {@link Message.fromVector}
+          // — `new Message(parsed)` lacks preimage/hash and breaks Actor / receipts.
           if (parsed && typeof parsed === 'object' && !Buffer.isBuffer(parsed)) {
-            message = new Message(parsed);
+            const rawType = parsed.type || parsed['@type'];
+            if (rawType === 'HEARTBEAT') {
+              const payload = parsed.body ?? parsed.data ?? parsed.content ?? parsed['@data'] ?? '';
+              message = Message.fromVector([
+                'HEARTBEAT',
+                typeof payload === 'string' ? payload : JSON.stringify(payload)
+              ]);
+            } else {
+              message = new Message(parsed);
+            }
           } else {
             message = Message.fromRaw(parsed);
           }
@@ -997,7 +1047,7 @@ class FabricHTTPServer extends Service {
         const messageType = type || message.type;
 
         // System messages (HEARTBEAT, Ping, Pong) may not have signatures.
-        // `message.type` from `fromBuffer` is wire form (e.g. P2P_PING); parsed JSON may use friendly names.
+        // `message.type` from `fromBuffer` is wire form (e.g. P2P_PING). Text JSON control types are canonical strings.
         const systemMessageTypes = ['HEARTBEAT', 'Ping', 'Pong', 'P2P_PING', 'P2P_PONG'];
         if (!message.raw.signature.toString() && !systemMessageTypes.includes(messageType)) {
           let headerForLog;
@@ -1171,6 +1221,12 @@ class FabricHTTPServer extends Service {
           '@version': 1
         }]);
 
+        if (!receipt) {
+          if (server.settings.debug) {
+            console.debug('[SERVER]', 'Could not build P2P_MESSAGE_RECEIPT; skipping send.');
+          }
+          return;
+        }
         if (server._rootKey && server._rootKey.private) receipt.signWithKey(server._rootKey);
         socket.send(receipt.toBuffer());
       } catch (error) {
@@ -2008,6 +2064,7 @@ class FabricHTTPServer extends Service {
 
     // Other Middlewares
     this.express.use(parsers.urlencoded({ extended: true }));
+    // Fabric HTTP APIs expect JSON **objects** (or arrays where applicable), not bare primitives.
     this.express.use(parsers.json());
 
     for (let name in this.settings.middlewares) {
