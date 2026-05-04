@@ -22,10 +22,30 @@ function encodeFabricPaymentRequestHeaderValue (jsonUtf8) {
 
 /**
  * @param {string} encoded from {@link encodeFabricPaymentRequestHeaderValue}
- * @returns {string} UTF-8 JSON
+ * @returns {string|null} UTF-8 JSON, or `null` when the value is not valid base64url
  */
 function decodeFabricPaymentRequestHeaderValue (encoded) {
-  return Buffer.from(String(encoded || '').trim(), 'base64url').toString('utf8');
+  const s = String(encoded ?? '').trim();
+  if (!s) return null;
+  if (!/^[A-Za-z0-9_-]+$/.test(s)) return null;
+  try {
+    return Buffer.from(s, 'base64url').toString('utf8');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * @param {unknown} raw
+ * @returns {number|null} Rounded non-negative safe integer, or `null` if invalid
+ */
+function normalizePurchasePriceSats (raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return null;
+  const rounded = Math.round(n);
+  if (rounded < 0) return null;
+  if (!Number.isSafeInteger(rounded)) return null;
+  return rounded;
 }
 
 /** @param {unknown} inv */
@@ -89,8 +109,9 @@ function buildFabricDocumentPaymentRequestHeader (opts = {}) {
     payload.documentOffer = {};
     if (doc.documentId != null) payload.documentOffer.documentId = String(doc.documentId).slice(0, 4096);
     if (doc.contentHashHex != null) payload.documentOffer.contentHashHex = String(doc.contentHashHex).slice(0, 128);
-    if (doc.purchasePriceSats != null && Number.isFinite(Number(doc.purchasePriceSats))) {
-      payload.documentOffer.purchasePriceSats = Math.round(Number(doc.purchasePriceSats));
+    const priceSats = doc.purchasePriceSats != null ? normalizePurchasePriceSats(doc.purchasePriceSats) : null;
+    if (priceSats != null) {
+      payload.documentOffer.purchasePriceSats = priceSats;
     }
     if (doc.network != null) payload.documentOffer.network = String(doc.network).slice(0, 64);
   }
@@ -127,6 +148,7 @@ module.exports = {
   buildFabricDocumentPaymentRequestHeader,
   encodeFabricPaymentRequestHeaderValue,
   decodeFabricPaymentRequestHeaderValue,
+  normalizePurchasePriceSats,
   buildLightningL402WwwAuthenticate,
   extractBolt11,
   invoiceSummary

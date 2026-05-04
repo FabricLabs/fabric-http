@@ -5,15 +5,36 @@ const {
   buildFabricDocumentPaymentRequestHeader,
   encodeFabricPaymentRequestHeaderValue,
   buildLightningL402WwwAuthenticate,
-  extractBolt11
+  extractBolt11,
+  invoiceSummary
 } = require('./fabricDocumentPayment402');
+
+/** @type {number} Cap in-memory `server.invoices` growth for the 402 path. */
+const MAX_PENDING_INVOICES = 512;
+
+/**
+ * @param {{ invoices?: Record<string, unknown>, _invoiceOrder?: string[] }} server
+ * @param {object} invoice
+ */
+function rememberPendingInvoice (server, invoice) {
+  if (!server.invoices) server.invoices = {};
+  if (!server._invoiceOrder) server._invoiceOrder = [];
+  const id = String(invoice.id);
+  const existed = Object.prototype.hasOwnProperty.call(server.invoices, id);
+  server.invoices[id] = invoice;
+  if (!existed) server._invoiceOrder.push(id);
+  while (server._invoiceOrder.length > MAX_PENDING_INVOICES) {
+    const drop = server._invoiceOrder.shift();
+    if (drop && drop !== id) delete server.invoices[drop];
+  }
+}
 
 /**
  * Emit HTTP 402 with `X-Fabric-Payment-Request` (and optional `WWW-Authenticate: L402`).
  * Call only when **`settings.payments.enabled`** and **`server.bitcoin.createInvoice`** exist —
  * callers that need the `{ enabled: false }` fast path must check first.
  *
- * @param {{ settings?: { payments?: Record<string, unknown>, verbosity?: number }, bitcoin?: { createInvoice: Function }, invoices?: Record<string, unknown> }} server HTTPServer-shaped instance (`this` from payments middleware).
+ * @param {{ settings?: { payments?: Record<string, unknown>, verbosity?: number }, bitcoin?: { createInvoice: Function }, invoices?: Record<string, unknown>, _invoiceOrder?: string[] }} server HTTPServer-shaped instance (`this` from payments middleware).
  * @param {import('http').IncomingMessage} req
  * @param {import('express').Response} res
  * @param {{ paymentSettings?: Record<string, unknown> }} [options] Merged over `server.settings.payments` (e.g. per-document **`documentOffer`**, **`amount`**, **`detail`**).
@@ -54,10 +75,41 @@ async function sendPaymentRequired402Response (server, req, res, options = {}) {
   const l402Mac = typeof p.l402MacaroonBase64 === 'string' ? p.l402MacaroonBase64.trim() : '';
   const wantL402 = p.lightningL402 === true || p.lightningL402 === 1 || p.lightningL402 === '1';
 
-  const invoice = await server.bitcoin.createInvoice({ amount, description, currency });
+  let invoice;
+  try {
+    invoice = await server.bitcoin.createInvoice({ amount, description, currency });
+  } catch (err) {
+    console.error('[payments:402] createInvoice failed:', err);
+    if (!res.headersSent) {
+      res.status(502).json({
+        type: 'https://fabric.pub/problems/invoice-error',
+        title: 'Bad Gateway',
+        status: 502,
+        detail: 'Could not create an invoice.'
+      });
+    }
+    return;
+  }
 
-  if (!server.invoices) server.invoices = {};
-  server.invoices[invoice.id] = invoice;
+  if (
+    !invoice ||
+    typeof invoice !== 'object' ||
+    invoice.id == null ||
+    String(invoice.id).trim() === ''
+  ) {
+    console.error('[payments:402] createInvoice returned invalid invoice:', invoice);
+    if (!res.headersSent) {
+      res.status(502).json({
+        type: 'https://fabric.pub/problems/invoice-error',
+        title: 'Bad Gateway',
+        status: 502,
+        detail: 'Invoice backend returned an invalid invoice.'
+      });
+    }
+    return;
+  }
+
+  rememberPendingInvoice(server, invoice);
 
   const fabricJson = buildFabricDocumentPaymentRequestHeader({
     invoice,
@@ -82,6 +134,8 @@ async function sendPaymentRequired402Response (server, req, res, options = {}) {
     if (www) r = r.set('WWW-Authenticate', www);
   }
 
+  const invoicePublic = invoiceSummary(invoice);
+
   r.json({
     type: 'https://fabric.pub/problems/payment-required',
     title: 'Payment Required',
@@ -89,7 +143,7 @@ async function sendPaymentRequired402Response (server, req, res, options = {}) {
     detail: p.detail || 'Complete payment to continue.',
     currency,
     amount,
-    invoice
+    invoice: invoicePublic
   });
 }
 

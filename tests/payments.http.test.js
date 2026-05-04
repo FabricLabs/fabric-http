@@ -117,7 +117,9 @@ describe('HTTPServer — payments (402) configuration', function () {
       assert.strictEqual(r.statusCode, 402);
       const hdr = r.headers['x-fabric-payment-request'];
       assert.ok(typeof hdr === 'string' && hdr.length > 10, 'X-Fabric-Payment-Request present');
-      const parsed = JSON.parse(decodeFabricPaymentRequestHeaderValue(hdr));
+      const decoded = decodeFabricPaymentRequestHeaderValue(hdr);
+      assert.ok(decoded);
+      const parsed = JSON.parse(decoded);
       assert.strictEqual(parsed.documentExchange.offerType, 'FABRIC_DOCUMENT_OFFER');
       assert.strictEqual(parsed.documentOffer.documentId, 'fixture');
       const auth = r.headers['www-authenticate'];

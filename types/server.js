@@ -296,7 +296,12 @@ class FabricHTTPServer extends Service {
         maxPeers: 256,
         idMaxLen: 128,
         labelMaxLen: 256,
-        metaMaxJsonBytes: 16384
+        metaMaxJsonBytes: 16384,
+        /**
+         * When true, WebSocket `JSONCall` for WebRTC registry methods requires the same transport
+         * authorization as POST JSON-RPC (`_isJsonRpcTransportAuthorized`), even if `jsonRpc.requireAuth` is off.
+         */
+        requireTransportAuth: false
       },
       security: {
         resourceWriteAuthRequired: false
@@ -1087,6 +1092,27 @@ class FabricHTTPServer extends Service {
                   error: {
                     code: -32001,
                     message: 'Unauthorized: valid bearer or client token required for JSON-RPC (same policy as POST /services/rpc)'
+                  }
+                });
+                const denied = Message.fromVector(['JSONCall', errBody]);
+                if (server._rootKey && server._rootKey.private) denied.signWithKey(server._rootKey);
+                socket.send(denied.toBuffer());
+                break;
+              }
+
+              const webrtcRpcMethods = new Set(['RegisterWebRTCPeer', 'UnregisterWebRTCPeer', 'ListWebRTCPeers']);
+              const wrtcCfg = server.settings.webrtc || {};
+              if (
+                webrtcRpcMethods.has(jsonCallPayload.method) &&
+                wrtcCfg.requireTransportAuth === true &&
+                !server._isJsonRpcTransportAuthorized(request)
+              ) {
+                const errBody = JSON.stringify({
+                  method: 'JSONCallResult',
+                  params: [hash, null],
+                  error: {
+                    code: -32001,
+                    message: 'Unauthorized: WebRTC registry JSONCall requires bearer or WebSocket client token (webrtc.requireTransportAuth)'
                   }
                 });
                 const denied = Message.fromVector(['JSONCall', errBody]);

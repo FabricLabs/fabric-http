@@ -52,6 +52,9 @@
     "url": "https://github.com/FabricLabs/fabric-http/issues"
   },
   "homepage": "https://github.com/FabricLabs/fabric-http#readme",
+  "engines": {
+    "node": "^14.18.0 || ^15.7.0 || >=16.0.0"
+  },
   "exports": {
     ".": "./types/web.js",
     "./module.js": "./module.js",
