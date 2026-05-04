@@ -5,29 +5,6 @@
 
 **Status:** `0.1.0-RC1` — run **`npm run ci`** before release tags (tests + script build).
 
-| Doc | Purpose |
-|-----|---------|
-| [docs/PRODUCTION.md](docs/PRODUCTION.md) | Deploy, TLS, WebSocket, versioning |
-| [docs/MARKETING_OVERVIEW.md](docs/MARKETING_OVERVIEW.md) | Positioning & ecosystem copy |
-| [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | Tag & publish steps |
-| [docs/MESSAGE_SPEC.md](docs/MESSAGE_SPEC.md) | `Message` types & `JSONCall` on the WebSocket server |
-| [docs/WEBRTC_FABRIC_HTTP.md](docs/WEBRTC_FABRIC_HTTP.md) | WebRTC vs this server; Hub/extension |
-| [docs/RELEASE_GATE.md](docs/RELEASE_GATE.md) | Downstream extension auth test gate |
-| [middlewares/auth](middlewares/auth.js) | `buildBearerToken` / `verifyBearerToken` (Fabric `Token` + shared secret) |
-| [constants.js](constants.js) | Ports, header names, sample-hub string literals (no functions; use `Server` statics in `types/server.js`) |
-| [CHANGELOG.md](CHANGELOG.md) | Release notes |
-
-**WebSockets (general pass / PR #54 goals):**
-
-| Improvement | In this package |
-|-------------|-----------------|
-| **HTTP 402** | [x] `settings.payments` + [middlewares/payments.js](middlewares/payments.js) (problem JSON, opt-in); tests: `tests/payments.http.test.js`. Deeper “finalize” = app-specific payment / settlement hooks. |
-| **Fabric + WebRTC** | [x] Registry + JSON-RPC methods + [docs/WEBRTC_FABRIC_HTTP.md](docs/WEBRTC_FABRIC_HTTP.md). [ ] Full Hub + extension E2E (offer/answer, `Message` on data channel) stays on Hub/extension tracks. |
-| **`Message` spec** | [x] [docs/MESSAGE_SPEC.md](docs/MESSAGE_SPEC.md) (WebSocket contract; wire format in `@fabric/core`). |
-| **Release gate** | [x] `@fabric/passport`: bearer + `POST /services/rpc` — [docs/RELEASE_GATE.md](docs/RELEASE_GATE.md), `npm run test:ui:release-gate`. [ ] `@fabric/browser` when that package has a matching E2E harness. |
-
-**Peering / WebRTC:** Browser signaling is **native WebRTC** (Hub **`Bridge`** + JSON-RPC), not Fabric TCP **`P2P_SESSION_OFFER`/`OPEN`**. Phase alignment with the CLI mental model lives in **`@fabric/core`**: [`docs/SESSION_AND_WEBRTC.md`](https://github.com/FabricLabs/fabric/blob/develop/docs/SESSION_AND_WEBRTC.md) (use the path in your pinned core checkout).
-
 Robust library for implementing Fabric-enabled Web Applications.
 
 ## What is Fabric?
@@ -61,6 +38,19 @@ npx fabric-http ./build --spa
 ```
 
 Programmatic options on `new HTTPServer({ ... })` include `assets` (or `path` alias for the static root), `static: { cacheSeconds, ... }`, `spaFallback`, `jsonRpc: { enabled, paths }`, `cors`, and `compression`. HTTP JSON-RPC (`POST /rpc`) uses the same `_handleCall` surface as WebSocket `JSONCall` when `jsonRpc.enabled` is true (e.g. hub.fabric.pub). For a small Hub-shaped dev server (default **8099** so it does not steal **8080** from a real @fabric/hub, CORS, `POST /services/rpc`, `hub-mesh-bridge.html` for the extension), use **`npm run sample:hub`** (see [docs/WEBRTC_FABRIC_HTTP.md](docs/WEBRTC_FABRIC_HTTP.md)). Set `PORT=8080` only when you are not running hub.fabric.pub on the same machine.
+
+### Programmatic API (server-first)
+The primary consumer path is to create a server instance and configure behavior through settings and registered methods.
+
+```js
+const { Server } = require('@fabric/http');
+const server = new Server({ port: 8080, jsonRpc: { enabled: true, paths: ['/services/rpc'] } });
+await server.start();
+```
+
+Advanced protocol helpers are optional:
+- grouped under `require('@fabric/http').protocol`
+- or imported directly from `@fabric/http/functions/*` when you want a specific helper module
 
 ### Deterministic avatars (`types/avatar`)
 `@fabric/http` includes a deterministic, Gravatar-like `Avatar` class with a Fabric-themed palette and an academic visual-hash approach inspired by "drunken bishop" / marching-bishop algorithms:
@@ -129,5 +119,33 @@ main().catch((exception) => {
 
 Run `node scripts/node.js` to start the app, or `webpack scripts/app.js -o assets/app.min.js` to
 build a browser version.
+
+## Resources
+| Doc | Purpose |
+|-----|---------|
+| [docs/PRODUCTION.md](docs/PRODUCTION.md) | Deploy, TLS, WebSocket, versioning |
+| [docs/MARKETING_OVERVIEW.md](docs/MARKETING_OVERVIEW.md) | Positioning & ecosystem copy |
+| [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | Tag & publish steps |
+| [docs/MESSAGE_SPEC.md](docs/MESSAGE_SPEC.md) | `Message` types & `JSONCall` on the WebSocket server |
+| [docs/WEBRTC_FABRIC_HTTP.md](docs/WEBRTC_FABRIC_HTTP.md) | WebRTC vs this server; Hub/extension |
+| [docs/RELEASE_GATE.md](docs/RELEASE_GATE.md) | Downstream extension auth test gate |
+| [middlewares/auth](middlewares/auth.js) | `buildBearerToken` / `verifyBearerToken` (Fabric `Token` + shared secret) |
+| [functions/fabricWebRtcInterop](functions/fabricWebRtcInterop.js) | Advanced helper: Hub/extension mesh constants + Hub-address→WS signaling helpers |
+| [functions/fabricMessageTransport](functions/fabricMessageTransport.js) | Advanced helper: WebSocket message-type aliases/canonicalization (`JSONCall`, `Ping`, `Pong`, `HEARTBEAT`) |
+| [functions/fabricJsonRpcTransport](functions/fabricJsonRpcTransport.js) | Advanced helper: JSON-RPC/WS envelope builders (params normalization, success/error shapes, call hash pairing) |
+| [constants.js](constants.js) | Ports, header names, sample-hub string literals |
+| [CHANGELOG.md](CHANGELOG.md) | Release notes |
+
+**WebSockets (general pass / PR #54 goals):**
+
+| Improvement | In this package |
+|-------------|-----------------|
+| **HTTP 402** | [x] `settings.payments` + [middlewares/payments.js](middlewares/payments.js) (problem JSON, opt-in); tests: `tests/payments.http.test.js`. Deeper “finalize” = app-specific payment / settlement hooks. |
+| **Fabric + WebRTC** | [x] Registry + JSON-RPC methods + [docs/WEBRTC_FABRIC_HTTP.md](docs/WEBRTC_FABRIC_HTTP.md). [ ] Full Hub + extension E2E (offer/answer, `Message` on data channel) stays on Hub/extension tracks. |
+| **`Message` spec** | [x] [docs/MESSAGE_SPEC.md](docs/MESSAGE_SPEC.md) (WebSocket contract; wire format in `@fabric/core`). |
+| **Release gate** | [x] `@fabric/passport`: bearer + `POST /services/rpc` — [docs/RELEASE_GATE.md](docs/RELEASE_GATE.md), `npm run test:ui:release-gate`. [ ] `@fabric/browser` when that package has a matching E2E harness. |
+
+**Peering / WebRTC:** Browser signaling is **native WebRTC** (Hub **`Bridge`** + JSON-RPC), not Fabric TCP **`P2P_SESSION_OFFER`/`OPEN`**. Phase alignment with the CLI mental model lives in **`@fabric/core`**: [`docs/SESSION_AND_WEBRTC.md`](https://github.com/FabricLabs/fabric/blob/develop/docs/SESSION_AND_WEBRTC.md) (use the path in your pinned core checkout).
+
 
 [fabric]: https://fabric.pub

@@ -63,7 +63,10 @@
     "./middlewares/auth": "./middlewares/auth.js",
     "./middlewares/payments": "./middlewares/payments.js",
     "./functions/fabricDocumentPayment402": "./functions/fabricDocumentPayment402.js",
-    "./functions/sendPaymentRequired402Response": "./functions/sendPaymentRequired402Response.js"
+    "./functions/sendPaymentRequired402Response": "./functions/sendPaymentRequired402Response.js",
+    "./functions/fabricWebRtcInterop": "./functions/fabricWebRtcInterop.js",
+    "./functions/fabricMessageTransport": "./functions/fabricMessageTransport.js",
+    "./functions/fabricJsonRpcTransport": "./functions/fabricJsonRpcTransport.js"
   },
   "contributors": [
     "Eric Martindale",

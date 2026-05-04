@@ -67,6 +67,8 @@ const SPA = require('./spa');
 
 // Dependencies
 const WebSocket = require('ws');
+const messageTransport = require('../functions/fabricMessageTransport');
+const jsonRpcTransport = require('../functions/fabricJsonRpcTransport');
 
 /** First four bytes of every Fabric AMP frame on the wire (binary WebSocket payloads must match). */
 const FABRIC_AMP_MAGIC = Buffer.from(
@@ -74,8 +76,23 @@ const FABRIC_AMP_MAGIC = Buffer.from(
   'hex'
 );
 
+/** WebRTC peer-registry RPC method names handled by HTTP JSON-RPC / WebSocket JSONCall. */
+const WEBRTC_REGISTRY_METHODS = Object.freeze([
+  'RegisterWebRTCPeer',
+  'UnregisterWebRTCPeer',
+  'ListWebRTCPeers'
+]);
+
 function bufferStartsWithFabricAmpMagic (buf) {
   return Buffer.isBuffer(buf) && buf.length >= 4 && buf.subarray(0, 4).equals(FABRIC_AMP_MAGIC);
+}
+
+/**
+ * @param {unknown} methodName
+ * @returns {boolean}
+ */
+function isWebRtcRegistryMethod (methodName) {
+  return WEBRTC_REGISTRY_METHODS.includes(String(methodName || ''));
 }
 
 /**
@@ -935,9 +952,7 @@ class FabricHTTPServer extends Service {
   }
 
   _isWebRtcRegistryMethod (methodName) {
-    return methodName === 'RegisterWebRTCPeer' ||
-      methodName === 'UnregisterWebRTCPeer' ||
-      methodName === 'ListWebRTCPeers';
+    return isWebRtcRegistryMethod(methodName);
   }
 
   _handleAppMessage (msg) {
@@ -1062,8 +1077,8 @@ class FabricHTTPServer extends Service {
           const data = typeof msg === 'string' ? msg : msg.toString('utf8');
           const parsed = JSON.parse(data);
           if (parsed && typeof parsed === 'object' && !Buffer.isBuffer(parsed)) {
-            const ctrl = parsed.type ?? parsed['@type'];
-            if (typeof ctrl === 'string' && ctrl.toUpperCase() === 'HEARTBEAT' && ctrl !== 'HEARTBEAT') {
+            const ctrl = messageTransport.extractTransportControlType(parsed);
+            if (messageTransport.isNonCanonicalHeartbeatAlias(ctrl)) {
               if ((server.settings.verbosity || 0) >= 2) {
                 console.warn('[SERVER]', 'Ignoring WebSocket text frame: canonical type is HEARTBEAT.');
               }
@@ -1103,8 +1118,7 @@ class FabricHTTPServer extends Service {
 
         // System messages (HEARTBEAT, Ping, Pong) may not have signatures.
         // `message.type` from `fromBuffer` is wire form (e.g. P2P_PING). Text JSON control types are canonical strings.
-        const systemMessageTypes = ['HEARTBEAT', 'Ping', 'Pong', 'P2P_PING', 'P2P_PONG'];
-        if (!message.raw.signature.toString() && !systemMessageTypes.includes(messageType)) {
+        if (!message.raw.signature.toString() && !messageTransport.isSystemMessageType(messageType)) {
           let headerForLog;
           try {
             headerForLog = message.header;
@@ -1119,7 +1133,7 @@ class FabricHTTPServer extends Service {
         const actor = new Actor(obj);
 
         let local = null;
-        const switchType = messageType || message.type;
+        const switchType = messageTransport.normalizeTransportType(messageType || message.type);
 
         // Use extracted messageType for switch statement
         switch (switchType) {
@@ -1127,24 +1141,19 @@ class FabricHTTPServer extends Service {
             // HEARTBEAT messages are keepalive signals, no action needed
             if (server.settings.debug) console.debug('[SERVER]', 'Received HEARTBEAT from:', handle);
             break;
-          case 'JSONCall':
-          case 'JSON_CALL':
+          case messageTransport.JSON_CALL_CANONICAL_TYPE:
             // console.trace('[SERVER]', 'received JSON call:', message.body);
             try {
-              const jsonCallPayload = JSON.parse(message.body);
-              const preimage = crypto.createHash('sha256').update(message.body).digest('hex');
-              const hash = crypto.createHash('sha256').update(preimage).digest('hex');
+              const jsonCallPayload = jsonRpcTransport.parseWebSocketJsonCallBody(message.body);
+              const { hash } = jsonRpcTransport.computeWebSocketJsonCallHashPair(message.body);
 
               if (!socket._fabricJsonRpcTransportAuthorized) {
-                const errBody = JSON.stringify({
-                  method: 'JSONCallResult',
-                  params: [hash, null],
-                  error: {
-                    code: -32001,
-                    message: 'Unauthorized: valid bearer or client token required for JSON-RPC (same policy as POST /services/rpc)'
-                  }
-                });
-                const denied = Message.fromVector(['JSONCall', errBody]);
+                const errBody = JSON.stringify(jsonRpcTransport.buildWebSocketJsonCallErrorBody({
+                  hash,
+                  code: -32001,
+                  message: 'Unauthorized: valid bearer or client token required for JSON-RPC (same policy as POST /services/rpc)'
+                }));
+                const denied = Message.fromVector([messageTransport.JSON_CALL_CANONICAL_TYPE, errBody]);
                 if (server._rootKey && server._rootKey.private) denied.signWithKey(server._rootKey);
                 socket.send(denied.toBuffer());
                 break;
@@ -1157,15 +1166,12 @@ class FabricHTTPServer extends Service {
                 wrtcCfg.requireTransportAuth === true &&
                 !transportAuthorized
               ) {
-                const errBody = JSON.stringify({
-                  method: 'JSONCallResult',
-                  params: [hash, null],
-                  error: {
-                    code: -32001,
-                    message: 'Unauthorized: WebRTC registry JSONCall requires bearer or WebSocket client token (webrtc.requireTransportAuth)'
-                  }
-                });
-                const denied = Message.fromVector(['JSONCall', errBody]);
+                const errBody = JSON.stringify(jsonRpcTransport.buildWebSocketJsonCallErrorBody({
+                  hash,
+                  code: -32001,
+                  message: 'Unauthorized: WebRTC registry JSONCall requires bearer or WebSocket client token (webrtc.requireTransportAuth)'
+                }));
+                const denied = Message.fromVector([messageTransport.JSON_CALL_CANONICAL_TYPE, errBody]);
                 if (server._rootKey && server._rootKey.private) denied.signWithKey(server._rootKey);
                 socket.send(denied.toBuffer());
                 break;
@@ -1185,10 +1191,10 @@ class FabricHTTPServer extends Service {
 
               this.commit();
 
-              const callResultMessage = Message.fromVector(['JSONCall', JSON.stringify({
-                method: 'JSONCallResult',
-                params: [hash, result]
-              })]).signWithKey(this._rootKey);
+              const callResultMessage = Message.fromVector([
+                messageTransport.JSON_CALL_CANONICAL_TYPE,
+                JSON.stringify(jsonRpcTransport.buildWebSocketJsonCallResultBody({ hash, result }))
+              ]).signWithKey(this._rootKey);
 
               socket.send(callResultMessage.toBuffer());
             } catch (exception) {
@@ -1235,11 +1241,10 @@ class FabricHTTPServer extends Service {
               console.log('[SERVER]', 'patched:', result);
               break;
             }
-          case 'Ping':
-          case 'P2P_PING':
+          case messageTransport.PING_CANONICAL_TYPE:
             {
               const now = Date.now();
-              local = Message.fromVector(['Pong', now.toString()]);
+              local = Message.fromVector([messageTransport.PONG_CANONICAL_TYPE, now.toString()]);
               if (server._rootKey && server._rootKey.private) local.signWithKey(server._rootKey);
               let sendResult = null;
               try {
@@ -1249,10 +1254,10 @@ class FabricHTTPServer extends Service {
               }
               return sendResult;
             }
-          case 'GenericMessage':
+          case messageTransport.GENERIC_MESSAGE_TYPE:
             {
-              local = Message.fromVector(['GenericMessage', JSON.stringify({
-                type: 'GenericMessageReceipt',
+              local = Message.fromVector([messageTransport.GENERIC_MESSAGE_TYPE, JSON.stringify({
+                type: messageTransport.GENERIC_MESSAGE_RECEIPT_TYPE,
                 content: actor.id
               })]);
 
@@ -1285,8 +1290,7 @@ class FabricHTTPServer extends Service {
               }
               break;
             }
-          case 'Pong':
-          case 'P2P_PONG':
+          case messageTransport.PONG_CANONICAL_TYPE:
             {
               socket._resetKeepAlive();
               return;
@@ -1330,7 +1334,7 @@ class FabricHTTPServer extends Service {
         }
 
         // Skip receipt for keepalive/system message types.
-        if (systemMessageTypes.includes(switchType)) return;
+        if (messageTransport.isSystemMessageType(switchType)) return;
 
         // Send receipt of acknowledgement
         const receipt = Message.fromVector(['P2P_MESSAGE_RECEIPT', {
@@ -1620,23 +1624,21 @@ class FabricHTTPServer extends Service {
         const body = req && req.body ? req.body : {};
         const id = body.id != null ? body.id : null;
         if (cfg.requireAuth === true && !this._isJsonRpcTransportAuthorized(req)) {
-          return res.status(401).json({
-            jsonrpc: '2.0',
+          return res.status(401).json(jsonRpcTransport.buildJsonRpcErrorEnvelope({
             id,
-            error: { code: -32001, message: 'Unauthorized: valid bearer/session token required for JSON-RPC' }
-          });
+            code: -32001,
+            message: 'Unauthorized: valid bearer/session token required for JSON-RPC'
+          }));
         }
         const method = body.method;
-        let params = body.params;
-        if (params === undefined || params === null) params = [];
-        if (!Array.isArray(params)) params = [params];
+        const params = jsonRpcTransport.normalizeJsonRpcParams(body.params);
 
         if (!method) {
-          res.status(400).json({
-            jsonrpc: '2.0',
+          res.status(400).json(jsonRpcTransport.buildJsonRpcErrorEnvelope({
             id,
-            error: { code: -32600, message: 'Invalid Request: method required' }
-          });
+            code: -32600,
+            message: 'Invalid Request: method required'
+          }));
           return;
         }
 
@@ -1649,32 +1651,22 @@ class FabricHTTPServer extends Service {
           });
         } catch (callErr) {
           if ((this.settings.verbosity || 0) >= 3) console.error('[HTTP:SERVER] RPC call error:', callErr);
-          res.status(500).json({
-            jsonrpc: '2.0',
+          res.status(500).json(jsonRpcTransport.buildJsonRpcErrorEnvelope({
             id,
-            error: {
-              code: -32603,
-              message: callErr && callErr.message ? callErr.message : 'Internal error'
-            }
-          });
+            code: -32603,
+            message: callErr && callErr.message ? callErr.message : 'Internal error'
+          }));
           return;
         }
 
-        res.status(200).json({
-          jsonrpc: '2.0',
-          id,
-          result
-        });
+        res.status(200).json(jsonRpcTransport.buildJsonRpcSuccessEnvelope({ id, result }));
       } catch (err) {
         console.error('[HTTP:SERVER] RPC handler error:', err);
-        res.status(500).json({
-          jsonrpc: '2.0',
+        res.status(500).json(jsonRpcTransport.buildJsonRpcErrorEnvelope({
           id: null,
-          error: {
-            code: -32603,
-            message: err && err.message ? err.message : 'Internal error'
-          }
-        });
+          code: -32603,
+          message: err && err.message ? err.message : 'Internal error'
+        }));
       }
     };
 
@@ -2554,5 +2546,3 @@ class FabricHTTPServer extends Service {
 }
 
 module.exports = FabricHTTPServer;
-module.exports.resolveFabricHttpPackageAssetsDir = resolveFabricHttpPackageAssetsDir;
-module.exports.acceptFirstHtmlNavigation = acceptFirstHtmlNavigation;
