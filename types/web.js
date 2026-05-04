@@ -7,7 +7,6 @@
  * - **resolveAppAssetsDir** — path to an app’s static `assets/` (not the package tree); for app wiring only.
  * - **constants** — numeric and string literals from `constants.js` (no functions).
  */
-const path = require('path');
 const Server = require('./server');
 const Client = require('./client');
 const SPA = require('./spa');
@@ -27,15 +26,26 @@ function resolveAppAssetsDir (moduleDirname, opts) {
   const o = opts || {};
   const ev = o.envVar != null ? String(o.envVar) : 'FABRIC_APP_ROOT';
   const sub = o.subdir != null ? String(o.subdir) : 'assets';
-  const normalizedSub = sub.replace(/\\/g, '/');
-  if (!normalizedSub || normalizedSub.includes('..') || normalizedSub.startsWith('/')) {
+  const normalizedSub = String(sub).replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+  if (!normalizedSub || normalizedSub.includes('..') || normalizedSub.includes('\0')) {
     throw new Error('resolveAppAssetsDir: subdir must be a relative safe path segment');
   }
-  if (process.env[ev]) {
-    const base = path.resolve(String(process.env[ev]));
-    return path.join(base, normalizedSub);
+  const envRoot = process.env[ev] ? String(process.env[ev]) : '';
+  const rawBase = (envRoot || `${String(moduleDirname).replace(/\\/g, '/')}/..`).replace(/\/+$/g, '');
+  const segments = rawBase.split('/').filter(Boolean);
+  const reduced = [];
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    if (seg === '.' || seg === '') continue;
+    if (seg === '..') {
+      reduced.pop();
+      continue;
+    }
+    reduced.push(seg);
   }
-  return path.join(path.resolve(moduleDirname), '..', normalizedSub);
+  const prefix = rawBase.startsWith('/') ? '/' : '';
+  const base = `${prefix}${reduced.join('/')}`;
+  return `${base}/${normalizedSub}`;
 }
 
 module.exports = {

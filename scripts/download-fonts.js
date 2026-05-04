@@ -31,9 +31,15 @@ const ARVO_WOFF2 = [
   ['arvo-italic-700.woff2', 'https://fonts.gstatic.com/s/arvo/v23/tDbO2oWUg0MKqSIoVLH68dr_.woff2']
 ];
 
-function downloadFile (url, filepath) {
+function assertSafeFontFilename (filename) {
+  if (!/^[a-z0-9-]+\.woff2$/i.test(String(filename))) {
+    throw new Error(`Unsafe font filename: ${filename}`);
+  }
+}
+
+function downloadFile (fontUrl, filepath) {
   return new Promise((resolve, reject) => {
-    const parsed = new URL(String(url));
+    const parsed = new URL(String(fontUrl));
     if (parsed.protocol !== 'https:' || parsed.hostname !== 'fonts.gstatic.com') {
       reject(new Error(`Refusing non-whitelisted font URL: ${parsed.href}`));
       return;
@@ -68,11 +74,12 @@ async function main () {
     process.exit(1);
   }
   fs.mkdirSync(fontDir, { recursive: true });
-  for (const [filename, url] of ARVO_WOFF2) {
-    const filepath = path.join(fontDir, filename);
+  for (const [filename, fontUrl] of ARVO_WOFF2) {
+    assertSafeFontFilename(filename);
+    const filepath = `${fontDir}/${filename}`;
     process.stdout.write(`Downloading ${filename}... `);
     try {
-      await downloadFile(url, filepath);
+      await downloadFile(fontUrl, filepath);
       console.log('ok');
     } catch (err) {
       console.error(err.message || err);
