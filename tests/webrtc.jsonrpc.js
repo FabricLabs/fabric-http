@@ -49,10 +49,29 @@ describe('HTTPServer — WebRTC peer registry (JSON-RPC)', function () {
       const secret = b.result.secret;
       assert.ok(typeof secret === 'string' && secret.length > 0, 'register returns unregister secret');
 
+      r = await post('RegisterWebRTCPeer', [{ id: 'p1', label: 'attacker-overwrite' }]);
+      b = JSON.parse(r.body);
+      assert.strictEqual(r.statusCode, 500);
+      assert.ok(b.error && /valid secret required/i.test(b.error.message));
+
+      r = await post('RegisterWebRTCPeer', [{ id: 'p1', label: 'attacker-overwrite', secret: 'bad-secret' }]);
+      b = JSON.parse(r.body);
+      assert.strictEqual(r.statusCode, 500);
+      assert.ok(b.error && /valid secret required/i.test(b.error.message));
+
+      r = await post('RegisterWebRTCPeer', [{ id: 'p1', label: 'owner-update', secret }]);
+      b = JSON.parse(r.body);
+      assert.strictEqual(r.statusCode, 200);
+      assert.strictEqual(b.result.id, 'p1');
+      const rotatedSecret = b.result.secret;
+      assert.ok(typeof rotatedSecret === 'string' && rotatedSecret.length > 0);
+      assert.notStrictEqual(rotatedSecret, secret, 'secret rotates on owner-approved re-register');
+
       r = await post('ListWebRTCPeers', []);
       b = JSON.parse(r.body);
       assert.strictEqual(b.result.peers.length, 1);
       assert.strictEqual(b.result.peers[0].id, 'p1');
+      assert.strictEqual(b.result.peers[0].label, 'owner-update');
 
       r = await post('UnregisterWebRTCPeer', [{ id: 'p1' }]);
       b = JSON.parse(r.body);
@@ -65,6 +84,11 @@ describe('HTTPServer — WebRTC peer registry (JSON-RPC)', function () {
       assert.ok(b.error);
 
       r = await post('UnregisterWebRTCPeer', [{ id: 'p1', secret }]);
+      b = JSON.parse(r.body);
+      assert.strictEqual(r.statusCode, 500);
+      assert.ok(b.error && /invalid secret/i.test(b.error.message));
+
+      r = await post('UnregisterWebRTCPeer', [{ id: 'p1', secret: rotatedSecret }]);
       b = JSON.parse(r.body);
       assert.strictEqual(b.result.total, 0);
     } finally {

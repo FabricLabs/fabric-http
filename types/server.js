@@ -846,6 +846,13 @@ class FabricHTTPServer extends Service {
     const peer = reg && typeof reg === 'object' ? reg : {};
     const limits = this._getWebRtcLimits();
     const id = this._assertWebRtcPeerId(peer.id || peer.peerId, limits.idMaxLen);
+    const existingSecret = this.webrtcPeerSecrets.get(id) || null;
+    if (existingSecret) {
+      const providedSecret = peer.secret != null ? String(peer.secret).trim() : '';
+      if (!providedSecret || !this._timingEqualUtf8(providedSecret, existingSecret)) {
+        throw new Error('RegisterWebRTCPeer: id already registered; valid secret required to update');
+      }
+    }
     if (this.webrtcPeers.size >= limits.maxPeers && !this.webrtcPeers.has(id)) {
       throw new Error('RegisterWebRTCPeer: peer registry full');
     }

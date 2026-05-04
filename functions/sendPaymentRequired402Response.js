@@ -50,12 +50,14 @@ async function sendPaymentRequired402Response (server, req, res, options = {}) {
   }
 
   if (!server || !server.bitcoin || typeof server.bitcoin.createInvoice !== 'function') {
-    res.status(503).json({
-      type: 'https://fabric.pub/problems/bitcoin-unavailable',
-      title: 'Payment service unavailable',
-      status: 503,
-      detail: 'No invoice backend is configured on this server.'
-    });
+    if (!res.headersSent) {
+      res.status(503).json({
+        type: 'https://fabric.pub/problems/bitcoin-unavailable',
+        title: 'Payment service unavailable',
+        status: 503,
+        detail: 'No invoice backend is configured on this server.'
+      });
+    }
     return;
   }
 

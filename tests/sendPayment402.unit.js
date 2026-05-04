@@ -73,4 +73,26 @@ describe('sendPaymentRequired402Response', function () {
     await sendPaymentRequired402Response(serverLike, /** @type {never} */ (req), /** @type {never} */ (res), {});
     assert.strictEqual(status, 502);
   });
+
+  it('does not write 503 when headers were already sent', async function () {
+    const res = {
+      headersSent: true,
+      status () {
+        throw new Error('status() should not be called when headers are already sent');
+      },
+      set () {
+        return this;
+      },
+      json () {
+        throw new Error('json() should not be called when headers are already sent');
+      }
+    };
+    const req = { path: '/x', url: '/x' };
+    await sendPaymentRequired402Response(
+      null,
+      /** @type {never} */ (req),
+      /** @type {never} */ (res),
+      {}
+    );
+  });
 });
