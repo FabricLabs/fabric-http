@@ -6,6 +6,9 @@ const App = require('../types/app');
 const SPA = require('../types/spa');
 
 describe('@fabric/http state model contract', function () {
+  // Coverage instrumentation can slow SPA bootstrap enough to hit Mocha's 2s default.
+  this.timeout(15000);
+
   it('App stores canonical data under _state.content', function () {
     const app = new App({ resources: {} });
     app.state = { users: { a: 1 } };
