@@ -473,6 +473,22 @@ class FabricHTTPServer extends Service {
     return out;
   }
 
+  _requiresAuthForResourceVerb (requestPath, verb) {
+    const normalized = this._normalizeCollectionPath(requestPath);
+    const match = this._matchResourceRoute(normalized);
+    const resource = (match && match.resource) ? this.resources.get(match.resource) : null;
+    const method = String(verb || '').toUpperCase();
+    const mutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+    const globalWriteAuth = this.settings.security && this.settings.security.resourceWriteAuthRequired === true;
+    const resourceRequires = !!(resource && typeof resource.requiresAuth === 'function' && resource.requiresAuth(method));
+    return resourceRequires || (globalWriteAuth && mutating);
+  }
+
+  _isResourceVerbAuthorized (requestPath, verb, transportAuthorized) {
+    if (!this._requiresAuthForResourceVerb(requestPath, verb)) return true;
+    return transportAuthorized === true;
+  }
+
   async _syncResourceToLocalStore (resourceName) {
     const meta = this.resourceRouteIndex.get(resourceName);
     const store = this.stores[resourceName];
@@ -1182,19 +1198,40 @@ class FabricHTTPServer extends Service {
             break;
           case 'GET':
             {
-              const answer = await server._GET(message['@data']['path']);
+              const targetPath = message['@data'] && message['@data']['path'];
+              if (!server._isResourceVerbAuthorized(targetPath, 'GET', socket._fabricTransportAuthorized === true)) {
+                if (server.settings.debug) {
+                  console.debug('[SERVER]', 'Denied websocket GET (auth required):', targetPath);
+                }
+                break;
+              }
+              const answer = await server._GET(targetPath);
               console.log('answer:', answer);
               return answer;
             }
           case 'POST':
             {
-              const link = await server._POST(message['@data']['path'], message['@data']['value']);
+              const targetPath = message['@data'] && message['@data']['path'];
+              if (!server._isResourceVerbAuthorized(targetPath, 'POST', socket._fabricTransportAuthorized === true)) {
+                if (server.settings.debug) {
+                  console.debug('[SERVER]', 'Denied websocket POST (auth required):', targetPath);
+                }
+                break;
+              }
+              const link = await server._POST(targetPath, message['@data']['value']);
               console.log('[SERVER]', 'posted link:', link);
               break;
             }
           case 'PATCH':
             {
-              const result = await server._PATCH(message['@data']['path'], message['@data']['value']);
+              const targetPath = message['@data'] && message['@data']['path'];
+              if (!server._isResourceVerbAuthorized(targetPath, 'PATCH', socket._fabricTransportAuthorized === true)) {
+                if (server.settings.debug) {
+                  console.debug('[SERVER]', 'Denied websocket PATCH (auth required):', targetPath);
+                }
+                break;
+              }
+              const result = await server._PATCH(targetPath, message['@data']['value']);
               console.log('[SERVER]', 'patched:', result);
               break;
             }

@@ -13,6 +13,15 @@
 
 These exist so **dev tools and the extension** can align with a single RPC namespace before Hub-specific signaling is in use.
 
+### Security defaults (production-oriented)
+
+- `settings.webrtc.requireTransportAuth` defaults to **true**.
+- WebRTC registry RPC methods (`RegisterWebRTCPeer`, `UnregisterWebRTCPeer`, `ListWebRTCPeers`) require an authorized transport context.
+- Existing peer IDs cannot be overwritten without the current peer `secret`; unregister also requires `secret`.
+- WebSocket subscriptions to resource paths that require read auth are denied for unauthorized sockets.
+- Protected resource updates are not broadcast to unauthorized WebSocket subscribers.
+- WebSocket `POST` / `PATCH` resource writes are gated by the same resource/global auth policies used by HTTP routing.
+
 ## What lives downstream
 
 - **Extension** (`@fabric/passport`): `src/fabric/fabricWebRTCPeering.ts` and the offscreen mesh helpers hold **signaling URL** and `RTCPeerConnection` construction; they are wired toward Hub WebSocket, not the bare `fabric-http` static server.

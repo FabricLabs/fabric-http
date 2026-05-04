@@ -351,4 +351,79 @@ describe('@fabric/http server resource state/auth/ws wiring', function () {
       await server.stop();
     }
   });
+
+  it('blocks unauthorized websocket writes to protected resources', async function () {
+    const port = await ephemeralPort();
+    const seed = 'test-seed-for-ws-write-auth';
+    const server = new HTTPServer({
+      port,
+      host: '127.0.0.1',
+      interface: '127.0.0.1',
+      hostname: '127.0.0.1',
+      listen: true,
+      seed,
+      accessLog: path.join(os.tmpdir(), `fabric-http-ws-write-auth-${port}.log`),
+      security: {
+        resourceWriteAuthRequired: true
+      },
+      resources: {
+        Note: {
+          components: { list: 'note-list', view: 'note-view' }
+        }
+      }
+    });
+
+    await server.start();
+    try {
+      const token = auth.buildBearerToken(seed, { sub: 'ws-writer', role: 'writer' });
+      const unauthorized = new WebSocket(`ws://127.0.0.1:${port}/notes`);
+
+      await new Promise((resolve, reject) => {
+        unauthorized.once('open', resolve);
+        unauthorized.once('error', reject);
+      });
+
+      const unauthPost = Message.fromVector(['POST', {
+        path: '/notes',
+        value: { text: 'blocked' }
+      }]);
+      unauthorized.send(unauthPost.toBuffer());
+      await new Promise((resolve) => setTimeout(resolve, 220));
+
+      const afterUnauth = await httpRequest({
+        port,
+        method: 'GET',
+        path: '/notes',
+        headers: { Accept: 'application/json' }
+      });
+      const bodyUnauth = JSON.parse(afterUnauth.body || '{}');
+      assert.strictEqual(Object.keys(bodyUnauth).length, 0, 'unauthorized websocket write must not persist');
+
+      const allowedViaHttp = await httpRequest({
+        port,
+        method: 'POST',
+        path: '/notes',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ text: 'allowed' })
+      });
+      assert.strictEqual(allowedViaHttp.statusCode, 303);
+
+      const afterAuth = await httpRequest({
+        port,
+        method: 'GET',
+        path: '/notes',
+        headers: { Accept: 'application/json' }
+      });
+      const bodyAuth = JSON.parse(afterAuth.body || '{}');
+      assert.ok(Object.keys(bodyAuth).length >= 1, 'authorized write should persist');
+
+      unauthorized.close();
+    } finally {
+      await server.stop();
+    }
+  });
 });
