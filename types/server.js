@@ -448,6 +448,31 @@ class FabricHTTPServer extends Service {
     return changed.startsWith(`${sub}/`);
   }
 
+  _subscriptionNeedsAuth (subscriptionPath) {
+    const normalized = this._normalizeCollectionPath(subscriptionPath);
+    if (normalized === '/') return false;
+    const match = this._matchResourceRoute(normalized);
+    if (!match || !match.resource) return false;
+    const resource = this.resources.get(match.resource);
+    if (!resource || typeof resource.requiresAuth !== 'function') return false;
+    return resource.requiresAuth('GET') || resource.requiresAuth('HEAD') ||
+      resource.requiresAuth('SEARCH') || resource.requiresAuth('META');
+  }
+
+  _isSubscriptionAllowed (subscriptionPath, transportAuthorized) {
+    if (!this._subscriptionNeedsAuth(subscriptionPath)) return true;
+    return transportAuthorized === true;
+  }
+
+  _filterAllowedSubscriptions (paths, transportAuthorized) {
+    const out = [];
+    for (let i = 0; i < paths.length; i++) {
+      const sub = this._normalizeCollectionPath(paths[i]);
+      if (this._isSubscriptionAllowed(sub, transportAuthorized)) out.push(sub);
+    }
+    return out;
+  }
+
   async _syncResourceToLocalStore (resourceName) {
     const meta = this.resourceRouteIndex.get(resourceName);
     const store = this.stores[resourceName];
@@ -937,9 +962,15 @@ class FabricHTTPServer extends Service {
       entropy: buffer.toString('hex')
     });
 
+    const transportAuthorized = server._isJsonRpcTransportAuthorized(request);
+    socket._fabricTransportAuthorized = transportAuthorized;
+
     // Initialize socket subscriptions
     socket.subscriptions = new Set();
-    const autoSubscriptions = server._deriveWebSocketAutoSubscriptions(request.url);
+    const autoSubscriptions = server._filterAllowedSubscriptions(
+      server._deriveWebSocketAutoSubscriptions(request.url),
+      transportAuthorized
+    );
     for (let i = 0; i < autoSubscriptions.length; i++) {
       socket.subscriptions.add(autoSubscriptions[i]);
     }
@@ -971,7 +1002,7 @@ class FabricHTTPServer extends Service {
     // is enabled and `requireAuth` is on. Otherwise leave JSONCall behavior unchanged for
     // servers that use WebSocket calls without registering POST `/services/rpc`.
     socket._fabricJsonRpcTransportAuthorized = (jsonRpcCfg.enabled === true && jsonRpcCfg.requireAuth === true)
-      ? this._isJsonRpcTransportAuthorized(request)
+      ? transportAuthorized
       : true;
 
     // Clean up memory when the connection has been safely closed (ideal case).
@@ -1236,7 +1267,14 @@ class FabricHTTPServer extends Service {
           case 'SUBSCRIBE':
             {
               const subscribePath = message['@data'];
-              socket.subscriptions.add(server._normalizeCollectionPath(subscribePath));
+              const normalizedPath = server._normalizeCollectionPath(subscribePath);
+              if (!server._isSubscriptionAllowed(normalizedPath, socket._fabricTransportAuthorized === true)) {
+                if (server.settings.debug) {
+                  console.debug('[SERVER]', 'Denied subscription (auth required):', handle, 'path:', normalizedPath);
+                }
+                break;
+              }
+              socket.subscriptions.add(normalizedPath);
               if (server.settings.debug) console.debug('[SERVER]', 'Added subscription:', handle, 'to path:', subscribePath);
               break;
             }
@@ -1753,6 +1791,7 @@ class FabricHTTPServer extends Service {
         return this._subscriptionMatchesPath(subscriptionPath, normalized);
       });
       if (isSubscribed) {
+        if (!this._isSubscriptionAllowed(normalized, socket._fabricTransportAuthorized === true)) return;
         try {
           this._sendTo(handle, message.toBuffer());
         } catch (error) {

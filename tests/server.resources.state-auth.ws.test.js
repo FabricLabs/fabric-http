@@ -269,4 +269,86 @@ describe('@fabric/http server resource state/auth/ws wiring', function () {
       await server.stop();
     }
   });
+
+  it('does not deliver protected resource updates to unauthorized websocket subscribers', async function () {
+    const port = await ephemeralPort();
+    const seed = 'test-seed-for-ws-read-auth';
+    const server = new HTTPServer({
+      port,
+      host: '127.0.0.1',
+      interface: '127.0.0.1',
+      hostname: '127.0.0.1',
+      listen: true,
+      seed,
+      accessLog: path.join(os.tmpdir(), `fabric-http-ws-read-auth-${port}.log`),
+      resources: {
+        Secret: {
+          auth: { read: true, write: true },
+          components: { list: 'secret-list', view: 'secret-view' }
+        }
+      }
+    });
+
+    await server.start();
+    try {
+      const token = auth.buildBearerToken(seed, { sub: 'ws-reader', role: 'reader' });
+      const unauthorizedPaths = [];
+      const authorizedPaths = [];
+
+      const unauthorizedSocket = new WebSocket(`ws://127.0.0.1:${port}/secrets`);
+      const authorizedSocket = new WebSocket(`ws://127.0.0.1:${port}/secrets`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      await Promise.all([
+        new Promise((resolve, reject) => {
+          unauthorizedSocket.once('open', resolve);
+          unauthorizedSocket.once('error', reject);
+        }),
+        new Promise((resolve, reject) => {
+          authorizedSocket.once('open', resolve);
+          authorizedSocket.once('error', reject);
+        })
+      ]);
+
+      const capture = (bucket) => (data) => {
+        try {
+          const msg = Message.fromBuffer(Buffer.isBuffer(data) ? data : Buffer.from(data));
+          const payload = JSON.parse(msg.body);
+          if (payload && typeof payload.path === 'string') bucket.push(payload.path);
+        } catch (_) {}
+      };
+      unauthorizedSocket.on('message', capture(unauthorizedPaths));
+      authorizedSocket.on('message', capture(authorizedPaths));
+
+      const created = await httpRequest({
+        port,
+        method: 'POST',
+        path: '/secrets',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ text: 'classified' })
+      });
+      assert.strictEqual(created.statusCode, 303);
+
+      await new Promise((resolve) => setTimeout(resolve, 350));
+
+      unauthorizedSocket.close();
+      authorizedSocket.close();
+
+      assert.ok(
+        authorizedPaths.some((p) => p.startsWith('/secrets/')),
+        'authorized subscriber should receive protected updates'
+      );
+      assert.ok(
+        !unauthorizedPaths.some((p) => p.startsWith('/secrets/')),
+        'unauthorized subscriber should not receive protected updates'
+      );
+    } finally {
+      await server.stop();
+    }
+  });
 });
