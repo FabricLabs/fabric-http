@@ -1,7 +1,7 @@
 # `@fabric/http` — HTTP support for Fabric applications
 ![Project Status](https://img.shields.io/badge/status-experimental-rainbow.svg?style=flat-square)
-[![Coverage Status](https://img.shields.io/codecov/c/github/FabricLabs/web.svg?style=flat-square)](https://codecov.io/gh/FabricLabs/web)
-[![GitHub contributors](https://img.shields.io/github/contributors/FabricLabs/web.svg?style=flat-square)](https://github.com/FabricLabs/web/graphs/contributors)
+[![Coverage Status](https://img.shields.io/codecov/c/github/FabricLabs/fabric-http.svg?style=flat-square)](https://codecov.io/gh/FabricLabs/fabric-http)
+[![GitHub contributors](https://img.shields.io/github/contributors/FabricLabs/fabric-http.svg?style=flat-square)](https://github.com/FabricLabs/fabric-http/graphs/contributors)
 
 **Status:** `0.1.0-RC1` — run **`npm run ci`** before release tags (tests + script build).
 
