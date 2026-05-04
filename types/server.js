@@ -54,6 +54,7 @@ const Peer = require('@fabric/core/types/peer');
 const Store = require('@fabric/core/types/store');
 
 // Internal Types
+const FabricResource = require('./resource');
 const auth = require('../middlewares/auth');
 const payments = require('../middlewares/payments');
 
@@ -316,6 +317,8 @@ class FabricHTTPServer extends Service {
     this.definitions = {};
     this.methods = {};
     this.stores = {};
+    /** @type {Map<string, FabricResource>} Resource instances keyed by name. */
+    this.resources = new Map();
     this.subscriptions = new Map(); // Track subscriptions by path
 
     // ## Fabric Agent
@@ -503,103 +506,83 @@ class FabricHTTPServer extends Service {
    * @param  {Definition} definition Configuration object for the type.
    * @return {FabricHTTPServer}            Instance of the configured server.
    */
-  async define (name, definition) {
+  /**
+   * Define a Resource on this server.  A single call wires up:
+   *   - REST HTTP routes  (GET/HEAD/POST/PUT/PATCH/DELETE/SEARCH/OPTIONS/META)
+   *   - A per-resource {@link Collection} store
+   *   - WebSocket pub/sub channels for list and item paths
+   *   - Schema-driven input validation at mutation boundaries
+   *
+   * @param {String} name          Singular PascalCase name, e.g. "Message".
+   * @param {Object} [definition]  Resource descriptor.
+   * @param {Object} [definition.properties]   JSON-Schema–style property map `{ field: { type, required, enum, default } }`.
+   * @param {Object} [definition.routes]        Override default `{ list, view }` paths.
+   * @param {Boolean} [definition.auth]         When true, all writes require `req.authenticated`.
+   * @returns {Promise<FabricHTTPServer>}
+   */
+  /**
+   * Define a Resource on this server.  A single call produces a {@link FabricResource} instance
+   * that owns its store, schema, and all HTTP verb handlers.
+   *
+   * @param {String} name          Singular PascalCase name, e.g. `"Message"`.
+   * @param {Object} [definition]  See {@link FabricResource} for full descriptor shape.
+   * @returns {Promise<FabricHTTPServer>}
+   */
+  async define (name, definition = {}) {
     if (this.settings.verbosity >= 5) console.log('[HTTP:SERVER]', 'Defining:', name, definition);
     const server = this;
 
-    // Stub out old Resource code (Maki)
-    const resource = { type: 'Resource', object: { name, definition } };
-    const plural = pluralize(name).toLowerCase();
-    const snapshot = Object.assign({
-      name: name,
-      names: { plural },
-      routes: {
-        list: `/${plural}`,
-        view: `/${plural}/:id`
-      }
-    }, resource);
+    const resource = new FabricResource(name, definition);
+    this.resources.set(name, resource);
 
-    const address = snapshot.routes.list.split('/')[1];
-    const store = new Collection({
-      name,
-      routes: snapshot.routes,
-      type: Entity,
-      data: {}
-    });
-
-    if (this.settings.verbosity >= 6) console.debug('[HTTP:SERVER]', 'Collection as store:', store);
-    if (this.settings.verbosity >= 6) console.debug('[HTTP:SERVER]', 'Snapshot:', snapshot);
-
-    this.stores[name] = store;
-    this.definitions[name] = snapshot;
-    this.collections.push(snapshot.routes.list);
-    this.keys.add(snapshot.routes.list);
+    // Back-compat: keep definitions/stores/collections in sync for existing code paths.
+    this.stores[name] = resource.store;
+    this.definitions[name] = resource;       // FabricResource IS the definition
+    this.collections.push(resource.routes.list);
+    this.keys.add(resource.routes.list);
     this.resourceRouteIndex.set(name, {
-      list: snapshot.routes.list,
-      view: snapshot.routes.view,
-      address
+      list: resource.routes.list,
+      view: resource.routes.view,
+      address: resource.routes.list.split('/')[1]
     });
 
-    this.stores[name].on('error', async (error) => {
-      console.error('[HTTP:SERVER]', '[ERROR]', error);
-    });
+    resource.store.on('error', (error) => console.error('[HTTP:SERVER]', '[ERROR]', error));
+    resource.store.on('warning', (warning) => console.warn('[HTTP:SERVER]', '[WARN]', warning));
 
-    this.stores[name].on('warning', async (warning) => {
-      console.warn('[HTTP:SERVER]', 'Warning:', warning);
-    });
-
-    this.stores[name].on('message', async (message) => {
-      let entity = null;
+    resource.store.on('message', async (message) => {
       switch (message['@type']) {
-        case 'Create':
-          entity = new Entity({
-            '@type': name,
-            '@data': message['@data']
-          });
-
-          console.log('[HTTP:SERVER]', `Resource "${name}" created:`, entity.data);
+        case 'Create': {
+          const entity = new Entity({ '@type': name, '@data': message['@data'] });
+          if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', `[${name}] created:`, entity.data);
           server.emit('message', entity.data);
           await server._syncResourceToLocalStore(name);
+          server._notifySubscribers(resource.routes.list, entity.data);
           break;
+        }
         case 'Transaction':
           await server._applyChanges(message['@data'].changes);
           await server._syncResourceToLocalStore(name);
           break;
         default:
-          console.warn('[HTTP:SERVER]', 'Unhandled message type:', message['@type']);
-          break;
+          if (this.settings.verbosity >= 6) console.warn('[HTTP:SERVER]', `[${name}] unhandled message type:`, message['@type']);
       }
-
       server._broadcastStateUpdate();
     });
 
-    this.stores[name].on('commit', (commit) => {
-      server._broadcastStateUpdate();
-    });
+    resource.store.on('commit', () => server._broadcastStateUpdate());
 
-    this.routes.push({
-      path: snapshot.routes.view,
-      route: pathToRegexp(snapshot.routes.view),
-      resource: name
-    });
+    // Register list and view paths in the route-match table.
+    this.routes.push({ path: resource.routes.view, route: pathToRegexp(resource.routes.view), resource: name, isView: true });
+    this.routes.push({ path: resource.routes.list, route: pathToRegexp(resource.routes.list), resource: name, isView: false });
 
-    this.routes.push({
-      path: snapshot.routes.list,
-      route: pathToRegexp(snapshot.routes.list),
-      resource: name
-    });
-
-    // Also define on app
+    // Mirror to SPA router; seed local store.
     await this.app.define(name, definition);
-
-    // TODO: document pathing
+    const address = resource.routes.list.split('/')[1];
     this._state.content[address] = {};
-    if (this.app && this.app._state) {
-      this.app._state[address] = {};
-    }
-    await this.localStore._PUT(snapshot.routes.list, {});
+    if (this.app && this.app._state) this.app._state[address] = {};
+    await this.localStore._PUT(resource.routes.list, {});
 
-    // if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Routes:', this.routes);
+    if (this.settings.verbosity >= 3) console.log('[HTTP:SERVER]', `Resource "${name}" → ${resource.routes.list}  ${resource.routes.view}`);
     return this;
   }
 
@@ -1787,60 +1770,58 @@ class FabricHTTPServer extends Service {
     if (this.settings.debug) this.debug('Resource mounted:', resource);
 
     const method = String(req.method || '').toUpperCase();
-    const mutating = (method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE');
-    if (resource && mutating && this.settings.security && this.settings.security.resourceWriteAuthRequired === true && req.authenticated !== true) {
-      return res.status(401).json({
-        status: 'error',
-        message: 'Unauthorized: bearer token required for resource write actions'
-      });
+    const fabricResource = resource ? this.resources.get(resource) : null;
+
+    // ── Auth gate ──────────────────────────────────────────────────────────
+    // Two independent sources can require auth:
+    //   1. Per-resource `auth` flag on the FabricResource definition.
+    //   2. Global `settings.security.resourceWriteAuthRequired` (applies to all mutating verbs).
+    const globalWriteAuth = this.settings.security && this.settings.security.resourceWriteAuthRequired === true;
+    const mutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+    const needsAuth = (fabricResource && fabricResource.requiresAuth(method)) || (globalWriteAuth && mutating);
+    if (needsAuth && req.authenticated !== true) {
+      return res.status(401).json({ status: 'error', message: 'Unauthorized: bearer token required' });
     }
 
+    // ── Resource delegation ────────────────────────────────────────────────
+    // When a FabricResource owns this path, delegate entirely to its verb handler.
+    if (fabricResource && typeof fabricResource[method] === 'function') {
+      return fabricResource[method](req, res, server);
+    }
+
+    // ── Legacy fallback for paths without a defined Resource ───────────────
     switch (method) {
-      // Discard unhandled methods
       default:
         return next();
-      case 'HEAD':
-        let existing = await server._GET(req.path);
-        if (!existing) return res.status(404).end();
-        break;
+      case 'HEAD': {
+        const existing = await server._GET(req.path);
+        return res.status(existing ? 200 : 404).end();
+      }
       case 'GET':
-        if (resource) {
-          try {
-            result = await server.stores[resource].get(req.path);
-          } catch (exception) {
-            console.warn('[HTTP:SERVER]', 'Warning:', exception);
-          }
-        }
-
-        // TODO: re-optimize querying from memory (i.e., don't touch disk / restore)
-        // If a result was found, use it by breaking immediately
-        // if (result) break;
-
-        // No result found, call _GET locally
         result = await server._GET(req.path);
-        // let content = await server.stores[resource].get(req.path);
-        break;
-      case 'PUT':
-        result = await server._PUT(req.path, req.body);
         break;
       case 'POST':
         result = await server._POST(req.path, req.body);
         if (!result) return res.status(500).end();
-
-        // POST requests return a 303 header with a pointer to the object
         return res.redirect(303, result);
+      case 'PUT':
+        result = await server._PUT(req.path, req.body);
+        break;
       case 'PATCH':
-        let patch = await server._PATCH(req.path, req.body);
-        result = patch;
+        result = await server._PATCH(req.path, req.body);
         break;
       case 'DELETE':
         await server._DELETE(req.path);
         return res.sendStatus(204);
       case 'OPTIONS':
-        return res.send({
-          '@type': 'Error',
-          '@data': 'Not yet supported.'
-        });
+        return res.json({ '@type': 'ServiceDescription', methods: res.getHeader('Allow') || 'GET, HEAD, PUT, POST, PATCH, DELETE, SEARCH, OPTIONS, META' });
+      case 'SEARCH':
+        result = await server._GET(req.path);
+        break;
+      case 'META':
+        result = await server._GET(req.path);
+        if (!result) return res.status(404).end();
+        return res.json({ '@type': 'Resource', '@path': req.path });
     }
 
     // If no result found, return 404
@@ -2137,7 +2118,12 @@ class FabricHTTPServer extends Service {
         case 'delete':
         case 'search':
         case 'options':
+        case 'head':
           this.express[method](path, route.handler);
+          break;
+        case 'meta':
+          // META is a Fabric-native introspection verb; serve via GET so standard HTTP clients work.
+          this.express.get(path, route.handler);
           break;
         default:
           console.warn('[HTTP:SERVER]', 'Skipping route with unsupported method:', method);
@@ -2153,11 +2139,13 @@ class FabricHTTPServer extends Service {
 
     // Attach the internal router (optional SPA shell before resource router)
     this.express.get('/*', this._maybeServeSpaShell.bind(this), this._handleRoutableRequest.bind(this));
+    this.express.head('/*', this._handleRoutableRequest.bind(this));
     this.express.put('/*', this._handleRoutableRequest.bind(this));
     this.express.post('/*', this._handleRoutableRequest.bind(this));
     this.express.patch('/*', this._handleRoutableRequest.bind(this));
     this.express.delete('/*', this._handleRoutableRequest.bind(this));
     this.express.options('/*', this._handleRoutableRequest.bind(this));
+    this.express.search('/*', this._handleRoutableRequest.bind(this));
 
     const servicesTestPrize = (req, res) => res.send({ message: 'I am the prize!' });
     const pay = this.settings.payments || {};
