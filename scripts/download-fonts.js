@@ -8,9 +8,17 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
-const root = process.env.FABRIC_HTTP
-  ? path.resolve(process.env.FABRIC_HTTP)
-  : path.join(__dirname, '..');
+function safeRootFromEnv () {
+  const raw = process.env.FABRIC_HTTP;
+  if (!raw) return path.join(__dirname, '..');
+  const resolved = path.resolve(String(raw));
+  if (!path.isAbsolute(resolved)) {
+    throw new Error('FABRIC_HTTP must resolve to an absolute path');
+  }
+  return resolved;
+}
+
+const root = safeRootFromEnv();
 const fontDir = path.join(
   root, 'libraries', 'fomantic', 'src', 'themes', 'fabric', 'assets', 'fonts'
 );
@@ -25,12 +33,17 @@ const ARVO_WOFF2 = [
 
 function downloadFile (url, filepath) {
   return new Promise((resolve, reject) => {
+    const parsed = new URL(String(url));
+    if (parsed.protocol !== 'https:' || parsed.hostname !== 'fonts.gstatic.com') {
+      reject(new Error(`Refusing non-whitelisted font URL: ${parsed.href}`));
+      return;
+    }
     const file = fs.createWriteStream(filepath);
-    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0' } }, (response) => {
+    https.get(parsed, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0' } }, (response) => {
       if (response.statusCode !== 200) {
         file.close();
         fs.unlink(filepath, () => {});
-        reject(new Error(`HTTP ${response.statusCode} for ${url}`));
+        reject(new Error(`HTTP ${response.statusCode} for ${parsed.href}`));
         return;
       }
       response.pipe(file);

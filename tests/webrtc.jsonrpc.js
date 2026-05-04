@@ -4,6 +4,7 @@ const assert = require('assert');
 const net = require('net');
 const HTTPServer = require('../types/server');
 const { httpRequest } = require('./helpers/httpRequest');
+const { buildBearerToken } = require('../middlewares/auth');
 
 function ephemeralPort () {
   return new Promise((resolve, reject) => {
@@ -28,7 +29,8 @@ describe('HTTPServer — WebRTC peer registry (JSON-RPC)', function () {
       interface: '127.0.0.1',
       hostname: '127.0.0.1',
       listen: true,
-      jsonRpc: { enabled: true, paths: ['/services/rpc'], requireAuth: false }
+      jsonRpc: { enabled: true, paths: ['/services/rpc'], requireAuth: false },
+      webrtc: { requireTransportAuth: false }
     });
     await server.start();
     try {
@@ -91,6 +93,47 @@ describe('HTTPServer — WebRTC peer registry (JSON-RPC)', function () {
       r = await post('UnregisterWebRTCPeer', [{ id: 'p1', secret: rotatedSecret }]);
       b = JSON.parse(r.body);
       assert.strictEqual(b.result.total, 0);
+    } finally {
+      await server.stop().catch(() => {});
+    }
+  });
+
+  it('requires transport auth for WebRTC registry methods by default', async function () {
+    const port = await ephemeralPort();
+    const secret = 'webrtc-auth-secret';
+    const bearer = buildBearerToken(secret, { role: 'test' });
+    const server = new HTTPServer({
+      port,
+      host: '127.0.0.1',
+      interface: '127.0.0.1',
+      hostname: '127.0.0.1',
+      seed: secret,
+      listen: true,
+      jsonRpc: { enabled: true, paths: ['/services/rpc'], requireAuth: false }
+    });
+    await server.start();
+    try {
+      const post = (method, params, headers = {}) =>
+        httpRequest({
+          port,
+          method: 'POST',
+          path: '/services/rpc',
+          headers: Object.assign({ 'Content-Type': 'application/json' }, headers),
+          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+        });
+
+      let r = await post('RegisterWebRTCPeer', [{ id: 'p1', label: 'blocked' }]);
+      let b = JSON.parse(r.body);
+      assert.strictEqual(r.statusCode, 500);
+      assert.ok(b.error && /requires transport auth/i.test(b.error.message));
+
+      r = await post('RegisterWebRTCPeer', [{ id: 'p1', label: 'ok' }], {
+        Authorization: `Bearer ${bearer}`
+      });
+      b = JSON.parse(r.body);
+      assert.strictEqual(r.statusCode, 200);
+      assert.strictEqual(b.result.id, 'p1');
+      assert.ok(typeof b.result.secret === 'string' && b.result.secret.length > 0);
     } finally {
       await server.stop().catch(() => {});
     }

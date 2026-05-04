@@ -23,6 +23,19 @@ const fomanticGulpfile = path.join(fomanticDir, 'gulpfile.js');
 const shippedSemantic = path.join(root, 'assets', 'semantic.min.css');
 const fomanticPkg = path.join(root, 'node_modules', 'fomantic-ui');
 
+function safeJoin (base, ...segments) {
+  const normalizedSegments = [];
+  for (let i = 0; i < segments.length; i++) {
+    const raw = String(segments[i]);
+    if (raw.includes('\0')) throw new Error('safeJoin: null byte in path segment');
+    if (path.isAbsolute(raw)) throw new Error('safeJoin: absolute segments are not allowed');
+    const parts = raw.split(/[\\/]+/);
+    if (parts.includes('..')) throw new Error('safeJoin: path traversal segment is not allowed');
+    normalizedSegments.push(raw);
+  }
+  return path.join(base, ...normalizedSegments);
+}
+
 /**
  * Gulp is required for `libraries/fomantic`’s Gulpfile. It may live in this package’s `node_modules`,
  * under `fomantic-ui`’s tree, or be hoisted to a parent (e.g. `hub/node_modules` when @fabric/http is linked).
@@ -36,7 +49,7 @@ function findGulpBin (startRoot) {
   let dir = startRoot;
   for (let depth = 0; depth < 5; depth++) {
     for (const segs of relative) {
-      const candidate = path.join(dir, ...segs);
+      const candidate = safeJoin(dir, ...segs);
       if (fs.existsSync(candidate)) return candidate;
     }
     const parent = path.dirname(dir);
@@ -45,7 +58,7 @@ function findGulpBin (startRoot) {
   }
   try {
     const pkg = require.resolve('gulp/package.json', { paths: [startRoot, fomanticPkg] });
-    const p = path.join(path.dirname(pkg), 'bin', 'gulp.js');
+    const p = safeJoin(path.dirname(pkg), 'bin', 'gulp.js');
     if (fs.existsSync(p)) return p;
   } catch (_) { /* not installed */ }
   return null;
@@ -107,8 +120,8 @@ function pruneOrphanDistThemes () {
   if (!fs.existsSync(distThemes) || !fs.existsSync(srcThemes)) return;
   for (const ent of fs.readdirSync(distThemes, { withFileTypes: true })) {
     if (!ent.isDirectory()) continue;
-    if (!fs.existsSync(path.join(srcThemes, ent.name))) {
-      fs.rmSync(path.join(distThemes, ent.name), { recursive: true, force: true });
+    if (!fs.existsSync(safeJoin(srcThemes, ent.name))) {
+      fs.rmSync(safeJoin(distThemes, ent.name), { recursive: true, force: true });
     }
   }
 }
@@ -138,7 +151,7 @@ const assetsThemes = path.join(root, 'assets', 'themes');
 function copyPattern (pattern, destDir) {
   const names = fs.readdirSync(dist).filter((n) => pattern.test(n));
   for (const n of names) {
-    fs.copyFileSync(path.join(dist, n), path.join(destDir, n));
+    fs.copyFileSync(safeJoin(dist, n), safeJoin(destDir, n));
   }
 }
 

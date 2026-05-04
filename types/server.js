@@ -299,10 +299,10 @@ class FabricHTTPServer extends Service {
         labelMaxLen: 256,
         metaMaxJsonBytes: 16384,
         /**
-         * When true, WebSocket `JSONCall` for WebRTC registry methods requires the same transport
-         * authorization as POST JSON-RPC (`_isJsonRpcTransportAuthorized`), even if `jsonRpc.requireAuth` is off.
+         * When true, WebRTC registry RPC methods require a transport-authenticated call context
+         * (`_isJsonRpcTransportAuthorized`) regardless of whether JSON-RPC auth is globally required.
          */
-        requireTransportAuth: false
+        requireTransportAuth: true
       },
       security: {
         resourceWriteAuthRequired: false
@@ -893,17 +893,30 @@ class FabricHTTPServer extends Service {
     return { ok: true, peers: Array.from(this.webrtcPeers.values()) };
   }
 
+  _isWebRtcRegistryMethod (methodName) {
+    return methodName === 'RegisterWebRTCPeer' ||
+      methodName === 'UnregisterWebRTCPeer' ||
+      methodName === 'ListWebRTCPeers';
+  }
+
   _handleAppMessage (msg) {
     console.trace('[HTTP:SERVER]', 'Internal app emitted message:', msg);
   }
 
   _handleCall (call) {
     if (!call || !call.method) throw new Error('Call requires "method" parameter.');
+    const methodName = String(call.method);
+    const webrtcCfg = this.settings.webrtc || {};
+    if (webrtcCfg.requireTransportAuth === true && this._isWebRtcRegistryMethod(methodName)) {
+      if (call._fabricTransportAuthorized !== true) {
+        throw new Error('Unauthorized: WebRTC registry call requires transport auth');
+      }
+    }
     let params = call.params;
     if (params === undefined || params === null) params = [];
     if (!Array.isArray(params)) params = [params];
-    if (!this.methods[call.method]) throw new Error(`Method "${call.method}" has not been registered.`);
-    return this.methods[call.method].apply(this, params);
+    if (!this.methods[methodName]) throw new Error(`Method "${methodName}" has not been registered.`);
+    return this.methods[methodName].apply(this, params);
   }
 
   /**
@@ -1090,12 +1103,12 @@ class FabricHTTPServer extends Service {
                 break;
               }
 
-              const webrtcRpcMethods = new Set(['RegisterWebRTCPeer', 'UnregisterWebRTCPeer', 'ListWebRTCPeers']);
+              const transportAuthorized = server._isJsonRpcTransportAuthorized(request);
               const wrtcCfg = server.settings.webrtc || {};
               if (
-                webrtcRpcMethods.has(jsonCallPayload.method) &&
+                server._isWebRtcRegistryMethod(jsonCallPayload.method) &&
                 wrtcCfg.requireTransportAuth === true &&
-                !server._isJsonRpcTransportAuthorized(request)
+                !transportAuthorized
               ) {
                 const errBody = JSON.stringify({
                   method: 'JSONCallResult',
@@ -1115,7 +1128,8 @@ class FabricHTTPServer extends Service {
               const result = await server._handleCall({
                 hash: hash,
                 method: jsonCallPayload.method,
-                params: jsonCallPayload.params
+                params: jsonCallPayload.params,
+                _fabricTransportAuthorized: transportAuthorized
               });
 
               if (server.settings.debug) {
@@ -1182,10 +1196,22 @@ class FabricHTTPServer extends Service {
               } catch (exception) {}
 
               if (msgData) {
-                server.emit('call', msgData.data || {
+                const transportAuthorized = server._isJsonRpcTransportAuthorized(request);
+                const baseCall = msgData.data || {
                   method: 'GenericMessage',
                   params: [msgData.data]
-                });
+                };
+                if (baseCall && typeof baseCall === 'object') {
+                  server.emit('call', Object.assign({}, baseCall, {
+                    _fabricTransportAuthorized: transportAuthorized
+                  }));
+                } else {
+                  server.emit('call', {
+                    method: 'GenericMessage',
+                    params: [baseCall],
+                    _fabricTransportAuthorized: transportAuthorized
+                  });
+                }
 
                 await server.handleFabricMessage(message);
               }
@@ -1199,9 +1225,11 @@ class FabricHTTPServer extends Service {
             }
           case 'Call':
             {
+              const transportAuthorized = server._isJsonRpcTransportAuthorized(request);
               server.emit('call', {
                 method: message['@data'].data.method,
-                params: message['@data'].data.params
+                params: message['@data'].data.params,
+                _fabricTransportAuthorized: transportAuthorized
               });
               break;
             }
@@ -1539,7 +1567,11 @@ class FabricHTTPServer extends Service {
 
         let result = null;
         try {
-          result = await this._handleCall({ method, params });
+          result = await this._handleCall({
+            method,
+            params,
+            _fabricTransportAuthorized: this._isJsonRpcTransportAuthorized(req)
+          });
         } catch (callErr) {
           if ((this.settings.verbosity || 0) >= 3) console.error('[HTTP:SERVER] RPC call error:', callErr);
           res.status(500).json({
@@ -1792,8 +1824,38 @@ class FabricHTTPServer extends Service {
 
     // ── Resource delegation ────────────────────────────────────────────────
     // When a FabricResource owns this path, delegate entirely to its verb handler.
-    if (fabricResource && typeof fabricResource[method] === 'function') {
-      return fabricResource[method](req, res, server);
+    if (fabricResource) {
+      switch (method) {
+        case 'GET':
+          if (typeof fabricResource.GET === 'function') return fabricResource.GET(req, res, server);
+          break;
+        case 'HEAD':
+          if (typeof fabricResource.HEAD === 'function') return fabricResource.HEAD(req, res, server);
+          break;
+        case 'POST':
+          if (typeof fabricResource.POST === 'function') return fabricResource.POST(req, res, server);
+          break;
+        case 'PUT':
+          if (typeof fabricResource.PUT === 'function') return fabricResource.PUT(req, res, server);
+          break;
+        case 'PATCH':
+          if (typeof fabricResource.PATCH === 'function') return fabricResource.PATCH(req, res, server);
+          break;
+        case 'DELETE':
+          if (typeof fabricResource.DELETE === 'function') return fabricResource.DELETE(req, res, server);
+          break;
+        case 'SEARCH':
+          if (typeof fabricResource.SEARCH === 'function') return fabricResource.SEARCH(req, res, server);
+          break;
+        case 'OPTIONS':
+          if (typeof fabricResource.OPTIONS === 'function') return fabricResource.OPTIONS(req, res, server);
+          break;
+        case 'META':
+          if (typeof fabricResource.META === 'function') return fabricResource.META(req, res, server);
+          break;
+        default:
+          break;
+      }
     }
 
     // ── Legacy fallback for paths without a defined Resource ───────────────
@@ -2119,14 +2181,28 @@ class FabricHTTPServer extends Service {
       const method = route.method.toLowerCase();
       switch (method) {
         case 'get':
+          this.express.get(path, route.handler);
+          break;
         case 'put':
+          this.express.put(path, route.handler);
+          break;
         case 'post':
+          this.express.post(path, route.handler);
+          break;
         case 'patch':
+          this.express.patch(path, route.handler);
+          break;
         case 'delete':
+          this.express.delete(path, route.handler);
+          break;
         case 'search':
+          this.express.search(path, route.handler);
+          break;
         case 'options':
+          this.express.options(path, route.handler);
+          break;
         case 'head':
-          this.express[method](path, route.handler);
+          this.express.head(path, route.handler);
           break;
         case 'meta':
           // META is a Fabric-native introspection verb; serve via GET so standard HTTP clients work.

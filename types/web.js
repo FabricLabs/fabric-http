@@ -27,10 +27,15 @@ function resolveAppAssetsDir (moduleDirname, opts) {
   const o = opts || {};
   const ev = o.envVar != null ? String(o.envVar) : 'FABRIC_APP_ROOT';
   const sub = o.subdir != null ? String(o.subdir) : 'assets';
-  if (process.env[ev]) {
-    return path.join(String(process.env[ev]), sub);
+  const normalizedSub = sub.replace(/\\/g, '/');
+  if (!normalizedSub || normalizedSub.includes('..') || normalizedSub.startsWith('/')) {
+    throw new Error('resolveAppAssetsDir: subdir must be a relative safe path segment');
   }
-  return path.join(path.resolve(moduleDirname), '..', sub);
+  if (process.env[ev]) {
+    const base = path.resolve(String(process.env[ev]));
+    return path.join(base, normalizedSub);
+  }
+  return path.join(path.resolve(moduleDirname), '..', normalizedSub);
 }
 
 module.exports = {
