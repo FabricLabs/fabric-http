@@ -30,7 +30,7 @@
   font-size: 1rem;
   text-align: center;
   color: rgba(0, 0, 0, 0.87);
-  border-radius: 0 0 0 0;
+  border-radius: 0 0 0.28571429rem 0.28571429rem;
   -webkit-transition: 0.2s background ease;
   transition: 0.2s background ease;
 }
@@ -55,7 +55,7 @@ a.ui.nag {
   transition: opacity 0.2s ease;
 }
 .ui.nag:not(.overlay):not(.fixed) {
-  border-radius: 0;
+  border-radius: 0.28571429rem;
 }
 
 
@@ -104,7 +104,7 @@ a.ui.nag {
 
 .ui.bottom.nags,
 .ui.bottom.nag {
-  border-radius: 0 0 0 0;
+  border-radius: 0.28571429rem 0.28571429rem 0 0;
   top: auto;
   bottom: 0;
 }
@@ -167,7 +167,7 @@ a.ui.nag {
 -------------- */
 
 .ui.primary.nag {
-  background-color: #2185D0;
+  background-color: #336699;
 }
 .ui.inverted.primary.nag {
   background-color: #54C8FF;
@@ -275,16 +275,16 @@ a.ui.nag {
   border-radius: 0;
 }
 .ui.nags:not(.bottom) .nag:last-child {
-  border-radius: 0 0 0 0;
+  border-radius: 0 0 0.28571429rem 0.28571429rem;
 }
 .ui.bottom.nags .nag:first-child {
-  border-radius: 0 0 0 0;
+  border-radius: 0.28571429rem 0.28571429rem 0 0;
 }
 .ui.nags:not(.fixed):not(.overlay) .nag:first-child {
-  border-radius: 0 0 0 0;
+  border-radius: 0.28571429rem 0.28571429rem 0 0;
 }
 .ui.nags:not(.fixed):not(.overlay) .nag:only-child {
-  border-radius: 0;
+  border-radius: 0.28571429rem;
 }
 
 

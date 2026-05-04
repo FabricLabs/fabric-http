@@ -1,0 +1,4 @@
+---
+exclude_paths:
+  - "scripts/build-semantic.js"
+  - "scripts/download-fonts.js"

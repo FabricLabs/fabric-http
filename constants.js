@@ -30,7 +30,12 @@ const WEBSOCKET_KEEPALIVE = 600000; // 10 minutes
 // browser / dom
 const BROWSER_TARGET = '#browser-content';
 
-// exports
+// Local dev: `scripts/sample-hub-http-server.js` (not a Fabric `HTTPServer` product type — tooling only).
+// Hub and scripts probe `OPTIONS /` to avoid port clashes with a real @fabric/hub.
+const SAMPLE_HUB_HTTP_SERVER_NAME = 'fabric-http-hub-local-stub';
+const DEFAULT_SAMPLE_HUB_HTTP_PORT = 8099;
+
+// exports (literals only — no functions; see FabricHTTPServer statics in `types/server.js`.)
 module.exports = {
   TICK_INTERVAL,
   SESSION_SEED,
@@ -46,5 +51,7 @@ module.exports = {
   WEBSOCKET_KEEPALIVE,
   BROWSER_TARGET,
   P2P_SESSION_ACK,
-  PREFERRED_CONTENT_TYPE
+  PREFERRED_CONTENT_TYPE,
+  SAMPLE_HUB_HTTP_SERVER_NAME,
+  DEFAULT_SAMPLE_HUB_HTTP_PORT
 };

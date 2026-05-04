@@ -1,23 +1,52 @@
 'use strict';
 
+const { sendPaymentRequired402Response } = require('../functions/sendPaymentRequired402Response');
+
 /**
- * Demo 402 handler for routes that explicitly mount this middleware.
- * Must be bound to the HTTPServer instance (e.g. `payments.bind(server)`).
+ * @param {Record<string, unknown> | null | undefined} p `settings.payments` (or equivalent)
+ * @returns {boolean} Whether payments are enabled in settings.
  */
-module.exports = function paymentsMiddleware (req, res, next) {
-  console.debug('Payments middleware invoked:', req.method, req.path, req.id);
-  if (!this.bitcoin || typeof this.bitcoin.createInvoice !== 'function') {
-    return res.status(503).json({ error: 'Payment service unavailable' });
+function isPaymentsEnabled (p) {
+  if (!p || typeof p !== 'object') return false;
+  return p.enabled === true || p.enabled === 1 || p.enabled === '1';
+}
+
+/**
+ * HTTP 402 Payment Required handler for routes that mount this middleware.
+ * Must be bound to the HTTPServer instance (`payments.bind(server)`).
+ *
+ * When `invoice` resolves, sets **`X-Fabric-Payment-Request`** (value = **base64url( UTF-8 JSON )** with Fabric document-offer + invoice summary)
+ * for browser extension auto-pay. Decode: `Buffer.from(header, 'base64url').toString('utf8')` → `JSON.parse`. Optional **`settings.payments.lightningL402`**: emit **`WWW-Authenticate: L402`**
+ * when a BOLT11 string is present on the invoice.
+ *
+ * Enable with `settings.payments.enabled === true` and a Bitcoin-capable
+ * `server` (`_registerBitcoin` / `this.bitcoin.createInvoice`).
+ *
+ * @param {import('http').IncomingMessage} req
+ * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
+ */
+function paymentsMiddleware (req, res, next) {
+  const p = (this && this.settings && this.settings.payments) || {};
+  if (!isPaymentsEnabled(p)) {
+    return next();
   }
-  this.bitcoin.createInvoice({ amount: 0.01, description: 'Test payment' }).then((invoice) => {
-    if (!this.invoices) this.invoices = {};
-    this.invoices[invoice.id] = invoice;
-    return res.status(402).json({
-      message: 'Payment required',
-      invoice: invoice
+
+  Promise.resolve(sendPaymentRequired402Response(this, req, res, {}))
+    .catch((error) => {
+      console.error('[payments] sendPaymentRequired402Response:', error);
+      if (!res.headersSent) {
+        return res.status(500).json({
+          type: 'https://fabric.pub/problems/invoice-error',
+          title: 'Internal Server Error',
+          status: 500,
+          detail: 'Could not create an invoice.'
+        });
+      }
+      return undefined;
     });
-  }).catch((error) => {
-    console.error('Error creating invoice:', error);
-    return res.status(500).json({ error: 'Internal server error' });
-  });
-};
+}
+
+module.exports = paymentsMiddleware;
+module.exports.isPaymentsEnabled = isPaymentsEnabled;
+module.exports.sendPaymentRequired402Response = sendPaymentRequired402Response;

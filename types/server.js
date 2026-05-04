@@ -38,6 +38,9 @@ const stoppable = require('stoppable');
 // Pathing
 const pathToRegexp = require('path-to-regexp').pathToRegexp;
 
+// Fabric Core constants (AMP wire)
+const { MAGIC_BYTES, HEADER_SIZE } = require('@fabric/core/constants');
+
 // Fabric Types
 const Actor = require('@fabric/core/types/actor');
 const Collection = require('@fabric/core/types/collection');
@@ -48,8 +51,10 @@ const Message = require('@fabric/core/types/message');
 const Entity = require('@fabric/core/types/entity');
 const State = require('@fabric/core/types/state');
 const Peer = require('@fabric/core/types/peer');
+const Store = require('@fabric/core/types/store');
 
 // Internal Types
+const FabricResource = require('./resource');
 const auth = require('../middlewares/auth');
 const payments = require('../middlewares/payments');
 
@@ -62,6 +67,16 @@ const SPA = require('./spa');
 
 // Dependencies
 const WebSocket = require('ws');
+
+/** First four bytes of every Fabric AMP frame on the wire (binary WebSocket payloads must match). */
+const FABRIC_AMP_MAGIC = Buffer.from(
+  MAGIC_BYTES.toString(16).padStart(8, '0'),
+  'hex'
+);
+
+function bufferStartsWithFabricAmpMagic (buf) {
+  return Buffer.isBuffer(buf) && buf.length >= 4 && buf.subarray(0, 4).equals(FABRIC_AMP_MAGIC);
+}
 
 /**
  * Resolve `relativeCandidate` under `staticRoot` and reject `..` / absolute escape attempts.
@@ -101,22 +116,77 @@ function xmlEscape (value) {
 }
 
 /**
- * Packaged Fomantic (Semantic) UI: `assets/semantic.min.css` (site root), `assets/styles`, `assets/scripts`, `assets/themes`, etc.
- * Built by `npm run build:semantic` (Fomantic **fabric** theme + Arvo; assets under `libraries/fomantic/src/themes/fabric/assets/`).
- * Resolved from the consuming app's `node_modules` so Hub/Sensemaker need not copy vendor files.
+ * `express.send` can label theme fonts as `application/octet-stream`. With `X-Content-Type-Options: nosniff`
+ * (set by @fabric/hub) Chromium/Electron may refuse to load @font-face resources; set explicit font MIME
+ * types for common Fomantic (Semantic) theme files under /themes/…/assets/fonts/
+ * @param {import('http').ServerResponse} res
+ * @param {string} filePath
+ */
+function fabricHttpStaticSetHeaders (res, filePath) {
+  if (!filePath) return;
+  const ext = (path.extname(String(filePath)) || '').toLowerCase();
+  if (ext === '.woff2') {
+    res.setHeader('Content-Type', 'font/woff2');
+  } else if (ext === '.woff') {
+    res.setHeader('Content-Type', 'font/woff');
+  } else if (ext === '.ttf') {
+    res.setHeader('Content-Type', 'font/ttf');
+  } else if (ext === '.eot') {
+    res.setHeader('Content-Type', 'application/vnd.ms-fontobject');
+  } else if (ext === '.otf') {
+    res.setHeader('Content-Type', 'font/otf');
+  } else if (ext === '.svg' && /[/\\]fonts[/\\]/.test(String(filePath))) {
+    res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+  }
+}
+
+/**
+ * @param {import('http').ServerResponse} res
+ * @param {string} filePath
+ * @param {((res: import('http').ServerResponse, p: string) => void) | null | undefined} [user]
+ */
+function mergeStaticSetHeaders (res, filePath, user) {
+  if (typeof user === 'function') {
+    try {
+      user(res, filePath);
+    } catch (_) { /* app hook should not take down static */ }
+  }
+  fabricHttpStaticSetHeaders(res, filePath);
+}
+
+/**
+ * This package’s `assets/` (Fomantic **Fabric** theme, etc.): the second `express.static` root after the app’s `path`.
  * @returns {string|null}
  */
-function fabricHttpVendorAssetsDir () {
+function resolveFabricHttpPackageAssetsDir () {
   try {
-    // This file is `types/server.js`; package root is its parent (no `..` / no tainted resolve).
-    const pkgRoot = path.dirname(__dirname);
-    const vendorAssets = pkgRoot + path.sep + 'assets';
-    const rel = path.relative(pkgRoot, vendorAssets);
+    const pkgRoot = path.join(__dirname, '..');
+    const out = pkgRoot + path.sep + 'assets';
+    const rel = path.relative(pkgRoot, out);
     if (rel.startsWith('..') || path.isAbsolute(rel) || rel !== 'assets') return null;
-    // Do not fs.* on vendorAssets (Codacy/Semgrep flags non-literal paths). express.static tolerates a missing dir.
-    return vendorAssets;
+    return out;
   } catch (err) {
     return null;
+  }
+}
+
+/**
+ * True when the client’s first `Accept` is `text/html` (browser navigation / refresh), for SPA HTML shell.
+ * @param {import('http').IncomingMessage} req
+ * @returns {boolean}
+ */
+function acceptFirstHtmlNavigation (req) {
+  const a = req.headers && req.headers.accept;
+  if (typeof a !== 'string') return false;
+  const first = a.split(',')[0].trim().toLowerCase().split(';')[0];
+  return first === 'text/html';
+}
+
+function parseRequestPathname (rawUrl) {
+  try {
+    return new URL(rawUrl || '/', 'http://localhost').pathname || '/';
+  } catch (_) {
+    return '/';
   }
 }
 
@@ -202,6 +272,40 @@ class FabricHTTPServer extends Service {
         includeJsonRpc: false,
         includeParameterized: false,
         urls: []
+      },
+      /**
+       * HTTP 402 Payment Required — used only when routes mount `middlewares/payments`
+       * and `enabled` is true (see `/services/test` when `exposePaymentTestRoute` is true).
+       */
+      payments: {
+        enabled: false,
+        amount: 0.01,
+        currency: 'BTC',
+        description: 'Fabric access',
+        detail: 'Complete payment to continue.',
+        /** When true with a BOLT11 on the invoice, add `WWW-Authenticate: L402 invoice="…"` (optional `macaroon`). */
+        lightningL402: false,
+        /** Full L402: base64 macaroon (optional; many deployments use header + bolt11 only first). */
+        l402MacaroonBase64: null,
+        /** Optional `{ documentId?, contentHashHex?, purchasePriceSats?, network? }` for `X-Fabric-Payment-Request`. */
+        documentOffer: null,
+        /** When true and `payments.enabled`, `GET /services/test` runs the payment wall before the demo body. */
+        exposePaymentTestRoute: true
+      },
+      /** JSON-RPC `RegisterWebRTCPeer` / `ListWebRTCPeers` / `UnregisterWebRTCPeer` limits. */
+      webrtc: {
+        maxPeers: 256,
+        idMaxLen: 128,
+        labelMaxLen: 256,
+        metaMaxJsonBytes: 16384,
+        /**
+         * When true, WebRTC registry RPC methods require a transport-authenticated call context
+         * (`_isJsonRpcTransportAuthorized`) regardless of whether JSON-RPC auth is globally required.
+         */
+        requireTransportAuth: true
+      },
+      security: {
+        resourceWriteAuthRequired: false
       }
     }, settings);
 
@@ -213,6 +317,8 @@ class FabricHTTPServer extends Service {
     this.definitions = {};
     this.methods = {};
     this.stores = {};
+    /** @type {Map<string, FabricResource>} Resource instances keyed by name. */
+    this.resources = new Map();
     this.subscriptions = new Map(); // Track subscriptions by path
 
     // ## Fabric Agent
@@ -244,6 +350,15 @@ class FabricHTTPServer extends Service {
     this.customRoutes = [];
     this.keys = new Set();
     this.accessLogStream = null;
+    this.resourceRouteIndex = new Map();
+
+    // Canonical local state store for all resources and non-resource paths.
+    this.localStore = new Store({
+      name: 'FabricHTTPServerStore',
+      path: this.settings.path || './stores/server',
+      persistent: false,
+      verbosity: this.settings.verbosity
+    });
 
     // Setup for Express application
     this.express = express();
@@ -262,11 +377,13 @@ class FabricHTTPServer extends Service {
       messages: []
     };
 
-    this.observer = monitor.observe(this.state);
+    this.observer = monitor.observe(this._state.content);
 
     // Browser WebRTC peers (native RTCPeerConnection + WebSocket signaling from Hub).
     // The legacy npm `peer` ExpressPeerServer (PeerJS) was removed; register via Hub RPC / Bridge.
     this.webrtcPeers = new Map();
+    /** @type {Map<string, string>} peer id → unregister secret (from last successful Register) */
+    this.webrtcPeerSecrets = new Map();
 
     return this;
   }
@@ -293,6 +410,100 @@ class FabricHTTPServer extends Service {
    */
   get webrtcPeerList () {
     return Array.from(this.webrtcPeers.values());
+  }
+
+  _normalizeCollectionPath (path) {
+    if (typeof path !== 'string' || !path) return '/';
+    if (path === '/') return '/';
+    return path.endsWith('/') ? path.slice(0, -1) : path;
+  }
+
+  _matchResourceRoute (requestPath) {
+    const normalized = this._normalizeCollectionPath(requestPath);
+    for (let i = 0; i < this.routes.length; i++) {
+      const route = this.routes[i];
+      if (normalized.match(route.route)) {
+        const meta = this.resourceRouteIndex.get(route.resource);
+        return { route, resource: route.resource, meta };
+      }
+    }
+    return null;
+  }
+
+  _deriveWebSocketAutoSubscriptions (rawUrl) {
+    const pathname = this._normalizeCollectionPath(parseRequestPathname(rawUrl));
+    if (pathname === '/') return ['/'];
+    const match = this._matchResourceRoute(pathname);
+    if (!match) return [pathname];
+    const paths = new Set([pathname]);
+    if (match.meta && match.meta.list) paths.add(match.meta.list);
+    return Array.from(paths);
+  }
+
+  _subscriptionMatchesPath (subscriptionPath, changePath) {
+    const sub = this._normalizeCollectionPath(subscriptionPath);
+    const changed = this._normalizeCollectionPath(changePath);
+    if (sub === '/') return true;
+    if (sub === changed) return true;
+    return changed.startsWith(`${sub}/`);
+  }
+
+  _subscriptionNeedsAuth (subscriptionPath) {
+    const normalized = this._normalizeCollectionPath(subscriptionPath);
+    if (normalized === '/') return false;
+    const match = this._matchResourceRoute(normalized);
+    if (!match || !match.resource) return false;
+    const resource = this.resources.get(match.resource);
+    if (!resource || typeof resource.requiresAuth !== 'function') return false;
+    return resource.requiresAuth('GET') || resource.requiresAuth('HEAD') ||
+      resource.requiresAuth('SEARCH') || resource.requiresAuth('META');
+  }
+
+  _isSubscriptionAllowed (subscriptionPath, transportAuthorized) {
+    if (!this._subscriptionNeedsAuth(subscriptionPath)) return true;
+    return transportAuthorized === true;
+  }
+
+  _filterAllowedSubscriptions (paths, transportAuthorized) {
+    const out = [];
+    for (let i = 0; i < paths.length; i++) {
+      const sub = this._normalizeCollectionPath(paths[i]);
+      if (this._isSubscriptionAllowed(sub, transportAuthorized)) out.push(sub);
+    }
+    return out;
+  }
+
+  _requiresAuthForResourceVerb (requestPath, verb) {
+    const normalized = this._normalizeCollectionPath(requestPath);
+    const match = this._matchResourceRoute(normalized);
+    const resource = (match && match.resource) ? this.resources.get(match.resource) : null;
+    const method = String(verb || '').toUpperCase();
+    const mutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+    const globalWriteAuth = this.settings.security && this.settings.security.resourceWriteAuthRequired === true;
+    const resourceRequires = !!(resource && typeof resource.requiresAuth === 'function' && resource.requiresAuth(method));
+    return resourceRequires || (globalWriteAuth && mutating);
+  }
+
+  _isResourceVerbAuthorized (requestPath, verb, transportAuthorized) {
+    if (!this._requiresAuthForResourceVerb(requestPath, verb)) return true;
+    return transportAuthorized === true;
+  }
+
+  async _syncResourceToLocalStore (resourceName) {
+    const meta = this.resourceRouteIndex.get(resourceName);
+    const store = this.stores[resourceName];
+    if (!meta || !store) return;
+
+    const listValue = store.map() || {};
+    await this.localStore._PUT(meta.list, listValue);
+    this._state.content[meta.address] = listValue;
+    this._notifySubscribers(meta.list, listValue);
+  }
+
+  _broadcastStateUpdate () {
+    const message = Message.fromVector(['StateUpdate', JSON.stringify(this.state)]);
+    if (this._rootKey && this._rootKey.private) message.signWithKey(this._rootKey);
+    this.broadcast(message);
   }
 
   async commit () {
@@ -322,7 +533,9 @@ class FabricHTTPServer extends Service {
       this.emit('message', message);
 
       // Broadcast to connected peers
-      this.broadcast(message);
+      const outbound = Message.fromVector(['Transaction', JSON.stringify(message['@data'])]);
+      if (this._rootKey && this._rootKey.private) outbound.signWithKey(this._rootKey);
+      this.broadcast(outbound);
     }
 
     return this;
@@ -334,94 +547,83 @@ class FabricHTTPServer extends Service {
    * @param  {Definition} definition Configuration object for the type.
    * @return {FabricHTTPServer}            Instance of the configured server.
    */
-  async define (name, definition) {
+  /**
+   * Define a Resource on this server.  A single call wires up:
+   *   - REST HTTP routes  (GET/HEAD/POST/PUT/PATCH/DELETE/SEARCH/OPTIONS/META)
+   *   - A per-resource {@link Collection} store
+   *   - WebSocket pub/sub channels for list and item paths
+   *   - Schema-driven input validation at mutation boundaries
+   *
+   * @param {String} name          Singular PascalCase name, e.g. "Message".
+   * @param {Object} [definition]  Resource descriptor.
+   * @param {Object} [definition.properties]   JSON-Schema–style property map `{ field: { type, required, enum, default } }`.
+   * @param {Object} [definition.routes]        Override default `{ list, view }` paths.
+   * @param {Boolean} [definition.auth]         When true, all writes require `req.authenticated`.
+   * @returns {Promise<FabricHTTPServer>}
+   */
+  /**
+   * Define a Resource on this server.  A single call produces a {@link FabricResource} instance
+   * that owns its store, schema, and all HTTP verb handlers.
+   *
+   * @param {String} name          Singular PascalCase name, e.g. `"Message"`.
+   * @param {Object} [definition]  See {@link FabricResource} for full descriptor shape.
+   * @returns {Promise<FabricHTTPServer>}
+   */
+  async define (name, definition = {}) {
     if (this.settings.verbosity >= 5) console.log('[HTTP:SERVER]', 'Defining:', name, definition);
     const server = this;
 
-    // Stub out old Resource code (Maki)
-    const resource = { type: 'Resource', object: { name, definition } };
-    const plural = pluralize(name).toLowerCase();
-    const snapshot = Object.assign({
-      name: name,
-      names: { plural },
-      routes: {
-        list: `/${plural}`,
-        view: `/${plural}/:id`
-      }
-    }, resource);
+    const resource = new FabricResource(name, definition);
+    this.resources.set(name, resource);
 
-    const address = snapshot.routes.list.split('/')[1];
-    const store = new Collection(snapshot);
-
-    if (this.settings.verbosity >= 6) console.debug('[HTTP:SERVER]', 'Collection as store:', store);
-    if (this.settings.verbosity >= 6) console.debug('[HTTP:SERVER]', 'Snapshot:', snapshot);
-
-    this.stores[name] = store;
-    this.definitions[name] = snapshot;
-    this.collections.push(snapshot.routes.list);
-    this.keys.add(snapshot.routes.list);
-
-    this.stores[name].on('error', async (error) => {
-      console.error('[HTTP:SERVER]', '[ERROR]', error);
+    // Back-compat: keep definitions/stores/collections in sync for existing code paths.
+    this.stores[name] = resource.store;
+    this.definitions[name] = resource;       // FabricResource IS the definition
+    this.collections.push(resource.routes.list);
+    this.keys.add(resource.routes.list);
+    this.resourceRouteIndex.set(name, {
+      list: resource.routes.list,
+      view: resource.routes.view,
+      address: resource.routes.list.split('/')[1]
     });
 
-    this.stores[name].on('warning', async (warning) => {
-      console.warn('[HTTP:SERVER]', 'Warning:', warning);
-    });
+    resource.store.on('error', (error) => console.error('[HTTP:SERVER]', '[ERROR]', error));
+    resource.store.on('warning', (warning) => console.warn('[HTTP:SERVER]', '[WARN]', warning));
 
-    this.stores[name].on('message', async (message) => {
-      let entity = null;
+    resource.store.on('message', async (message) => {
       switch (message['@type']) {
-        case 'Create':
-          entity = new Entity({
-            '@type': name,
-            '@data': message['@data']
-          });
-
-          console.log('[HTTP:SERVER]', `Resource "${name}" created:`, entity.data);
+        case 'Create': {
+          const entity = new Entity({ '@type': name, '@data': message['@data'] });
+          if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', `[${name}] created:`, entity.data);
           server.emit('message', entity.data);
+          await server._syncResourceToLocalStore(name);
+          server._notifySubscribers(resource.routes.list, entity.data);
           break;
+        }
         case 'Transaction':
           await server._applyChanges(message['@data'].changes);
+          await server._syncResourceToLocalStore(name);
           break;
         default:
-          console.warn('[HTTP:SERVER]', 'Unhandled message type:', message['@type']);
-          break;
+          if (this.settings.verbosity >= 6) console.warn('[HTTP:SERVER]', `[${name}] unhandled message type:`, message['@type']);
       }
-
-      server.broadcast({
-        '@type': 'StateUpdate',
-        '@data': server.state
-      });
+      server._broadcastStateUpdate();
     });
 
-    this.stores[name].on('commit', (commit) => {
-      server.broadcast({
-        '@type': 'StateUpdate',
-        '@data': server.state
-      });
-    });
+    resource.store.on('commit', () => server._broadcastStateUpdate());
 
-    this.routes.push({
-      path: snapshot.routes.view,
-      route: pathToRegexp(snapshot.routes.view),
-      resource: name
-    });
+    // Register list and view paths in the route-match table.
+    this.routes.push({ path: resource.routes.view, route: pathToRegexp(resource.routes.view), resource: name, isView: true });
+    this.routes.push({ path: resource.routes.list, route: pathToRegexp(resource.routes.list), resource: name, isView: false });
 
-    this.routes.push({
-      path: snapshot.routes.list,
-      route: pathToRegexp(snapshot.routes.list),
-      resource: name
-    });
-
-    // Also define on app
+    // Mirror to SPA router; seed local store.
     await this.app.define(name, definition);
+    const address = resource.routes.list.split('/')[1];
+    this._state.content[address] = {};
+    if (this.app && this.app._state) this.app._state[address] = {};
+    await this.localStore._PUT(resource.routes.list, {});
 
-    // TODO: document pathing
-    this.state[address] = {};
-    this.app.state[address] = {};
-
-    // if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Routes:', this.routes);
+    if (this.settings.verbosity >= 3) console.log('[HTTP:SERVER]', `Resource "${name}" → ${resource.routes.list}  ${resource.routes.view}`);
     return this;
   }
 
@@ -470,13 +672,9 @@ class FabricHTTPServer extends Service {
   }
 
   /**
-   * Optional WebSocket handshake gate when `settings.websocket.requireClientToken` and `clientToken` are set.
-   * Token may appear in query string (?token= / ?clientToken=), Authorization: Bearer, or Sec-WebSocket-Protocol fabric.token.*
-   * @param {Object} info `ws` handshake object; `info.req` is the Node.js HTTP {@link external:https://nodejs.org/api/http.html#class-httpincomingmessage IncomingMessage}.
-   */
-  /**
    * Same authorization inputs as HTTP POST JSON-RPC: verified bearer (`req.authenticated`),
    * raw `Bearer` on the upgrade/request, or websocket client-token channels.
+   * WebSocket handshake may also use `settings.websocket` client token (query / Bearer / Sec-WebSocket-Protocol).
    * @param {Object} req Node.js `IncomingMessage` (HTTP upgrade or Express `req`).
    * @returns {boolean}
    */
@@ -606,17 +804,160 @@ class FabricHTTPServer extends Service {
     this.methods[name] = method.bind(this);
   }
 
+  /**
+   * @returns {{ maxPeers: number, idMaxLen: number, labelMaxLen: number, metaMaxJsonBytes: number }}
+   */
+  _getWebRtcLimits () {
+    const w = this.settings.webrtc || {};
+    const maxPeers = Number(w.maxPeers);
+    const idMax = Number(w.idMaxLen);
+    const labelMax = Number(w.labelMaxLen);
+    const metaMax = Number(w.metaMaxJsonBytes);
+    return {
+      maxPeers: Number.isFinite(maxPeers) && maxPeers > 0 ? Math.min(maxPeers, 100000) : 256,
+      idMaxLen: Number.isFinite(idMax) && idMax > 0 ? Math.min(idMax, 512) : 128,
+      labelMaxLen: Number.isFinite(labelMax) && labelMax >= 0 ? Math.min(labelMax, 1024) : 256,
+      metaMaxJsonBytes: Number.isFinite(metaMax) && metaMax > 0 ? Math.min(metaMax, 1048576) : 16384
+    };
+  }
+
+  _assertWebRtcPeerId (raw, maxLen) {
+    if (raw == null || raw === '') throw new Error('RegisterWebRTCPeer: missing id (or peerId)');
+    const id = String(raw).trim();
+    if (!id || id.length > maxLen) {
+      throw new Error(`RegisterWebRTCPeer: id length 1..${maxLen} required`);
+    }
+    for (let i = 0; i < id.length; i++) {
+      const c = id.charCodeAt(i);
+      if (c < 32 || c === 127) throw new Error('RegisterWebRTCPeer: id contains control characters');
+    }
+    return id;
+  }
+
+  _assertWebRtcUnregisterId (raw, maxLen) {
+    if (raw == null || raw === '') throw new Error('UnregisterWebRTCPeer: missing id (or peerId)');
+    const id = String(raw).trim();
+    if (!id || id.length > maxLen) {
+      throw new Error(`UnregisterWebRTCPeer: id length 1..${maxLen} required`);
+    }
+    for (let i = 0; i < id.length; i++) {
+      const c = id.charCodeAt(i);
+      if (c < 32 || c === 127) throw new Error('UnregisterWebRTCPeer: id contains control characters');
+    }
+    return id;
+  }
+
+  _normalizeWebRtcLabel (raw, maxLen) {
+    if (raw == null || raw === '') return null;
+    let s = String(raw);
+    if (s.length > maxLen) s = s.slice(0, maxLen);
+    return s;
+  }
+
+  /**
+   * @param {unknown} raw
+   * @param {number} maxBytes
+   * @returns {Object|null} Clone via JSON round-trip
+   */
+  _normalizeWebRtcMeta (raw, maxBytes) {
+    if (raw == null || raw === undefined) return null;
+    if (typeof raw !== 'object' || Array.isArray(raw)) {
+      throw new Error('RegisterWebRTCPeer: meta / metadata must be a plain object or omitted');
+    }
+    const proto = Object.getPrototypeOf(raw);
+    if (proto !== null && proto !== Object.prototype) {
+      throw new Error('RegisterWebRTCPeer: meta / metadata must be a plain object or omitted');
+    }
+    const j = JSON.stringify(raw);
+    if (j.length > maxBytes) {
+      throw new Error('RegisterWebRTCPeer: meta / metadata JSON exceeds size limit');
+    }
+    return /** @type {Object} */ (JSON.parse(j));
+  }
+
+  _timingEqualUtf8 (a, b) {
+    if (a == null || b == null) return false;
+    const ab = Buffer.from(String(a), 'utf8');
+    const bb = Buffer.from(String(b), 'utf8');
+    if (ab.length !== bb.length) return false;
+    return crypto.timingSafeEqual(ab, bb);
+  }
+
+  _rpcRegisterWebRtcPeer (reg) {
+    const peer = reg && typeof reg === 'object' ? reg : {};
+    const limits = this._getWebRtcLimits();
+    const id = this._assertWebRtcPeerId(peer.id || peer.peerId, limits.idMaxLen);
+    const existingSecret = this.webrtcPeerSecrets.get(id) || null;
+    if (existingSecret) {
+      const providedSecret = peer.secret != null ? String(peer.secret).trim() : '';
+      if (!providedSecret || !this._timingEqualUtf8(providedSecret, existingSecret)) {
+        throw new Error('RegisterWebRTCPeer: id already registered; valid secret required to update');
+      }
+    }
+    if (this.webrtcPeers.size >= limits.maxPeers && !this.webrtcPeers.has(id)) {
+      throw new Error('RegisterWebRTCPeer: peer registry full');
+    }
+    const label = this._normalizeWebRtcLabel(peer.label, limits.labelMaxLen);
+    const meta = this._normalizeWebRtcMeta(
+      peer.meta !== undefined ? peer.meta : peer.metadata,
+      limits.metaMaxJsonBytes
+    );
+    const secret = crypto.randomBytes(24).toString('hex');
+    this.webrtcPeerSecrets.set(id, secret);
+    this.webrtcPeers.set(id, {
+      id,
+      label,
+      meta,
+      registeredAt: Date.now()
+    });
+    return { ok: true, id, total: this.webrtcPeers.size, secret };
+  }
+
+  _rpcUnregisterWebRtcPeer (reg) {
+    const peer = reg && typeof reg === 'object' ? reg : {};
+    const limits = this._getWebRtcLimits();
+    const id = this._assertWebRtcUnregisterId(peer.id || peer.peerId, limits.idMaxLen);
+    const secret = peer.secret != null ? String(peer.secret).trim() : '';
+    if (!secret) {
+      throw new Error('UnregisterWebRTCPeer: secret is required (value returned from RegisterWebRTCPeer)');
+    }
+    const expected = this.webrtcPeerSecrets.get(id);
+    if (!expected || !this._timingEqualUtf8(secret, expected)) {
+      throw new Error('UnregisterWebRTCPeer: invalid secret or unknown id');
+    }
+    this.webrtcPeerSecrets.delete(id);
+    const ok = this.webrtcPeers.delete(id);
+    return { ok, id, total: this.webrtcPeers.size };
+  }
+
+  _rpcListWebRtcPeers () {
+    return { ok: true, peers: Array.from(this.webrtcPeers.values()) };
+  }
+
+  _isWebRtcRegistryMethod (methodName) {
+    return methodName === 'RegisterWebRTCPeer' ||
+      methodName === 'UnregisterWebRTCPeer' ||
+      methodName === 'ListWebRTCPeers';
+  }
+
   _handleAppMessage (msg) {
     console.trace('[HTTP:SERVER]', 'Internal app emitted message:', msg);
   }
 
   _handleCall (call) {
     if (!call || !call.method) throw new Error('Call requires "method" parameter.');
+    const methodName = String(call.method);
+    const webrtcCfg = this.settings.webrtc || {};
+    if (webrtcCfg.requireTransportAuth === true && this._isWebRtcRegistryMethod(methodName)) {
+      if (call._fabricTransportAuthorized !== true) {
+        throw new Error('Unauthorized: WebRTC registry call requires transport auth');
+      }
+    }
     let params = call.params;
     if (params === undefined || params === null) params = [];
     if (!Array.isArray(params)) params = [params];
-    if (!this.methods[call.method]) throw new Error(`Method "${call.method}" has not been registered.`);
-    return this.methods[call.method].apply(this, params);
+    if (!this.methods[methodName]) throw new Error(`Method "${methodName}" has not been registered.`);
+    return this.methods[methodName].apply(this, params);
   }
 
   /**
@@ -637,8 +978,18 @@ class FabricHTTPServer extends Service {
       entropy: buffer.toString('hex')
     });
 
+    const transportAuthorized = server._isJsonRpcTransportAuthorized(request);
+    socket._fabricTransportAuthorized = transportAuthorized;
+
     // Initialize socket subscriptions
     socket.subscriptions = new Set();
+    const autoSubscriptions = server._filterAllowedSubscriptions(
+      server._deriveWebSocketAutoSubscriptions(request.url),
+      transportAuthorized
+    );
+    for (let i = 0; i < autoSubscriptions.length; i++) {
+      socket.subscriptions.add(autoSubscriptions[i]);
+    }
 
     socket._resetKeepAlive = function () {
       clearInterval(socket._heartbeat);
@@ -667,7 +1018,7 @@ class FabricHTTPServer extends Service {
     // is enabled and `requireAuth` is on. Otherwise leave JSONCall behavior unchanged for
     // servers that use WebSocket calls without registering POST `/services/rpc`.
     socket._fabricJsonRpcTransportAuthorized = (jsonRpcCfg.enabled === true && jsonRpcCfg.requireAuth === true)
-      ? this._isJsonRpcTransportAuthorized(request)
+      ? transportAuthorized
       : true;
 
     // Clean up memory when the connection has been safely closed (ideal case).
@@ -684,22 +1035,59 @@ class FabricHTTPServer extends Service {
       let type = null;
 
       try {
-        // Handle binary messages
+        // Binary WebSocket frames MUST be Fabric AMP (`Message.toBuffer()`). WS is only a carrier.
+        // JSON-shaped control messages MUST use **text** frames (UTF-8 string), not binary UTF-8 bytes.
+        let payloadBuf = null;
         if (msg instanceof Buffer) {
-          message = Message.fromBuffer(msg);
-        } else if (msg.data instanceof Buffer) {
-          message = Message.fromBuffer(msg.data);
+          payloadBuf = msg;
+        } else if (msg && msg.data instanceof Buffer) {
+          payloadBuf = msg.data;
+        }
+
+        if (payloadBuf) {
+          if (!bufferStartsWithFabricAmpMagic(payloadBuf)) {
+            if ((server.settings.verbosity || 0) >= 2) {
+              console.warn('[SERVER]', 'Ignoring WebSocket binary frame: not Fabric AMP magic.');
+            }
+            return;
+          }
+          if (payloadBuf.length < HEADER_SIZE) {
+            if ((server.settings.verbosity || 0) >= 2) {
+              console.warn('[SERVER]', 'Ignoring WebSocket binary frame: shorter than AMP header.');
+            }
+            return;
+          }
+          message = Message.fromBuffer(payloadBuf);
         } else {
-          // Try to parse as JSON if not binary
           const data = typeof msg === 'string' ? msg : msg.toString('utf8');
           const parsed = JSON.parse(data);
+          if (parsed && typeof parsed === 'object' && !Buffer.isBuffer(parsed)) {
+            const ctrl = parsed.type ?? parsed['@type'];
+            if (typeof ctrl === 'string' && ctrl.toUpperCase() === 'HEARTBEAT' && ctrl !== 'HEARTBEAT') {
+              if ((server.settings.verbosity || 0) >= 2) {
+                console.warn('[SERVER]', 'Ignoring WebSocket text frame: canonical type is HEARTBEAT.');
+              }
+              return;
+            }
+          }
           // Extract type from parsed JSON if available (support both @type and type)
           if (parsed && (parsed.type || parsed['@type'])) {
             type = parsed.type || parsed['@type'];
           }
-          // If it's a JSON object, create message from object, otherwise try fromRaw
+          // If it's a JSON object, create message from object, otherwise try fromRaw.
+          // Plain JSON keepalives (`{"type":"HEARTBEAT"}`) must use {@link Message.fromVector}
+          // — `new Message(parsed)` lacks preimage/hash and breaks Actor / receipts.
           if (parsed && typeof parsed === 'object' && !Buffer.isBuffer(parsed)) {
-            message = new Message(parsed);
+            const rawType = parsed.type || parsed['@type'];
+            if (rawType === 'HEARTBEAT') {
+              const payload = parsed.body ?? parsed.data ?? parsed.content ?? parsed['@data'] ?? '';
+              message = Message.fromVector([
+                'HEARTBEAT',
+                typeof payload === 'string' ? payload : JSON.stringify(payload)
+              ]);
+            } else {
+              message = new Message(parsed);
+            }
           } else {
             message = Message.fromRaw(parsed);
           }
@@ -714,7 +1102,7 @@ class FabricHTTPServer extends Service {
         const messageType = type || message.type;
 
         // System messages (HEARTBEAT, Ping, Pong) may not have signatures.
-        // `message.type` from `fromBuffer` is wire form (e.g. P2P_PING); parsed JSON may use friendly names.
+        // `message.type` from `fromBuffer` is wire form (e.g. P2P_PING). Text JSON control types are canonical strings.
         const systemMessageTypes = ['HEARTBEAT', 'Ping', 'Pong', 'P2P_PING', 'P2P_PONG'];
         if (!message.raw.signature.toString() && !systemMessageTypes.includes(messageType)) {
           let headerForLog;
@@ -762,11 +1150,33 @@ class FabricHTTPServer extends Service {
                 break;
               }
 
+              const transportAuthorized = server._isJsonRpcTransportAuthorized(request);
+              const wrtcCfg = server.settings.webrtc || {};
+              if (
+                server._isWebRtcRegistryMethod(jsonCallPayload.method) &&
+                wrtcCfg.requireTransportAuth === true &&
+                !transportAuthorized
+              ) {
+                const errBody = JSON.stringify({
+                  method: 'JSONCallResult',
+                  params: [hash, null],
+                  error: {
+                    code: -32001,
+                    message: 'Unauthorized: WebRTC registry JSONCall requires bearer or WebSocket client token (webrtc.requireTransportAuth)'
+                  }
+                });
+                const denied = Message.fromVector(['JSONCall', errBody]);
+                if (server._rootKey && server._rootKey.private) denied.signWithKey(server._rootKey);
+                socket.send(denied.toBuffer());
+                break;
+              }
+
               const kernel = new Actor(jsonCallPayload);
               const result = await server._handleCall({
                 hash: hash,
                 method: jsonCallPayload.method,
-                params: jsonCallPayload.params
+                params: jsonCallPayload.params,
+                _fabricTransportAuthorized: transportAuthorized
               });
 
               if (server.settings.debug) {
@@ -788,19 +1198,40 @@ class FabricHTTPServer extends Service {
             break;
           case 'GET':
             {
-              const answer = await server._GET(message['@data']['path']);
+              const targetPath = message['@data'] && message['@data']['path'];
+              if (!server._isResourceVerbAuthorized(targetPath, 'GET', socket._fabricTransportAuthorized === true)) {
+                if (server.settings.debug) {
+                  console.debug('[SERVER]', 'Denied websocket GET (auth required):', targetPath);
+                }
+                break;
+              }
+              const answer = await server._GET(targetPath);
               console.log('answer:', answer);
               return answer;
             }
           case 'POST':
             {
-              const link = await server._POST(message['@data']['path'], message['@data']['value']);
+              const targetPath = message['@data'] && message['@data']['path'];
+              if (!server._isResourceVerbAuthorized(targetPath, 'POST', socket._fabricTransportAuthorized === true)) {
+                if (server.settings.debug) {
+                  console.debug('[SERVER]', 'Denied websocket POST (auth required):', targetPath);
+                }
+                break;
+              }
+              const link = await server._POST(targetPath, message['@data']['value']);
               console.log('[SERVER]', 'posted link:', link);
               break;
             }
           case 'PATCH':
             {
-              const result = await server._PATCH(message['@data']['path'], message['@data']['value']);
+              const targetPath = message['@data'] && message['@data']['path'];
+              if (!server._isResourceVerbAuthorized(targetPath, 'PATCH', socket._fabricTransportAuthorized === true)) {
+                if (server.settings.debug) {
+                  console.debug('[SERVER]', 'Denied websocket PATCH (auth required):', targetPath);
+                }
+                break;
+              }
+              const result = await server._PATCH(targetPath, message['@data']['value']);
               console.log('[SERVER]', 'patched:', result);
               break;
             }
@@ -833,10 +1264,22 @@ class FabricHTTPServer extends Service {
               } catch (exception) {}
 
               if (msgData) {
-                server.emit('call', msgData.data || {
+                const transportAuthorized = server._isJsonRpcTransportAuthorized(request);
+                const baseCall = msgData.data || {
                   method: 'GenericMessage',
                   params: [msgData.data]
-                });
+                };
+                if (baseCall && typeof baseCall === 'object') {
+                  server.emit('call', Object.assign({}, baseCall, {
+                    _fabricTransportAuthorized: transportAuthorized
+                  }));
+                } else {
+                  server.emit('call', {
+                    method: 'GenericMessage',
+                    params: [baseCall],
+                    _fabricTransportAuthorized: transportAuthorized
+                  });
+                }
 
                 await server.handleFabricMessage(message);
               }
@@ -850,23 +1293,32 @@ class FabricHTTPServer extends Service {
             }
           case 'Call':
             {
+              const transportAuthorized = server._isJsonRpcTransportAuthorized(request);
               server.emit('call', {
                 method: message['@data'].data.method,
-                params: message['@data'].data.params
+                params: message['@data'].data.params,
+                _fabricTransportAuthorized: transportAuthorized
               });
               break;
             }
           case 'SUBSCRIBE':
             {
               const subscribePath = message['@data'];
-              socket.subscriptions.add(subscribePath);
+              const normalizedPath = server._normalizeCollectionPath(subscribePath);
+              if (!server._isSubscriptionAllowed(normalizedPath, socket._fabricTransportAuthorized === true)) {
+                if (server.settings.debug) {
+                  console.debug('[SERVER]', 'Denied subscription (auth required):', handle, 'path:', normalizedPath);
+                }
+                break;
+              }
+              socket.subscriptions.add(normalizedPath);
               if (server.settings.debug) console.debug('[SERVER]', 'Added subscription:', handle, 'to path:', subscribePath);
               break;
             }
           case 'UNSUBSCRIBE':
             {
               const unsubscribePath = message['@data'];
-              socket.subscriptions.delete(unsubscribePath);
+              socket.subscriptions.delete(server._normalizeCollectionPath(unsubscribePath));
               if (server.settings.debug) console.debug('[SERVER]', 'Removed subscription:', handle, 'from path:', unsubscribePath);
               break;
             }
@@ -888,6 +1340,12 @@ class FabricHTTPServer extends Service {
           '@version': 1
         }]);
 
+        if (!receipt) {
+          if (server.settings.debug) {
+            console.debug('[SERVER]', 'Could not build P2P_MESSAGE_RECEIPT; skipping send.');
+          }
+          return;
+        }
         if (server._rootKey && server._rootKey.private) receipt.signWithKey(server._rootKey);
         socket.send(receipt.toBuffer());
       } catch (error) {
@@ -988,6 +1446,90 @@ class FabricHTTPServer extends Service {
     res.send(`${html}`);
   }
 
+  /**
+   * In-memory HTML shell for dual JSON/HTML routes. Set with {@link FabricHTTPServer#setApplicationHtml} or
+   * `settings.applicationString` from the app constructor.
+   * @returns {string}
+   */
+  getApplicationHtml () {
+    if (typeof this._applicationHtml === 'string' && this._applicationHtml.length) {
+      return this._applicationHtml;
+    }
+    const s = this.settings && this.settings.applicationString;
+    return typeof s === 'string' ? s : '';
+  }
+
+  /**
+   * @param {string} html - full document for `text/html` in {@link FabricHTTPServer#jsonOrShell} and
+   *   {@link FabricHTTPServer#serveSpaShellIfHtmlNavigation}.
+   */
+  setApplicationHtml (html) {
+    this._applicationHtml = typeof html === 'string' ? html : '';
+  }
+
+  /**
+   * JSON for API clients, HTML application shell for `Accept: text/html` (e.g. SPA deep-link refresh on JSON routes).
+   * @param {import('http').IncomingMessage} req
+   * @param {import('http').ServerResponse} res
+   * @param {() => Promise<void>} onJSON
+   */
+  jsonOrShell (req, res, onJSON) {
+    const html = this.getApplicationHtml();
+    const body = typeof html === 'string' && html
+      ? html
+      : '<!DOCTYPE html><html><body><p>Application shell not configured.</p></body></html>';
+    return res.format({
+      html: () => {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(body);
+      },
+      json: async () => {
+        try {
+          await onJSON();
+        } catch (error) {
+          res.status(500).json({
+            status: 'error',
+            message: error && error.message ? error.message : String(error)
+          });
+        }
+      }
+    });
+  }
+
+  /**
+   * Always JSON (no `Accept` negotiation). For API-only routes.
+   * @param {import('http').IncomingMessage} req
+   * @param {import('http').ServerResponse} res
+   * @param {() => Promise<void>} onJSON
+   */
+  jsonOnly (req, res, onJSON) {
+    return (async () => {
+      try {
+        await onJSON();
+      } catch (error) {
+        res.status(500).json({
+          status: 'error',
+          message: error && error.message ? error.message : String(error)
+        });
+      }
+    })();
+  }
+
+  /**
+   * If the request’s first `Accept` type is `text/html`, send the configured shell; otherwise return false.
+   * @param {import('http').IncomingMessage} req
+   * @param {import('http').ServerResponse} res
+   * @returns {boolean} true if a response was sent
+   */
+  serveSpaShellIfHtmlNavigation (req, res) {
+    if (!acceptFirstHtmlNavigation(req)) return false;
+    const html = this.getApplicationHtml();
+    if (typeof html !== 'string' || !html) return false;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.status(200).send(html);
+    return true;
+  }
+
   _handleOptionsRequest (req, res) {
     res.send({
       name: this.settings.name,
@@ -1021,8 +1563,12 @@ class FabricHTTPServer extends Service {
     res.header('X-Powered-By', '@fabric/http');
     if (this.settings.cors) {
       res.header('Access-Control-Allow-Origin', '*');
-      res.header('Access-Control-Allow-Headers', 'accept, content-type, authorization');
+      res.header('Access-Control-Allow-Headers', 'accept, content-type, authorization, x-fabric-identity');
       res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE, PATCH, HEAD');
+      res.header(
+        'Access-Control-Expose-Headers',
+        'authorization, www-authenticate, x-fabric-payment-request'
+      );
     }
     res.header('Allow', 'GET, POST, OPTIONS, PUT, DELETE, PATCH, HEAD, SEARCH');
     return next();
@@ -1096,7 +1642,11 @@ class FabricHTTPServer extends Service {
 
         let result = null;
         try {
-          result = await this._handleCall({ method, params });
+          result = await this._handleCall({
+            method,
+            params,
+            _fabricTransportAuthorized: this._isJsonRpcTransportAuthorized(req)
+          });
         } catch (callErr) {
           if ((this.settings.verbosity || 0) >= 3) console.error('[HTTP:SERVER] RPC call error:', callErr);
           res.status(500).json({
@@ -1129,7 +1679,13 @@ class FabricHTTPServer extends Service {
     };
 
     for (let p = 0; p < paths.length; p++) {
-      this.express.post(paths[p], handler);
+      const pathStr = paths[p];
+      if (this.settings.cors) {
+        this.express.options(pathStr, (req, res) => {
+          res.status(204).end();
+        });
+      }
+      this.express.post(pathStr, handler);
     }
   }
 
@@ -1257,8 +1813,9 @@ class FabricHTTPServer extends Service {
    * @param {*} value - The new value
    */
   _notifySubscribers (path, value) {
-    const message = Message.fromVector(['PATCH', {
-      path,
+    const normalized = this._normalizeCollectionPath(path);
+    const message = Message.fromVector(['JSONPatch', {
+      path: normalized,
       value
     }]);
 
@@ -1266,7 +1823,12 @@ class FabricHTTPServer extends Service {
 
     // Iterate through all connections and notify those subscribed to this path
     Object.entries(this.connections).forEach(([handle, socket]) => {
-      if (socket.subscriptions && socket.subscriptions.has(path)) {
+      if (!socket.subscriptions || !socket.subscriptions.size) return;
+      const isSubscribed = Array.from(socket.subscriptions).some((subscriptionPath) => {
+        return this._subscriptionMatchesPath(subscriptionPath, normalized);
+      });
+      if (isSubscribed) {
+        if (!this._isSubscriptionAllowed(normalized, socket._fabricTransportAuthorized === true)) return;
         try {
           this._sendTo(handle, message.toBuffer());
         } catch (error) {
@@ -1277,17 +1839,15 @@ class FabricHTTPServer extends Service {
   }
 
   async _applyChanges (ops) {
-    const sample = Object.assign({}, this.state);
-    const reference = new Actor(sample);
+    const reference = new Actor(this._state.content);
 
     try {
-      // Apply changes to state
-      monitor.applyPatch(sample, ops, function isValid () {
+      // Apply changes to canonical state in-place.
+      monitor.applyPatch(this._state.content, ops, function isValid () {
         return true;
       }, true);
 
       this._state.parent = reference.id;
-      this._state.content = sample;
 
       // Notify subscribers of changes
       ops.forEach(op => {
@@ -1324,61 +1884,89 @@ class FabricHTTPServer extends Service {
 
     if (this.settings.debug) this.debug('Resource mounted:', resource);
 
-    switch (req.method.toUpperCase()) {
-      // Discard unhandled methods
+    const method = String(req.method || '').toUpperCase();
+    const fabricResource = resource ? this.resources.get(resource) : null;
+
+    // ── Auth gate ──────────────────────────────────────────────────────────
+    // Two independent sources can require auth:
+    //   1. Per-resource `auth` flag on the FabricResource definition.
+    //   2. Global `settings.security.resourceWriteAuthRequired` (applies to all mutating verbs).
+    const globalWriteAuth = this.settings.security && this.settings.security.resourceWriteAuthRequired === true;
+    const mutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+    const needsAuth = (fabricResource && fabricResource.requiresAuth(method)) || (globalWriteAuth && mutating);
+    if (needsAuth && req.authenticated !== true) {
+      return res.status(401).json({ status: 'error', message: 'Unauthorized: bearer token required' });
+    }
+
+    // ── Resource delegation ────────────────────────────────────────────────
+    // When a FabricResource owns this path, delegate entirely to its verb handler.
+    if (fabricResource) {
+      switch (method) {
+        case 'GET':
+          if (typeof fabricResource.GET === 'function') return fabricResource.GET(req, res, server);
+          break;
+        case 'HEAD':
+          if (typeof fabricResource.HEAD === 'function') return fabricResource.HEAD(req, res, server);
+          break;
+        case 'POST':
+          if (typeof fabricResource.POST === 'function') return fabricResource.POST(req, res, server);
+          break;
+        case 'PUT':
+          if (typeof fabricResource.PUT === 'function') return fabricResource.PUT(req, res, server);
+          break;
+        case 'PATCH':
+          if (typeof fabricResource.PATCH === 'function') return fabricResource.PATCH(req, res, server);
+          break;
+        case 'DELETE':
+          if (typeof fabricResource.DELETE === 'function') return fabricResource.DELETE(req, res, server);
+          break;
+        case 'SEARCH':
+          if (typeof fabricResource.SEARCH === 'function') return fabricResource.SEARCH(req, res, server);
+          break;
+        case 'OPTIONS':
+          if (typeof fabricResource.OPTIONS === 'function') return fabricResource.OPTIONS(req, res, server);
+          break;
+        case 'META':
+          if (typeof fabricResource.META === 'function') return fabricResource.META(req, res, server);
+          break;
+        default:
+          break;
+      }
+    }
+
+    // ── Legacy fallback for paths without a defined Resource ───────────────
+    switch (method) {
       default:
         return next();
-      case 'HEAD':
-        let existing = await server._GET(req.path);
-        if (!existing) return res.status(404).end();
-        break;
+      case 'HEAD': {
+        const existing = await server._GET(req.path);
+        return res.status(existing ? 200 : 404).end();
+      }
       case 'GET':
-        if (resource) {
-          try {
-            result = await server.stores[resource].get(req.path);
-          } catch (exception) {
-            console.warn('[HTTP:SERVER]', 'Warning:', exception);
-          }
-        }
-
-        // TODO: re-optimize querying from memory (i.e., don't touch disk / restore)
-        // If a result was found, use it by breaking immediately
-        // if (result) break;
-
-        // No result found, call _GET locally
         result = await server._GET(req.path);
-        // let content = await server.stores[resource].get(req.path);
         break;
+      case 'POST':
+        result = await server._POST(req.path, req.body);
+        if (!result) return res.status(500).end();
+        return res.redirect(303, result);
       case 'PUT':
         result = await server._PUT(req.path, req.body);
         break;
-      case 'POST':
-        if (resource) {
-          result = await server.stores[resource].create(req.body);
-        }
-
-        if (!result) return res.status(500).end();
-
-        // Call parent method (2 options)
-        // Option 1 (original): Assigns the direct result
-        // let link = await server._POST(req.path, result);
-        // Option 2 (testing): Assigns the raw body
-        let link = await server._POST(req.path, req.body);
-
-        // POST requests return a 303 header with a pointer to the object
-        return res.redirect(303, link);
       case 'PATCH':
-        let patch = await server._PATCH(req.path, req.body);
-        result = patch;
+        result = await server._PATCH(req.path, req.body);
         break;
       case 'DELETE':
         await server._DELETE(req.path);
         return res.sendStatus(204);
       case 'OPTIONS':
-        return res.send({
-          '@type': 'Error',
-          '@data': 'Not yet supported.'
-        });
+        return res.json({ '@type': 'ServiceDescription', methods: res.getHeader('Allow') || 'GET, HEAD, PUT, POST, PATCH, DELETE, SEARCH, OPTIONS, META' });
+      case 'SEARCH':
+        result = await server._GET(req.path);
+        break;
+      case 'META':
+        result = await server._GET(req.path);
+        if (!result) return res.status(404).end();
+        return res.json({ '@type': 'Resource', '@path': req.path });
     }
 
     // If no result found, return 404
@@ -1507,6 +2095,12 @@ class FabricHTTPServer extends Service {
 
     if (this.settings.debug) console.debug('[HTTP:SERVER]', 'resources:', this.settings.resources);
 
+    try {
+      await this.localStore.start();
+    } catch (error) {
+      this.emit('warning', `[HTTP:SERVER] Could not start local store: ${error && error.message ? error.message : error}`);
+    }
+
     for (let name in this.settings.resources) {
       const definition = this.settings.resources[name];
       const resource = await this.define(name, definition);
@@ -1589,18 +2183,23 @@ class FabricHTTPServer extends Service {
       etag: st.etag !== false,
       index: indexOpt,
       fallthrough: st.fallthrough !== false,
-      immutable: !!st.immutable
+      immutable: !!st.immutable,
+      setHeaders: (res, filePath) => mergeStaticSetHeaders(res, filePath, st.setHeaders)
     }));
 
-    const vendorAssets = fabricHttpVendorAssetsDir();
-    if (vendorAssets) {
-      this.express.use(express.static(vendorAssets, {
+    /* Second static root: this package’s `assets/` (Fomantic / semantic, etc.). The app’s `path` is
+     * always mounted first — files you ship under that directory win; anything missing falls through
+     * here. See e.g. `fabric-clean/examples/http.js` for a minimal `HTTP.Server` consumer. */
+    const packageAssets = resolveFabricHttpPackageAssetsDir();
+    if (packageAssets) {
+      this.express.use(express.static(packageAssets, {
         maxAge: maxAgeMs,
         dotfiles: st.dotfiles || 'ignore',
         etag: st.etag !== false,
         index: false,
         fallthrough: st.fallthrough !== false,
-        immutable: !!st.immutable
+        immutable: !!st.immutable,
+        setHeaders: (res, filePath) => mergeStaticSetHeaders(res, filePath, st.setHeaders)
       }));
     }
 
@@ -1617,6 +2216,7 @@ class FabricHTTPServer extends Service {
 
     // Other Middlewares
     this.express.use(parsers.urlencoded({ extended: true }));
+    // Fabric HTTP APIs expect JSON **objects** (or arrays where applicable), not bare primitives.
     this.express.use(parsers.json());
 
     for (let name in this.settings.middlewares) {
@@ -1657,13 +2257,32 @@ class FabricHTTPServer extends Service {
       const method = route.method.toLowerCase();
       switch (method) {
         case 'get':
+          this.express.get(path, route.handler);
+          break;
         case 'put':
+          this.express.put(path, route.handler);
+          break;
         case 'post':
+          this.express.post(path, route.handler);
+          break;
         case 'patch':
+          this.express.patch(path, route.handler);
+          break;
         case 'delete':
+          this.express.delete(path, route.handler);
+          break;
         case 'search':
+          this.express.search(path, route.handler);
+          break;
         case 'options':
-          this.express[method](path, route.handler);
+          this.express.options(path, route.handler);
+          break;
+        case 'head':
+          this.express.head(path, route.handler);
+          break;
+        case 'meta':
+          // META is a Fabric-native introspection verb; serve via GET so standard HTTP clients work.
+          this.express.get(path, route.handler);
           break;
         default:
           console.warn('[HTTP:SERVER]', 'Skipping route with unsupported method:', method);
@@ -1679,17 +2298,25 @@ class FabricHTTPServer extends Service {
 
     // Attach the internal router (optional SPA shell before resource router)
     this.express.get('/*', this._maybeServeSpaShell.bind(this), this._handleRoutableRequest.bind(this));
+    this.express.head('/*', this._handleRoutableRequest.bind(this));
     this.express.put('/*', this._handleRoutableRequest.bind(this));
     this.express.post('/*', this._handleRoutableRequest.bind(this));
     this.express.patch('/*', this._handleRoutableRequest.bind(this));
     this.express.delete('/*', this._handleRoutableRequest.bind(this));
     this.express.options('/*', this._handleRoutableRequest.bind(this));
+    this.express.search('/*', this._handleRoutableRequest.bind(this));
 
-    this.express.get('/services/test', payments.bind(this), (req, res) => {
-      return res.send({
-        message: 'I am the prize!'
-      });
-    });
+    const servicesTestPrize = (req, res) => res.send({ message: 'I am the prize!' });
+    const pay = this.settings.payments || {};
+    const testPaymentWall =
+      payments.isPaymentsEnabled(pay) &&
+      pay.exposePaymentTestRoute !== false &&
+      pay.exposePaymentTestRoute !== '0';
+    if (testPaymentWall) {
+      this.express.get('/services/test', payments.bind(this), servicesTestPrize);
+    } else {
+      this.express.get('/services/test', servicesTestPrize);
+    }
 
     // create the HTTP server
     // NOTE: stoppable is used here to force immediate termination of
@@ -1742,6 +2369,10 @@ class FabricHTTPServer extends Service {
     this._registerMethod('GenericMessage', (msg) => {
       // console.log('GENERIC:', msg);
     });
+
+    this._registerMethod('RegisterWebRTCPeer', this._rpcRegisterWebRtcPeer);
+    this._registerMethod('UnregisterWebRTCPeer', this._rpcUnregisterWebRtcPeer);
+    this._registerMethod('ListWebRTCPeers', this._rpcListWebRtcPeers);
 
     await this.agent.start();
 
@@ -1833,6 +2464,12 @@ class FabricHTTPServer extends Service {
     // Stop peer connections
     await this.agent.stop();
 
+    try {
+      if (this.localStore) await this.localStore.stop();
+    } catch (E) {
+      console.error('Could not stop local store:', E);
+    }
+
     // Stop the server app (if it exists)
     if (server.app) {
       try {
@@ -1851,35 +2488,71 @@ class FabricHTTPServer extends Service {
   }
 
   async _GET (path) {
-    if (!this.app || !this.app.store) return null;
+    const normalized = this._normalizeCollectionPath(path);
     if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling GET to', path);
-    let result = await this.app.store._GET(path);
+    const match = this._matchResourceRoute(normalized);
+    let result = null;
+
+    if (match) {
+      const listPath = match.meta && match.meta.list ? match.meta.list : normalized;
+      if (normalized === listPath) {
+        result = match.meta && match.meta.address ? this._state.content[match.meta.address] : null;
+      } else {
+        const parts = normalized.split('/');
+        const id = parts[parts.length - 1];
+        result = this.stores[match.resource] && this.stores[match.resource].getByID
+          ? this.stores[match.resource].getByID(id)
+          : null;
+      }
+    }
+
+    if (result == null) {
+      result = await this.localStore._GET(normalized);
+    }
+
     if (this.settings.verbosity >= 5) console.log('[HTTP:SERVER]', 'Retrieved:', result);
-    if (!result && this.collections.includes(path)) result = [];
+    if (!result && this.collections.includes(normalized)) result = {};
     return result;
   }
 
   async _PUT (path, data) {
-    if (!this.app || !this.app.store) return null;
+    const normalized = this._normalizeCollectionPath(path);
     if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling PUT to', path, data);
-    return this.app.store._PUT(path, data);
+    const result = await this.localStore._PUT(normalized, data);
+    this._notifySubscribers(normalized, data);
+    return result;
   }
 
   async _POST (path, data) {
+    const normalized = this._normalizeCollectionPath(path);
     if (this.settings.verbosity >= 4) console.trace('[HTTP:SERVER]', 'Handling POST to', path, data);
-    return this.app.store._POST(path, data);
+    const match = this._matchResourceRoute(normalized);
+    if (match && match.meta && normalized === match.meta.list) {
+      const created = await this.stores[match.resource].create(data);
+      this._notifySubscribers(`${match.meta.list}/${created.id}`, created);
+      await this._syncResourceToLocalStore(match.resource);
+      return `${match.meta.list}/${created.id}`;
+    }
+    return this.localStore._POST(normalized, data);
   }
 
   async _PATCH (path, data) {
-    if (!this.app || !this.app.store) return null;
+    const normalized = this._normalizeCollectionPath(path);
     if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling PATCH to', path, data);
-    return this.app.store._PATCH(path, data);
+    const result = await this.localStore._PATCH(normalized, data);
+    this._notifySubscribers(normalized, result);
+    return result;
   }
 
   async _DELETE (path) {
+    const normalized = this._normalizeCollectionPath(path);
     if (this.settings.verbosity >= 4) console.log('[HTTP:SERVER]', 'Handling DELETE to', path);
-    return this.app.store._DELETE(path);
+    const result = await this.localStore._DELETE(normalized);
+    this._notifySubscribers(normalized, null);
+    return result;
   }
 }
 
 module.exports = FabricHTTPServer;
+module.exports.resolveFabricHttpPackageAssetsDir = resolveFabricHttpPackageAssetsDir;
+module.exports.acceptFirstHtmlNavigation = acceptFirstHtmlNavigation;
