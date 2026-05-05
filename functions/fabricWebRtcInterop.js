@@ -16,6 +16,21 @@ const FABRIC_HUB_UNREGISTER_MESH = 'FABRIC_HUB_UNREGISTER_MESH';
 /** Signal metadata protocol tag used by browser-side WebRTC envelopes. */
 const FABRIC_WEBRTC_SIGNAL_PROTOCOL = 'fabric-webrtc-v2';
 
+/** WebRTC peer-registry RPC method names handled by HTTP JSON-RPC / WebSocket JSONCall. */
+const WEBRTC_REGISTRY_METHODS = Object.freeze([
+  'RegisterWebRTCPeer',
+  'UnregisterWebRTCPeer',
+  'ListWebRTCPeers'
+]);
+
+/**
+ * @param {unknown} methodName
+ * @returns {boolean}
+ */
+function isWebRtcRegistryMethod (methodName) {
+  return WEBRTC_REGISTRY_METHODS.includes(String(methodName || ''));
+}
+
 /**
  * Parse a Hub address string and normalize to WS signaling origin.
  *
@@ -136,6 +151,8 @@ module.exports = {
   FABRIC_HUB_REGISTER_MESH,
   FABRIC_HUB_UNREGISTER_MESH,
   FABRIC_WEBRTC_SIGNAL_PROTOCOL,
+  WEBRTC_REGISTRY_METHODS,
+  isWebRtcRegistryMethod,
   parseFabricHubAddress,
   fabricSignalingWebSocketUrl,
   expectedOriginFromHubAddress,

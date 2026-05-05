@@ -56,15 +56,13 @@ describe('webrtc interop helpers', function () {
   });
 
   it('exports canonical WebRTC registry method names and predicate', function () {
-    assert.deepStrictEqual([
-      'RegisterWebRTCPeer',
-      'UnregisterWebRTCPeer',
-      'ListWebRTCPeers'
-    ], [
+    assert.deepStrictEqual(webrtcInterop.WEBRTC_REGISTRY_METHODS, [
       'RegisterWebRTCPeer',
       'UnregisterWebRTCPeer',
       'ListWebRTCPeers'
     ]);
+    assert.strictEqual(webrtcInterop.isWebRtcRegistryMethod('RegisterWebRTCPeer'), true);
+    assert.strictEqual(webrtcInterop.isWebRtcRegistryMethod('Unknown'), false);
 
     const wsUrl = webrtcInterop.fabricSignalingWebSocketUrl('http://127.0.0.1:8080', '/');
     assert.strictEqual(wsUrl, 'ws://127.0.0.1:8080/');
@@ -171,6 +169,10 @@ describe('json-rpc transport helpers', function () {
   it('parses websocket call body and builds hash/result/error payloads', function () {
     const body = JSON.stringify({ method: 'Echo', params: [{ ok: true }] });
     assert.deepStrictEqual(jsonRpcTransport.parseWebSocketJsonCallBody(body), { method: 'Echo', params: [{ ok: true }] });
+
+    assert.throws(() => jsonRpcTransport.parseWebSocketJsonCallBody('[1]'), TypeError);
+    assert.throws(() => jsonRpcTransport.parseWebSocketJsonCallBody('null'), TypeError);
+    assert.throws(() => jsonRpcTransport.parseWebSocketJsonCallBody('"x"'), TypeError);
 
     const pair = jsonRpcTransport.computeWebSocketJsonCallHashPair(body);
     assert.strictEqual(typeof pair.preimage, 'string');

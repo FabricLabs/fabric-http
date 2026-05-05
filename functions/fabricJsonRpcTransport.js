@@ -56,9 +56,14 @@ function buildJsonRpcErrorEnvelope (input) {
  *
  * @param {string} body
  * @returns {{ method?: unknown, params?: unknown }}
+ * @throws {TypeError} When JSON is not a plain object (e.g. array or null).
  */
 function parseWebSocketJsonCallBody (body) {
-  return JSON.parse(body);
+  const parsed = JSON.parse(body);
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new TypeError('WebSocket JSONCall body must be a JSON object');
+  }
+  return parsed;
 }
 
 /**

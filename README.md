@@ -40,6 +40,8 @@ npx fabric-http ./build --spa
 Programmatic options on `new HTTPServer({ ... })` include `assets` (or `path` alias for the static root), `static: { cacheSeconds, ... }`, `spaFallback`, `jsonRpc: { enabled, paths }`, `cors`, and `compression`. HTTP JSON-RPC (`POST /rpc`) uses the same `_handleCall` surface as WebSocket `JSONCall` when `jsonRpc.enabled` is true (e.g. hub.fabric.pub). For a small Hub-shaped dev server (default **8099** so it does not steal **8080** from a real @fabric/hub, CORS, `POST /services/rpc`, `hub-mesh-bridge.html` for the extension), use **`npm run sample:hub`** (see [docs/WEBRTC_FABRIC_HTTP.md](docs/WEBRTC_FABRIC_HTTP.md)). Set `PORT=8080` only when you are not running hub.fabric.pub on the same machine.
 
 ### Programmatic API (server-first)
+If you previously imported **`resolveFabricHttpPackageAssetsDir`** or **`acceptFirstHtmlNavigation`** from **`@fabric/http/types/server`**, switch to **`types/web`** (`resolveAppAssetsDir`, SPA/navigation helpers) or **`require('@fabric/http').protocol`** — see **CHANGELOG.md** (Unreleased).
+
 The primary consumer path is to create a server instance and configure behavior through settings and registered methods.
 
 ```js
@@ -121,6 +123,7 @@ Run `node scripts/node.js` to start the app, or `webpack scripts/app.js -o asset
 build a browser version.
 
 ## Resources
+
 | Doc | Purpose |
 |-----|---------|
 | [docs/PRODUCTION.md](docs/PRODUCTION.md) | Deploy, TLS, WebSocket, versioning |

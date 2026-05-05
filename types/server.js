@@ -69,6 +69,7 @@ const SPA = require('./spa');
 const WebSocket = require('ws');
 const messageTransport = require('../functions/fabricMessageTransport');
 const jsonRpcTransport = require('../functions/fabricJsonRpcTransport');
+const webrtcInterop = require('../functions/fabricWebRtcInterop');
 
 /** First four bytes of every Fabric AMP frame on the wire (binary WebSocket payloads must match). */
 const FABRIC_AMP_MAGIC = Buffer.from(
@@ -76,23 +77,8 @@ const FABRIC_AMP_MAGIC = Buffer.from(
   'hex'
 );
 
-/** WebRTC peer-registry RPC method names handled by HTTP JSON-RPC / WebSocket JSONCall. */
-const WEBRTC_REGISTRY_METHODS = Object.freeze([
-  'RegisterWebRTCPeer',
-  'UnregisterWebRTCPeer',
-  'ListWebRTCPeers'
-]);
-
 function bufferStartsWithFabricAmpMagic (buf) {
   return Buffer.isBuffer(buf) && buf.length >= 4 && buf.subarray(0, 4).equals(FABRIC_AMP_MAGIC);
-}
-
-/**
- * @param {unknown} methodName
- * @returns {boolean}
- */
-function isWebRtcRegistryMethod (methodName) {
-  return WEBRTC_REGISTRY_METHODS.includes(String(methodName || ''));
 }
 
 /**
@@ -952,7 +938,7 @@ class FabricHTTPServer extends Service {
   }
 
   _isWebRtcRegistryMethod (methodName) {
-    return isWebRtcRegistryMethod(methodName);
+    return webrtcInterop.isWebRtcRegistryMethod(methodName);
   }
 
   _handleAppMessage (msg) {
@@ -1094,10 +1080,10 @@ class FabricHTTPServer extends Service {
           // — `new Message(parsed)` lacks preimage/hash and breaks Actor / receipts.
           if (parsed && typeof parsed === 'object' && !Buffer.isBuffer(parsed)) {
             const rawType = parsed.type || parsed['@type'];
-            if (rawType === 'HEARTBEAT') {
+            if (rawType === messageTransport.HEARTBEAT_TYPE) {
               const payload = parsed.body ?? parsed.data ?? parsed.content ?? parsed['@data'] ?? '';
               message = Message.fromVector([
-                'HEARTBEAT',
+                messageTransport.HEARTBEAT_TYPE,
                 typeof payload === 'string' ? payload : JSON.stringify(payload)
               ]);
             } else {
@@ -1137,14 +1123,13 @@ class FabricHTTPServer extends Service {
 
         // Use extracted messageType for switch statement
         switch (switchType) {
-          case 'HEARTBEAT':
+          case messageTransport.HEARTBEAT_TYPE:
             // HEARTBEAT messages are keepalive signals, no action needed
             if (server.settings.debug) console.debug('[SERVER]', 'Received HEARTBEAT from:', handle);
             break;
           case messageTransport.JSON_CALL_CANONICAL_TYPE:
             // console.trace('[SERVER]', 'received JSON call:', message.body);
             try {
-              const jsonCallPayload = jsonRpcTransport.parseWebSocketJsonCallBody(message.body);
               const { hash } = jsonRpcTransport.computeWebSocketJsonCallHashPair(message.body);
 
               if (!socket._fabricJsonRpcTransportAuthorized) {
@@ -1159,12 +1144,13 @@ class FabricHTTPServer extends Service {
                 break;
               }
 
-              const transportAuthorized = server._isJsonRpcTransportAuthorized(request);
+              const jsonCallPayload = jsonRpcTransport.parseWebSocketJsonCallBody(message.body);
+
               const wrtcCfg = server.settings.webrtc || {};
               if (
                 server._isWebRtcRegistryMethod(jsonCallPayload.method) &&
                 wrtcCfg.requireTransportAuth === true &&
-                !transportAuthorized
+                socket._fabricTransportAuthorized !== true
               ) {
                 const errBody = JSON.stringify(jsonRpcTransport.buildWebSocketJsonCallErrorBody({
                   hash,
@@ -1177,12 +1163,11 @@ class FabricHTTPServer extends Service {
                 break;
               }
 
-              const kernel = new Actor(jsonCallPayload);
               const result = await server._handleCall({
                 hash: hash,
                 method: jsonCallPayload.method,
                 params: jsonCallPayload.params,
-                _fabricTransportAuthorized: transportAuthorized
+                _fabricTransportAuthorized: socket._fabricTransportAuthorized === true
               });
 
               if (server.settings.debug) {
@@ -1256,12 +1241,6 @@ class FabricHTTPServer extends Service {
             }
           case messageTransport.GENERIC_MESSAGE_TYPE:
             {
-              local = Message.fromVector([messageTransport.GENERIC_MESSAGE_TYPE, JSON.stringify({
-                type: messageTransport.GENERIC_MESSAGE_RECEIPT_TYPE,
-                content: actor.id
-              })]);
-
-              if (server._rootKey && server._rootKey.private) local.signWithKey(server._rootKey);
               let msgData = null;
 
               try {
@@ -1269,20 +1248,19 @@ class FabricHTTPServer extends Service {
               } catch (exception) {}
 
               if (msgData) {
-                const transportAuthorized = server._isJsonRpcTransportAuthorized(request);
                 const baseCall = msgData.data || {
                   method: 'GenericMessage',
                   params: [msgData.data]
                 };
                 if (baseCall && typeof baseCall === 'object') {
                   server.emit('call', Object.assign({}, baseCall, {
-                    _fabricTransportAuthorized: transportAuthorized
+                    _fabricTransportAuthorized: socket._fabricTransportAuthorized === true
                   }));
                 } else {
                   server.emit('call', {
                     method: 'GenericMessage',
                     params: [baseCall],
-                    _fabricTransportAuthorized: transportAuthorized
+                    _fabricTransportAuthorized: socket._fabricTransportAuthorized === true
                   });
                 }
 
@@ -1297,11 +1275,10 @@ class FabricHTTPServer extends Service {
             }
           case 'Call':
             {
-              const transportAuthorized = server._isJsonRpcTransportAuthorized(request);
               server.emit('call', {
                 method: message['@data'].data.method,
                 params: message['@data'].data.params,
-                _fabricTransportAuthorized: transportAuthorized
+                _fabricTransportAuthorized: socket._fabricTransportAuthorized === true
               });
               break;
             }
