@@ -1,3 +1,4 @@
+./MESSAGE_PROTOCOL_REPORT.md:  // TODO: validation
 ./settings/state.js:// TODO: evaluate why have to climb tree?
 ./types/client.js:    // TODO: remove import requirement, use local definition
 ./types/remote.js:    // TODO: break out into independent auth module
@@ -27,29 +28,21 @@
 ./types/server.js:// TODO: remove Express entirely...
 ./types/server.js:// TODO: check with Riddle about this
 ./types/server.js:      // TODO: document host as listening on all interfaces by default
-./types/server.js:      // TODO: replace with crypto random
 ./types/server.js:    // TODO: compile & boot (load state) SPA (React + Redux?)
 ./types/server.js:    // TODO: enable cross-shard sessions
 ./types/server.js:    // TODO: define parent path
-./types/server.js:    // TODO: document pathing
 ./types/server.js:    // TODO: validation
+./types/server.js:    // TODO: migrate to Message instances throughout; buffer only transparently when sending to peers
+./types/server.js:    // TODO: is that true?  Message instances seem to be the correct type...
 ./types/server.js:        // TODO: move send buffer here
 ./types/server.js:    // TODO: check security of common defaults for `sec-websocket-key` params
 ./types/server.js:    // TODO: message handler on base class
 ./types/server.js:  // TODO: consolidate with Peer
 ./types/server.js:    // TODO: double-check Apache spec
-./types/server.js:    // TODO: only enable when requested
 ./types/server.js:      // TODO: reject unknown (!info.req.session.identity)
-./types/server.js:        // TODO: re-optimize querying from memory (i.e., don't touch disk / restore)
-./types/server.js:    // TODO: defer to an in-memory datastore for requested files
 ./types/server.js:    // TODO: migrate to {@link Session} or abolish entirely
-./types/server.js:    // TODO: render page
-./types/server.js:    // TODO: enable this route by disabling or moving the static asset handler above
 ./types/server.js:    // TODO: abolish this garbage in favor of resources.
-./types/server.js:      // TODO: validate entire verification chain
 ./types/server.js:    // TODO: convert to bound functions
-./types/swarm.js:// TODO: investigate peerjs history, why .default now?  Node 10?
-./types/swarm.js:    // TODO: validation
 ./types/compiler.js:      // TODO: load from:
 ./types/compiler.js:      // TODO: consider creating compiler on the fly as to enable the
 ./types/component.js:    // TODO: cache and skip
