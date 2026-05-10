@@ -1130,9 +1130,10 @@ class FabricHTTPServer extends Service {
           case messageTransport.JSON_CALL_CANONICAL_TYPE:
             // console.trace('[SERVER]', 'received JSON call:', message.body);
             try {
-              const { hash } = jsonRpcTransport.computeWebSocketJsonCallHashPair(message.body);
-
+              // Reject JSON-RPC transport auth before hashing/parsing the frame body so public sockets
+              // cannot burn CPU on attacker-controlled payloads (SHA256 + JSON.parse).
               if (!socket._fabricJsonRpcTransportAuthorized) {
+                const { hash } = jsonRpcTransport.computeWebSocketJsonCallHashPair('');
                 const errBody = JSON.stringify(jsonRpcTransport.buildWebSocketJsonCallErrorBody({
                   hash,
                   code: -32001,
@@ -1144,6 +1145,7 @@ class FabricHTTPServer extends Service {
                 break;
               }
 
+              const { hash } = jsonRpcTransport.computeWebSocketJsonCallHashPair(message.body);
               const jsonCallPayload = jsonRpcTransport.parseWebSocketJsonCallBody(message.body);
 
               const wrtcCfg = server.settings.webrtc || {};
