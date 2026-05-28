@@ -455,7 +455,9 @@ class FabricHTTPServer extends Service {
       }
     }
 
-    const ok = token === secret;
+    const tokenDigest = crypto.createHash('sha256').update(String(token || '')).digest();
+    const secretDigest = crypto.createHash('sha256').update(String(secret || '')).digest();
+    const ok = crypto.timingSafeEqual(tokenDigest, secretDigest);
     if (!ok) {
       console.warn('[SERVER] WebSocket handshake rejected: missing or invalid client token');
     }
