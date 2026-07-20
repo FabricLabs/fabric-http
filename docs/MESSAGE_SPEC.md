@@ -20,7 +20,9 @@ This document **formalizes** how the `FabricHTTPServer` uses `@fabric/core`’s 
 
 **Receipts:** The server or core stack may emit `P2P_MESSAGE_RECEIPT` (ack) in line with the Hub client.
 
-**First-class app frames (decoded by `@fabric/core`, dispatched downstream):** `P2P_CHAT_MESSAGE` (opcode `0x68`), `CONTRACT_PUBLISH`, `CONTRACT_MESSAGE`, and `CONTRACT_PROPOSAL` are decoded by `Message.fromBuffer` without any special handling in this package. The HTTP server passes them through to the Hub / Peer pipeline, which relays (re-signing per hop for key-pinning continuity) and emits `chat` / `contract:publish` / `contract:message` / `contract:proposal`. `CONTRACT_MESSAGE` bodies carry a `contract` namespace id; see `@fabric/core` `MESSAGES.md`.
+**First-class app frames (decoded by `@fabric/core`, dispatched downstream):** `P2P_CHAT_MESSAGE` (opcode `0x68`), `CONTRACT_PUBLISH`, `CONTRACT_MESSAGE`, and `CONTRACT_PROPOSAL` are decoded by `Message.fromBuffer` without any special handling in this package. The HTTP server passes them through to the Hub / Peer pipeline, which relays (re-signing per hop for key-pinning continuity) and emits `chat` / `contract:publish` / `contract:message` / `contract:proposal`.
+
+**Application namespaces** (see `@fabric/core` [docs/APPLICATION_NAMESPACES.md](https://github.com/FabricLabs/fabric/blob/master/docs/APPLICATION_NAMESPACES.md) and `MESSAGES.md` §3): `P2P_CHAT_MESSAGE` is the global shoutbox; `CONTRACT_PUBLISH` / `CONTRACT_MESSAGE` (`P2P_CONTRACT_*`) gossip application/Federation namespaces — apps ignore irrelevant `contract` ids; Federation validators define each namespace’s convergent timeline. Catalog: `@fabric/core/functions/applicationNamespaces`.
 
 ## `JSONCall` request body (WebSocket)
 
