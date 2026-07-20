@@ -20,6 +20,8 @@ This document **formalizes** how the `FabricHTTPServer` uses `@fabric/core`’s 
 
 **Receipts:** The server or core stack may emit `P2P_MESSAGE_RECEIPT` (ack) in line with the Hub client.
 
+**First-class app frames (decoded by `@fabric/core`, dispatched downstream):** `P2P_CHAT_MESSAGE` (opcode `0x68`), `CONTRACT_PUBLISH`, `CONTRACT_MESSAGE`, and `CONTRACT_PROPOSAL` are decoded by `Message.fromBuffer` without any special handling in this package. The HTTP server passes them through to the Hub / Peer pipeline, which relays (re-signing per hop for key-pinning continuity) and emits `chat` / `contract:publish` / `contract:message` / `contract:proposal`. `CONTRACT_MESSAGE` bodies carry a `contract` namespace id; see `@fabric/core` `MESSAGES.md`.
+
 ## `JSONCall` request body (WebSocket)
 
 ```json
