@@ -7,6 +7,14 @@ This document **formalizes** how the `FabricHTTPServer` uses `@fabric/core`’s 
 - **WebSocket** (`/` on the same port as HTTP): messages are **binary** `Buffer`s produced with `message.toBuffer()` and parsed with `Message.fromBuffer` when possible. Plain JSON is accepted in some code paths and normalized to a `Message` where applicable.
 - **WebRTC** does not terminate in `fabric-http` (see [WEBRTC_FABRIC_HTTP.md](./WEBRTC_FABRIC_HTTP.md)). Peers and signaling are expected via **Hub / Bridge**; the same `Message` binary can be used on an `RTCDataChannel` when paired with that signaling.
 
+### JSON bridge (HTTP edge only)
+
+`@fabric/core` V1 AMP **bodies are typed field layouts**, not JSON (`docs/MESSAGE_BODY.md`).
+This package maps fields ↔ JSON for browsers/REST via
+[`functions/messageBodyJsonBridge.js`](../functions/messageBodyJsonBridge.js)
+(`messageBodyToJson` / `messageFromJsonBody`). When no field schema is registered,
+legacy UTF-8 JSON parse (`wireJson`) remains the fallback.
+
 ## WebSocket: outer types handled by the server
 
 | `Message` type (friendly) | Role |
