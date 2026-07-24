@@ -77,7 +77,9 @@ function invoiceSummary (inv) {
  * @param {object} [opts.invoice] return value from `bitcoin.createInvoice`
  * @param {string} [opts.requestPath] HTTP path challenged
  * @param {string} [opts.detail] human reason (truncated)
- * @param {object|null} [opts.documentOffer] optional `{ documentId?, contentHashHex?, purchasePriceSats?, network? }`
+ * @param {object|null} [opts.documentOffer] optional `{ documentId?, contentHashHex?, purchasePriceSats?, network?, blobIndex?, blobHashHex? }`
+ *   — `contentHashHex` MUST be from `@fabric/core/functions/documentPaymentHash`
+ *     (`resolveDocumentContentHashHex`); never raw file `sha256`.
  */
 function buildFabricDocumentPaymentRequestHeader (opts = {}) {
   const { invoice, requestPath = '', detail = '', documentOffer = null } = opts;
@@ -105,7 +107,7 @@ function buildFabricDocumentPaymentRequestHeader (opts = {}) {
   if (summary) payload.invoice = summary;
 
   const doc = documentOffer && typeof documentOffer === 'object' ? documentOffer : null;
-  if (doc && (doc.documentId || doc.contentHashHex || doc.purchasePriceSats != null || doc.network)) {
+  if (doc && (doc.documentId || doc.contentHashHex || doc.purchasePriceSats != null || doc.network || doc.blobHashHex != null)) {
     payload.documentOffer = {};
     if (doc.documentId != null) payload.documentOffer.documentId = String(doc.documentId).slice(0, 4096);
     if (doc.contentHashHex != null) payload.documentOffer.contentHashHex = String(doc.contentHashHex).slice(0, 128);
@@ -114,6 +116,10 @@ function buildFabricDocumentPaymentRequestHeader (opts = {}) {
       payload.documentOffer.purchasePriceSats = priceSats;
     }
     if (doc.network != null) payload.documentOffer.network = String(doc.network).slice(0, 64);
+    if (doc.blobIndex != null && Number.isFinite(Number(doc.blobIndex))) {
+      payload.documentOffer.blobIndex = Math.round(Number(doc.blobIndex));
+    }
+    if (doc.blobHashHex != null) payload.documentOffer.blobHashHex = String(doc.blobHashHex).slice(0, 128);
   }
 
   return JSON.stringify(payload);
