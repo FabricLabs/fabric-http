@@ -28,7 +28,9 @@ legacy UTF-8 JSON parse (`wireJson`) remains the fallback.
 
 **Receipts:** The server or core stack may emit `P2P_MESSAGE_RECEIPT` (ack) in line with the Hub client.
 
-**First-class app frames (decoded by `@fabric/core`, dispatched downstream):** `P2P_CHAT_MESSAGE` (opcode `0x68`), `CONTRACT_PUBLISH`, `CONTRACT_MESSAGE`, and `CONTRACT_PROPOSAL` are decoded by `Message.fromBuffer` without any special handling in this package. The HTTP server passes them through to the Hub / Peer pipeline, which relays (re-signing per hop for key-pinning continuity) and emits `chat` / `contract:publish` / `contract:message` / `contract:proposal`.
+**First-class app frames (decoded by `@fabric/core`, dispatched downstream):** `P2P_CHAT_MESSAGE` (opcode `0x68`), `CONTRACT_PUBLISH`, `CONTRACT_MESSAGE`, and `CONTRACT_PROPOSAL` are decoded by `Message.fromBuffer` without any special handling in this package. The HTTP server passes them through to the Hub / Peer pipeline. Mesh flood uses bit-identical `P2P_RELAY` outer frames (no hop re-sign); Peer emits `chat` / `contract:publish` / `contract:message` / `contract:proposal` as configured.
+
+**Directed onion (`P2P_FORWARD`, opcode `0x45`):** decoded by `@fabric/core` and **terminated by Peer** (peel / single-peer forward). `FabricHTTPServer` does not implement onion routing. Browsers should call Hub JSON-RPC **`SendOnion`** (or run a desktop Peer); do not expect WebSocket fan-out of outer onion frames. See `@fabric/core` [`docs/P2P_FORWARD.md`](https://github.com/FabricLabs/fabric/blob/master/docs/P2P_FORWARD.md).
 
 **Application namespaces** (see `@fabric/core` [docs/APPLICATION_NAMESPACES.md](https://github.com/FabricLabs/fabric/blob/master/docs/APPLICATION_NAMESPACES.md) and `MESSAGES.md` §3): `P2P_CHAT_MESSAGE` is the global shoutbox; `CONTRACT_PUBLISH` / `CONTRACT_MESSAGE` (`P2P_CONTRACT_*`) gossip application/Federation namespaces — apps ignore irrelevant `contract` ids; Federation validators define each namespace’s convergent timeline. Catalog: `@fabric/core/functions/applicationNamespaces`.
 

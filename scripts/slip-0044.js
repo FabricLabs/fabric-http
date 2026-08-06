@@ -3,20 +3,19 @@
 const { JSDOM } = require('jsdom');
 const fs = require('fs');
 
-const Converter = require('showdown').Converter;
+const { marked } = require('marked');
 const Remote = require('@fabric/core/types/remote');
 
 async function main () {
-  const converter = new Converter({
-    tables: true
-  });
+  // marked replaces showdown (CVE-2024-1899 / GHSA-rmmh-p597-ppvv; no showdown patch).
+  marked.setOptions({ gfm: true, breaks: false });
 
   const remote = new Remote({
     authority: 'raw.githubusercontent.com'
   });
 
   const result = await remote._GET('/satoshilabs/slips/master/slip-0044.md');
-  const parsed = converter.makeHtml(result);
+  const parsed = marked.parse(typeof result === 'string' ? result : String(result));
 
   const dom = new JSDOM(parsed);
   const rows = dom.window.document.querySelectorAll('table tr');
