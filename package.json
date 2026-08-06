@@ -63,6 +63,7 @@
     "./middlewares/auth": "./middlewares/auth.js",
     "./middlewares/payments": "./middlewares/payments.js",
     "./functions/fabricDocumentPayment402": "./functions/fabricDocumentPayment402.js",
+    "./functions/federationContractInvite": "./functions/federationContractInvite.js",
     "./functions/messageBodyJsonBridge": "./functions/messageBodyJsonBridge.js",
     "./functions/sendPaymentRequired402Response": "./functions/sendPaymentRequired402Response.js",
     "./functions/fabricWebRtcInterop": "./functions/fabricWebRtcInterop.js",
