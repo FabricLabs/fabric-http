@@ -26,7 +26,7 @@
     "make:api": "jsdoc2md --configure jsdoc.json --files types/*.js schemata/*.js services/*.js settings/deprecations.js README.md > API.md",
     "reports": "npm run report:install && npm run build:coverage && npm run report:todo",
     "report:coverage": "npm run build:coverage && c8 report --reporter=text-lcov > reports/coverage.lcov",
-    "report:install": "rm -rf node_modules && echo \"\n\" > package-lock.json && echo \"$ npm i --allow-git=root\" > reports/install.log && npm i --allow-git=root >> reports/install.log 2>&1",
+    "report:install": "rm -rf node_modules && echo \"\n\" > package-lock.json && echo \"$ npm i --allow-git=all\" > reports/install.log && npm i --allow-git=all >> reports/install.log 2>&1",
     "report:todo": "grep --exclude-dir=.git --exclude-dir=backups --exclude-dir=_book --exclude-dir=assets --exclude-dir=node_modules --exclude-dir=reports --exclude-dir=coverage --exclude-dir=docs -rEI \"TODO|FIXME\" . > reports/TODO.txt",
     "review:coverage": "npm run build:coverage && fabric-http reports/coverage",
     "sample:hub": "node scripts/sample-hub-http-server.js",

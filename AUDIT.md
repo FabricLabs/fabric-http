@@ -6,6 +6,7 @@ Living posture notes for `@fabric/http` **0.1.0-RC1**. Re-run **`npm audit`** af
 | Area | Posture |
 |------|---------|
 | `@fabric/core` | Git pin `FabricLabs/fabric#feature/rsi` (aligned with local reference client / Node **24.15.0**) |
+| npm `allow-git` | **`.npmrc` `allow-git=all`** — nested git-dep preparation resolves core to a commit SHA; `root` is refused |
 | WebSocket (`ws`) | **Mitigated** — direct + override **`8.21.2`** (GHSA-58qx-3vcg-4xpx / fragment DoS) |
 | Express / body-parser / qs | **Mitigated** — `express@4.22.2`, `body-parser@1.20.6`, override `qs@6.15.3` |
 | undici (fomantic → `@actions/http-client`) | **Mitigated** — override **`6.28.0`** |
