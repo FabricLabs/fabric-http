@@ -34,14 +34,17 @@ describe('@fabric/http messageBodyJsonBridge', function () {
 
   it('RFC6902 sidechain JSON transforms to SIDECHAIN_STATE_PATCH fields', function () {
     const digest = 'ab'.repeat(32);
+    const registryValue = { documents: { a: { rateSats: 1 } } };
     const fields = rfc6902SidechainJsonToFields({
       basisClock: 2,
       basisDigest: digest,
-      patches: [{ op: 'add', path: '/registry', value: { documents: { a: { rateSats: 1 } } } }]
+      patches: [{ op: 'add', path: '/registry', value: registryValue }]
     });
     assert.strictEqual(fields.basisClock, 2);
     assert.ok(Buffer.isBuffer(fields.basisDigest));
+    assert.strictEqual(fields.basisDigest.toString('hex'), digest);
     assert.ok(fields.catalogCanonical.includes('"documents"'));
+    assert.ok(fields.patchesCanonical.includes('/registry'));
     const m = messageFromJsonBody('SIDECHAIN_STATE_PATCH', {
       basisClock: 2,
       basisDigest: digest,
@@ -50,7 +53,39 @@ describe('@fabric/http messageBodyJsonBridge', function () {
     const view = messageBodyToJson(m);
     assert.strictEqual(view.format, 'fields');
     assert.ok(view.rfc6902 && Array.isArray(view.rfc6902.patches));
+    assert.strictEqual(view.value.basisDigest, digest);
     const back = registryFieldsToRfc6902Json(view.value);
     assert.strictEqual(back.patches[0].path, '/registry');
+    assert.deepStrictEqual(back.patches[0].value, { documents: { a: 1 } });
+  });
+
+  it('preserves multi-op RFC6902 sequences via patchesCanonical', function () {
+    const digest = 'cd'.repeat(32);
+    const patches = [
+      { op: 'add', path: '/registry', value: { documents: { a: 1 } } },
+      { op: 'add', path: '/meta/label', value: 'fleet' },
+      { op: 'replace', path: '/meta/label', value: 'wing' }
+    ];
+    const fields = rfc6902SidechainJsonToFields({
+      basisClock: 1,
+      basisDigest: digest,
+      patches
+    });
+    assert.deepStrictEqual(JSON.parse(fields.patchesCanonical), patches);
+    assert.deepStrictEqual(JSON.parse(fields.catalogCanonical), { documents: { a: 1 } });
+
+    const m = messageFromJsonBody('SIDECHAIN_STATE_PATCH', {
+      basisClock: 1,
+      basisDigest: digest,
+      patches
+    });
+    const view = messageBodyToJson(m);
+    assert.deepStrictEqual(view.rfc6902.patches, patches);
+  });
+
+  it('rejects invalid RFC6902 patch ops at the HTTP edge', function () {
+    assert.throws(() => rfc6902SidechainJsonToFields({
+      patches: [{ op: 'nope', path: '/x' }]
+    }), /RFC6902/);
   });
 });

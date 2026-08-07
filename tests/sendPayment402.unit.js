@@ -2,7 +2,10 @@
 
 const assert = require('assert');
 const { sendPaymentRequired402Response } = require('../functions/sendPaymentRequired402Response');
-const { decodeFabricPaymentRequestHeaderValue } = require('../functions/fabricDocumentPayment402');
+const {
+  buildFabricDocumentPaymentRequestHeader,
+  decodeFabricPaymentRequestHeaderValue
+} = require('../functions/fabricDocumentPayment402');
 
 function createCapturingResponse () {
   return {
@@ -24,6 +27,48 @@ function createCapturingResponse () {
     }
   };
 }
+
+describe('buildFabricDocumentPaymentRequestHeader blob metadata', function () {
+  const validHash = 'a'.repeat(64);
+
+  it('preserves integer blobIndex and exact 64-hex blobHashHex', function () {
+    const json = buildFabricDocumentPaymentRequestHeader({
+      documentOffer: {
+        documentId: 'd1',
+        blobIndex: 3,
+        blobHashHex: validHash
+      }
+    });
+    const parsed = JSON.parse(json);
+    assert.strictEqual(parsed.documentOffer.blobIndex, 3);
+    assert.strictEqual(parsed.documentOffer.blobHashHex, validHash);
+  });
+
+  it('omits fractional blobIndex and non-64-hex blobHashHex', function () {
+    const json = buildFabricDocumentPaymentRequestHeader({
+      documentOffer: {
+        documentId: 'd1',
+        blobIndex: 1.7,
+        blobHashHex: 'deadbeef'
+      }
+    });
+    const parsed = JSON.parse(json);
+    assert.strictEqual(parsed.documentOffer.blobIndex, undefined);
+    assert.strictEqual(parsed.documentOffer.blobHashHex, undefined);
+  });
+
+  it('does not truncate a valid blobHashHex', function () {
+    const upper = 'ABCDEF0123456789'.repeat(4);
+    const json = buildFabricDocumentPaymentRequestHeader({
+      documentOffer: {
+        documentId: 'd1',
+        blobHashHex: upper
+      }
+    });
+    const parsed = JSON.parse(json);
+    assert.strictEqual(parsed.documentOffer.blobHashHex, upper);
+  });
+});
 
 describe('sendPaymentRequired402Response', function () {
   it('responds 402 JSON with mocked server', async function () {

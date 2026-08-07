@@ -203,7 +203,7 @@ if (!Buffer.isBuffer(msg)) {
 - `_handlePatches`: Listens to 'patches' events, emits 'patches'
 
 **Flow**:
-```
+```text
 Trusted Source emits 'message' event
   → _handleMessage handler
     → _handleTrustedMessage()
@@ -234,7 +234,7 @@ Trusted Source emits 'message' event
 ## Protocol Flow Diagrams
 
 ### WebSocket Message Flow (Client → Server)
-```
+```text
 Client Bridge Component
   → sendMessage(buffer)
     → ws.send(buffer)  // WebSocket.send()
@@ -246,7 +246,7 @@ Client Bridge Component
 ```
 
 ### WebSocket Message Flow (Server → Client)
-```
+```text
 Server creates Message
   → message.signWithKey(key)  // Optional
     → message.toBuffer()
@@ -257,7 +257,7 @@ Server creates Message
 ```
 
 ### P2P Message Flow
-```
+```text
 Service emits 'message' event
   → Service.trust() handler
     → _handleTrustedMessage()
@@ -269,7 +269,7 @@ Service emits 'message' event
 ```
 
 ### Broadcast Flow (HTTP Server)
-```
+```text
 Service/Store emits event
   → HTTP Server event handler
     → this.broadcast(message)
@@ -485,7 +485,7 @@ Based on the error showing `{"type":"HEARTBEAT"}` (not `{"@type":"HEARTBEAT"}`),
 **Code creates plain object `{type: "HEARTBEAT"}` → JSON.stringify() → websocket.send() → Server parses → `new Message(parsed)` → Creates unsigned Message**
 
 **Flow**:
-```
+```text
 1. Code creates: {type: "HEARTBEAT"}
 2. Code sends: JSON.stringify({type: "HEARTBEAT"}) → "{\"type\":\"HEARTBEAT\"}"
 3. Server receives: JSON string
@@ -515,7 +515,7 @@ Based on the error showing `{"type":"HEARTBEAT"}` (not `{"@type":"HEARTBEAT"}`),
 
 ### Message Creation → Sending Flow
 
-```
+```text
 1. Message Created
    ├─ Message.fromVector(['Type', data])
    ├─ new Message(object)
@@ -539,7 +539,7 @@ Based on the error showing `{"type":"HEARTBEAT"}` (not `{"@type":"HEARTBEAT"}`),
 
 ### Event-Driven Flow
 
-```
+```text
 Service.beat()
   → Creates Message.fromVector(['Generic', {...}])
     → this.emit('beat', beat)
@@ -560,7 +560,7 @@ Service.commit()
 ## Next Steps
 
 1. **Search for HEARTBEAT object creation**:
-   - `grep -r "type.*HEARTBEAT\|HEARTBEAT.*type"` (case-insensitive)
+   - `grep -ri "type.*HEARTBEAT\|HEARTBEAT.*type"`
    - Look for `{type: "HEARTBEAT"}` or `type: 'HEARTBEAT'`
 
 2. **Search for toObject() + send pattern**:

@@ -26,7 +26,7 @@
     "make:api": "jsdoc2md --configure jsdoc.json --files types/*.js schemata/*.js services/*.js settings/deprecations.js README.md > API.md",
     "reports": "npm run report:install && npm run build:coverage && npm run report:todo",
     "report:coverage": "npm run build:coverage && c8 report --reporter=text-lcov > reports/coverage.lcov",
-    "report:install": "rm -rf node_modules && echo \"\n\" > package-lock.json && echo \"$ npm i --allow-git=all\" > reports/install.log && npm i --allow-git=all >> reports/install.log 2>&1",
+    "report:install": "rm -rf node_modules package-lock.json && echo \"$ npm i --allow-git=all\" > reports/install.log && npm i --allow-git=all >> reports/install.log 2>&1",
     "report:todo": "grep --exclude-dir=.git --exclude-dir=backups --exclude-dir=_book --exclude-dir=assets --exclude-dir=node_modules --exclude-dir=reports --exclude-dir=coverage --exclude-dir=docs -rEI \"TODO|FIXME\" . > reports/TODO.txt",
     "review:coverage": "npm run build:coverage && fabric-http reports/coverage",
     "sample:hub": "node scripts/sample-hub-http-server.js",
@@ -76,7 +76,7 @@
     "Victor Wu"
   ],
   "dependencies": {
-    "@fabric/core": "FabricLabs/fabric#feature/rsi",
+    "@fabric/core": "FabricLabs/fabric#a97e7523a28be8b2f61311db1ea25dc6aec4dd7f",
     "assert-browserify": "=2.0.0",
     "babel-loader": "=8.2.5",
     "body-parser": "=1.20.6",
@@ -134,7 +134,7 @@
   },
   "overrides": {
     "diff": "=8.0.4",
-    "elliptic": "npm:@soatok/elliptic-to-noble@^9999.0.0",
+    "elliptic": "npm:@soatok/elliptic-to-noble@9999.0.0",
     "serialize-javascript": "=7.0.5",
     "yauzl": "=3.2.1",
     "qs": "=6.15.3",

@@ -28,5 +28,7 @@ describe('types/distributedExecutionHttp', function () {
     assert.ok(routes.some((r) => r.method === 'POST' && r.path === '/services/distributed/statechain/patches'));
     assert.ok(routes.some((r) => r.method === 'GET' && r.path === '/services/distributed/sidechain/journal'));
     assert.ok(routes.some((r) => r.method === 'GET' && r.path === '/services/distributed/sidechain/snapshots'));
+    assert.ok(routes.some((r) => r.method === 'GET' && r.path === '/services/distributed/statechain/journal'));
+    assert.ok(routes.some((r) => r.method === 'GET' && r.path === '/services/distributed/statechain/snapshots'));
   });
 });

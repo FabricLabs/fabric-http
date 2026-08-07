@@ -8,6 +8,7 @@ const {
   buildFederationContractInviteJson,
   buildFederationContractInviteResponseJson,
   normalizeSpendingTerms,
+  normalizeProposedPolicy,
   formatFederationInviteSpendingSummary
 } = require('../functions/federationContractInvite');
 
@@ -78,5 +79,72 @@ describe('federationContractInvite (@fabric/http)', function () {
     assert.strictEqual(parseFederationContractInvite('{}'), null);
     assert.strictEqual(parseFederationContractInvite('{"type":"FederationContractInvite","v":0,"inviteId":"x"}'), null);
     assert.strictEqual(parseFederationContractInviteResponse('{"type":"FederationContractInviteResponse","v":1}'), null);
+  });
+
+  it('normalizeProposedPolicy rejects duplicates and non-integer thresholds', function () {
+    assert.strictEqual(normalizeProposedPolicy({
+      validators: ['aa', 'aa'],
+      threshold: 1
+    }), null);
+    assert.strictEqual(normalizeProposedPolicy({
+      validators: ['AA', 'aa'],
+      threshold: 1
+    }), null);
+    assert.strictEqual(normalizeProposedPolicy({
+      validators: ['aa', 'bb'],
+      threshold: 1.5
+    }), null);
+    assert.strictEqual(normalizeProposedPolicy({
+      validators: ['aa', 'bb'],
+      threshold: 3
+    }), null);
+    assert.strictEqual(normalizeProposedPolicy({
+      validators: ['aa', 'bb'],
+      threshold: 0
+    }), null);
+    assert.deepStrictEqual(normalizeProposedPolicy({
+      validators: ['aa', 'bb'],
+      threshold: 2
+    }), { validators: ['aa', 'bb'], threshold: 2 });
+  });
+
+  it('parse rejects invalid spendingTerms / proposedPolicy when present', function () {
+    const badSpend = JSON.stringify({
+      type: 'FederationContractInvite',
+      v: 2,
+      inviteId: 'x',
+      spendingTerms: { mode: 'percent', value: 150 }
+    });
+    assert.strictEqual(parseFederationContractInvite(badSpend), null);
+    assert.strictEqual(parseFederationContractInviteLoose(JSON.parse(badSpend)), null);
+
+    const badPolicy = JSON.stringify({
+      type: 'FederationContractInvite',
+      v: 2,
+      inviteId: 'x',
+      proposedPolicy: { validators: ['a', 'a'], threshold: 1 }
+    });
+    assert.strictEqual(parseFederationContractInvite(badPolicy), null);
+    assert.strictEqual(parseFederationContractInviteLoose(JSON.parse(badPolicy)), null);
+  });
+
+  it('buildFederationContractInviteResponseJson requires boolean accept', function () {
+    assert.throws(() => buildFederationContractInviteResponseJson({
+      inviteId: 'x',
+      accept: 'false'
+    }), TypeError);
+    assert.throws(() => buildFederationContractInviteResponseJson({
+      inviteId: 'x',
+      accept: 1
+    }), TypeError);
+    assert.throws(() => buildFederationContractInviteResponseJson({
+      inviteId: 'x',
+      accept: null
+    }), TypeError);
+    const ok = JSON.parse(buildFederationContractInviteResponseJson({
+      inviteId: 'x',
+      accept: false
+    }));
+    assert.strictEqual(ok.accept, false);
   });
 });

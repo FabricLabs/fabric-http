@@ -38,9 +38,28 @@ function normalizeProposedPolicy (raw) {
     ? raw.validators.map((v) => String(v || '').trim()).filter(Boolean)
     : [];
   if (validators.length === 0) return null;
-  let threshold = Math.max(1, Number(raw.threshold) || 1);
-  if (threshold > validators.length) threshold = validators.length;
+  const unique = new Set(validators.map((v) => v.toLowerCase()));
+  if (unique.size !== validators.length) return null;
+  if (!Number.isInteger(raw.threshold)) return null;
+  const threshold = raw.threshold;
+  if (threshold < 1 || threshold > validators.length) return null;
   return { validators, threshold };
+}
+
+/**
+ * When v2 policy fields are present, they must normalize successfully.
+ * @param {object} invite
+ * @returns {boolean}
+ */
+function validateInviteV2PolicyFields (invite) {
+  if (!invite || typeof invite !== 'object') return false;
+  if (Object.prototype.hasOwnProperty.call(invite, 'spendingTerms')) {
+    if (normalizeSpendingTerms(invite.spendingTerms) == null) return false;
+  }
+  if (Object.prototype.hasOwnProperty.call(invite, 'proposedPolicy')) {
+    if (normalizeProposedPolicy(invite.proposedPolicy) == null) return false;
+  }
+  return true;
 }
 
 function parseFederationContractInvite (content) {
@@ -51,6 +70,7 @@ function parseFederationContractInvite (content) {
     const ver = Number(p.v);
     if (ver !== 1 && ver !== 2) return null;
     if (!p.inviteId || typeof p.inviteId !== 'string') return null;
+    if (!validateInviteV2PolicyFields(p)) return null;
     return p;
   } catch (_) {
     return null;
@@ -63,6 +83,7 @@ function parseFederationContractInviteLoose (value) {
     const ver = Number(value.v);
     if (ver !== 1 && ver !== 2) return null;
     if (!value.inviteId || typeof value.inviteId !== 'string') return null;
+    if (!validateInviteV2PolicyFields(value)) return null;
     return value;
   }
   return parseFederationContractInvite(value);
@@ -154,11 +175,14 @@ function buildFederationContractInvite (fields) {
 }
 
 function buildFederationContractInviteResponseJson (fields) {
+  if (!fields || typeof fields.accept !== 'boolean') {
+    throw new TypeError('accept must be a boolean');
+  }
   return JSON.stringify({
     type: FEDERATION_CONTRACT_INVITE_RESPONSE,
     v: 1,
     inviteId: String(fields.inviteId || ''),
-    accept: !!fields.accept,
+    accept: fields.accept,
     responderPubkey: fields.responderPubkey != null && String(fields.responderPubkey).trim()
       ? String(fields.responderPubkey).trim()
       : null,
@@ -186,6 +210,7 @@ module.exports = {
   FEDERATION_CONTRACT_INVITE_RESPONSE,
   normalizeSpendingTerms,
   normalizeProposedPolicy,
+  validateInviteV2PolicyFields,
   formatFederationInviteSpendingSummary,
   parseFederationContractInvite,
   parseFederationContractInviteLoose,

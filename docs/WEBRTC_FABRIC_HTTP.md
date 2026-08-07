@@ -22,6 +22,10 @@ These exist so **dev tools and the extension** can align with a single RPC names
 - Protected resource updates are not broadcast to unauthorized WebSocket subscribers.
 - WebSocket `POST` / `PATCH` resource writes are gated by the same resource/global auth policies used by HTTP routing.
 
+## Message ↔ JSON at the HTTP edge
+
+`@fabric/http` exports [`functions/messageBodyJsonBridge`](../functions/messageBodyJsonBridge.js) (`require('@fabric/http/functions/messageBodyJsonBridge')`) for Message field-body ↔ plain JSON (REST / SPA). That helper is shared by Hub Bridge and other HTTP consumers; it does **not** implement WebRTC mesh signaling by itself. Hub Bridge remains the signaling authority for browser peers.
+
 ## What lives downstream
 
 - **Extension** (`@fabric/passport`): `src/fabric/fabricWebRTCPeering.ts` and the offscreen mesh helpers hold **signaling URL** and `RTCPeerConnection` construction; they are wired toward Hub WebSocket, not the bare `fabric-http` static server.

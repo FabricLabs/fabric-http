@@ -27,16 +27,22 @@ try {
   wireJson = null;
 }
 
-// Side-effect: register SIDECHAIN_STATE_PATCH field schema in core.
+const RFC6902_OPS = new Set(['add', 'remove', 'replace', 'move', 'copy', 'test']);
+
+// Side-effect: ensure SIDECHAIN_STATE_PATCH includes optional patchesCanonical.
 try {
   require('@fabric/core/functions/documentRegistrySidechain');
 } catch (_) {
-  // Older published core: install the V1 schema locally so HTTP still maps fields.
-  if (codec && typeof codec.registerBodySchema === 'function' && !codec.getBodySchema('SIDECHAIN_STATE_PATCH')) {
+  /* older core without the module */
+}
+if (codec && typeof codec.registerBodySchema === 'function') {
+  const existing = codec.getBodySchema('SIDECHAIN_STATE_PATCH');
+  if (!existing || existing.length < 4) {
     const schema = Object.freeze([
       { name: 'basisClock', type: 'u32' },
       { name: 'basisDigest', type: 'bytes32' },
-      { name: 'catalogCanonical', type: 'string' }
+      { name: 'catalogCanonical', type: 'string' },
+      { name: 'patchesCanonical', type: 'string', optional: true }
     ]);
     codec.registerBodySchema('SIDECHAIN_STATE_PATCH', schema);
     codec.registerBodySchema('SidechainStatePatch', schema);
@@ -44,17 +50,44 @@ try {
 }
 
 /**
+ * @param {unknown} patches
+ * @returns {object[]}
+ */
+function assertValidRfc6902Patches (patches) {
+  if (!Array.isArray(patches)) {
+    throw new TypeError('SIDECHAIN_STATE_PATCH patches must be an array');
+  }
+  for (let i = 0; i < patches.length; i++) {
+    const p = patches[i];
+    if (!p || typeof p !== 'object') {
+      throw new TypeError(`SIDECHAIN_STATE_PATCH patches[${i}] must be an object`);
+    }
+    if (typeof p.op !== 'string' || !RFC6902_OPS.has(p.op)) {
+      throw new TypeError(`SIDECHAIN_STATE_PATCH patches[${i}].op must be a valid RFC6902 op`);
+    }
+    if (typeof p.path !== 'string' || !p.path.startsWith('/')) {
+      throw new TypeError(`SIDECHAIN_STATE_PATCH patches[${i}].path must be a JSON Pointer`);
+    }
+    if ((p.op === 'move' || p.op === 'copy') && (typeof p.from !== 'string' || !p.from.startsWith('/'))) {
+      throw new TypeError(`SIDECHAIN_STATE_PATCH patches[${i}].from must be a JSON Pointer`);
+    }
+  }
+  return patches;
+}
+
+/**
  * HTTP edge: RFC6902-shaped JSON `{ basisClock, basisDigest, patches }` → typed fields
- * (`basisClock`, `basisDigest`, `catalogCanonical`). Opcodes unchanged.
+ * (`basisClock`, `basisDigest`, `catalogCanonical`, `patchesCanonical`).
+ * Multi-op sequences are preserved in `patchesCanonical`; `/registry` still seeds catalog.
  * @param {object} body
  * @returns {object}
  */
 function rfc6902SidechainJsonToFields (body = {}) {
-  const patches = Array.isArray(body.patches) ? body.patches : [];
+  const patches = assertValidRfc6902Patches(Array.isArray(body.patches) ? body.patches : []);
   const regOp = patches.find((p) => p && (p.path === '/registry' || p.path === '/registry/'));
   const catalog = regOp && regOp.value != null
     ? regOp.value
-    : { version: 1, documents: {}, patches };
+    : { version: 1, documents: {} };
   let basisDigest = body.basisDigest;
   if (typeof basisDigest === 'string') {
     basisDigest = Buffer.from(String(basisDigest).replace(/^0x/, ''), 'hex');
@@ -62,12 +95,14 @@ function rfc6902SidechainJsonToFields (body = {}) {
   return {
     basisClock: body.basisClock != null ? Number(body.basisClock) : 0,
     basisDigest: basisDigest || Buffer.alloc(32),
-    catalogCanonical: typeof catalog === 'string' ? catalog : JSON.stringify(catalog)
+    catalogCanonical: typeof catalog === 'string' ? catalog : JSON.stringify(catalog),
+    patchesCanonical: patches.length ? JSON.stringify(patches) : ''
   };
 }
 
 /**
  * Typed fields → HTTP JSON including RFC6902 `patches` view for Hub RPC clients.
+ * Prefers `patchesCanonical` when present for multi-op fidelity.
  * @param {object} fieldsJson hex-safe field object
  * @returns {object}
  */
@@ -78,6 +113,24 @@ function registryFieldsToRfc6902Json (fieldsJson = {}) {
   } catch (_) {
     value = {};
   }
+
+  const rawPatches = fieldsJson.patchesCanonical != null ? String(fieldsJson.patchesCanonical).trim() : '';
+  if (rawPatches) {
+    try {
+      const patches = JSON.parse(rawPatches);
+      if (Array.isArray(patches)) {
+        return {
+          type: 'SIDECHAIN_STATE_PATCH',
+          basisClock: fieldsJson.basisClock != null ? Number(fieldsJson.basisClock) : 0,
+          basisDigest: fieldsJson.basisDigest != null ? String(fieldsJson.basisDigest) : '',
+          patches
+        };
+      }
+    } catch (_) {
+      /* fall through to catalog synthesis */
+    }
+  }
+
   return {
     type: 'SIDECHAIN_STATE_PATCH',
     basisClock: fieldsJson.basisClock != null ? Number(fieldsJson.basisClock) : 0,
@@ -212,5 +265,6 @@ module.exports = {
   messageBodyToJson,
   messageFromJsonBody,
   rfc6902SidechainJsonToFields,
-  registryFieldsToRfc6902Json
+  registryFieldsToRfc6902Json,
+  assertValidRfc6902Patches
 };

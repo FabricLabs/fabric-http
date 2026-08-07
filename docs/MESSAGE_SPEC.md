@@ -43,7 +43,40 @@ legacy UTF-8 JSON parse (`wireJson`) remains the fallback.
 }
 ```
 
-**Response** (via `JSONCall` body) uses a `JSONCallResult` convention: success and error shapes are covered by `tests/standards.http.js` and `tests/web.server.ws.jsoncall.js` for the HTTP+WS stack you run in CI.
+### `JSONCallResult` response envelope
+
+The server replies with another outer `JSONCall` whose UTF-8 body uses method
+**`JSONCallResult`** (see `functions/fabricJsonRpcTransport.js`).
+
+**Correlation:** `params[0]` is a hash derived from the request body
+(`sha256(sha256(utf8-body).hex).hex` via `computeWebSocketJsonCallHashPair`) so
+clients can match replies to calls without relying on JSON-RPC `id` alone.
+
+**Success body:**
+
+```json
+{
+  "method": "JSONCallResult",
+  "params": [ "<requestHashHex>", <result> ]
+}
+```
+
+**Error body** (e.g. auth denial in `tests/security.auth.server.js`):
+
+```json
+{
+  "method": "JSONCallResult",
+  "params": [ "<requestHashHex>", null ],
+  "error": { "code": -32001, "message": "…" }
+}
+```
+
+HTTP JSON-RPC (`POST` paths from `jsonRpc.paths`) uses standard JSON-RPC 2.0
+success/error envelopes (`buildJsonRpcSuccessEnvelope` /
+`buildJsonRpcErrorEnvelope`) with the same method handlers.
+
+Covered by `tests/standards.http.js`, `tests/web.server.ws.jsoncall.js`, and
+`tests/security.auth.server.js`.
 
 ## Authoritative references
 

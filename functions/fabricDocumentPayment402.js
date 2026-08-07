@@ -116,10 +116,15 @@ function buildFabricDocumentPaymentRequestHeader (opts = {}) {
       payload.documentOffer.purchasePriceSats = priceSats;
     }
     if (doc.network != null) payload.documentOffer.network = String(doc.network).slice(0, 64);
-    if (doc.blobIndex != null && Number.isFinite(Number(doc.blobIndex))) {
-      payload.documentOffer.blobIndex = Math.round(Number(doc.blobIndex));
+    // Do not round/truncate blob identifiers — omit invalid metadata instead.
+    if (doc.blobIndex != null) {
+      const idx = typeof doc.blobIndex === 'number' ? doc.blobIndex : Number(doc.blobIndex);
+      if (Number.isInteger(idx) && idx >= 0) payload.documentOffer.blobIndex = idx;
     }
-    if (doc.blobHashHex != null) payload.documentOffer.blobHashHex = String(doc.blobHashHex).slice(0, 128);
+    if (doc.blobHashHex != null) {
+      const hash = String(doc.blobHashHex).trim();
+      if (/^[0-9a-fA-F]{64}$/.test(hash)) payload.documentOffer.blobHashHex = hash;
+    }
   }
 
   return JSON.stringify(payload);
