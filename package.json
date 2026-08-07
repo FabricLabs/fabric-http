@@ -68,7 +68,8 @@
     "./functions/sendPaymentRequired402Response": "./functions/sendPaymentRequired402Response.js",
     "./functions/fabricWebRtcInterop": "./functions/fabricWebRtcInterop.js",
     "./functions/fabricMessageTransport": "./functions/fabricMessageTransport.js",
-    "./functions/fabricJsonRpcTransport": "./functions/fabricJsonRpcTransport.js"
+    "./functions/fabricJsonRpcTransport": "./functions/fabricJsonRpcTransport.js",
+    "./functions/applicationResourceContract": "./functions/applicationResourceContract.js"
   },
   "contributors": [
     "Eric Martindale",

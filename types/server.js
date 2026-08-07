@@ -70,6 +70,9 @@ const WebSocket = require('ws');
 const messageTransport = require('../functions/fabricMessageTransport');
 const jsonRpcTransport = require('../functions/fabricJsonRpcTransport');
 const webrtcInterop = require('../functions/fabricWebRtcInterop');
+const {
+  buildApplicationResourceContract
+} = require('../functions/applicationResourceContract');
 
 /** First four bytes of every Fabric AMP frame on the wire (binary WebSocket payloads must match). */
 const FABRIC_AMP_MAGIC = Buffer.from(
@@ -323,6 +326,12 @@ class FabricHTTPServer extends Service {
     /** @type {Map<string, FabricResource>} Resource instances keyed by name. */
     this.resources = new Map();
     this.subscriptions = new Map(); // Track subscriptions by path
+    /**
+     * Optional sync/async enricher for OPTIONS `/` Application Resource Contract.
+     * Return `{ contract?, services?, status?, fabricCapabilities?, methods? }`.
+     * @type {null|function(): (object|Promise<object>)}
+     */
+    this._optionsEnricher = null;
 
     // ## Fabric Agent
     // Establishes network connectivity with Fabric.  Manages peers, connections, and messages.
@@ -1513,12 +1522,49 @@ class FabricHTTPServer extends Service {
     return true;
   }
 
+  /**
+   * Register an enricher for `OPTIONS /` Application Resource Contract responses.
+   * Used by Hub (and other apps) to attach Fabric contract identity, peering
+   * service pointers, and live status (e.g. OracleAttestation).
+   * @param {null|function(): (object|Promise<object>)} fn
+   * @returns {FabricHTTPServer}
+   */
+  setOptionsEnricher (fn) {
+    this._optionsEnricher = typeof fn === 'function' ? fn : null;
+    return this;
+  }
+
+  /**
+   * Build the Application Resource Contract document for `OPTIONS /`.
+   * @param {object} [extra] Merged after enricher output
+   * @returns {Promise<object>}
+   */
+  async buildOptionsApplicationContract (extra = {}) {
+    let enrich = {};
+    if (typeof this._optionsEnricher === 'function') {
+      try {
+        enrich = await this._optionsEnricher() || {};
+      } catch (e) {
+        this.emit('warning', `OPTIONS enricher: ${(e && e.message) || e}`);
+        enrich = {};
+      }
+    }
+    return buildApplicationResourceContract(this, Object.assign({}, enrich, extra || {}));
+  }
+
   _handleOptionsRequest (req, res) {
-    res.send({
-      name: this.settings.name,
-      description: this.settings.description,
-      resources: this.definitions
-    });
+    Promise.resolve(this.buildOptionsApplicationContract())
+      .then((doc) => {
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.status(200).json(doc);
+      })
+      .catch((e) => {
+        this.emit('error', e);
+        res.status(500).json({
+          '@type': 'Error',
+          message: (e && e.message) || String(e)
+        });
+      });
   }
 
   _logMiddleware (req, res, next) {
