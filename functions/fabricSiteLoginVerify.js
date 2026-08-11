@@ -2,8 +2,8 @@
 
 /**
  * Verify client-signed Fabric site-login completions (D-011).
- * Same challenge format as Hub `fabric:hub-login:1` so Passport and GoonCitizen
- * desktop stay interchangeable against LiveRelay on relay.goon.vc.
+ * Same challenge format as Hub `fabric:hub-login:1` so Passport and
+ * desktop peers stay interchangeable against LiveRelay on relay.goon.vc.
  */
 
 const Key = require('@fabric/core/types/key');

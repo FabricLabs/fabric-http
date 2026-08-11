@@ -3,11 +3,11 @@
 /**
  * Federation contract invite JSON (HTTP / app edge).
  *
- * Shared by Hub and GoonCitizen. Lives in `@fabric/http` so `@fabric/core`
+ * Shared by Hub and light peers. Lives in `@fabric/http` so `@fabric/core`
  * stays free of invite JSON parse/build. Body `type` names are catalogued in
  * `@fabric/core/functions/applicationNamespaces`.
  *
- * v2 optional fields include Hub co-signer policy plus GoonCitizen labels:
+ * v2 optional fields include Hub co-signer policy plus app labels:
  * `inviteePubkey`, `groupId`, `groupName`.
  */
 

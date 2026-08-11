@@ -177,7 +177,7 @@ function normalizeFabricAddress (value, { migrate = false } = {}) {
 
 /**
  * Build a predicate for known application CONTRACT_MESSAGE body types.
- * Apps supply their catalog (GoonCitizen Group, Mission, … types); host stays generic.
+ * Apps supply their catalog (group, mission, … types); host stays generic.
  * @param {Iterable<string>|Set<string>} types
  * @returns {(appType: *) => boolean}
  */

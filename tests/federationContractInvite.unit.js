@@ -30,7 +30,7 @@ describe('federationContractInvite (@fabric/http)', function () {
     assert.strictEqual(p.v, 1);
   });
 
-  it('round-trips extended invite with GoonCitizen labels', function () {
+  it('round-trips extended invite with app group labels', function () {
     const json = buildFederationContractInviteJson({
       inviteId: 'sess-1',
       inviterHubId: 'hubpk',

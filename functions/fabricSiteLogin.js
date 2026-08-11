@@ -3,7 +3,7 @@
 /**
  * Fabric site-login sessions for LiveRelay (D-011).
  * Hosts the same REST contract as Hub `POST|GET /sessions` so Passport and
- * GoonCitizen desktop can sign in when this service is deployed alone
+ * desktop peers can sign in when this service is deployed alone
  * (e.g. relay.goon.vc). Client-signed completions only — no Hub-node self-sign.
  */
 

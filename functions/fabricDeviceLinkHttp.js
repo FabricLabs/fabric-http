@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Mutual device-link attestations (Passport ↔ Hub ↔ GoonCitizen).
+ * Mutual device-link attestations (Passport ↔ Hub ↔ desktop peers).
  *
  * Challenge (both parties BIP340-sign the same UTF-8 string):
  *   fabric:device-link:1:<64-hex nonce>:<initiatorId>:<responderId>:<label>
