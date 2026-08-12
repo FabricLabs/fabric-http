@@ -8,11 +8,22 @@ const {
 } = require('../functions/fabricHubAllowlist');
 
 describe('@fabric/http fabricHubAllowlist', function () {
-  it('allows default network hubs and loopback', function () {
+  it('allows default HTTPS network hubs and loopback', function () {
     assert.strictEqual(isAllowedFabricHub('https://relay.goon.vc'), true);
     assert.strictEqual(isAllowedFabricHub('https://hub.fabric.pub/sessions'), true);
     assert.strictEqual(isAllowedFabricHub('http://127.0.0.1:3041'), true);
     assert.strictEqual(isAllowedFabricHub('http://localhost:8080'), true);
+  });
+
+  it('rejects cleartext production hubs unless explicitly allowlisted', function () {
+    assert.strictEqual(isAllowedFabricHub('http://hub.fabric.pub'), false);
+    assert.strictEqual(isAllowedFabricHub('http://relay.goon.vc'), false);
+    assert.strictEqual(
+      isAllowedFabricHub('http://hub.fabric.pub', {
+        env: { FABRIC_HUB_ALLOWLIST: 'http://hub.fabric.pub' }
+      }),
+      true
+    );
   });
 
   it('rejects unknown hubs unless allowlisted via env', function () {

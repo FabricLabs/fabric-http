@@ -18,10 +18,12 @@ This package fails closed on missing auth secrets, enforces Hub origin allowlist
 
 ## Outstanding (auth / carriers)
 - **WebSocket `GenericMessage` AMP-verify** — unauthenticated frames are already dropped before local `call` dispatch and `handleFabricMessage` peer broadcast (`types/server.js`). Remaining: prefer named outer types / `JSONCall` for new Hub UI paths; require `websocket.requireClientToken` on shared hosts; optionally verify AMP signatures before any remaining peer relay of signed carriers; do not treat unsigned JSON carriers as equivalent to author-signed AMP. Hub tracking: [MESSAGE_TRANSPORT.md](https://github.com/FabricLabs/hub.fabric.pub/blob/master/MESSAGE_TRANSPORT.md).
-- **Device-link / site-login** — keep Hub origin allowlists fail-closed; never treat `X-Forwarded-*` as proof of loopback.
+- **Site-login / device-link Origin gates (PR #69 High)** — remote Hub self-sign (`allowHubSelfSign` defaults on), `GET /sessions/:id` redeem, LiveRelay Bearer redeem, and device-link GET still treat matching `Origin`/`Referer`/`Sec-Fetch-Site` as authorization. Those headers are forgeable on non-browser clients; QR/`fabric://` URLs expose `sessionId`. Needs a possession proof (e.g. one-time poll secret or signed browser challenge) before merge to shared hosts. Keep Hub origin allowlists fail-closed; never treat `X-Forwarded-*` as proof of loopback.
+- ~~**Cleartext production hub defaults**~~ — default allowlist is **HTTPS-only** for network hubs; cleartext `http://hub.fabric.pub` / `relay.goon.vc` / `goon.vc` require `FABRIC_HUB_ALLOWLIST` / `opts.extra`. Loopback `http://` remains allowed.
+- **Device-link attestation binding** — offer replay of `(nonce, initiatorId, origin)` after link (and while pending) is rejected. Remaining: bind random `sessionId` into `buildDeviceLinkMessage` (and coordinated Passport / desktop / SCL signers) so captured link signatures cannot recreate a `linked` session under a new id.
 - ~~**SLIP-0044 regen**~~ — `scripts/slip-0044.js` fetches a pinned commit (`a8f4330…`) and validates row count / field shapes before rewriting `settings/slip-44.json`.
 - ~~**Docs polish (PR #69)**~~ — `docs/MESSAGE_SPEC.md` documents `JSONCallResult` success/error + hash correlation; MD040 language tags land on flow fences in `MESSAGE_PROTOCOL_REPORT.md` / `AUDIT.md`.
-- **`@fabric/core` pin hygiene** — `package.json` / lockfile pin immutable commit `2e2aec81bd6503e40c2d7cae88f9ab4dc6a8fe41` (see [AUDIT.md](AUDIT.md)); refresh via `feature/rsi` then re-pin the resolved SHA with Hub / apps.
+- ~~**`@fabric/core` pin hygiene**~~ — pin `aa516d31729a86be59e7257f4e91a86733ab8d5e` (Beacon/ARC nested authority collector; refreshed via `feature/rsi`). Coordinate Hub / apps on the same SHA.
 - **402 document offer digests** — `contentHashHex` / `blobHashHex` accept exact 64-hex only (no truncation); `blobIndex` accepts non-negative safe integers only (no string `Number()` coercion); `blobIndex`-only offers still emit `documentOffer`; invalid fields are omitted.
 - **RFC6902 sidechain JSON bridge** — full multi-op patch fidelity in `messageBodyJsonBridge` remains outstanding (see [AUDIT.md](AUDIT.md)); do not rely on JSON→fields for arbitrary patch lists.
 - **Fabric coin types (downstream)** — core pin includes **7777** / **7778**; Hub/app helpers that still hardcode `7778` for mainnet still need alignment.
@@ -34,6 +36,6 @@ This package fails closed on missing auth secrets, enforces Hub origin allowlist
 3. Prefer loopback HTTP unless shared mode is intentional.
 
 ## Disclosure
-Report security issues privately to the maintainers (GitHub Security Advisories /
+Report security issues privately to **`security@fabric.pub`** (or GitHub Security Advisories /
 private maintainer contact in README) rather than opening a public issue with
 exploit details. Expect an initial response within a few business days.

@@ -4,7 +4,10 @@ const assert = require('assert');
 const Key = require('@fabric/core/types/key');
 const Identity = require('@fabric/core/types/identity');
 const {
-  identityFromXpub
+  identityFromXpub,
+  offerReplayKey,
+  offerKeyInUse,
+  markOfferConsumed
 } = require('../functions/fabricDeviceLinkHttp');
 const {
   fabricIdentityIdFromPubkeyHex,
@@ -33,5 +36,22 @@ describe('fabricDeviceLinkHttp identityFromXpub', function () {
 
   it('throws on invalid xpub', function () {
     assert.throws(() => identityFromXpub('not-an-xpub'), Error);
+  });
+});
+
+describe('fabricDeviceLinkHttp offer replay keys', function () {
+  it('blocks consumed and in-flight offer keys', function () {
+    const hub = { _deviceLinkSessions: new Map() };
+    const key = offerReplayKey('aa'.repeat(32), 'id1a', 'https://hub.example');
+    assert.strictEqual(offerKeyInUse(hub, key), false);
+    hub._deviceLinkSessions.set('sess1', {
+      nonce: 'aa'.repeat(32),
+      origin: 'https://hub.example',
+      initiator: { id: 'id1a' }
+    });
+    assert.strictEqual(offerKeyInUse(hub, key), true);
+    hub._deviceLinkSessions.clear();
+    markOfferConsumed(hub, key);
+    assert.strictEqual(offerKeyInUse(hub, key), true);
   });
 });

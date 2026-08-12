@@ -31,6 +31,7 @@ const {
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const MAX_SESSIONS = 256;
+const MAX_CONSUMED_OFFERS = 512;
 
 function randomSessionId () {
   return crypto.randomBytes(24).toString('hex');
@@ -38,6 +39,37 @@ function randomSessionId () {
 
 function randomNonce () {
   return crypto.randomBytes(32).toString('hex');
+}
+
+function offerReplayKey (nonce, initiatorId, origin) {
+  return `${String(nonce || '').toLowerCase()}:${String(initiatorId || '')}:${String(origin || '')}`;
+}
+
+function ensureConsumedOffers (hub) {
+  if (!hub._deviceLinkConsumedOffers) hub._deviceLinkConsumedOffers = new Map();
+  return hub._deviceLinkConsumedOffers;
+}
+
+function markOfferConsumed (hub, key) {
+  const map = ensureConsumedOffers(hub);
+  map.set(key, Date.now());
+  while (map.size > MAX_CONSUMED_OFFERS) {
+    const first = map.keys().next().value;
+    map.delete(first);
+  }
+}
+
+function offerKeyInUse (hub, key) {
+  const consumed = ensureConsumedOffers(hub);
+  if (consumed.has(key)) return true;
+  if (!hub._deviceLinkSessions) return false;
+  for (const session of hub._deviceLinkSessions.values()) {
+    if (!session) continue;
+    if (offerReplayKey(session.nonce, session.initiator && session.initiator.id, session.origin) === key) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function clientMayAccessDeviceLink (req, sessionOrigin) {
@@ -164,6 +196,14 @@ function handleDeviceLinkCreate (hub, req, res) {
       nonce = randomNonce();
     }
     const sessionId = randomSessionId();
+    const replayKey = offerReplayKey(nonce, initiatorId, origin);
+    if (offerKeyInUse(hub, replayKey)) {
+      sendJson(res, 409, {
+        ok: false,
+        error: 'offer nonce already used for this initiator/origin (replay rejected)'
+      });
+      return;
+    }
     const offerMessage = buildDeviceLinkOfferMessage(nonce, initiatorId, label, origin);
     const offerVerify = verifyIdentitySchnorr(offerMessage, signature, pubkeyHex, {
       id: initiatorId,
@@ -306,6 +346,7 @@ function handleDeviceLinkSign (hub, req, res) {
       session.initiatorCountersignature = signature.toLowerCase();
       session.status = 'linked';
       session.linkedAt = Date.now();
+      markOfferConsumed(hub, offerReplayKey(session.nonce, session.initiator.id, session.origin));
       sendJson(res, 200, {
         ok: true,
         sessionId,
@@ -448,5 +489,8 @@ module.exports = {
   identityFromXpub,
   mountFabricDeviceLinkHttp,
   randomNonce,
-  randomSessionId
+  randomSessionId,
+  offerReplayKey,
+  offerKeyInUse,
+  markOfferConsumed
 };

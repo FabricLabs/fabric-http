@@ -4,16 +4,21 @@
  * Allowed Hub HTTP origins for fabric://login and fabric://link.
  * Prevents phishing URLs from soliciting a signed completion to an attacker hub.
  *
- * Defaults: network hubs + loopback. Extra origins via FABRIC_HUB_ALLOWLIST —
- * comma-separated http(s) origins.
+ * Defaults: **HTTPS** network hubs + loopback. Cleartext `http://` production
+ * hubs are not default-trusted — add them via `FABRIC_HUB_ALLOWLIST` or
+ * `opts.extra` when intentionally operating without TLS.
  */
 
 const DEFAULT_FABRIC_HUB_ORIGINS = [
   'https://hub.fabric.pub',
-  'http://hub.fabric.pub',
   'https://relay.goon.vc',
+  'https://goon.vc'
+];
+
+/** Cleartext production origins — opt-in only via FABRIC_HUB_ALLOWLIST / opts.extra. */
+const CLEARTEXT_PRODUCTION_HUB_ORIGINS = [
+  'http://hub.fabric.pub',
   'http://relay.goon.vc',
-  'https://goon.vc',
   'http://goon.vc'
 ];
 
@@ -95,6 +100,7 @@ function assertAllowedFabricHub (hubBase, opts = {}) {
 
 module.exports = {
   DEFAULT_FABRIC_HUB_ORIGINS,
+  CLEARTEXT_PRODUCTION_HUB_ORIGINS,
   normalizeHubOrigin,
   isLoopbackHubOrigin,
   allowlistFromEnv,
