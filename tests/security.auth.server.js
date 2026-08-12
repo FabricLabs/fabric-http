@@ -164,6 +164,9 @@ describe('@fabric/http security hardening', function () {
       });
 
       assert.strictEqual(denied.error && denied.error.code, -32001);
+      const jsonRpcTransport = require('../functions/fabricJsonRpcTransport');
+      const expected = jsonRpcTransport.computeWebSocketJsonCallHashPair(callBody);
+      assert.strictEqual(denied.params && denied.params[0], expected.hash);
     } finally {
       await server.stop().catch(() => {});
     }
@@ -225,6 +228,54 @@ describe('@fabric/http security hardening', function () {
       assert.ok(resultFrame, 'expected JSONCall result frame');
       const inner = JSON.parse(resultFrame.body);
       assert.deepStrictEqual(inner.params[1], { echoed: { k: 1 } });
+    } finally {
+      await server.stop().catch(() => {});
+    }
+  });
+
+  it('drops unauthenticated WebSocket GenericMessage before call dispatch', async function () {
+    const port = await ephemeralPort();
+    const server = new HTTPServer({
+      port,
+      host: '127.0.0.1',
+      interface: '127.0.0.1',
+      hostname: '127.0.0.1',
+      listen: true,
+      // No bearer / client token → _fabricTransportAuthorized stays false.
+      websocket: { requireClientToken: false }
+    });
+    let callCount = 0;
+    server.on('call', () => { callCount += 1; });
+
+    await server.start();
+    try {
+      const clientKey = new Key();
+      const body = JSON.stringify({
+        data: { method: 'ShouldNotDispatch', params: [{ evil: true }] }
+      });
+      const msg = Message.fromVector(['GenericMessage', body]).signWithKey(clientKey);
+
+      await new Promise((resolve, reject) => {
+        const ws = new WebSocket(`ws://127.0.0.1:${port}/`);
+        const t = setTimeout(() => {
+          ws.close();
+          resolve();
+        }, 600);
+        ws.on('open', () => {
+          try {
+            ws.send(msg.toBuffer());
+          } catch (e) {
+            clearTimeout(t);
+            reject(e);
+          }
+        });
+        ws.on('error', (e) => {
+          clearTimeout(t);
+          reject(e);
+        });
+      });
+
+      assert.strictEqual(callCount, 0);
     } finally {
       await server.stop().catch(() => {});
     }

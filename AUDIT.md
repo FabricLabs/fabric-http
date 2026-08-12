@@ -5,7 +5,7 @@ Living posture notes for `@fabric/http` **0.1.0-RC1**. Re-run **`npm audit`** af
 
 | Area | Posture |
 |------|---------|
-| `@fabric/core` | Git pin `FabricLabs/fabric#2faffae58bdecc2d14896dfbac70de03cba8323a` (not a moving branch tip; aligned with Node **24.15.0**) |
+| `@fabric/core` | Git pin `FabricLabs/fabric#6badaea7f783638d65a5b466fb23420107fb2a6f` (immutable SHA; aligned with Node **24.15.0** / current lockfile) |
 | npm `allow-git` | **`.npmrc` `allow-git=all`** — nested git-dep preparation resolves core to a commit SHA; `root` is refused |
 | WebSocket (`ws`) | **Mitigated** — direct + override **`8.21.2`** (GHSA-58qx-3vcg-4xpx / fragment DoS) |
 | Express / body-parser / qs | **Mitigated** — `express@4.22.2`, `body-parser@1.20.6`, override `qs@6.15.3` |
@@ -69,6 +69,7 @@ ws  6.x / 8.18.x
 3. Do not reintroduce **peerjs** or **showdown**.
 4. Treat Fomantic gulp as **build-only**; never expose its admin GitHub tooling on production HTTP paths.
 5. Coordinate `@fabric/core` bumps with Hub (`npm run link:fabric` / git pin) so Message/Peer/opcode behavior stays aligned.
+6. Before RC: finish GenericMessage AMP-verify / named-type migration with Hub (SLIP-0044 fetch is already commit-pinned + validated; see [SECURITY.md](SECURITY.md)).
 
 ## Disclosure
 

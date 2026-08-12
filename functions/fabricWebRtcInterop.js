@@ -80,12 +80,13 @@ function fabricSignalingWebSocketUrl (hubAddress, path = '/') {
  * @returns {string|null}
  */
 function expectedOriginFromHubAddress (hubAddress) {
+  // Reuse parseFabricHubAddress so `wss://` / `ws://` Hub addresses map to
+  // browser page origins (`https:` / `http:`) instead of failing URL parse.
+  const p = parseFabricHubAddress(hubAddress);
+  if (!p) return null;
   try {
-    const raw = String(hubAddress == null ? '' : hubAddress).trim();
-    if (!raw) return null;
-    const hasScheme = /^https?:\/\//i.test(raw);
-    const u = new URL(hasScheme ? raw : `https://${raw}`);
-    return u.origin || null;
+    const httpProto = p.secure ? 'https' : 'http';
+    return new URL(`${httpProto}://${p.host}:${p.port}`).origin || null;
   } catch (_) {
     return null;
   }

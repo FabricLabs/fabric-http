@@ -76,6 +76,32 @@ async function main () {
     throw new Error(`No SLIP-0044 rows parsed from ${SLIP_0044_PATH}`);
   }
 
+  // Fail closed before overwrite: expect a dense coin table with stable column shapes.
+  const MIN_SLIP_0044_ROWS = 100;
+  if (entries.length < MIN_SLIP_0044_ROWS) {
+    throw new Error(
+      `SLIP-0044 parse too sparse (${entries.length} rows; need >= ${MIN_SLIP_0044_ROWS}) from ${SLIP_0044_PATH}`
+    );
+  }
+  for (let i = 0; i < entries.length; i++) {
+    const row = entries[i];
+    if (!row || typeof row !== 'object') {
+      throw new Error(`SLIP-0044 row ${i}: missing object`);
+    }
+    const type = String(row.type || '').trim();
+    const path = String(row.path || '').trim();
+    const coin = String(row.coin || '').trim();
+    if (!/^\d+$/.test(type)) {
+      throw new Error(`SLIP-0044 row ${i}: type must be decimal index (got ${JSON.stringify(row.type)})`);
+    }
+    if (!path) {
+      throw new Error(`SLIP-0044 row ${i}: path/hexa required`);
+    }
+    if (!coin) {
+      throw new Error(`SLIP-0044 row ${i}: coin name required`);
+    }
+  }
+
   fs.writeFileSync('./settings/slip-44.json', JSON.stringify(entries, null, '  ') + '\n');
 
   return {

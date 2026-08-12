@@ -82,8 +82,11 @@ describe('webrtc interop helpers', function () {
     assert.strictEqual(webrtcInterop.parseFabricHubAddress(''), null);
     assert.strictEqual(webrtcInterop.expectedOriginFromHubAddress('hub.fabric.pub'), 'https://hub.fabric.pub');
     assert.strictEqual(webrtcInterop.expectedOriginFromHubAddress('http://127.0.0.1:8080'), 'http://127.0.0.1:8080');
+    assert.strictEqual(webrtcInterop.expectedOriginFromHubAddress('wss://hub.fabric.pub'), 'https://hub.fabric.pub');
+    assert.strictEqual(webrtcInterop.expectedOriginFromHubAddress('ws://127.0.0.1:8080'), 'http://127.0.0.1:8080');
     assert.strictEqual(webrtcInterop.expectedOriginFromHubAddress(''), null);
     assert.strictEqual(webrtcInterop.isHubPageOriginMatch('https://hub.fabric.pub/', 'https://hub.fabric.pub'), true);
+    assert.strictEqual(webrtcInterop.isHubPageOriginMatch('wss://hub.fabric.pub', 'https://hub.fabric.pub'), true);
     assert.strictEqual(webrtcInterop.isHubPageOriginMatch('https://hub.fabric.pub/', 'https://evil.example'), false);
   });
 

@@ -1139,10 +1139,13 @@ class FabricHTTPServer extends Service {
           case messageTransport.JSON_CALL_CANONICAL_TYPE:
             // console.trace('[SERVER]', 'received JSON call:', message.body);
             try {
-              // Reject JSON-RPC transport auth before hashing/parsing the frame body so public sockets
-              // cannot burn CPU on attacker-controlled payloads (SHA256 + JSON.parse).
+              // Correlate denials/errors to the raw frame body (cheap SHA256 pair) before JSON.parse.
+              const { hash } = jsonRpcTransport.computeWebSocketJsonCallHashPair(
+                message.body == null ? '' : String(message.body)
+              );
+              // Reject JSON-RPC transport auth before parsing so public sockets cannot burn CPU on
+              // attacker-controlled JSON.parse while still returning a hash clients can match.
               if (!socket._fabricJsonRpcTransportAuthorized) {
-                const { hash } = jsonRpcTransport.computeWebSocketJsonCallHashPair('');
                 const errBody = JSON.stringify(jsonRpcTransport.buildWebSocketJsonCallErrorBody({
                   hash,
                   code: -32001,
@@ -1154,7 +1157,6 @@ class FabricHTTPServer extends Service {
                 break;
               }
 
-              const { hash } = jsonRpcTransport.computeWebSocketJsonCallHashPair(message.body);
               const jsonCallPayload = jsonRpcTransport.parseWebSocketJsonCallBody(message.body);
 
               const wrtcCfg = server.settings.webrtc || {};
@@ -1190,12 +1192,27 @@ class FabricHTTPServer extends Service {
               const callResultMessage = Message.fromVector([
                 messageTransport.JSON_CALL_CANONICAL_TYPE,
                 JSON.stringify(jsonRpcTransport.buildWebSocketJsonCallResultBody({ hash, result }))
-              ]).signWithKey(this._rootKey);
+              ]);
+              if (this._rootKey && this._rootKey.private) callResultMessage.signWithKey(this._rootKey);
 
               socket.send(callResultMessage.toBuffer());
             } catch (exception) {
               console.error('[SERVER]', 'Could not parse JSON blob:', exception);
-              return;
+              try {
+                const { hash } = jsonRpcTransport.computeWebSocketJsonCallHashPair(
+                  message.body == null ? '' : String(message.body)
+                );
+                const errBody = JSON.stringify(jsonRpcTransport.buildWebSocketJsonCallErrorBody({
+                  hash,
+                  code: -32603,
+                  message: (exception && exception.message) || 'JSONCall failed'
+                }));
+                const failed = Message.fromVector([messageTransport.JSON_CALL_CANONICAL_TYPE, errBody]);
+                if (server._rootKey && server._rootKey.private) failed.signWithKey(server._rootKey);
+                socket.send(failed.toBuffer());
+              } catch (_) {
+                // Best-effort error frame; avoid throwing out of the WS handler.
+              }
             }
             break;
           case 'GET':
@@ -1252,6 +1269,15 @@ class FabricHTTPServer extends Service {
             }
           case messageTransport.GENERIC_MESSAGE_TYPE:
             {
+              // Fail closed: unauthenticated GenericMessage must not dispatch local calls or
+              // peer-broadcast (handleFabricMessage). Prefer typed AMP / JSONCall on public hosts.
+              if (socket._fabricTransportAuthorized !== true) {
+                if (server.settings.debug) {
+                  console.debug('[SERVER]', 'Denied websocket GenericMessage (transport auth required)');
+                }
+                break;
+              }
+
               let msgData = null;
 
               try {
@@ -1265,13 +1291,13 @@ class FabricHTTPServer extends Service {
                 };
                 if (baseCall && typeof baseCall === 'object') {
                   server.emit('call', Object.assign({}, baseCall, {
-                    _fabricTransportAuthorized: socket._fabricTransportAuthorized === true
+                    _fabricTransportAuthorized: true
                   }));
                 } else {
                   server.emit('call', {
                     method: 'GenericMessage',
                     params: [baseCall],
-                    _fabricTransportAuthorized: socket._fabricTransportAuthorized === true
+                    _fabricTransportAuthorized: true
                   });
                 }
 
@@ -1559,7 +1585,12 @@ class FabricHTTPServer extends Service {
         res.status(200).json(doc);
       })
       .catch((e) => {
-        this.emit('error', e);
+        // EventEmitter throws if `error` is emitted with zero listeners.
+        if (this.listenerCount('error') > 0) {
+          this.emit('error', e);
+        } else {
+          console.warn('[SERVER]', 'OPTIONS failed:', (e && e.message) || e);
+        }
         res.status(500).json({
           '@type': 'Error',
           message: (e && e.message) || String(e)
