@@ -6,7 +6,8 @@ const {
   buildLoginMessage,
   verifyFabricDesktopLoginSignedPayload,
   originsMatchForDesktopSession,
-  isLoopbackHostname
+  isLoopbackHostname,
+  isLocalRequest
 } = require('./fabricSiteLoginVerify');
 const SESSION_TTL_MS = 10 * 60 * 1000;
 const MAX_SESSIONS = 256;
@@ -44,11 +45,6 @@ function pruneSessions (hub) {
     const first = hub._desktopAuthSessions.keys().next().value;
     hub._desktopAuthSessions.delete(first);
   }
-}
-
-function isLocalRequest (req) {
-  const addr = (req.socket && req.socket.remoteAddress) || (req.connection && req.connection.remoteAddress) || '';
-  return addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1';
 }
 
 function refererOriginMatchesSession (referer, sessionOrigin) {

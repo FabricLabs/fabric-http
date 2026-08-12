@@ -59,6 +59,24 @@ describe('@fabric/http applicationResourceContract', function () {
     assert.ok(isApplicationResourceContract(doc));
   });
 
+  it('rejects type-only ARC documents and wrong @type', function () {
+    assert.strictEqual(isApplicationResourceContract({ '@type': ARC_TYPE }), false);
+    assert.strictEqual(isApplicationResourceContract({
+      '@type': ARC_TYPE,
+      name: 'x',
+      resources: {}
+    }), true);
+    assert.strictEqual(isApplicationResourceContract({
+      '@type': 'SomethingElse',
+      name: 'x',
+      resources: { Document: {} }
+    }), false);
+    assert.strictEqual(isApplicationResourceContract({
+      name: 'legacy-without-type',
+      resources: { Document: {} }
+    }), true);
+  });
+
   it('resourceCatalog flattens FabricResource-like instances', function () {
     const cat = resourceCatalog({
       Peer: {

@@ -20,6 +20,32 @@ function isLoopbackHostname (h) {
   return x === 'localhost' || x === '127.0.0.1' || x === '[::1]' || x === '::1';
 }
 
+/**
+ * True when the request arrived via a reverse proxy (common when Hub HTTP
+ * binds loopback behind Caddy). Peer socket is then always 127.0.0.1 and must
+ * not short-circuit Origin / Referer binding for site-login or device-link.
+ * @param {import('http').IncomingMessage} [req]
+ * @returns {boolean}
+ */
+function requestHasProxyForwardHeaders (req) {
+  const h = req && req.headers;
+  if (!h || typeof h !== 'object') return false;
+  return !!(h['x-forwarded-for'] || h['x-forwarded-host'] || h['x-real-ip'] || h.forwarded);
+}
+
+/**
+ * Direct loopback client only — not proxied public traffic to a loopback bind.
+ * @param {import('http').IncomingMessage} [req]
+ * @returns {boolean}
+ */
+function isLocalRequest (req) {
+  if (requestHasProxyForwardHeaders(req)) return false;
+  const addr = (req && req.socket && req.socket.remoteAddress)
+    || (req && req.connection && req.connection.remoteAddress)
+    || '';
+  return addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1';
+}
+
 function originsMatchForDesktopSession (clientOriginLike, sessionOrigin) {
   if (!clientOriginLike || !sessionOrigin) return false;
   if (clientOriginLike === sessionOrigin) return true;
@@ -105,6 +131,8 @@ module.exports = {
   buildFabricIdentitySignedPayload,
   originsMatchForDesktopSession,
   isLoopbackHostname,
+  requestHasProxyForwardHeaders,
+  isLocalRequest,
   fabricIdentityIdFromPubkeyHex,
   verifyIdentitySchnorr
 };

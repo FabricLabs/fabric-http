@@ -193,8 +193,8 @@ function buildApplicationResourceContract (server, opts = {}) {
  */
 function isApplicationResourceContract (json) {
   if (!json || typeof json !== 'object' || Array.isArray(json)) return false;
-  if (json['@type'] === ARC_TYPE) return true;
-  if (typeof json.name !== 'string') return false;
+  if (json['@type'] != null && json['@type'] !== ARC_TYPE) return false;
+  if (typeof json.name !== 'string' || !json.name) return false;
   if (!json.resources || typeof json.resources !== 'object' || Array.isArray(json.resources)) {
     return false;
   }

@@ -54,21 +54,22 @@ function isHttpSharedModeEnabled (raw) {
  */
 function resolveHttpListenHost (opts = {}) {
   const env = opts.env || process.env;
+  // Explicit constructor overrides beat inherited env (envHost wins over host).
   if (opts.envHost != null) {
     const forced = String(opts.envHost).trim();
     if (forced) return forced;
-  } else {
-    const keys = Array.isArray(opts.envHostKeys) && opts.envHostKeys.length
-      ? opts.envHostKeys
-      : DEFAULT_HTTP_LISTEN_ENV_KEYS;
-    for (const key of keys) {
-      const v = String(env[key] || '').trim();
-      if (v) return v;
-    }
   }
 
   const explicit = String(opts.host || '').trim();
   if (explicit) return explicit;
+
+  const keys = Array.isArray(opts.envHostKeys) && opts.envHostKeys.length
+    ? opts.envHostKeys
+    : DEFAULT_HTTP_LISTEN_ENV_KEYS;
+  for (const key of keys) {
+    const v = String(env[key] || '').trim();
+    if (v) return v;
+  }
 
   if (String(opts.mode || '') === 'server') return '0.0.0.0';
   if (isHttpSharedModeEnabled(opts.httpSharedMode)) return '0.0.0.0';

@@ -41,5 +41,10 @@ describe('@fabric/http httpSharedMode', function () {
       host: '127.0.0.1',
       env: {}
     }), '127.0.0.1');
+    assert.strictEqual(resolveHttpListenHost({
+      mode: 'relay',
+      host: '127.0.0.1',
+      env: { FABRIC_HUB_INTERFACE: '0.0.0.0' }
+    }), '127.0.0.1');
   });
 });

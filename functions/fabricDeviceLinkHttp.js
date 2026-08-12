@@ -11,16 +11,16 @@
  *    (or create unsigned pending + sign later — we require initiator offer signature).
  * 2. Responder GET pending, POST …/signatures { role:'responder', … }.
  * 3. Initiator POST …/signatures { role:'initiator', … } countersigns the link message.
- * 4. GET returns status `linked` with both attestations (ephemeral session may retire).
+ * 4. GET returns status `linked` with both attestations until SESSION_TTL_MS.
  */
 
 const crypto = require('crypto');
 const Key = require('@fabric/core/types/key');
-const Identity = require('@fabric/core/types/identity');
 const {
   originsMatchForDesktopSession,
   fabricIdentityIdFromPubkeyHex,
-  verifyIdentitySchnorr
+  verifyIdentitySchnorr,
+  isLocalRequest
 } = require('./fabricSiteLoginVerify');
 const {
   DEVICE_LINK_PREFIX,
@@ -38,11 +38,6 @@ function randomSessionId () {
 
 function randomNonce () {
   return crypto.randomBytes(32).toString('hex');
-}
-
-function isLocalRequest (req) {
-  const addr = (req.socket && req.socket.remoteAddress) || (req.connection && req.connection.remoteAddress) || '';
-  return addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1';
 }
 
 function clientMayAccessDeviceLink (req, sessionOrigin) {
@@ -78,18 +73,23 @@ function pruneSessions (hub) {
 }
 
 /**
- * Resolve Fabric Key + Bech32 identity id from an HD xpub (device-link create/sign).
+ * Resolve protocol Key + Bech32 identity id from a Fabric-node xpub.
+ * Callers must pass the Fabric protocol node xpub (`Identity#fabricKey.xpub` /
+ * `buildFabricIdentitySignedPayload`), not a BIP44 account master — hardened
+ * Fabric paths cannot be derived from a watch-only master xpub.
  * @param {string} xpub
  * @returns {{ key: object, id: string, pubkeyHex: string }}
  */
 function identityFromXpub (xpub) {
   const key = new Key({ xpub: String(xpub || '').trim() });
-  const ident = new Identity(key);
-  const id = String(ident.id || fabricIdentityIdFromPubkeyHex(key.pubkey));
+  const pubkeyHex = String(key.pubkey || '').toLowerCase();
+  if (!/^[a-f0-9]{66}$/.test(pubkeyHex)) {
+    throw new Error('Invalid xpub');
+  }
   return {
     key,
-    id,
-    pubkeyHex: String(key.pubkey || '').toLowerCase()
+    id: fabricIdentityIdFromPubkeyHex(pubkeyHex),
+    pubkeyHex
   };
 }
 
@@ -135,12 +135,12 @@ function handleDeviceLinkCreate (hub, req, res) {
       return;
     }
 
-    let initiatorKey;
     let initiatorId;
+    let initiatorPubkeyHex;
     try {
       const resolved = identityFromXpub(identity.xpub);
-      initiatorKey = resolved.key;
       initiatorId = resolved.id;
+      initiatorPubkeyHex = resolved.pubkeyHex;
     } catch (e) {
       sendJson(res, 400, { ok: false, error: 'invalid initiator xpub' });
       return;
@@ -149,7 +149,7 @@ function handleDeviceLinkCreate (hub, req, res) {
       sendJson(res, 400, { ok: false, error: 'Identity id does not match xpub' });
       return;
     }
-    if (String(initiatorKey.pubkey || '').toLowerCase() !== pubkeyHex.toLowerCase()) {
+    if (initiatorPubkeyHex !== pubkeyHex.toLowerCase()) {
       sendJson(res, 400, { ok: false, error: 'Public key does not match xpub' });
       return;
     }
@@ -418,7 +418,7 @@ function handleDeviceLinkGet (hub, req, res) {
         },
         linkedAt: session.linkedAt
       };
-      hub._deviceLinkSessions.delete(sessionId);
+      // Keep until pruneSessions TTL so initiator and responder can both read attestations.
       sendJson(res, 200, payload);
       return;
     }

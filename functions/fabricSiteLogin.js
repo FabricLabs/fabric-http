@@ -12,7 +12,8 @@ const {
   buildLoginMessage,
   verifyFabricDesktopLoginSignedPayload,
   originsMatchForDesktopSession,
-  isLoopbackHostname
+  isLoopbackHostname,
+  isLocalRequest
 } = require('./fabricSiteLoginVerify');
 
 const SESSION_TTL_MS = 10 * 60 * 1000;
@@ -35,13 +36,6 @@ function hasClientSignatureBody (body) {
   if (!identity || typeof identity !== 'object') return false;
   if (typeof identity.xpub !== 'string' || !identity.xpub.trim()) return false;
   return true;
-}
-
-function isLocalRequest (req) {
-  const addr = (req.socket && req.socket.remoteAddress)
-    || (req.connection && req.connection.remoteAddress)
-    || '';
-  return addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1';
 }
 
 function refererOriginMatchesSession (referer, sessionOrigin) {
@@ -287,10 +281,13 @@ function completeSession (req, sessionId, body, store, opts = {}) {
     try {
       delegationToken = opts.issueBearer(session.pubkeyHex);
     } catch (_) {
-      delegationToken = null;
+      return { status: 500, json: { ok: false, error: 'failed to issue bearer token' } };
     }
-  }
-  if (!delegationToken) {
+    if (!delegationToken) {
+      return { status: 500, json: { ok: false, error: 'failed to issue bearer token' } };
+    }
+  } else {
+    // No registry callback — ephemeral token bound only to this login session.
     delegationToken = crypto.randomBytes(24).toString('hex');
   }
   session.delegationToken = delegationToken;

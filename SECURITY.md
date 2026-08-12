@@ -22,4 +22,6 @@ This package fails closed on missing auth secrets, enforces Hub origin allowlist
 3. Prefer loopback HTTP unless shared mode is intentional.
 
 ## Disclosure
-Report issues via the repository issue tracker / maintainer contact in README.
+Report security issues privately to the maintainers (GitHub Security Advisories /
+private maintainer contact in README) rather than opening a public issue with
+exploit details. Expect an initial response within a few business days.
