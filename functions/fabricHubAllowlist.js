@@ -4,8 +4,8 @@
  * Allowed Hub HTTP origins for fabric://login and fabric://link.
  * Prevents phishing URLs from soliciting a signed completion to an attacker hub.
  *
- * Defaults: network hubs + loopback. Extra origins via FABRIC_HUB_ALLOWLIST
- * (or SC_FABRIC_HUB_ALLOWLIST) — comma-separated http(s) origins.
+ * Defaults: network hubs + loopback. Extra origins via FABRIC_HUB_ALLOWLIST —
+ * comma-separated http(s) origins.
  */
 
 const DEFAULT_FABRIC_HUB_ORIGINS = [
@@ -45,7 +45,7 @@ function isLoopbackHubOrigin (origin) {
  * @returns {string[]}
  */
 function allowlistFromEnv (env = process.env) {
-  const raw = env.FABRIC_HUB_ALLOWLIST || env.SC_FABRIC_HUB_ALLOWLIST || '';
+  const raw = env.FABRIC_HUB_ALLOWLIST || '';
   return String(raw).split(',')
     .map((s) => normalizeHubOrigin(s))
     .filter(Boolean);

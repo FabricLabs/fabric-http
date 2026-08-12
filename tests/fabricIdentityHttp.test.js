@@ -8,6 +8,7 @@ const {
   buildLoginMessage,
   parseDesktopLoginMessage,
   verifyFabricDesktopLoginSignedPayload,
+  buildFabricIdentitySignedPayload,
   originsMatchForDesktopSession
 } = require('../functions/fabricSiteLoginVerify');
 const { parseFabricLoginUrl } = require('../functions/fabricProtocolLogin');
@@ -33,13 +34,46 @@ describe('@fabric/http identity HTTP', function () {
     const origin = 'https://relay.goon.vc';
     const nonce = 'cd'.repeat(32);
     const message = buildLoginMessage(sessionId, origin, nonce);
-    const signature = Buffer.from(key.signSchnorr(Buffer.from(message, 'utf8'))).toString('hex');
+    const payload = buildFabricIdentitySignedPayload(ident, message);
     const verified = verifyFabricDesktopLoginSignedPayload({
-      signature,
-      pubkeyHex: key.pubkey,
-      message,
-      identity: { id: ident.id, xpub: key.xpub }
+      ...payload,
+      message
     }, { sessionId, origin });
+    assert.strictEqual(verified.ok, true);
+    assert.strictEqual(payload.pubkeyHex, ident.fabricKey.pubkey);
+    assert.strictEqual(payload.identity.xpub, ident.fabricKey.xpub);
+    assert.strictEqual(payload.identity.id, String(ident.id));
+  });
+
+  it('signs from HD Key and from { mnemonic } bag', function () {
+    const key = new Key();
+    const ident = new Identity(key);
+    const message = buildLoginMessage('11'.repeat(24), 'https://hub.fabric.pub', '22'.repeat(32));
+    const fromKey = buildFabricIdentitySignedPayload(key, message);
+    const fromBag = buildFabricIdentitySignedPayload({ mnemonic: key.mnemonic }, message);
+    assert.strictEqual(fromKey.pubkeyHex, ident.fabricKey.pubkey);
+    assert.strictEqual(fromBag.pubkeyHex, ident.fabricKey.pubkey);
+    assert.strictEqual(fromKey.identity.id, fromBag.identity.id);
+  });
+
+  it('signs Passport-style leaf private + fabric-path xpub', function () {
+    const master = new Key();
+    const ident = new Identity(master);
+    const fabric = ident.fabricKey;
+    const priv = Buffer.isBuffer(fabric.private)
+      ? fabric.private.toString('hex')
+      : String(fabric.private);
+    const message = buildLoginMessage('33'.repeat(24), 'https://relay.goon.vc', '44'.repeat(32));
+    const payload = buildFabricIdentitySignedPayload({
+      privateKeyHex: priv,
+      xpub: fabric.xpub
+    }, message);
+    assert.strictEqual(payload.pubkeyHex, fabric.pubkey);
+    assert.strictEqual(payload.identity.xpub, fabric.xpub);
+    const verified = verifyFabricDesktopLoginSignedPayload({
+      ...payload,
+      message
+    }, { sessionId: '33'.repeat(24), origin: 'https://relay.goon.vc' });
     assert.strictEqual(verified.ok, true);
   });
 

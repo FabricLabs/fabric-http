@@ -15,10 +15,10 @@
  */
 
 const crypto = require('crypto');
-const Key = require('@fabric/core/types/key');
-const Identity = require('@fabric/core/types/identity');
 const {
-  originsMatchForDesktopSession
+  originsMatchForDesktopSession,
+  fabricIdentityIdFromPubkeyHex,
+  verifyIdentitySchnorr
 } = require('./fabricSiteLoginVerify');
 const {
   DEVICE_LINK_PREFIX,
@@ -36,56 +36,6 @@ function randomSessionId () {
 
 function randomNonce () {
   return crypto.randomBytes(32).toString('hex');
-}
-
-/**
- * Verify Schnorr + identity.id matches xpub (same rules as desktop login verify).
- * @returns {{ ok: true, key: import('@fabric/core/types/key'), identityId: string }|{ ok: false, error: string }}
- */
-function verifyIdentitySchnorr (message, signatureHex, pubkeyHex, identity) {
-  if (typeof message !== 'string' || !message) {
-    return { ok: false, error: 'Missing signed message' };
-  }
-  if (typeof signatureHex !== 'string' || !/^[a-f0-9]{128}$/i.test(signatureHex)) {
-    return { ok: false, error: 'Missing or invalid signature' };
-  }
-  if (typeof pubkeyHex !== 'string' || !/^[a-f0-9]{66}$/i.test(pubkeyHex)) {
-    return { ok: false, error: 'Missing or invalid pubkey' };
-  }
-  if (!identity || typeof identity !== 'object' || typeof identity.xpub !== 'string' || !identity.xpub) {
-    return { ok: false, error: 'Missing identity xpub' };
-  }
-  let key;
-  try {
-    key = new Key({ xpub: identity.xpub });
-  } catch (e) {
-    return { ok: false, error: 'Invalid xpub' };
-  }
-  const msgBuf = Buffer.from(message, 'utf8');
-  let sigBuf;
-  try {
-    sigBuf = Buffer.from(signatureHex, 'hex');
-  } catch (e) {
-    return { ok: false, error: 'Invalid signature encoding' };
-  }
-  if (!key.verifySchnorr(msgBuf, sigBuf)) {
-    return { ok: false, error: 'Signature verification failed' };
-  }
-  const compressedPub = String(key.pubkey || '').toLowerCase();
-  if (compressedPub !== String(pubkeyHex).toLowerCase()) {
-    return { ok: false, error: 'Public key does not match xpub' };
-  }
-  let ident;
-  try {
-    ident = new Identity(key);
-  } catch (e) {
-    return { ok: false, error: 'Could not derive identity from xpub' };
-  }
-  const claimedId = identity.id != null ? String(identity.id).trim() : '';
-  if (!claimedId || String(ident.id) !== claimedId) {
-    return { ok: false, error: 'Identity id does not match xpub' };
-  }
-  return { ok: true, key, identityId: claimedId };
 }
 
 function isLocalRequest (req) {
@@ -476,6 +426,7 @@ module.exports = {
   buildDeviceLinkOfferMessage,
   parseDeviceLinkMessage,
   verifyIdentitySchnorr,
+  fabricIdentityIdFromPubkeyHex,
   mountFabricDeviceLinkHttp,
   randomNonce,
   randomSessionId

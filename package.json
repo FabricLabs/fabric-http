@@ -33,6 +33,7 @@
     "start": "npm run compile && node scripts/node.js",
     "static": "npm run build:scripts && fabric-http assets",
     "test": "mocha tests",
+    "test:playnet-publish": "mocha tests/playnet.federationInvite.publish.integration.js --exit",
     "test:standards": "mocha tests/standards.http.js --exit"
   },
   "repository": {
@@ -73,6 +74,7 @@
     "./functions/fabricHubAllowlist": "./functions/fabricHubAllowlist.js",
     "./functions/httpSharedMode": "./functions/httpSharedMode.js",
     "./functions/fabricSiteLoginVerify": "./functions/fabricSiteLoginVerify.js",
+    "./functions/fabricIdentitySchnorr": "./functions/fabricIdentitySchnorr.js",
     "./functions/fabricDesktopLoginVerify": "./functions/fabricDesktopLoginVerify.js",
     "./functions/fabricSiteLogin": "./functions/fabricSiteLogin.js",
     "./functions/fabricSiteLoginHttp": "./functions/fabricSiteLoginHttp.js",
@@ -92,12 +94,13 @@
     "Victor Wu"
   ],
   "dependencies": {
-    "@fabric/core": "FabricLabs/fabric#a97e7523a28be8b2f61311db1ea25dc6aec4dd7f",
+    "@fabric/core": "FabricLabs/fabric#feature/rsi",
     "assert-browserify": "=2.0.0",
     "babel-loader": "=8.2.5",
     "body-parser": "=1.20.6",
     "buffer": "=6.0.3",
     "compression": "=1.8.1",
+    "content-type": "2.0.0",
     "cross-fetch": "=4.1.0",
     "crypto-browserify": "=3.12.1",
     "d3": "=7.9.0",

@@ -3,7 +3,20 @@
 /**
  * HTTP shared-mode bind helpers for Fabric nodes (Hub, LiveRelay, desktop).
  * Default local dashboard bind is loopback; LAN (`0.0.0.0`) is opt-in.
+ *
+ * Canonical env (Fabric-wide — no app prefixes):
+ *   FABRIC_HUB_INTERFACE | INTERFACE | FABRIC_HTTP_INTERFACE
+ *
+ * App-specific aliases (e.g. GoonCitizen `SC_HTTP_HOST`) belong at the app
+ * boundary, not in this module.
  */
+
+/** Default env keys consulted for HTTP listen host (first non-empty wins). */
+const DEFAULT_HTTP_LISTEN_ENV_KEYS = Object.freeze([
+  'FABRIC_HUB_INTERFACE',
+  'INTERFACE',
+  'FABRIC_HTTP_INTERFACE'
+]);
 
 /**
  * Whether persisted `httpSharedMode` / `HTTP_SHARED_MODE` means bind on all
@@ -29,8 +42,7 @@ function isHttpSharedModeEnabled (raw) {
  * - otherwise → `127.0.0.1` unless `httpSharedMode` is on
  *
  * Explicit `opts.envHost` / `opts.host` always wins. Env keys default to
- * Hub `FABRIC_HUB_INTERFACE` / GC `SC_HTTP_HOST` / `SC_HTTP_INTERFACE` when
- * `opts.envHost` is omitted and `opts.envHostKeys` is not set.
+ * {@link DEFAULT_HTTP_LISTEN_ENV_KEYS} unless `opts.envHostKeys` is set.
  *
  * @param {Object} [opts]
  * @param {string} [opts.mode] App mode (`relay` | `server` | …)
@@ -49,7 +61,7 @@ function resolveHttpListenHost (opts = {}) {
   } else {
     const keys = Array.isArray(opts.envHostKeys) && opts.envHostKeys.length
       ? opts.envHostKeys
-      : ['SC_HTTP_HOST', 'SC_HTTP_INTERFACE'];
+      : DEFAULT_HTTP_LISTEN_ENV_KEYS;
     for (const key of keys) {
       const v = String(env[key] || '').trim();
       if (v) return v;
@@ -65,6 +77,7 @@ function resolveHttpListenHost (opts = {}) {
 }
 
 module.exports = {
+  DEFAULT_HTTP_LISTEN_ENV_KEYS,
   isHttpSharedModeEnabled,
   resolveHttpListenHost
 };

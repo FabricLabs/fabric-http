@@ -61,7 +61,12 @@ function collectOwnFabricHosts (opts = {}) {
   if (opts.advertiseHost) add(opts.advertiseHost);
   for (const h of opts.ownHosts || []) add(h);
   const env = opts.env || process.env;
-  for (const key of ['FABRIC_PUBLIC_HOST', 'FABRIC_ADVERTISE_HOST', 'SC_FABRIC_PUBLIC_HOST']) {
+  for (const key of [
+    'FABRIC_PUBLIC_HOST',
+    'FABRIC_ADVERTISE_HOST',
+    'FABRIC_INTERFACE',
+    'FABRIC_PEER_INTERFACE'
+  ]) {
     if (env[key]) add(env[key]);
   }
   if (opts.includeLocalInterfaces !== false) {

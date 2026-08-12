@@ -30,8 +30,12 @@ describe('@fabric/http httpSharedMode', function () {
     assert.strictEqual(resolveHttpListenHost({
       mode: 'relay',
       httpSharedMode: false,
-      env: { SC_HTTP_HOST: '192.168.1.10' }
+      env: { FABRIC_HUB_INTERFACE: '192.168.1.10' }
     }), '192.168.1.10');
+    assert.strictEqual(resolveHttpListenHost({
+      mode: 'relay',
+      env: { FABRIC_HUB_INTERFACE: '65.21.231.149', FABRIC_HTTP_INTERFACE: '192.168.1.10' }
+    }), '65.21.231.149');
     assert.strictEqual(resolveHttpListenHost({
       mode: 'server',
       host: '127.0.0.1',
