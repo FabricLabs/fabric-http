@@ -5,14 +5,14 @@ Living posture notes for `@fabric/http` **0.1.0-RC1**. Re-run **`npm audit`** af
 
 | Area | Posture |
 |------|---------|
-| `@fabric/core` | Git pin `FabricLabs/fabric#aa516d31729a86be59e7257f4e91a86733ab8d5e` (immutable SHA from `feature/rsi` tip after install; Node **24.15.0**) |
-| npm `allow-git` | **`.npmrc` `allow-git=all`** — nested git-dep preparation resolves core to a commit SHA; `root` is refused |
+| `@fabric/core` | Git pin `FabricLabs/fabric#3e5dafff33af306c097656b69ddb2d74bd101fb0` (immutable SHA from `feature/rsi` tip after install; Node **24.15.0**) |
+| npm `allow-git` | **`.npmrc` `allow-git=all`** — nested git-dep preparation resolves core to a commit SHA; `root` is refused (intentional — do not flip to `root`) |
 | WebSocket (`ws`) | **Mitigated** — direct + override **`8.21.2`** (GHSA-58qx-3vcg-4xpx / fragment DoS) |
 | Express / body-parser / qs | **Mitigated** — `express@4.22.2`, `body-parser@1.20.6`, override `qs@6.15.3` |
 | undici (fomantic → `@actions/http-client`) | **Mitigated** — override **`6.28.0`** |
 | Markdown (SLIP-0044 script) | **Mitigated** — replaced `showdown` (unfixed ReDoS GHSA-rmmh-p597-ppvv) with **`marked@15.0.12`** |
 | PeerJS / browser mesh | **Removed** — `types/swarm.js` is a no-op stub; Hub native WebRTC |
-| npm audit (clean tree) | **0 vulnerabilities** after 2026-08-12 `report:install` against core `aa516d31…` |
+| npm audit (clean tree) | **0 vulnerabilities** after 2026-08-12 `report:install` against core `3e5dafff…` |
 
 ## Overrides that keep the build tree clean
 
@@ -73,7 +73,8 @@ ws  6.x / 8.18.x
 7. Follow-up (Hub / apps): core now ships Fabric BIP44 coin types **7777** (Bitcoin mainnet) / **7778** (otherwise). Align Hub account-derivation helpers that still hardcode `7778` for mainnet paths.
 8. Follow-up (larger): `messageBodyJsonBridge` RFC6902 sidechain JSON → typed fields still does not preserve a full multi-op patch sequence end-to-end; keep rejecting unsupported ops and prefer Hub typed carriers until that lands.
 9. Follow-up (auth polish): site-login GET now looks up `_delegationRegistry` by opaque Bearer token (not path `sessionId`) with `timingSafeEqual` session binding + TTL/size prune matching desktop sessions. Remaining Hub-side: ensure any dual-keyed legacy registries migrate; prefer never returning path `sessionId` as the credential.
-10. **PR #69 auth boundary** — forgeable Origin/Referer gates for Hub self-sign + session/device-link redeem remain open on shared hosts (see [SECURITY.md](SECURITY.md)). Cleartext production hubs dropped from default allowlist; device-link `(nonce,initiator,origin)` replay after link is blocked. Bind `sessionId` into link messages in a coordinated client bump.
+10. **PR #69 auth boundary (partially closed)** — Hub self-sign is now **opt-in** (`allowHubSelfSign === true`) and **loopback-only**; LiveRelay omits unrecognized Bearer when `issueBearer` is absent; device-link origins are canonicalized for replay keys; peer host parsing is IPv6-safe. Still open on shared hosts: forgeable Origin/Referer for session/device-link **redeem** / poll (needs possession proof); bind `sessionId` into link messages in a coordinated client bump; async DNS self-check (`dns.promises.lookup`) to replace sync `lookupSync`.
+11. Follow-up (ops): keep `package.json` on `FabricLabs/fabric#feature/rsi` during RSI development, but **re-pin releases** to the lockfile SHA (`3e5dafff…` as of 2026-08-12 `report:install`).
 
 ## Disclosure
 

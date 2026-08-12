@@ -36,6 +36,15 @@ describe('@fabric/http fabricPeerHost', function () {
     assert.strictEqual(isSelfFabricAddress('127.0.0.1:7778', 7777), false);
   });
 
+  it('parses bracketed IPv6 host:port without truncating the host', function () {
+    const { splitFabricHostPort } = require('../functions/fabricPeerHost');
+    assert.deepStrictEqual(splitFabricHostPort('[::1]:7777'), { host: '::1', port: 7777 });
+    assert.strictEqual(isLoopbackFabricAddress('[::1]:7777'), true);
+    assert.strictEqual(isSelfFabricAddress('[::1]:7777', 7777), true);
+    assert.strictEqual(isFabricAddress('[::1]:7777'), true);
+    assert.strictEqual(normalizeFabricAddress('[::1]:7777'), '[::1]:7777');
+  });
+
   it('treats advertiseHost / ownHosts as self', function () {
     assert.strictEqual(isSelfFabricAddress('relay.goon.vc:7777', {
       listenPort: 7777,

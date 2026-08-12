@@ -100,6 +100,16 @@ describe('buildFabricDocumentPaymentRequestHeader blob metadata', function () {
       }
     }));
     assert.strictEqual(bad.documentOffer.contentHashHex, undefined);
+
+    const padded = JSON.parse(buildFabricDocumentPaymentRequestHeader({
+      documentOffer: {
+        documentId: 'd1',
+        contentHashHex: ' ' + valid,
+        blobHashHex: valid + ' '
+      }
+    }));
+    assert.strictEqual(padded.documentOffer.contentHashHex, undefined);
+    assert.strictEqual(padded.documentOffer.blobHashHex, undefined);
   });
 });
 

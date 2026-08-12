@@ -18,12 +18,47 @@ const DEFAULT_MAX_PEERS = 32;
 const _dnsOwnHostCache = new Map();
 
 /**
+ * Split `host:port`, bracketed IPv6 `[::1]:7777`, or bare host / IPv6.
+ * Naive `split(':')[0]` breaks on IPv6 — always use this helper.
+ * @param {*} address
+ * @returns {{ host: string, port: number|null }}
+ */
+function splitFabricHostPort (address) {
+  const s = String(address || '').trim().toLowerCase();
+  if (!s) return { host: '', port: null };
+
+  if (s.startsWith('[')) {
+    const end = s.indexOf(']');
+    if (end > 1) {
+      const host = s.slice(1, end);
+      let port = null;
+      if (s.length > end + 1 && s[end + 1] === ':') {
+        const p = Number(s.slice(end + 2));
+        if (Number.isFinite(p) && p > 0) port = p;
+      }
+      return { host, port };
+    }
+  }
+
+  // Exactly one colon ⇒ hostname / IPv4 + port. Multiple colons ⇒ bare IPv6 (no port).
+  const firstColon = s.indexOf(':');
+  const lastColon = s.lastIndexOf(':');
+  if (firstColon > 0 && firstColon === lastColon) {
+    const host = s.slice(0, firstColon);
+    const p = Number(s.slice(firstColon + 1));
+    return { host, port: Number.isFinite(p) && p > 0 ? p : null };
+  }
+
+  return { host: s, port: null };
+}
+
+/**
  * True when address is a known network hub seed host (selective Fabric relays).
  * @param {*} address
  * @returns {boolean}
  */
 function isNetworkHubAddress (address) {
-  const host = String(address || '').trim().toLowerCase().split(':')[0];
+  const host = splitFabricHostPort(address).host;
   return host === 'hub.fabric.pub' || host === 'relay.goon.vc';
 }
 
@@ -33,8 +68,8 @@ function isNetworkHubAddress (address) {
  * @returns {boolean}
  */
 function isLoopbackFabricAddress (address) {
-  const host = String(address || '').trim().toLowerCase().split(':')[0];
-  return host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '::1';
+  const host = splitFabricHostPort(address).host;
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1';
 }
 
 /**
@@ -49,14 +84,8 @@ function isLoopbackFabricAddress (address) {
 function collectOwnFabricHosts (opts = {}) {
   const hosts = new Set();
   const add = (raw) => {
-    let s = String(raw || '').trim().toLowerCase();
-    if (!s) return;
-    if (s.startsWith('[') && s.includes(']')) {
-      s = s.slice(1, s.indexOf(']'));
-    } else if (/:\d{1,5}$/.test(s) && (s.match(/:/g) || []).length === 1) {
-      s = s.split(':')[0];
-    }
-    if (s) hosts.add(s);
+    const { host } = splitFabricHostPort(raw);
+    if (host) hosts.add(host);
   };
   if (opts.advertiseHost) add(opts.advertiseHost);
   for (const h of opts.ownHosts || []) add(h);
@@ -93,7 +122,11 @@ function hostnameResolvesToOwn (host, ownHosts) {
   const key = String(host || '').trim().toLowerCase();
   if (!key || !ownHosts || !ownHosts.size) return false;
   if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(key)) return false;
-  if (_dnsOwnHostCache.has(key)) return _dnsOwnHostCache.get(key);
+  if (key.includes(':')) return false; // IPv6 literal — never DNS-resolve
+  // Cache key includes ownHosts so different local-interface sets do not share hits.
+  // Remaining: prefer async dns.promises.lookup (Node 24 deprecates lookupSync).
+  const cacheKey = `${key}|${[...ownHosts].sort().join(',')}`;
+  if (_dnsOwnHostCache.has(cacheKey)) return _dnsOwnHostCache.get(cacheKey);
   let hit = false;
   try {
     const dns = require('dns');
@@ -111,7 +144,7 @@ function hostnameResolvesToOwn (host, ownHosts) {
   } catch (_) {
     hit = false;
   }
-  _dnsOwnHostCache.set(key, hit);
+  _dnsOwnHostCache.set(cacheKey, hit);
   return hit;
 }
 
@@ -129,11 +162,10 @@ function isSelfFabricAddress (address, listenPortOrOpts, opts) {
     options = listenPortOrOpts;
     listenPort = options.listenPort;
   }
-  const host = String(address || '').trim().toLowerCase().split(':')[0];
+  const { host, port } = splitFabricHostPort(address);
   if (!host) return false;
 
   if (isLoopbackFabricAddress(address)) {
-    const port = Number(String(address || '').trim().split(':')[1]);
     const listen = Number(listenPort);
     if (!Number.isFinite(port) || !Number.isFinite(listen) || listen <= 0) return false;
     return port === listen;
@@ -147,18 +179,19 @@ function isSelfFabricAddress (address, listenPortOrOpts, opts) {
 }
 
 /**
- * True when `value` looks like a Fabric peer address (`host:port`).
+ * True when `value` looks like a Fabric peer address (`host:port` or `[ipv6]:port`).
  * @param {*} value
  * @returns {boolean}
  */
 function isFabricAddress (value) {
   const s = String(value || '').trim();
   if (!s || /^https?:\/\//i.test(s)) return false;
+  if (/^\[[0-9a-fA-F:]+\]:\d{1,5}$/.test(s)) return true;
   return /^[a-zA-Z0-9._-]+(?::\d{1,5})$/.test(s);
 }
 
 /**
- * Normalize operator input to `host:port`.
+ * Normalize operator input to `host:port` (or `[ipv6]:port`).
  * @param {*} value
  * @param {Object} [opts]
  * @param {boolean} [opts.migrate] Migrate legacy `https://host` → `host:7777`
@@ -172,7 +205,8 @@ function normalizeFabricAddress (value, { migrate = false } = {}) {
     try {
       const u = new URL(raw);
       if (!u.hostname) return null;
-      return `${u.hostname}:7777`;
+      const host = u.hostname.includes(':') ? `[${u.hostname}]` : u.hostname;
+      return `${host}:7777`;
     } catch (_) {
       return null;
     }
@@ -201,6 +235,7 @@ function clearOwnHostDnsCache () {
 module.exports = {
   DEFAULT_NETWORK_HUB_SEEDS,
   DEFAULT_MAX_PEERS,
+  splitFabricHostPort,
   isNetworkHubAddress,
   isLoopbackFabricAddress,
   collectOwnFabricHosts,

@@ -48,6 +48,15 @@ function normalizePurchasePriceSats (raw) {
   return rounded;
 }
 
+/**
+ * Exact 32-byte SHA-256 hex (no whitespace trim / coercion).
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+function isExactSha256Hex (value) {
+  return typeof value === 'string' && /^[0-9a-fA-F]{64}$/.test(value);
+}
+
 /** @param {unknown} inv */
 function extractBolt11 (inv) {
   if (!inv || typeof inv !== 'object') return '';
@@ -111,10 +120,9 @@ function buildFabricDocumentPaymentRequestHeader (opts = {}) {
     payload.documentOffer = {};
     if (doc.documentId != null) payload.documentOffer.documentId = String(doc.documentId).slice(0, 4096);
     if (doc.contentHashHex != null) {
-      const contentHash = String(doc.contentHashHex).trim();
-      // Exact 32-byte hex only — do not truncate invalid hashes into plausible digests.
-      if (/^[0-9a-fA-F]{64}$/.test(contentHash)) {
-        payload.documentOffer.contentHashHex = contentHash.toLowerCase();
+      // Exact 32-byte hex only — do not trim/truncate invalid hashes into plausible digests.
+      if (isExactSha256Hex(doc.contentHashHex)) {
+        payload.documentOffer.contentHashHex = String(doc.contentHashHex).toLowerCase();
       }
     }
     const priceSats = doc.purchasePriceSats != null ? normalizePurchasePriceSats(doc.purchasePriceSats) : null;
@@ -131,8 +139,9 @@ function buildFabricDocumentPaymentRequestHeader (opts = {}) {
       }
     }
     if (doc.blobHashHex != null) {
-      const hash = String(doc.blobHashHex).trim();
-      if (/^[0-9a-fA-F]{64}$/.test(hash)) payload.documentOffer.blobHashHex = hash.toLowerCase();
+      if (isExactSha256Hex(doc.blobHashHex)) {
+        payload.documentOffer.blobHashHex = String(doc.blobHashHex).toLowerCase();
+      }
     }
   }
 

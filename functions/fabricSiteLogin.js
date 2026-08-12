@@ -286,24 +286,24 @@ function completeSession (req, sessionId, body, store, opts = {}) {
     if (!delegationToken) {
       return { status: 500, json: { ok: false, error: 'failed to issue bearer token' } };
     }
-  } else {
-    // No registry callback — ephemeral token bound only to this login session.
-    delegationToken = crypto.randomBytes(24).toString('hex');
+    session.delegationToken = delegationToken;
   }
-  session.delegationToken = delegationToken;
+  // Without issueBearer, omit the token — never mint an unrecognized Bearer.
+
+  const json = {
+    ok: true,
+    sessionId: id,
+    signer: 'client',
+    signature: session.signature,
+    pubkeyHex: session.pubkeyHex,
+    message: session.message,
+    identity: session.identity
+  };
+  if (delegationToken) json.delegationToken = delegationToken;
 
   return {
     status: 200,
-    json: {
-      ok: true,
-      sessionId: id,
-      signer: 'client',
-      signature: session.signature,
-      pubkeyHex: session.pubkeyHex,
-      message: session.message,
-      identity: session.identity,
-      delegationToken
-    }
+    json
   };
 }
 

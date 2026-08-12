@@ -117,7 +117,19 @@ function resolveFabricSigningIdentity (input) {
     throw new Error('Fabric signing key missing xpub (pass identity.xpub for leaf keys)');
   }
   if (!fabricKey.xpub) {
-    fabricKey.xpub = String(xpub);
+    const candidate = String(xpub);
+    let neutered;
+    try {
+      neutered = new Key({ xpub: candidate });
+    } catch (_) {
+      throw new Error('invalid xpub for signing key');
+    }
+    const expected = String(fabricKey.pubkey || '').toLowerCase();
+    const fromXpub = String(neutered.pubkey || '').toLowerCase();
+    if (!expected || !fromXpub || expected !== fromXpub) {
+      throw new Error('xpub does not match signing pubkey');
+    }
+    fabricKey.xpub = candidate;
   }
 
   return {

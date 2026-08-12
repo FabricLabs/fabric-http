@@ -189,7 +189,7 @@ function handleSessionCreate (hub, req, res) {
       // hub = site origin that holds the session (desktop/extension callback base).
       protocolUrl: `fabric://login?sessionId=${encodeURIComponent(sessionId)}&hub=${encodeURIComponent(origin)}`,
       // Both completion modes share the same challenge; clients pick one.
-      signingModes: hub.allowHubSelfSign === false ? ['client'] : ['client', 'hub'],
+      signingModes: hub.allowHubSelfSign === true ? ['client', 'hub'] : ['client'],
       acceptsClientSignature: true
     });
   } catch (err) {
@@ -208,7 +208,7 @@ function handleSessionCreate (hub, req, res) {
  *
  * **Hub self-sign (legacy desktop link):** empty / non-client body — Hub signs
  * with its root key so a browser can adopt this node's watch-only identity.
- * Requires loopback or Origin/Referer matching the session origin.
+ * Opt-in via `hub.allowHubSelfSign === true` and **loopback only**.
  */
 function handleDesktopSign (hub, req, res) {
   try {
@@ -271,7 +271,7 @@ function handleDesktopSign (hub, req, res) {
       return;
     }
 
-    if (hub.allowHubSelfSign === false) {
+    if (hub.allowHubSelfSign !== true) {
       sendJson(res, 400, {
         ok: false,
         error: 'client signature required: { signature, pubkeyHex, identity: { id, xpub } }'
@@ -279,10 +279,10 @@ function handleDesktopSign (hub, req, res) {
       return;
     }
 
-    if (!isLocalRequest(req) && !clientMayPollDesktopSession(req, session.origin)) {
+    if (!isLocalRequest(req)) {
       sendJson(res, 403, {
         ok: false,
-        error: 'POST .../signatures (hub self-sign) requires loopback or client Origin/Referer matching session origin'
+        error: 'POST .../signatures (hub self-sign) requires loopback'
       });
       return;
     }
@@ -404,7 +404,7 @@ function handleSessionGet (hub, req, res) {
         message: session.message,
         nonce: session.nonce,
         createdAt: session.createdAt,
-        signingModes: hub.allowHubSelfSign === false ? ['client'] : ['client', 'hub'],
+        signingModes: hub.allowHubSelfSign === true ? ['client', 'hub'] : ['client'],
         acceptsClientSignature: true
       });
       return;

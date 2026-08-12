@@ -16,6 +16,7 @@
 
 const crypto = require('crypto');
 const Key = require('@fabric/core/types/key');
+const { normalizeHubOrigin } = require('./fabricHubAllowlist');
 const {
   originsMatchForDesktopSession,
   fabricIdentityIdFromPubkeyHex,
@@ -144,10 +145,8 @@ function handleDeviceLinkCreate (hub, req, res) {
       sendJson(res, 400, { ok: false, error: 'origin required' });
       return;
     }
-    try {
-      // eslint-disable-next-line no-new
-      new URL(origin);
-    } catch (e) {
+    origin = normalizeHubOrigin(origin);
+    if (!origin) {
       sendJson(res, 400, { ok: false, error: 'invalid origin' });
       return;
     }
