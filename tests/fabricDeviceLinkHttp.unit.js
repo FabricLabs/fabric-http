@@ -42,16 +42,32 @@ describe('fabricDeviceLinkHttp identityFromXpub', function () {
 describe('fabricDeviceLinkHttp offer replay keys', function () {
   it('blocks consumed and in-flight offer keys', function () {
     const hub = { _deviceLinkSessions: new Map() };
-    const key = offerReplayKey('aa'.repeat(32), 'id1a', 'https://hub.example');
+    const nonce = 'aa'.repeat(32);
+    const origin = 'https://hub.example';
+    const key = `${nonce}:id1a:${origin}`;
+    const differentKey = `${nonce}:id1b:${origin}`;
+    assert.strictEqual(offerReplayKey(nonce, 'id1a', origin), key);
     assert.strictEqual(offerKeyInUse(hub, key), false);
+    assert.strictEqual(offerKeyInUse(hub, differentKey), false);
     hub._deviceLinkSessions.set('sess1', {
-      nonce: 'aa'.repeat(32),
-      origin: 'https://hub.example',
+      nonce,
+      origin,
       initiator: { id: 'id1a' }
     });
     assert.strictEqual(offerKeyInUse(hub, key), true);
+    assert.strictEqual(offerKeyInUse(hub, differentKey), false);
     hub._deviceLinkSessions.clear();
     markOfferConsumed(hub, key);
     assert.strictEqual(offerKeyInUse(hub, key), true);
+    assert.strictEqual(offerKeyInUse(hub, differentKey), false);
+  });
+
+  it('canonicalizes origin equivalents in the replay key', function () {
+    const nonce = 'bb'.repeat(32);
+    const a = offerReplayKey(nonce, 'id1a', 'https://hub.example');
+    const b = offerReplayKey(nonce, 'id1a', 'https://HUB.example:443');
+    const c = offerReplayKey(nonce, 'id1a', 'https://hub.example/path');
+    assert.strictEqual(a, b);
+    assert.strictEqual(a, c);
   });
 });

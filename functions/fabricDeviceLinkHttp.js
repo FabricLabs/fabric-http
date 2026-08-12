@@ -43,7 +43,9 @@ function randomNonce () {
 }
 
 function offerReplayKey (nonce, initiatorId, origin) {
-  return `${String(nonce || '').toLowerCase()}:${String(initiatorId || '')}:${String(origin || '')}`;
+  // Canonical origin so https://HUB.example:443 and https://hub.example collide.
+  const originKey = normalizeHubOrigin(origin) || String(origin || '');
+  return `${String(nonce || '').toLowerCase()}:${String(initiatorId || '')}:${originKey}`;
 }
 
 function ensureConsumedOffers (hub) {

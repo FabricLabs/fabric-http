@@ -122,10 +122,15 @@ main().catch((exception) => {
 Run `node scripts/node.js` to start the app, or `webpack scripts/app.js -o assets/app.min.js` to
 build a browser version.
 
+## Security disclosure
+Report vulnerabilities privately to **`security@fabric.pub`** (canonical monitored contact) and/or via GitHub Security Advisories. Do not open a public issue with exploit details. See [SECURITY.md](SECURITY.md) and [AUDIT.md](AUDIT.md).
+
 ## Resources
 
 | Doc | Purpose |
 |-----|---------|
+| [SECURITY.md](SECURITY.md) | Threat model, outstanding auth boundaries, disclosure |
+| [AUDIT.md](AUDIT.md) | Dependency posture + living security checklist |
 | [docs/PRODUCTION.md](docs/PRODUCTION.md) | Deploy, TLS, WebSocket, versioning |
 | [docs/MARKETING_OVERVIEW.md](docs/MARKETING_OVERVIEW.md) | Positioning & ecosystem copy |
 | [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | Tag & publish steps |
