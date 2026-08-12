@@ -51,6 +51,8 @@ The server replies with another outer `JSONCall` whose UTF-8 body uses method
 **Correlation:** `params[0]` is a hash derived from the request body
 (`sha256(sha256(utf8-body).hex).hex` via `computeWebSocketJsonCallHashPair`) so
 clients can match replies to calls without relying on JSON-RPC `id` alone.
+Transport-auth denials (`-32001`) and handler exceptions use the **same** body-derived
+hash (computed before `JSON.parse`) so clients can correlate failures to the call they sent.
 
 **Success body:**
 

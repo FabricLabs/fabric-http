@@ -94,7 +94,7 @@
     "Victor Wu"
   ],
   "dependencies": {
-    "@fabric/core": "FabricLabs/fabric#0e1fa1921c00b4d5571c511f8bd7730323653a73",
+    "@fabric/core": "FabricLabs/fabric#2e2aec81bd6503e40c2d7cae88f9ab4dc6a8fe41",
     "assert-browserify": "=2.0.0",
     "babel-loader": "=8.2.5",
     "body-parser": "=1.20.6",

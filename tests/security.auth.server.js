@@ -261,6 +261,10 @@ describe('@fabric/http security hardening', function () {
           ws.close();
           resolve();
         }, 600);
+        ws.once('close', () => {
+          clearTimeout(t);
+          resolve();
+        });
         ws.on('open', () => {
           try {
             ws.send(msg.toBuffer());

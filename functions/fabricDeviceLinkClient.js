@@ -38,7 +38,12 @@ function deviceLinkHeaders (origin) {
 async function createDeviceLinkOffer (opts) {
   const fetchImpl = opts.fetchImpl || globalThis.fetch;
   const hubBase = String(opts.hubBase || '').replace(/\/$/, '');
-  const origin = opts.origin || hubBase;
+  // Require the browser page origin — do not silently fall back to hubBase
+  // (that can skip session gates that compare Origin to the declared page).
+  const origin = String(opts.origin || '').trim().replace(/\/$/, '');
+  if (!origin) {
+    return { ok: false, error: 'origin required (browser page origin)' };
+  }
   const res = await fetchImpl(`${hubBase}/device-links`, {
     method: 'POST',
     headers: deviceLinkHeaders(origin),
@@ -62,7 +67,10 @@ async function createDeviceLinkOffer (opts) {
 async function fetchDeviceLinkSession (hubBase, sessionId, opts = {}) {
   const fetchImpl = opts.fetchImpl || globalThis.fetch;
   const base = String(hubBase || '').replace(/\/$/, '');
-  const origin = opts.origin || base;
+  const origin = String(opts.origin || '').trim().replace(/\/$/, '');
+  if (!origin) {
+    return { ok: false, error: 'origin required (browser page origin)' };
+  }
   const res = await fetchImpl(`${base}/device-links/${encodeURIComponent(sessionId)}`, {
     headers: deviceLinkHeaders(origin),
     cache: 'no-store'
@@ -77,7 +85,10 @@ async function fetchDeviceLinkSession (hubBase, sessionId, opts = {}) {
 async function postDeviceLinkSignature (hubBase, sessionId, body, opts = {}) {
   const fetchImpl = opts.fetchImpl || globalThis.fetch;
   const base = String(hubBase || '').replace(/\/$/, '');
-  const origin = opts.origin || base;
+  const origin = String(opts.origin || '').trim().replace(/\/$/, '');
+  if (!origin) {
+    return { ok: false, status: 400, error: 'origin required (browser page origin)' };
+  }
   const res = await fetchImpl(`${base}/device-links/${encodeURIComponent(sessionId)}/signatures`, {
     method: 'POST',
     headers: deviceLinkHeaders(origin),

@@ -5,14 +5,14 @@ Living posture notes for `@fabric/http` **0.1.0-RC1**. Re-run **`npm audit`** af
 
 | Area | Posture |
 |------|---------|
-| `@fabric/core` | Git pin `FabricLabs/fabric#0e1fa1921c00b4d5571c511f8bd7730323653a73` (immutable SHA from `feature/rsi` tip after install; Node **24.15.0**) |
+| `@fabric/core` | Git pin `FabricLabs/fabric#2e2aec81bd6503e40c2d7cae88f9ab4dc6a8fe41` (immutable SHA from `feature/rsi` tip after install; Node **24.15.0**) |
 | npm `allow-git` | **`.npmrc` `allow-git=all`** — nested git-dep preparation resolves core to a commit SHA; `root` is refused |
 | WebSocket (`ws`) | **Mitigated** — direct + override **`8.21.2`** (GHSA-58qx-3vcg-4xpx / fragment DoS) |
 | Express / body-parser / qs | **Mitigated** — `express@4.22.2`, `body-parser@1.20.6`, override `qs@6.15.3` |
 | undici (fomantic → `@actions/http-client`) | **Mitigated** — override **`6.28.0`** |
 | Markdown (SLIP-0044 script) | **Mitigated** — replaced `showdown` (unfixed ReDoS GHSA-rmmh-p597-ppvv) with **`marked@15.0.12`** |
 | PeerJS / browser mesh | **Removed** — `types/swarm.js` is a no-op stub; Hub native WebRTC |
-| npm audit (clean tree) | **0 vulnerabilities** after 2026-08-12 `report:install` against core `0e1fa192…` |
+| npm audit (clean tree) | **0 vulnerabilities** after 2026-08-12 `report:install` against core `2e2aec81…` |
 
 ## Overrides that keep the build tree clean
 
@@ -72,7 +72,7 @@ ws  6.x / 8.18.x
 6. Before RC: finish GenericMessage AMP-verify / named-type migration with Hub (unauthenticated GenericMessage is already dropped locally; SLIP-0044 fetch is commit-pinned + validated; see [SECURITY.md](SECURITY.md)).
 7. Follow-up (Hub / apps): core now ships Fabric BIP44 coin types **7777** (Bitcoin mainnet) / **7778** (otherwise). Align Hub account-derivation helpers that still hardcode `7778` for mainnet paths.
 8. Follow-up (larger): `messageBodyJsonBridge` RFC6902 sidechain JSON → typed fields still does not preserve a full multi-op patch sequence end-to-end; keep rejecting unsupported ops and prefer Hub typed carriers until that lands.
-9. Follow-up (auth polish): site-login bearer still reuses `sessionId` as the delegation credential in some paths; prefer a separate opaque token + timing-safe compare on shared hosts (see PR #69 review notes).
+9. Follow-up (auth polish): site-login GET now looks up `_delegationRegistry` by opaque Bearer token (not path `sessionId`) with `timingSafeEqual` session binding + TTL/size prune matching desktop sessions. Remaining Hub-side: ensure any dual-keyed legacy registries migrate; prefer never returning path `sessionId` as the credential.
 
 ## Disclosure
 

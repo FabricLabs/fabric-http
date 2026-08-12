@@ -66,6 +66,14 @@ describe('buildFabricDocumentPaymentRequestHeader blob metadata', function () {
     assert.strictEqual(parsed.documentOffer.blobHashHex, undefined);
   });
 
+  it('omits string-coerced blobIndex values', function () {
+    const json = buildFabricDocumentPaymentRequestHeader({
+      documentOffer: { blobIndex: '3' }
+    });
+    const parsed = JSON.parse(json);
+    assert.strictEqual(parsed.documentOffer.blobIndex, undefined);
+  });
+
   it('normalizes valid blobHashHex to lowercase without truncation', function () {
     const upper = 'ABCDEF0123456789'.repeat(4);
     const json = buildFabricDocumentPaymentRequestHeader({

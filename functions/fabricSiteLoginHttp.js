@@ -108,6 +108,33 @@ function getBearerToken (req) {
   return '';
 }
 
+/**
+ * Constant-time UTF-8 token compare (rejects empty / length-mismatched inputs).
+ * @param {string} a
+ * @param {string} b
+ * @returns {boolean}
+ */
+function tokensEqual (a, b) {
+  const left = Buffer.from(String(a || ''), 'utf8');
+  const right = Buffer.from(String(b || ''), 'utf8');
+  if (!left.length || left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
+}
+
+function pruneDelegationRegistry (hub) {
+  if (!hub._delegationRegistry) return;
+  const now = Date.now();
+  for (const [id, row] of hub._delegationRegistry) {
+    if (!row || now - (row.linkedAt || 0) > SESSION_TTL_MS) {
+      hub._delegationRegistry.delete(id);
+    }
+  }
+  while (hub._delegationRegistry.size > MAX_SESSIONS) {
+    const first = hub._delegationRegistry.keys().next().value;
+    hub._delegationRegistry.delete(first);
+  }
+}
+
 function handleSessionCreate (hub, req, res) {
   try {
     pruneSessions(hub);
@@ -306,6 +333,7 @@ function handleSessionGet (hub, req, res) {
       if (hub.serveSpaShellIfHtmlNavigation(hub, req, res)) return;
     }
     pruneSessions(hub);
+    pruneDelegationRegistry(hub);
     const sessionId = req && req.params && req.params.sessionId ? String(req.params.sessionId).trim() : '';
     if (!sessionId) {
       sendJson(res, 400, { ok: false, error: 'sessionId required' });
@@ -315,9 +343,14 @@ function handleSessionGet (hub, req, res) {
     const session = hub._desktopAuthSessions.get(sessionId);
     if (!session) {
       if (!hub._delegationRegistry) hub._delegationRegistry = new Map();
-      const delegationRow = hub._delegationRegistry.get(sessionId);
       const bearer = getBearerToken(req);
-      if (delegationRow && bearer === sessionId) {
+      // Opaque delegation token is the registry key — never treat path sessionId as the bearer.
+      const delegationRow = bearer ? hub._delegationRegistry.get(bearer) : null;
+      if (
+        delegationRow &&
+        delegationRow.sessionId != null &&
+        tokensEqual(String(delegationRow.sessionId), sessionId)
+      ) {
         sendJson(res, 200, {
           ok: true,
           session: {
@@ -334,7 +367,10 @@ function handleSessionGet (hub, req, res) {
         ? hub.getDelegationSessionById(sessionId)
         : null;
       if (delegationView) {
-        const row = delegationRow || hub._delegationRegistry.get(sessionId);
+        const row = delegationRow && delegationRow.sessionId != null &&
+          tokensEqual(String(delegationRow.sessionId), sessionId)
+          ? delegationRow
+          : null;
         sendJson(res, 200, {
           ...delegationView,
           session: row
@@ -376,6 +412,7 @@ function handleSessionGet (hub, req, res) {
 
     if (session.status === 'signed') {
       if (!hub._delegationRegistry) hub._delegationRegistry = new Map();
+      pruneDelegationRegistry(hub);
       let delegationToken = session.delegationToken;
       if (!delegationToken) {
         delegationToken = randomSessionId();

@@ -21,11 +21,12 @@ This package fails closed on missing auth secrets, enforces Hub origin allowlist
 - **Device-link / site-login** — keep Hub origin allowlists fail-closed; never treat `X-Forwarded-*` as proof of loopback.
 - ~~**SLIP-0044 regen**~~ — `scripts/slip-0044.js` fetches a pinned commit (`a8f4330…`) and validates row count / field shapes before rewriting `settings/slip-44.json`.
 - ~~**Docs polish (PR #69)**~~ — `docs/MESSAGE_SPEC.md` documents `JSONCallResult` success/error + hash correlation; MD040 language tags land on flow fences in `MESSAGE_PROTOCOL_REPORT.md` / `AUDIT.md`.
-- **`@fabric/core` pin hygiene** — `package.json` / lockfile pin immutable commit `0e1fa1921c00b4d5571c511f8bd7730323653a73` (see [AUDIT.md](AUDIT.md)); refresh via `feature/rsi` then re-pin the resolved SHA with Hub / apps.
-- **402 document offer digests** — `contentHashHex` / `blobHashHex` accept exact 64-hex only (no truncation); `blobIndex`-only offers still emit `documentOffer`; invalid fields are omitted.
+- **`@fabric/core` pin hygiene** — `package.json` / lockfile pin immutable commit `2e2aec81bd6503e40c2d7cae88f9ab4dc6a8fe41` (see [AUDIT.md](AUDIT.md)); refresh via `feature/rsi` then re-pin the resolved SHA with Hub / apps.
+- **402 document offer digests** — `contentHashHex` / `blobHashHex` accept exact 64-hex only (no truncation); `blobIndex` accepts non-negative safe integers only (no string `Number()` coercion); `blobIndex`-only offers still emit `documentOffer`; invalid fields are omitted.
 - **RFC6902 sidechain JSON bridge** — full multi-op patch fidelity in `messageBodyJsonBridge` remains outstanding (see [AUDIT.md](AUDIT.md)); do not rely on JSON→fields for arbitrary patch lists.
 - **Fabric coin types (downstream)** — core pin includes **7777** / **7778**; Hub/app helpers that still hardcode `7778` for mainnet still need alignment.
-- **Site-login delegation token** — fail-closed when `expected` supplies only one of `sessionId` / `origin`; remaining: separate opaque bearer (not path `sessionId`) + `timingSafeEqual` on shared hosts.
+- **Site-login delegation token** — fail-closed when `expected` supplies only one of `sessionId` / `origin`; expired-session GET requires opaque Bearer registry key + `timingSafeEqual` bind to path `sessionId`; registry TTL/cap matches desktop sessions. Remaining: Hub dual-key legacy cleanup if any path still stores under `sessionId`.
+- **Device-link client** — `createDeviceLinkOffer` / fetch / signature helpers require an explicit browser `origin` (no `hubBase` fallback).
 
 ## Process
 1. `npm test` before merging HTTP/auth changes.

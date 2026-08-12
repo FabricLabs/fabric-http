@@ -23,6 +23,18 @@ describe('@fabric/http fabricHubAllowlist', function () {
       }),
       true
     );
+    // Explicit empty overlay must not inherit ambient process.env allowlist.
+    const prev = process.env.FABRIC_HUB_ALLOWLIST;
+    process.env.FABRIC_HUB_ALLOWLIST = 'https://evil.example';
+    try {
+      assert.strictEqual(
+        isAllowedFabricHub('https://evil.example', { env: {} }),
+        false
+      );
+    } finally {
+      if (prev == null) delete process.env.FABRIC_HUB_ALLOWLIST;
+      else process.env.FABRIC_HUB_ALLOWLIST = prev;
+    }
   });
 
   it('assertAllowedFabricHub normalizes origin', function () {

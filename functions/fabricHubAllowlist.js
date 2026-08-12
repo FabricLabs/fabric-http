@@ -63,9 +63,14 @@ function isAllowedFabricHub (hubBase, opts = {}) {
   const origin = normalizeHubOrigin(hubBase);
   if (!origin) return false;
   if (opts.allowLoopback !== false && isLoopbackHubOrigin(origin)) return true;
+  // Explicit `opts.env` (even `{}`) replaces ambient process.env so tests / callers
+  // can isolate allowlist overlays without leaking FABRIC_HUB_ALLOWLIST.
+  const env = Object.prototype.hasOwnProperty.call(opts, 'env')
+    ? (opts.env || {})
+    : process.env;
   const allowed = new Set([
     ...DEFAULT_FABRIC_HUB_ORIGINS.map(normalizeHubOrigin).filter(Boolean),
-    ...allowlistFromEnv(opts.env || process.env),
+    ...allowlistFromEnv(env),
     ...(Array.isArray(opts.extra) ? opts.extra.map(normalizeHubOrigin).filter(Boolean) : [])
   ]);
   return allowed.has(origin);

@@ -123,9 +123,12 @@ function buildFabricDocumentPaymentRequestHeader (opts = {}) {
     }
     if (doc.network != null) payload.documentOffer.network = String(doc.network).slice(0, 64);
     // Do not round/truncate blob identifiers — omit invalid metadata instead.
+    // Accept only a non-negative safe integer (no string Number() coercion).
     if (doc.blobIndex != null) {
-      const idx = typeof doc.blobIndex === 'number' ? doc.blobIndex : Number(doc.blobIndex);
-      if (Number.isInteger(idx) && idx >= 0) payload.documentOffer.blobIndex = idx;
+      const idx = doc.blobIndex;
+      if (typeof idx === 'number' && Number.isSafeInteger(idx) && idx >= 0) {
+        payload.documentOffer.blobIndex = idx;
+      }
     }
     if (doc.blobHashHex != null) {
       const hash = String(doc.blobHashHex).trim();
