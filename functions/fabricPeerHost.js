@@ -14,8 +14,26 @@ const DEFAULT_NETWORK_HUB_SEEDS = Object.freeze([
 /** Default TCP peer cap (matches @fabric/core MAX_PEERS soft default for slot fill). */
 const DEFAULT_MAX_PEERS = 32;
 
+const MIN_FABRIC_PEER_PORT = 1;
+const MAX_FABRIC_PEER_PORT = 65535;
+
 /** @type {Map<string, boolean>} */
 const _dnsOwnHostCache = new Map();
+
+/**
+ * Parse a Fabric peer TCP port (decimal integer 1..65535 only).
+ * @param {*} raw
+ * @returns {number|null}
+ */
+function parseFabricPeerPort (raw) {
+  const s = String(raw == null ? '' : raw).trim();
+  if (!/^\d{1,5}$/.test(s)) return null;
+  const p = Number(s);
+  if (!Number.isInteger(p) || p < MIN_FABRIC_PEER_PORT || p > MAX_FABRIC_PEER_PORT) {
+    return null;
+  }
+  return p;
+}
 
 /**
  * Split `host:port`, bracketed IPv6 `[::1]:7777`, or bare host / IPv6.
@@ -33,8 +51,7 @@ function splitFabricHostPort (address) {
       const host = s.slice(1, end);
       let port = null;
       if (s.length > end + 1 && s[end + 1] === ':') {
-        const p = Number(s.slice(end + 2));
-        if (Number.isFinite(p) && p > 0) port = p;
+        port = parseFabricPeerPort(s.slice(end + 2));
       }
       return { host, port };
     }
@@ -45,8 +62,7 @@ function splitFabricHostPort (address) {
   const lastColon = s.lastIndexOf(':');
   if (firstColon > 0 && firstColon === lastColon) {
     const host = s.slice(0, firstColon);
-    const p = Number(s.slice(firstColon + 1));
-    return { host, port: Number.isFinite(p) && p > 0 ? p : null };
+    return { host, port: parseFabricPeerPort(s.slice(firstColon + 1)) };
   }
 
   return { host: s, port: null };
@@ -180,14 +196,19 @@ function isSelfFabricAddress (address, listenPortOrOpts, opts) {
 
 /**
  * True when `value` looks like a Fabric peer address (`host:port` or `[ipv6]:port`).
+ * Port must be a decimal integer in 1..65535.
  * @param {*} value
  * @returns {boolean}
  */
 function isFabricAddress (value) {
   const s = String(value || '').trim();
   if (!s || /^https?:\/\//i.test(s)) return false;
-  if (/^\[[0-9a-fA-F:]+\]:\d{1,5}$/.test(s)) return true;
-  return /^[a-zA-Z0-9._-]+(?::\d{1,5})$/.test(s);
+  const { host, port } = splitFabricHostPort(s);
+  if (!host || port == null) return false;
+  if (s.startsWith('[')) {
+    return /^\[[0-9a-fA-F:]+\]:\d{1,5}$/.test(s);
+  }
+  return /^[a-zA-Z0-9._-]+:\d{1,5}$/.test(s);
 }
 
 /**
@@ -235,6 +256,9 @@ function clearOwnHostDnsCache () {
 module.exports = {
   DEFAULT_NETWORK_HUB_SEEDS,
   DEFAULT_MAX_PEERS,
+  MIN_FABRIC_PEER_PORT,
+  MAX_FABRIC_PEER_PORT,
+  parseFabricPeerPort,
   splitFabricHostPort,
   isNetworkHubAddress,
   isLoopbackFabricAddress,

@@ -45,6 +45,25 @@ describe('@fabric/http fabricPeerHost', function () {
     assert.strictEqual(normalizeFabricAddress('[::1]:7777'), '[::1]:7777');
   });
 
+  it('rejects invalid peer ports (0, >65535, non-decimal)', function () {
+    const {
+      splitFabricHostPort,
+      parseFabricPeerPort,
+      isFabricAddress,
+      normalizeFabricAddress
+    } = require('../functions/fabricPeerHost');
+    assert.strictEqual(parseFabricPeerPort('0'), null);
+    assert.strictEqual(parseFabricPeerPort('65536'), null);
+    assert.strictEqual(parseFabricPeerPort('1e3'), null);
+    assert.strictEqual(parseFabricPeerPort('7777'), 7777);
+    assert.deepStrictEqual(splitFabricHostPort('relay.goon.vc:0'), { host: 'relay.goon.vc', port: null });
+    assert.deepStrictEqual(splitFabricHostPort('relay.goon.vc:70000'), { host: 'relay.goon.vc', port: null });
+    assert.deepStrictEqual(splitFabricHostPort('[::1]:65536'), { host: '::1', port: null });
+    assert.strictEqual(isFabricAddress('relay.goon.vc:0'), false);
+    assert.strictEqual(isFabricAddress('relay.goon.vc:65536'), false);
+    assert.strictEqual(normalizeFabricAddress('relay.goon.vc:65536'), null);
+  });
+
   it('treats advertiseHost / ownHosts as self', function () {
     assert.strictEqual(isSelfFabricAddress('relay.goon.vc:7777', {
       listenPort: 7777,
