@@ -7,8 +7,7 @@
  * Canonical env (Fabric-wide — no app prefixes):
  *   FABRIC_HUB_INTERFACE | INTERFACE | FABRIC_HTTP_INTERFACE
  *
- * App-specific aliases (e.g. GoonCitizen `SC_HTTP_HOST`) belong at the app
- * boundary, not in this module.
+ * App-specific aliases belong at the app boundary, not in this module.
  */
 
 /** Default env keys consulted for HTTP listen host (first non-empty wins). */

@@ -1,7 +1,5 @@
 # Fabric Message Protocol - Breakdown Report
-
 ## Executive Summary
-
 This report documents all possible origins for messages in the Fabric protocol and how they flow through the system. The goal is to identify where unsigned HEARTBEAT messages might be created.
 
 ## Message Creation Points
@@ -36,27 +34,27 @@ message.signWithKey(key); // Optional signing
   - Signs: Yes (with `server._rootKey`)
   - Sends: Via broadcast (not directly sent)
 
-- **Client Bridge Ping** (`sensemaker/components/Bridge.js:737`)
+- **Downstream Bridge Ping** (Hub / application Bridge components)
   - Creates: `Ping` messages
   - Signs: No (unsigned)
   - Sends: Via `sendMessage(messageBuffer)`
 
-- **Client Bridge Subscribe** (`sensemaker/components/Bridge.js:548`)
+- **Downstream Bridge Subscribe** (Hub / application Bridge components)
   - Creates: `SUBSCRIBE` messages
   - Signs: No (unsigned)
   - Sends: Via `sendMessage(messageBuffer)`
 
-- **Client Bridge Unsubscribe** (`sensemaker/components/Bridge.js:566`)
+- **Downstream Bridge Unsubscribe** (Hub / application Bridge components)
   - Creates: `UNSUBSCRIBE` messages
   - Signs: No (unsigned)
   - Sends: Via `sendMessage(messageBuffer)`
 
-- **Sensemaker Conversation** (`sensemaker/routes/messages/create_message.js:131,145`)
+- **Application Conversation** (downstream HTTP routes that call `this.http.broadcast`)
   - Creates: `Conversation` messages
   - Signs: Sometimes (if `this.key` exists)
   - Sends: Via `this.http.broadcast(message)`
 
-- **Sensemaker OpenAI Events** (`sensemaker/services/sensemaker.js:2977,2984`)
+- **Application Stream Events** (downstream services that call `this.http.broadcast`)
   - Creates: `MessageStart`, `MessageChunk` messages
   - Signs: No (unsigned)
   - Sends: Via `this.http.broadcast(message)`
@@ -94,7 +92,7 @@ else {
 **Called From**:
 - `commit()` method (line 215) - broadcasts commit messages
 - Store event handlers (lines 282, 289) - broadcasts StateUpdate objects (⚠️ **PLAIN OBJECTS**)
-- Sensemaker service (via `this.http.broadcast()`)
+- Downstream Hub / application services (via `this.http.broadcast()`)
 
 **⚠️ ISSUE**: At lines 282-285 and 289-292, plain objects are passed to `broadcast()`:
 ```javascript
@@ -430,7 +428,7 @@ socket.on('message', async (msg) => {
 1. **Beat Event Conversion** (NOT FOUND)
    - Service.trust() beat handler doesn't create HEARTBEAT
    - Service.beat() creates 'Generic' messages, not 'HEARTBEAT'
-   - Sensemaker.beat() creates 'COMMIT' messages, not 'HEARTBEAT'
+   - Downstream application `beat()` handlers create 'COMMIT' (or similar) messages, not 'HEARTBEAT'
    - No code found converting beat → HEARTBEAT
 
 2. **Direct Creation** (NOT FOUND)

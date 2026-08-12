@@ -2,7 +2,7 @@
 
 /**
  * HTTP-edge helpers used when playnet contracts invite co-signers after publish.
- * Complements Hub/GoonCitizen publish + re-publish flows.
+ * Complements Hub/application publish + re-publish flows.
  */
 
 const assert = require('assert');
