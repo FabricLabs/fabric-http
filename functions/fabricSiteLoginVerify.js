@@ -107,6 +107,10 @@ function verifyFabricDesktopLoginSignedPayload (payload, expected) {
   const exp = expected && typeof expected === 'object' ? expected : {};
   const wantSid = exp.sessionId != null ? String(exp.sessionId).trim() : '';
   const wantOrigin = exp.origin != null ? String(exp.origin).trim() : '';
+  // Fail closed on a half-populated binding: signature-only is only for unbound callers.
+  if ((wantSid && !wantOrigin) || (!wantSid && wantOrigin)) {
+    return { ok: false, error: 'Login session binding is incomplete' };
+  }
   if (wantSid && wantOrigin) {
     const parsed = parseDesktopLoginMessage(payload.message);
     if (!parsed) {

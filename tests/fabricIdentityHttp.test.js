@@ -45,6 +45,19 @@ describe('@fabric/http identity HTTP', function () {
     assert.strictEqual(payload.identity.id, String(ident.id));
   });
 
+  it('rejects a half-populated expected session binding', function () {
+    const key = new Key();
+    const ident = new Identity(key);
+    const sessionId = 'ab'.repeat(24);
+    const origin = 'https://relay.goon.vc';
+    const message = buildLoginMessage(sessionId, origin, 'cd'.repeat(32));
+    const payload = buildFabricIdentitySignedPayload(ident, message);
+    const onlySid = verifyFabricDesktopLoginSignedPayload({ ...payload, message }, { sessionId });
+    const onlyOrigin = verifyFabricDesktopLoginSignedPayload({ ...payload, message }, { origin });
+    assert.strictEqual(onlySid.ok, false);
+    assert.strictEqual(onlyOrigin.ok, false);
+  });
+
   it('signs from HD Key and from { mnemonic } bag', function () {
     const key = new Key();
     const ident = new Identity(key);

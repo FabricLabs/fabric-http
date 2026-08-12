@@ -44,6 +44,15 @@ describe('buildFabricDocumentPaymentRequestHeader blob metadata', function () {
     assert.strictEqual(parsed.documentOffer.blobHashHex, validHash);
   });
 
+  it('creates documentOffer when only blobIndex is supplied', function () {
+    const json = buildFabricDocumentPaymentRequestHeader({
+      documentOffer: { blobIndex: 0 }
+    });
+    const parsed = JSON.parse(json);
+    assert.ok(parsed.documentOffer);
+    assert.strictEqual(parsed.documentOffer.blobIndex, 0);
+  });
+
   it('omits fractional blobIndex and non-64-hex blobHashHex', function () {
     const json = buildFabricDocumentPaymentRequestHeader({
       documentOffer: {
@@ -57,7 +66,7 @@ describe('buildFabricDocumentPaymentRequestHeader blob metadata', function () {
     assert.strictEqual(parsed.documentOffer.blobHashHex, undefined);
   });
 
-  it('does not truncate a valid blobHashHex', function () {
+  it('normalizes valid blobHashHex to lowercase without truncation', function () {
     const upper = 'ABCDEF0123456789'.repeat(4);
     const json = buildFabricDocumentPaymentRequestHeader({
       documentOffer: {
@@ -66,7 +75,23 @@ describe('buildFabricDocumentPaymentRequestHeader blob metadata', function () {
       }
     });
     const parsed = JSON.parse(json);
-    assert.strictEqual(parsed.documentOffer.blobHashHex, upper);
+    assert.strictEqual(parsed.documentOffer.blobHashHex, upper.toLowerCase());
+  });
+
+  it('accepts exact 64-hex contentHashHex and omits invalid hashes', function () {
+    const valid = 'b'.repeat(64);
+    const ok = JSON.parse(buildFabricDocumentPaymentRequestHeader({
+      documentOffer: { documentId: 'd1', contentHashHex: valid.toUpperCase() }
+    }));
+    assert.strictEqual(ok.documentOffer.contentHashHex, valid);
+
+    const bad = JSON.parse(buildFabricDocumentPaymentRequestHeader({
+      documentOffer: {
+        documentId: 'd1',
+        contentHashHex: ('c'.repeat(64)) + 'ff'
+      }
+    }));
+    assert.strictEqual(bad.documentOffer.contentHashHex, undefined);
   });
 });
 
