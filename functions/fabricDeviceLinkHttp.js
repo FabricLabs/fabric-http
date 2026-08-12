@@ -15,6 +15,8 @@
  */
 
 const crypto = require('crypto');
+const Key = require('@fabric/core/types/key');
+const Identity = require('@fabric/core/types/identity');
 const {
   originsMatchForDesktopSession,
   fabricIdentityIdFromPubkeyHex,
@@ -75,6 +77,22 @@ function pruneSessions (hub) {
   }
 }
 
+/**
+ * Resolve Fabric Key + Bech32 identity id from an HD xpub (device-link create/sign).
+ * @param {string} xpub
+ * @returns {{ key: object, id: string, pubkeyHex: string }}
+ */
+function identityFromXpub (xpub) {
+  const key = new Key({ xpub: String(xpub || '').trim() });
+  const ident = new Identity(key);
+  const id = String(ident.id || fabricIdentityIdFromPubkeyHex(key.pubkey));
+  return {
+    key,
+    id,
+    pubkeyHex: String(key.pubkey || '').toLowerCase()
+  };
+}
+
 function handleDeviceLinkCreate (hub, req, res) {
   try {
     if (!hub._deviceLinkSessions) hub._deviceLinkSessions = new Map();
@@ -118,15 +136,15 @@ function handleDeviceLinkCreate (hub, req, res) {
     }
 
     let initiatorKey;
-    let initiatorIdent;
+    let initiatorId;
     try {
-      initiatorKey = new Key({ xpub: identity.xpub });
-      initiatorIdent = new Identity(initiatorKey);
+      const resolved = identityFromXpub(identity.xpub);
+      initiatorKey = resolved.key;
+      initiatorId = resolved.id;
     } catch (e) {
       sendJson(res, 400, { ok: false, error: 'invalid initiator xpub' });
       return;
     }
-    const initiatorId = String(initiatorIdent.id);
     if (identity.id != null && String(identity.id).trim() && String(identity.id).trim() !== initiatorId) {
       sendJson(res, 400, { ok: false, error: 'Identity id does not match xpub' });
       return;
@@ -222,15 +240,15 @@ function handleDeviceLinkSign (hub, req, res) {
         return;
       }
       let responderKey;
-      let responderIdent;
+      let responderId;
       try {
-        responderKey = new Key({ xpub: identity && identity.xpub });
-        responderIdent = new Identity(responderKey);
+        const resolved = identityFromXpub(identity && identity.xpub);
+        responderKey = resolved.key;
+        responderId = resolved.id;
       } catch (e) {
         sendJson(res, 400, { ok: false, error: 'invalid responder xpub' });
         return;
       }
-      const responderId = String(responderIdent.id);
       if (responderId === session.initiator.id) {
         sendJson(res, 400, { ok: false, error: 'responder must be a different identity' });
         return;
@@ -427,6 +445,7 @@ module.exports = {
   parseDeviceLinkMessage,
   verifyIdentitySchnorr,
   fabricIdentityIdFromPubkeyHex,
+  identityFromXpub,
   mountFabricDeviceLinkHttp,
   randomNonce,
   randomSessionId

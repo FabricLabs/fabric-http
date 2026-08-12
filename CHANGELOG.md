@@ -3,7 +3,8 @@ All notable changes to `@fabric/http` are documented here. This project follows 
 
 ## Unreleased
 - **Dependencies / security:** Clear **`npm audit`** (0 findings). Runtime pins: `ws@8.21.2`, `express@4.22.2`, `body-parser@1.20.6`, `express-session@1.19.0`, `webpack@5.109.2`. Overrides: `qs@6.15.3`, `body-parser`, `ws`, patched `@octokit/request@8.4.1` / `request-error@5.1.1` / `plugin-paginate-rest@9.2.2`, `@actions/http-client` → `undici@6.28.0`. Replace unfixed `showdown` with `marked@15.0.12` (`scripts/slip-0044.js`). Dev: `mocha@11.8.0` (stable), `ajv@8.20.0`. See [AUDIT.md](AUDIT.md).
-- **`@fabric/core` pin:** Declared as commit **`a97e7523a28be8b2f61311db1ea25dc6aec4dd7f`** (not moving `feature/rsi`). Local monorepo work may `npm link @fabric/core`.
+- **`@fabric/core` pin:** Declared as commit **`2faffae58bdecc2d14896dfbac70de03cba8323a`** (not moving `feature/rsi`). Local monorepo work may `npm link @fabric/core`.
+- **Device link:** `functions/fabricDeviceLinkHttp.js` requires `@fabric/core` `Key` / `Identity` (create/sign no longer throw `ReferenceError` masked as invalid xpub).
 - **npm git deps:** `.npmrc` / `report:install` use **`allow-git=all`** because nested `@fabric/core` lockfile preparation resolves a **commit SHA** (not only a branch tip); npm 12’s `allow-git=root` still refuses that nested SHA prepare step. See [AUDIT.md](AUDIT.md).
 - **SLIP-0044:** `scripts/slip-0044.js` fetches a **pinned commit** of `slip-0044.md` (not `master`).
 - **Engines:** Node pinned to **`24.15.0`** (aligned with `@fabric/core` / Hub).
