@@ -68,6 +68,58 @@ function originsMatchForDesktopSession (clientOriginLike, sessionOrigin) {
   return clientUrl.host === sessionUrl.host;
 }
 
+function refererOriginMatchesSession (referer, sessionOrigin) {
+  if (typeof referer !== 'string' || !referer) return false;
+  try {
+    const u = new URL(referer);
+    return originsMatchForDesktopSession(`${u.protocol}//${u.host}`, sessionOrigin);
+  } catch (_) {
+    return false;
+  }
+}
+
+function hostHeaderMatchesSessionOrigin (requestHost, sessionOrigin) {
+  if (!requestHost || !sessionOrigin) return false;
+  try {
+    const sessionUrl = new URL(sessionOrigin);
+    if (requestHost === sessionUrl.host) return true;
+    const pseudo = `${sessionUrl.protocol}//${requestHost}`;
+    return originsMatchForDesktopSession(pseudo, sessionOrigin);
+  } catch (_) {
+    return false;
+  }
+}
+
+/**
+ * Browser-ish poll gate for `GET /sessions/:id` and device-link GET.
+ * Matching Origin / Referer / Sec-Fetch-Site is **not** a possession proof —
+ * non-browser clients can forge those headers. Shared-host redeem still needs
+ * a one-time poll secret or signed challenge (see SECURITY.md).
+ * @param {import('http').IncomingMessage} req
+ * @param {string} sessionOrigin
+ * @returns {boolean}
+ */
+function clientMayPollDesktopSession (req, sessionOrigin) {
+  if (isLocalRequest(req)) return true;
+  if (!sessionOrigin || typeof sessionOrigin !== 'string') return false;
+  try {
+    // eslint-disable-next-line no-new
+    new URL(sessionOrigin);
+  } catch (_) {
+    return false;
+  }
+  const hdrOrigin = req.headers && req.headers.origin;
+  if (typeof hdrOrigin === 'string' && originsMatchForDesktopSession(hdrOrigin, sessionOrigin)) return true;
+  const ref = req.headers && req.headers.referer;
+  if (refererOriginMatchesSession(ref, sessionOrigin)) return true;
+  const sfs = req.headers && String(req.headers['sec-fetch-site'] || '').toLowerCase();
+  if (sfs === 'same-origin' || sfs === 'same-site') {
+    const host = req.headers && req.headers.host;
+    if (host && hostHeaderMatchesSessionOrigin(host, sessionOrigin)) return true;
+  }
+  return false;
+}
+
 function parseDesktopLoginMessage (msg) {
   const prefix = `${DESKTOP_LOGIN_PREFIX}:`;
   const s = String(msg || '');
@@ -134,6 +186,9 @@ module.exports = {
   verifyFabricDesktopLoginSignedPayload,
   buildFabricIdentitySignedPayload,
   originsMatchForDesktopSession,
+  refererOriginMatchesSession,
+  hostHeaderMatchesSessionOrigin,
+  clientMayPollDesktopSession,
   isLoopbackHostname,
   requestHasProxyForwardHeaders,
   isLocalRequest,

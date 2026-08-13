@@ -18,10 +18,10 @@ const crypto = require('crypto');
 const Key = require('@fabric/core/types/key');
 const { normalizeHubOrigin } = require('./fabricHubAllowlist');
 const {
-  originsMatchForDesktopSession,
   fabricIdentityIdFromPubkeyHex,
   verifyIdentitySchnorr,
-  isLocalRequest
+  isLocalRequest,
+  clientMayPollDesktopSession
 } = require('./fabricSiteLoginVerify');
 const {
   DEVICE_LINK_PREFIX,
@@ -75,20 +75,8 @@ function offerKeyInUse (hub, key) {
   return false;
 }
 
-function clientMayAccessDeviceLink (req, sessionOrigin) {
-  if (isLocalRequest(req)) return true;
-  if (!sessionOrigin || typeof sessionOrigin !== 'string') return false;
-  const hdrOrigin = req.headers && req.headers.origin;
-  if (typeof hdrOrigin === 'string' && originsMatchForDesktopSession(hdrOrigin, sessionOrigin)) return true;
-  const ref = req.headers && req.headers.referer;
-  if (typeof ref === 'string' && ref) {
-    try {
-      const u = new URL(ref);
-      if (originsMatchForDesktopSession(`${u.protocol}//${u.host}`, sessionOrigin)) return true;
-    } catch (_) {}
-  }
-  return false;
-}
+/** Same Origin/Referer/Sec-Fetch-Site gate as site-login poll (not a possession proof). */
+const clientMayAccessDeviceLink = clientMayPollDesktopSession;
 
 function sendJson (res, status, obj) {
   res.setHeader('Content-Type', 'application/json');

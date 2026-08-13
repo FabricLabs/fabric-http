@@ -12,7 +12,8 @@ const {
 } = require('../functions/fabricHubAllowlist');
 const {
   isLocalRequest,
-  requestHasProxyForwardHeaders
+  requestHasProxyForwardHeaders,
+  clientMayPollDesktopSession
 } = require('../functions/fabricSiteLoginVerify');
 
 describe('adversarialEnvironment.basics (@fabric/http)', function () {
@@ -44,5 +45,27 @@ describe('adversarialEnvironment.basics (@fabric/http)', function () {
     };
     assert.strictEqual(requestHasProxyForwardHeaders(viaCaddy), true);
     assert.strictEqual(isLocalRequest(viaCaddy), false);
+  });
+
+  it('shares one Origin poll gate across site-login and device-link', function () {
+    const origin = 'https://hub.example';
+    const remote = { socket: { remoteAddress: '203.0.113.9' }, headers: {} };
+    assert.strictEqual(clientMayPollDesktopSession(remote, origin), false);
+    assert.strictEqual(clientMayPollDesktopSession({
+      socket: { remoteAddress: '203.0.113.9' },
+      headers: { origin }
+    }, origin), true);
+    assert.strictEqual(clientMayPollDesktopSession({
+      socket: { remoteAddress: '203.0.113.9' },
+      headers: { origin: 'https://evil.example' }
+    }, origin), false);
+    assert.strictEqual(clientMayPollDesktopSession({
+      socket: { remoteAddress: '203.0.113.9' },
+      headers: { 'sec-fetch-site': 'same-origin', host: 'hub.example' }
+    }, origin), true);
+    assert.strictEqual(clientMayPollDesktopSession({
+      socket: { remoteAddress: '127.0.0.1' },
+      headers: {}
+    }, origin), true);
   });
 });

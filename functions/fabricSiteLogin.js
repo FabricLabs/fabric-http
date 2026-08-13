@@ -11,9 +11,9 @@ const crypto = require('crypto');
 const {
   buildLoginMessage,
   verifyFabricDesktopLoginSignedPayload,
-  originsMatchForDesktopSession,
   isLoopbackHostname,
-  isLocalRequest
+  isLocalRequest,
+  clientMayPollDesktopSession
 } = require('./fabricSiteLoginVerify');
 
 const SESSION_TTL_MS = 10 * 60 * 1000;
@@ -36,49 +36,6 @@ function hasClientSignatureBody (body) {
   if (!identity || typeof identity !== 'object') return false;
   if (typeof identity.xpub !== 'string' || !identity.xpub.trim()) return false;
   return true;
-}
-
-function refererOriginMatchesSession (referer, sessionOrigin) {
-  if (typeof referer !== 'string' || !referer) return false;
-  try {
-    const u = new URL(referer);
-    return originsMatchForDesktopSession(`${u.protocol}//${u.host}`, sessionOrigin);
-  } catch (_) {
-    return false;
-  }
-}
-
-function hostHeaderMatchesSessionOrigin (requestHost, sessionOrigin) {
-  if (!requestHost || !sessionOrigin) return false;
-  try {
-    const sessionUrl = new URL(sessionOrigin);
-    if (requestHost === sessionUrl.host) return true;
-    const pseudo = `${sessionUrl.protocol}//${requestHost}`;
-    return originsMatchForDesktopSession(pseudo, sessionOrigin);
-  } catch (_) {
-    return false;
-  }
-}
-
-function clientMayPollDesktopSession (req, sessionOrigin) {
-  if (isLocalRequest(req)) return true;
-  if (!sessionOrigin || typeof sessionOrigin !== 'string') return false;
-  try {
-    // eslint-disable-next-line no-new
-    new URL(sessionOrigin);
-  } catch (_) {
-    return false;
-  }
-  const hdrOrigin = req.headers && req.headers.origin;
-  if (typeof hdrOrigin === 'string' && originsMatchForDesktopSession(hdrOrigin, sessionOrigin)) return true;
-  const ref = req.headers && req.headers.referer;
-  if (refererOriginMatchesSession(ref, sessionOrigin)) return true;
-  const sfs = req.headers && String(req.headers['sec-fetch-site'] || '').toLowerCase();
-  if (sfs === 'same-origin' || sfs === 'same-site') {
-    const host = req.headers && req.headers.host;
-    if (host && hostHeaderMatchesSessionOrigin(host, sessionOrigin)) return true;
-  }
-  return false;
 }
 
 function createSiteLoginStore () {
