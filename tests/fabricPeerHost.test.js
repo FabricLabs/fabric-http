@@ -159,6 +159,31 @@ describe('@fabric/http fabricPeerHost', function () {
     assert.ok(hosts.has('10.0.0.5'));
   });
 
+  it('dedicated FABRIC_INTERFACE does not treat a sibling NIC as self', function () {
+    const nics = {
+      eth0: [
+        { address: '65.21.231.166', internal: false },
+        { address: '65.21.231.149', internal: false }
+      ],
+      lo: [{ address: '127.0.0.1', internal: true }]
+    };
+    const opts = {
+      advertiseHost: 'relay.goon.vc',
+      env: { FABRIC_INTERFACE: '65.21.231.149' },
+      includeLocalInterfaces: true,
+      resolveDns: false,
+      interfaceAddresses: nics
+    };
+    const hosts = collectOwnFabricHosts(opts);
+    assert.ok(hosts.has('65.21.231.149'));
+    assert.ok(hosts.has('relay.goon.vc'));
+    assert.ok(hosts.has('127.0.0.1'));
+    assert.ok(!hosts.has('65.21.231.166'));
+    assert.strictEqual(isSelfFabricAddress('65.21.231.149:7777', opts), true);
+    assert.strictEqual(isSelfFabricAddress('65.21.231.166:7777', opts), false);
+    assert.strictEqual(isSelfFabricAddress('hub.fabric.pub:7777', opts), false);
+  });
+
   it('own-host DNS uses a cache primed without lookupSync', async function () {
     const {
       hostnameResolvesToOwn,

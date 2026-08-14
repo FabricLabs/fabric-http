@@ -58,8 +58,7 @@ describe('HTTPServer internal event logging', function () {
     server.on('message', (msg) => seen.push(msg));
     await server.commit();
     const tx = seen.find((m) => m && m['@type'] === 'Transaction');
-    if (tx) {
-      assert.ok(!tx['@data'] || tx['@data'].state === undefined);
-    }
+    assert.ok(tx, 'commit() must emit a Transaction message');
+    assert.ok(!tx['@data'] || tx['@data'].state === undefined);
   });
 });

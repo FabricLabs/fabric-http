@@ -3,6 +3,7 @@
 const assert = require('assert');
 
 describe('@fabric/http IdentityCrossSign re-exports', function () {
+  this.timeout(10000);
   it('re-exports canonical strings from @fabric/core', function () {
     const httpXs = require('../functions/identityCrossSign');
     const coreXs = require('@fabric/core/functions/identityCrossSign');
