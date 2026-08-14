@@ -56,4 +56,24 @@ describe('@fabric/http IdentityCrossSign re-exports', function () {
     assert.notStrictEqual(obj.localPubkey.toLowerCase(), String(master.pubkey).toLowerCase());
     assert.strictEqual(verifyCrossSignObject(obj).ok, true);
   });
+
+  it('rejects unknown kind and truncated identity-id hex via the core pin', function () {
+    const crypto = require('crypto');
+    const Key = require('@fabric/core/types/key');
+    const Identity = require('@fabric/core/types/identity');
+    const { SIGN_TYPE, buildCrossSignMessage } = require('../functions/identityCrossSign');
+    const { signCrossSign } = require('../functions/identityCrossSignVerify');
+    const { fabricIdentityIdFromPubkeyHex } = require('../functions/fabricIdentitySchnorr');
+    const ident = new Identity(new Key());
+    const peer = new Identity(new Key());
+    const nonce = crypto.randomBytes(32).toString('hex');
+    assert.throws(
+      () => signCrossSign(ident, { peerPubkey: peer.pubkey, nonce }, 'ChatMessage'),
+      /unknown cross-sign type/i
+    );
+    assert.strictEqual(buildCrossSignMessage(nonce, 'aa', peer.pubkey), null);
+    assert.throws(() => fabricIdentityIdFromPubkeyHex('02aa'), /66 hex/i);
+    assert.ok(typeof fabricIdentityIdFromPubkeyHex(ident.fabricKey.pubkey) === 'string');
+    assert.strictEqual(SIGN_TYPE, 'IdentityCrossSign');
+  });
 });

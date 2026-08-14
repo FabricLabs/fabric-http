@@ -1,7 +1,7 @@
 # Outstanding (security-first)
 Living queue for this repo. Detail and closed items live in [SECURITY.md](../SECURITY.md) and [AUDIT.md](../AUDIT.md). Suite march: [@fabric/core `docs/PRODUCTION_MARCH.md`](https://github.com/FabricLabs/fabric/blob/feature/rsi/docs/PRODUCTION_MARCH.md).
 
-**Last reviewed:** 2026-08-14 (http `4c79b79` + this slice, core lockfile `ab0acf77b`).
+**Last reviewed:** 2026-08-14 (http `270ebbb` + this slice, core lockfile `488a87da1`).
 
 ## Blockers before treating public Hub login as browser-grade auth
 1. **Possession proof on redeem** — `GET /sessions/:id`, LiveRelay Bearer, and device-link GET still authorize with forgeable `Origin` / `Referer` / `Sec-Fetch-Site` (plus thin-client Origins on allowlisted hubs). QR / `fabric://` expose `sessionId`. Needs a one-time poll secret or signed browser challenge ([PR #69](https://github.com/FabricLabs/fabric-http/pull/69) High, still open).
@@ -11,15 +11,16 @@ Living queue for this repo. Detail and closed items live in [SECURITY.md](../SEC
 - [ ] Prefer named AMP / `JSONCall` on public WebSocket paths; `websocket.requireClientToken` on shared hosts.
 - [ ] RFC6902 `messageBodyJsonBridge` full multi-op fidelity (do not rely on JSON→fields for arbitrary patches).
 - [ ] Always-fresh device-link nonce (reject client-supplied) — coordinated with Passport / GoonCitizen / Hub (clients currently sign a client-chosen nonce into the offer).
+- [ ] Optional: bump `puppeteer` to **25.7.0** to drop the `extract-zip@2.0.1` advisory (Sandbox / browser tests).
 
 ## Closed this pass (do not re-open)
 - IdentityCrossSign / identity Schnorr / verify re-export `@fabric/core` (commit/push core before this repo’s CI, or `npm link @fabric/core`). `fabricSiteLoginVerify` re-exports `resolveFabricSigningIdentity`.
 - `canonicalizeFabricPeerDial` rewrites `hub.fabric.pub` / `relay.goon.vc` `:7778` → `:7777` and drops self-dials (playnet RSI error-log storm).
 - Hub self-sign opt-in + **loopback-only**; `wss:` origin map via `parseFabricHubAddress`; JSONCall unauthorized hash + watch-only `signWithKey`; HTTPS-only default hub allowlist; thin-client device-link Origins (`capacitor:` / loopback WebView / `chrome-extension:` / `moz-extension:`) on allowlisted hubs; 402 header omits `costBasisSats`.
 - Bracketed Fabric peer IPv6 uses `net.isIP` (`[::::]:7777` rejected). Do not derive 402 `purchasePriceSats` from `costBasisSats` in the header builder (that field stays omitted on the wire).
-- `scripts/cli.js` reads `--wallet` / `--wallet=` from argv **before** `Environment.start()` (`functions/cliWalletArgv.js`).
+- `scripts/cli.js` reads `--wallet` / `--wallet=` from argv **before** `Environment.start()` (`functions/cliWalletArgv.js`). Separate `--wallet -p` is not a path.
 - Own-host DNS cache via `dns.promises.lookup` (no `lookupSync`). Device-link per-origin create FIFO cap (`MAX_SESSIONS_PER_ORIGIN`).
 - Expired `GET /sessions/:delegationToken` requires matching Bearer (path is not a registry credential). Browser device-link fetch omits client-set Origin/Referer.
 
 ## PRs
-[#69](https://github.com/FabricLabs/fabric-http/pull/69) — Cursor review restates **2 High + 2 Medium** on Origin-gated redeem / device-link `sessionId` bind (still open; not this slice). CodeRabbit 402 markup-from-`costBasisSats` is **wontfix** (privacy). Federation invite policy/`accept`, ARC type-only, 402 blob ids, `wss:` origin, JSONCall hash, and `--wallet` are **already in tree**. Pin `@fabric/core` via lockfile (`#feature/rsi` + `npm run report:install`), currently **`ab0acf77b`** ([core #185](https://github.com/FabricLabs/fabric/pull/185)).
+[#69](https://github.com/FabricLabs/fabric-http/pull/69) — Cursor review restates **2 High + 2 Medium** on Origin-gated redeem / device-link `sessionId` bind (still open; not this slice). CodeRabbit 402 markup-from-`costBasisSats` is **wontfix** (privacy). Federation invite policy/`accept`, ARC type-only, 402 blob ids, `wss:` origin, JSONCall hash, and `--wallet` are **already in tree**. Pin `@fabric/core` via lockfile (`#feature/rsi` + `npm run report:install`), currently **`488a87da1`** ([core #185](https://github.com/FabricLabs/fabric/pull/185)). `puppeteer@25.7.0` (extract-zip) is deferred.

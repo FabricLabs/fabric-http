@@ -37,4 +37,18 @@ describe('walletPathFromArgv', function () {
       fallback
     );
   });
+
+  it('does not treat --wallet -p as a path', function () {
+    assert.strictEqual(
+      walletPathFromArgv(['node', 'cli', '--wallet', '-p'], fallback),
+      fallback
+    );
+  });
+
+  it('keeps a dash-prefixed filename via --wallet=VALUE', function () {
+    assert.strictEqual(
+      walletPathFromArgv(['node', 'cli', '--wallet=-secret.json'], fallback),
+      '-secret.json'
+    );
+  });
 });

@@ -3,7 +3,8 @@
 /**
  * Resolve `--wallet` / `--wallet=` from argv before Commander parse.
  * Scanning stops at a standalone `--` terminator. Empty `--wallet=` falls
- * back to `fallback`. `--wallet --flag` is not a path.
+ * back to `fallback`. `--wallet --flag` / `--wallet -p` is not a path.
+ * Dash-prefixed filenames still work via `--wallet=VALUE`.
  *
  * @param {string[]} argv
  * @param {string} fallback
@@ -22,7 +23,7 @@ function walletPathFromArgv (argv, fallback) {
   const i = scan.indexOf('--wallet');
   if (i >= 0 && i + 1 < scan.length) {
     const next = String(scan[i + 1]);
-    if (!next.startsWith('--')) return next;
+    if (!next.startsWith('-')) return next;
   }
   return def;
 }
