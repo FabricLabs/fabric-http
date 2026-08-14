@@ -76,8 +76,8 @@ async function main () {
     throw new Error(`No SLIP-0044 rows parsed from ${SLIP_0044_PATH}`);
   }
 
-  // Fail closed before overwrite: expect a dense coin table with stable column shapes.
-  const MIN_SLIP_0044_ROWS = 100;
+  // Fail closed before overwrite: pinned SLIP table is ~500 rows.
+  const MIN_SLIP_0044_ROWS = 400;
   if (entries.length < MIN_SLIP_0044_ROWS) {
     throw new Error(
       `SLIP-0044 parse too sparse (${entries.length} rows; need >= ${MIN_SLIP_0044_ROWS}) from ${SLIP_0044_PATH}`

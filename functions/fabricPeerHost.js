@@ -6,6 +6,8 @@
  * {@link createIsKnownAppRelayType}.
  */
 
+const { isIP } = require('net');
+
 const DEFAULT_NETWORK_HUB_SEEDS = Object.freeze([
   'hub.fabric.pub:7777',
   'relay.goon.vc:7777'
@@ -206,7 +208,7 @@ function isFabricAddress (value) {
   const { host, port } = splitFabricHostPort(s);
   if (!host || port == null) return false;
   if (s.startsWith('[')) {
-    return /^\[[0-9a-fA-F:]+\]:\d{1,5}$/.test(s);
+    return isIP(host) === 6 && /^\[[0-9a-fA-F:]+\]:\d{1,5}$/.test(s);
   }
   return /^[a-zA-Z0-9._-]+:\d{1,5}$/.test(s);
 }

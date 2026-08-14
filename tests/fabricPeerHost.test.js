@@ -43,6 +43,9 @@ describe('@fabric/http fabricPeerHost', function () {
     assert.strictEqual(isSelfFabricAddress('[::1]:7777', 7777), true);
     assert.strictEqual(isFabricAddress('[::1]:7777'), true);
     assert.strictEqual(normalizeFabricAddress('[::1]:7777'), '[::1]:7777');
+    assert.strictEqual(isFabricAddress('[2001:db8::1]:65535'), true);
+    assert.strictEqual(isFabricAddress('[::::]:7777'), false);
+    assert.strictEqual(isFabricAddress('[not-an-ip]:7777'), false);
   });
 
   it('rejects invalid peer ports (0, >65535, non-decimal)', function () {

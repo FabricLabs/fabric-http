@@ -48,7 +48,7 @@ describe('@fabric/http messageBodyJsonBridge', function () {
     const m = messageFromJsonBody('SIDECHAIN_STATE_PATCH', {
       basisClock: 2,
       basisDigest: digest,
-      patches: [{ op: 'add', path: '/registry', value: { documents: { a: 1 } } }]
+      patches: [{ op: 'add', path: '/registry', value: registryValue }]
     });
     const view = messageBodyToJson(m);
     assert.strictEqual(view.format, 'fields');
@@ -56,7 +56,7 @@ describe('@fabric/http messageBodyJsonBridge', function () {
     assert.strictEqual(view.value.basisDigest, digest);
     const back = registryFieldsToRfc6902Json(view.value);
     assert.strictEqual(back.patches[0].path, '/registry');
-    assert.deepStrictEqual(back.patches[0].value, { documents: { a: 1 } });
+    assert.deepStrictEqual(back.patches[0].value, { documents: { a: { rateSats: 1 } } });
   });
 
   it('preserves multi-op RFC6902 sequences via patchesCanonical', function () {
