@@ -32,6 +32,13 @@ describe('@fabric/http fabricPubkey', function () {
 });
 
 describe('@fabric/http fabricChatNormalize', function () {
+  it('re-exports core fabricChatText leaves', function () {
+    const core = require('@fabric/core/functions/fabricChatText');
+    const httpChat = require('../functions/fabricChatNormalize');
+    assert.strictEqual(httpChat.chatTextOf, core.chatTextOf);
+    assert.strictEqual(httpChat.chatActorIdOf, core.chatActorIdOf);
+  });
+
   it('prefers mesh text and canonicalizes actor when pubkey-like', function () {
     const key = new Key();
     const x = pubkeyXOnly(key.pubkey);

@@ -512,8 +512,19 @@ class FabricHTTPServer extends Service {
     this._notifySubscribers(meta.list, listValue);
   }
 
+  _summarizeInternalEvent (msg) {
+    if (msg == null) return 'null';
+    if (typeof msg !== 'object') return String(msg).slice(0, 96);
+    const t = msg['@type'] || msg.type || 'object';
+    const keys = Object.keys(msg);
+    return `${t} keys=${keys.slice(0, 8).join(',')}${keys.length > 8 ? '…' : ''}`;
+  }
+
   _broadcastStateUpdate () {
-    const message = Message.fromVector(['StateUpdate', JSON.stringify(this.state)]);
+    // Do not JSON.stringify the full HTTPServer state on every resource mutation
+    // (OpenSSF advisory floods OOMed Hub while this ran on every Create).
+    if ((this.settings.verbosity || 0) < 5) return;
+    const message = Message.fromVector(['StateUpdate', JSON.stringify({ clock: this.clock })]);
     if (this._rootKey && this._rootKey.private) message.signWithKey(this._rootKey);
     this.broadcast(message);
   }
@@ -536,15 +547,14 @@ class FabricHTTPServer extends Service {
         '@type': 'Transaction',
         '@data': {
           changes: this['@changes'],
-          state: this.state
+          clock: this.clock
         }
       };
 
       this.emit('changes', this['@changes']);
-      this.emit('state', this.state);
       this.emit('message', message);
 
-      // Broadcast to connected peers
+      // Broadcast to connected peers (patches only — not a full state snapshot)
       const outbound = Message.fromVector(['Transaction', JSON.stringify(message['@data'])]);
       if (this._rootKey && this._rootKey.private) outbound.signWithKey(this._rootKey);
       this.broadcast(outbound);
@@ -2403,15 +2413,19 @@ class FabricHTTPServer extends Service {
     this.on('call', this._handleCall.bind(this));
 
     // TODO: convert to bound functions
-    this.on('commit', async function (msg) {
-      console.log('[HTTP:SERVER]', 'Internal commit:', msg);
+    this.on('commit', (msg) => {
+      if ((this.settings.verbosity || 0) >= 5) {
+        console.log('[HTTP:SERVER]', 'Internal commit:', this._summarizeInternalEvent(msg));
+      }
     });
 
     this.on('debug', this.debug.bind(this));
     this.on('log', this.log.bind(this));
     this.on('warning', this.warn.bind(this));
-    this.on('message', async function (msg) {
-      console.log('[HTTP:SERVER]', 'Internal message:', msg);
+    this.on('message', (msg) => {
+      if ((this.settings.verbosity || 0) >= 5) {
+        console.log('[HTTP:SERVER]', 'Internal message:', this._summarizeInternalEvent(msg));
+      }
     });
 
     this._registerMethod('GenericMessage', (msg) => {
