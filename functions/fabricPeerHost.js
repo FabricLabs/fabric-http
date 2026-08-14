@@ -21,6 +21,9 @@ const MAX_FABRIC_PEER_PORT = 65535;
 
 /** @type {Map<string, boolean>} */
 const _dnsOwnHostCache = new Map();
+/** @type {Set<string>} */
+const _dnsOwnHostInflight = new Set();
+const DNS_OWN_HOST_CACHE_MAX = 256;
 
 /**
  * Parse a Fabric peer TCP port (decimal integer 1..65535 only).
@@ -130,8 +133,43 @@ function collectOwnFabricHosts (opts = {}) {
   return hosts;
 }
 
+function _setDnsOwnHostCache (cacheKey, hit) {
+  _dnsOwnHostCache.set(cacheKey, hit);
+  while (_dnsOwnHostCache.size > DNS_OWN_HOST_CACHE_MAX) {
+    _dnsOwnHostCache.delete(_dnsOwnHostCache.keys().next().value);
+  }
+}
+
+function _scheduleDnsOwnHostLookup (key, ownHosts, cacheKey) {
+  if (_dnsOwnHostInflight.has(cacheKey) || _dnsOwnHostCache.has(cacheKey)) return;
+  _dnsOwnHostInflight.add(cacheKey);
+  const dns = require('dns').promises;
+  Promise.resolve()
+    .then(() => dns.lookup(key, { all: true }))
+    .then((rows) => {
+      let hit = false;
+      const list = Array.isArray(rows) ? rows : (rows ? [rows] : []);
+      for (const row of list) {
+        const addr = row && (row.address || row);
+        if (addr && ownHosts.has(String(addr).toLowerCase())) {
+          hit = true;
+          break;
+        }
+      }
+      _setDnsOwnHostCache(cacheKey, hit);
+    })
+    .catch(() => {
+      _setDnsOwnHostCache(cacheKey, false);
+    })
+    .then(() => {
+      _dnsOwnHostInflight.delete(cacheKey);
+    });
+}
+
 /**
  * True when `host` is not an IP literal and DNS resolves it to a local interface.
+ * Sync callers read the cache (or `false` on a miss) and a lookup is primed via
+ * `dns.promises.lookup` — Node 24 deprecates `dns.lookupSync`.
  * @param {string} host
  * @param {Set<string>} ownHosts
  * @returns {boolean}
@@ -142,28 +180,27 @@ function hostnameResolvesToOwn (host, ownHosts) {
   if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(key)) return false;
   if (key.includes(':')) return false; // IPv6 literal — never DNS-resolve
   // Cache key includes ownHosts so different local-interface sets do not share hits.
-  // Remaining: prefer async dns.promises.lookup (Node 24 deprecates lookupSync).
   const cacheKey = `${key}|${[...ownHosts].sort().join(',')}`;
   if (_dnsOwnHostCache.has(cacheKey)) return _dnsOwnHostCache.get(cacheKey);
-  let hit = false;
-  try {
-    const dns = require('dns');
-    if (typeof dns.lookupSync === 'function') {
-      const r = dns.lookupSync(key, { all: true });
-      const list = Array.isArray(r) ? r : (r ? [r] : []);
-      for (const row of list) {
-        const addr = row && (row.address || row);
-        if (addr && ownHosts.has(String(addr).toLowerCase())) {
-          hit = true;
-          break;
-        }
-      }
-    }
-  } catch (_) {
-    hit = false;
+  _scheduleDnsOwnHostLookup(key, ownHosts, cacheKey);
+  return false;
+}
+
+/**
+ * Await a DNS own-host resolution (tests / startup prime).
+ * @param {string} host
+ * @param {Set<string>} ownHosts
+ * @returns {Promise<boolean>}
+ */
+async function primeOwnHostDns (host, ownHosts) {
+  hostnameResolvesToOwn(host, ownHosts);
+  const key = String(host || '').trim().toLowerCase();
+  const cacheKey = `${key}|${[...ownHosts].sort().join(',')}`;
+  for (let i = 0; i < 50; i++) {
+    if (_dnsOwnHostCache.has(cacheKey)) return _dnsOwnHostCache.get(cacheKey);
+    await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  _dnsOwnHostCache.set(cacheKey, hit);
-  return hit;
+  return false;
 }
 
 /**
@@ -194,6 +231,51 @@ function isSelfFabricAddress (address, listenPortOrOpts, opts) {
   if (options.resolveDns === false) return false;
   if (options.includeLocalInterfaces === false) return false;
   return hostnameResolvesToOwn(host, own);
+}
+
+/** Historical playnet Peer port still advertised in gossip / peersDb. */
+const STALE_NETWORK_HUB_PEER_PORT = 7778;
+/** Canonical Fabric Peer listen port for network hubs. */
+const CANONICAL_NETWORK_HUB_PEER_PORT = 7777;
+
+/**
+ * Format `host:port`, wrapping IPv6 hosts in brackets.
+ * @param {string} host
+ * @param {number} port
+ * @returns {string|null}
+ */
+function formatFabricHostPort (host, port) {
+  const h = String(host || '').trim().toLowerCase();
+  const p = parseFabricPeerPort(port);
+  if (!h || p == null) return null;
+  if (h.includes(':')) return `[${h}]:${p}`;
+  return `${h}:${p}`;
+}
+
+/**
+ * Drop self-dials; rewrite known network hubs still advertised on historical `:7778`.
+ * Desktop nodes that listen on 7778 are unchanged unless the host is this process.
+ * @param {*} address
+ * @param {number|string|Object} [listenPortOrOpts]
+ * @param {Object} [opts]
+ * @returns {string|null} `host:port` to dial, or null to skip
+ */
+function canonicalizeFabricPeerDial (address, listenPortOrOpts, opts) {
+  let options = opts || {};
+  if (listenPortOrOpts && typeof listenPortOrOpts === 'object' && !Array.isArray(listenPortOrOpts)) {
+    options = listenPortOrOpts;
+  }
+  const { host, port } = splitFabricHostPort(address);
+  if (!host || port == null) return null;
+  const formatted = formatFabricHostPort(host, port);
+  if (!formatted) return null;
+  if (isSelfFabricAddress(formatted, options)) return null;
+  if (isNetworkHubAddress(formatted) && port === STALE_NETWORK_HUB_PEER_PORT) {
+    const rewritten = formatFabricHostPort(host, CANONICAL_NETWORK_HUB_PEER_PORT);
+    if (!rewritten || isSelfFabricAddress(rewritten, options)) return null;
+    return rewritten;
+  }
+  return formatted;
 }
 
 /**
@@ -253,6 +335,7 @@ function createIsKnownAppRelayType (types) {
 /** Clear DNS own-host cache (tests). */
 function clearOwnHostDnsCache () {
   _dnsOwnHostCache.clear();
+  _dnsOwnHostInflight.clear();
 }
 
 module.exports = {
@@ -266,7 +349,10 @@ module.exports = {
   isLoopbackFabricAddress,
   collectOwnFabricHosts,
   hostnameResolvesToOwn,
+  primeOwnHostDns,
   isSelfFabricAddress,
+  formatFabricHostPort,
+  canonicalizeFabricPeerDial,
   isFabricAddress,
   normalizeFabricAddress,
   createIsKnownAppRelayType,

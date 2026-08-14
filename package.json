@@ -75,6 +75,8 @@
     "./functions/httpSharedMode": "./functions/httpSharedMode.js",
     "./functions/fabricSiteLoginVerify": "./functions/fabricSiteLoginVerify.js",
     "./functions/fabricIdentitySchnorr": "./functions/fabricIdentitySchnorr.js",
+    "./functions/identityCrossSign": "./functions/identityCrossSign.js",
+    "./functions/identityCrossSignVerify": "./functions/identityCrossSignVerify.js",
     "./functions/fabricDesktopLoginVerify": "./functions/fabricDesktopLoginVerify.js",
     "./functions/fabricSiteLogin": "./functions/fabricSiteLogin.js",
     "./functions/fabricSiteLoginHttp": "./functions/fabricSiteLoginHttp.js",

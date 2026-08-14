@@ -28,6 +28,7 @@ Browser / legacy web  →  @fabric/http (this repo)  →  @fabric/core  →  bit
 | Doc | Purpose |
 |-----|---------|
 | [README.md](../README.md) | Install & quick start |
+| [core TYPES_AND_SERVICES.md](https://github.com/FabricLabs/fabric/blob/feature/rsi/docs/TYPES_AND_SERVICES.md) | Suite `types/` + `services/` homes (this package is HTTP/SPA only) |
 | [MARKETING_OVERVIEW.md](MARKETING_OVERVIEW.md) | Positioning & copy |
 | [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) | Tag, publish, pre-release verification |
 | [hub.fabric.pub docs](https://github.com/FabricLabs/hub.fabric.pub/tree/main/docs) | Operator deploy (PRODUCTION, payments) |

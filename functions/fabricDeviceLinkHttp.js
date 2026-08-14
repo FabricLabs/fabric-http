@@ -32,6 +32,7 @@ const {
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const MAX_SESSIONS = 256;
+const MAX_SESSIONS_PER_ORIGIN = 16;
 const MAX_CONSUMED_OFFERS = 512;
 
 function randomSessionId () {
@@ -137,6 +138,27 @@ function pruneSessions (hub) {
   while (hub._deviceLinkSessions.size > MAX_SESSIONS) {
     const first = hub._deviceLinkSessions.keys().next().value;
     hub._deviceLinkSessions.delete(first);
+  }
+}
+
+/**
+ * FIFO-evict oldest sessions for `origin` until under the per-origin cap.
+ * Unauthenticated create can otherwise fill MAX_SESSIONS from one Origin.
+ * @param {object} hub
+ * @param {string} origin
+ */
+function evictDeviceLinkOriginOverflow (hub, origin) {
+  if (!hub._deviceLinkSessions) return;
+  const originKey = normalizeHubOrigin(origin) || String(origin || '');
+  const ids = [];
+  for (const [id, session] of hub._deviceLinkSessions) {
+    const sessionOrigin = normalizeHubOrigin(session && session.origin) ||
+      String((session && session.origin) || '');
+    if (sessionOrigin === originKey) ids.push(id);
+  }
+  while (ids.length >= MAX_SESSIONS_PER_ORIGIN) {
+    const drop = ids.shift();
+    hub._deviceLinkSessions.delete(drop);
   }
 }
 
@@ -248,6 +270,7 @@ function handleDeviceLinkCreate (hub, req, res) {
       return;
     }
 
+    evictDeviceLinkOriginOverflow(hub, origin);
     hub._deviceLinkSessions.set(sessionId, {
       origin,
       nonce,
@@ -515,6 +538,8 @@ function mountFabricDeviceLinkHttp (hub) {
 module.exports = {
   DEVICE_LINK_PREFIX,
   SESSION_TTL_MS,
+  MAX_SESSIONS,
+  MAX_SESSIONS_PER_ORIGIN,
   buildDeviceLinkMessage,
   buildDeviceLinkOfferMessage,
   parseDeviceLinkMessage,
@@ -530,5 +555,7 @@ module.exports = {
   isCompanionWebViewOrigin,
   isExtensionOrigin,
   isThinClientOrigin,
-  clientMayAccessDeviceLink
+  clientMayAccessDeviceLink,
+  pruneDeviceLinkSessions: pruneSessions,
+  evictDeviceLinkOriginOverflow
 };

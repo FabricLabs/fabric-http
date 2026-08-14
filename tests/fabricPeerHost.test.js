@@ -67,6 +67,42 @@ describe('@fabric/http fabricPeerHost', function () {
     assert.strictEqual(normalizeFabricAddress('relay.goon.vc:65536'), null);
   });
 
+  it('rewrites stale network-hub :7778 and drops self dials', function () {
+    const {
+      canonicalizeFabricPeerDial
+    } = require('../functions/fabricPeerHost');
+    assert.strictEqual(
+      canonicalizeFabricPeerDial('hub.fabric.pub:7778', { includeLocalInterfaces: false, resolveDns: false }),
+      'hub.fabric.pub:7777'
+    );
+    assert.strictEqual(
+      canonicalizeFabricPeerDial('relay.goon.vc:7778', {
+        listenPort: 7777,
+        advertiseHost: 'relay.goon.vc',
+        includeLocalInterfaces: false,
+        resolveDns: false
+      }),
+      null
+    );
+    assert.strictEqual(
+      canonicalizeFabricPeerDial('65.21.231.149:7778', {
+        listenPort: 7777,
+        ownHosts: ['65.21.231.149'],
+        includeLocalInterfaces: false,
+        resolveDns: false
+      }),
+      null
+    );
+    assert.strictEqual(
+      canonicalizeFabricPeerDial('203.0.113.9:7778', {
+        listenPort: 7777,
+        includeLocalInterfaces: false,
+        resolveDns: false
+      }),
+      '203.0.113.9:7778'
+    );
+  });
+
   it('treats advertiseHost / ownHosts as self', function () {
     assert.strictEqual(isSelfFabricAddress('relay.goon.vc:7777', {
       listenPort: 7777,
@@ -96,5 +132,20 @@ describe('@fabric/http fabricPeerHost', function () {
     });
     assert.ok(hosts.has('relay.goon.vc'));
     assert.ok(hosts.has('10.0.0.5'));
+  });
+
+  it('own-host DNS uses a cache primed without lookupSync', async function () {
+    const {
+      hostnameResolvesToOwn,
+      primeOwnHostDns,
+      clearOwnHostDnsCache
+    } = require('../functions/fabricPeerHost');
+    clearOwnHostDnsCache();
+    const own = collectOwnFabricHosts({ includeLocalInterfaces: true });
+    assert.strictEqual(hostnameResolvesToOwn('localhost', own), false);
+    const primed = await primeOwnHostDns('localhost', own);
+    assert.strictEqual(typeof primed, 'boolean');
+    assert.strictEqual(hostnameResolvesToOwn('localhost', own), primed);
+    clearOwnHostDnsCache();
   });
 });

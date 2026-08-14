@@ -86,4 +86,53 @@ describe('adversarialEnvironment.basics (@fabric/http)', function () {
     assert.strictEqual(clientMayAccessDeviceLink(android, 'https://phish.example'), false);
     assert.strictEqual(clientMayPollDesktopSession(android, 'https://relay.goon.vc'), false);
   });
+
+  it('does not treat path sessionId as a delegation-registry credential', function () {
+    const { handleSessionGet } = require('../functions/fabricSiteLoginHttp');
+    const token = 'aa'.repeat(24);
+    const loginSessionId = 'bb'.repeat(24);
+    const hub = {
+      _desktopAuthSessions: new Map(),
+      _delegationRegistry: new Map([
+        [token, {
+          origin: 'https://hub.fabric.pub',
+          linkedAt: Date.now(),
+          label: 'browser',
+          identityId: 'id1example',
+          sessionId: loginSessionId
+        }]
+      ]),
+      getDelegationSessionById (id) {
+        const row = this._delegationRegistry.get(id);
+        if (!row) return null;
+        return { ok: true, kind: 'delegation', id, origin: row.origin, identityId: row.identityId };
+      }
+    };
+    function mockRes () {
+      const out = { statusCode: 0, body: null };
+      return {
+        out,
+        setHeader () {},
+        status (code) { out.statusCode = code; return this; },
+        send (body) { out.body = body; return this; }
+      };
+    }
+    const unauth = mockRes();
+    handleSessionGet(hub, {
+      params: { sessionId: token },
+      headers: { accept: 'application/json' }
+    }, unauth);
+    assert.strictEqual(unauth.out.statusCode, 404);
+
+    const authed = mockRes();
+    handleSessionGet(hub, {
+      params: { sessionId: token },
+      headers: { accept: 'application/json', authorization: 'Bearer ' + token }
+    }, authed);
+    assert.strictEqual(authed.out.statusCode, 200);
+    const parsed = JSON.parse(authed.out.body);
+    assert.strictEqual(parsed.ok, true);
+    assert.strictEqual(parsed.kind, 'delegation');
+    assert.strictEqual(parsed.identityId, 'id1example');
+  });
 });

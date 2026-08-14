@@ -1,0 +1,59 @@
+'use strict';
+
+const assert = require('assert');
+
+describe('@fabric/http IdentityCrossSign re-exports', function () {
+  it('re-exports canonical strings from @fabric/core', function () {
+    const httpXs = require('../functions/identityCrossSign');
+    const coreXs = require('@fabric/core/functions/identityCrossSign');
+    assert.strictEqual(httpXs.SIGN_TYPE, coreXs.SIGN_TYPE);
+    assert.strictEqual(httpXs.REVOKE_TYPE, coreXs.REVOKE_TYPE);
+    assert.strictEqual(typeof httpXs.buildCrossSignMessage, 'function');
+  });
+
+  it('re-exports Schnorr helpers used by site-login / device-link', function () {
+    const schnorr = require('../functions/fabricIdentitySchnorr');
+    const core = require('@fabric/core/functions/fabricIdentitySchnorr');
+    assert.strictEqual(
+      typeof schnorr.buildFabricIdentitySignedPayload,
+      'function'
+    );
+    assert.strictEqual(
+      schnorr.buildFabricIdentitySignedPayload,
+      core.buildFabricIdentitySignedPayload
+    );
+  });
+
+  it('re-exports sign/verify for IdentityCrossSign bodies', function () {
+    const httpXv = require('../functions/identityCrossSignVerify');
+    const coreXv = require('@fabric/core/functions/identityCrossSignVerify');
+    assert.strictEqual(typeof httpXv.signCrossSign, 'function');
+    assert.strictEqual(httpXv.verifyCrossSignObject, coreXv.verifyCrossSignObject);
+  });
+
+  it('exposes resolveFabricSigningIdentity from site-login verify', function () {
+    const site = require('../functions/fabricSiteLoginVerify');
+    const schnorr = require('../functions/fabricIdentitySchnorr');
+    assert.strictEqual(
+      site.resolveFabricSigningIdentity,
+      schnorr.resolveFabricSigningIdentity
+    );
+  });
+
+  it('signs a raw HD Key with fabricKey pubkey via the core pin', function () {
+    const crypto = require('crypto');
+    const Key = require('@fabric/core/types/key');
+    const Identity = require('@fabric/core/types/identity');
+    const { signCrossSign, verifyCrossSignObject } = require('../functions/identityCrossSignVerify');
+    const master = new Key();
+    const ident = new Identity(master);
+    const peer = new Identity(new Key());
+    const obj = signCrossSign(master, {
+      peerPubkey: peer.pubkey,
+      nonce: crypto.randomBytes(32).toString('hex')
+    });
+    assert.strictEqual(obj.localPubkey.toLowerCase(), ident.fabricKey.pubkey.toLowerCase());
+    assert.notStrictEqual(obj.localPubkey.toLowerCase(), String(master.pubkey).toLowerCase());
+    assert.strictEqual(verifyCrossSignObject(obj).ok, true);
+  });
+});

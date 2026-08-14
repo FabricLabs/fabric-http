@@ -315,27 +315,27 @@ function handleSessionGet (hub, req, res) {
         });
         return;
       }
-      const delegationView = typeof hub.getDelegationSessionById === 'function'
-        ? hub.getDelegationSessionById(sessionId)
-        : null;
-      if (delegationView) {
-        const row = delegationRow && delegationRow.sessionId != null &&
-          tokensEqual(String(delegationRow.sessionId), sessionId)
-          ? delegationRow
-          : null;
-        sendJson(res, 200, {
-          ...delegationView,
-          session: row
-            ? {
-              origin: row.origin,
-              linkedAt: row.linkedAt,
-              label: row.label || 'browser',
-              identityId: row.identityId != null ? String(row.identityId) : null,
+      // GET /sessions/:delegationToken — path is the opaque token; require matching Bearer.
+      // Unauthenticated path lookup would let anyone who saw the token in a URL read origin/identityId.
+      if (
+        bearer &&
+        tokensEqual(bearer, sessionId) &&
+        typeof hub.getDelegationSessionById === 'function'
+      ) {
+        const delegationView = hub.getDelegationSessionById(sessionId);
+        if (delegationView) {
+          sendJson(res, 200, {
+            ...delegationView,
+            session: {
+              origin: delegationView.origin,
+              linkedAt: delegationView.linkedAt,
+              label: delegationView.label || 'browser',
+              identityId: delegationView.identityId != null ? String(delegationView.identityId) : null,
               externalSigning: true
             }
-            : null
-        });
-        return;
+          });
+          return;
+        }
       }
       sendJson(res, 404, { ok: false, error: 'unknown or expired session' });
       return;

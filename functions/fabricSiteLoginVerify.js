@@ -9,6 +9,7 @@
 const {
   buildFabricIdentitySignedPayload,
   fabricIdentityIdFromPubkeyHex,
+  resolveFabricSigningIdentity,
   verifyIdentitySchnorr
 } = require('./fabricIdentitySchnorr');
 
@@ -193,5 +194,6 @@ module.exports = {
   requestHasProxyForwardHeaders,
   isLocalRequest,
   fabricIdentityIdFromPubkeyHex,
+  resolveFabricSigningIdentity,
   verifyIdentitySchnorr
 };

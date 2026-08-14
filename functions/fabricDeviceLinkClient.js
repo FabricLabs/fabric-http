@@ -15,10 +15,16 @@ const {
   parseDeviceLinkMessage
 } = require('./fabricDeviceLinkMessages');
 
+function isBrowserFetchGlobal () {
+  return typeof globalThis.window === 'object' && globalThis.window === globalThis;
+}
+
 function deviceLinkHeaders (origin) {
   const o = String(origin || '').replace(/\/$/, '');
   const h = { Accept: 'application/json', 'Content-Type': 'application/json' };
-  if (o) {
+  // Fetch forbids client-set Origin/Referer in browsers; they send the real page origin.
+  // Node / Electron-main helpers still attach them for loopback and unit tests.
+  if (o && !isBrowserFetchGlobal()) {
     h.Origin = o;
     h.Referer = `${o}/`;
   }
