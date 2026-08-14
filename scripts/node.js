@@ -22,6 +22,7 @@ const { HTTP_SERVER_PORT } = require('../constants');
 
 // Fabric Types
 const Environment = require('@fabric/core/types/environment');
+const { readCliPasswordFromArgv } = require('@fabric/core/functions/cliPasswordArgv');
 const HTTPServer = require('../types/server');
 
 /**
@@ -56,16 +57,19 @@ function parseArgs (argv) {
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '-p' || a === '--port') {
-      out.port = Number(argv[++i]);
+    if (a === '-p' || a === '--port' || a.startsWith('--port=')) {
+      out.port = a.startsWith('--port=') ? a.slice('--port='.length) : argv[++i];
       continue;
     }
-    if (a === '-a' || a === '--address' || a === '--host') {
-      out.address = argv[++i];
+    if (a === '-a' || a === '--address' || a === '--host' ||
+        a.startsWith('--address=') || a.startsWith('--host=')) {
+      if (a.startsWith('--address=')) out.address = a.slice('--address='.length);
+      else if (a.startsWith('--host=')) out.address = a.slice('--host='.length);
+      else out.address = argv[++i];
       continue;
     }
-    if (a === '-c' || a === '--cache') {
-      out.cacheSeconds = Number(argv[++i]);
+    if (a === '-c' || a === '--cache' || a.startsWith('--cache=')) {
+      out.cacheSeconds = a.startsWith('--cache=') ? a.slice('--cache='.length) : argv[++i];
       continue;
     }
     if (a === '-S' || a === '--spa') {
@@ -106,6 +110,16 @@ async function main (input = {}) {
 }
 
 environment.start();
+
+const passwordFromArgv = readCliPasswordFromArgv(process.argv);
+if (environment.walletLocked && passwordFromArgv) {
+  try {
+    environment.unlockWallet(passwordFromArgv);
+  } catch (exception) {
+    console.error('[FABRIC:HTTP]', 'Unlock failed:', exception.message || exception);
+    process.exit(1);
+  }
+}
 
 const parsed = parseArgs(process.argv.slice(2));
 const root = parsed.positional[0] || 'assets';

@@ -5,6 +5,7 @@ const {
   parseFederationContractInvite,
   parseFederationContractInviteLoose,
   parseFederationContractInviteResponse,
+  parseFederationContractInviteResponseLoose,
   buildFederationContractInviteJson,
   buildFederationContractInviteResponseJson,
   normalizeSpendingTerms,
@@ -79,6 +80,15 @@ describe('federationContractInvite (@fabric/http)', function () {
     assert.strictEqual(parseFederationContractInvite('{}'), null);
     assert.strictEqual(parseFederationContractInvite('{"type":"FederationContractInvite","v":0,"inviteId":"x"}'), null);
     assert.strictEqual(parseFederationContractInviteResponse('{"type":"FederationContractInviteResponse","v":1}'), null);
+    assert.strictEqual(parseFederationContractInviteResponse(
+      '{"type":"FederationContractInviteResponse","v":1,"inviteId":"x","accept":"false"}'
+    ), null);
+    assert.strictEqual(parseFederationContractInviteResponseLoose({
+      type: 'FederationContractInviteResponse',
+      v: 1,
+      inviteId: 'x',
+      accept: 1
+    }), null);
   });
 
   it('normalizeProposedPolicy rejects duplicates and non-integer thresholds', function () {

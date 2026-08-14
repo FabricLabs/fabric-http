@@ -17,6 +17,7 @@ const { Command } = require('commander');
 
 // Fabric Types
 const Environment = require('@fabric/core/types/environment');
+const { readCliPasswordFromArgv } = require('@fabric/core/functions/cliPasswordArgv');
 
 // Contracts
 const OP_BOOTSTRAP = require('../contracts/bootstrap.ts');
@@ -37,8 +38,18 @@ async function main (input = {}) {
   // Argument Parsing
   const program = new Command();
 
-  // Read Environment
+  // Unlock before serving so `--password=VALUE` matches `@fabric/core` `fabric`.
   environment.start();
+  const passwordFromArgv = readCliPasswordFromArgv(process.argv);
+  if (environment.walletLocked && passwordFromArgv) {
+    try {
+      environment.unlockWallet(passwordFromArgv);
+    } catch (exception) {
+      console.error('[FABRIC:HTTP]', 'Unlock failed:', exception.message || exception);
+      process.exit(1);
+      return;
+    }
+  }
 
   // Configure Program
   program.name('fabric-http');
