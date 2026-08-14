@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+try {
+  require('@fabric/core/functions/fabricHomeEnv').loadFabricHomeEnv();
+} catch (_) { /* older @fabric/core pin */ }
+
 // Constants
 const {
   BITCOIN_GENESIS

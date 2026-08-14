@@ -16,6 +16,10 @@
 
 'use strict';
 
+try {
+  require('@fabric/core/functions/fabricHomeEnv').loadFabricHomeEnv();
+} catch (_) { /* older @fabric/core pin */ }
+
 // Settings
 const settings = require('../settings/local');
 const { HTTP_SERVER_PORT } = require('../constants');

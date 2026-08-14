@@ -76,4 +76,14 @@ describe('@fabric/http IdentityCrossSign re-exports', function () {
     assert.ok(typeof fabricIdentityIdFromPubkeyHex(ident.fabricKey.pubkey) === 'string');
     assert.strictEqual(SIGN_TYPE, 'IdentityCrossSign');
   });
+
+  it('resolves core home-env / key-material helpers on this pin', function () {
+    const home = require('@fabric/core/functions/fabricHomeEnv');
+    const material = require('@fabric/core/functions/fabricKeyMaterial');
+    assert.strictEqual(typeof home.loadFabricHomeEnv, 'function');
+    assert.strictEqual(typeof material.parseRawSeedHex, 'function');
+    assert.strictEqual(typeof material.keySettingsFromEnv, 'function');
+    const hex = 'aa'.repeat(32);
+    assert.strictEqual(material.classifyFabricKeyMaterial(hex).kind, 'seedHex');
+  });
 });
