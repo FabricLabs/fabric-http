@@ -18,6 +18,7 @@ const { Command } = require('commander');
 // Fabric Types
 const Environment = require('@fabric/core/types/environment');
 const { readCliPasswordFromArgv } = require('@fabric/core/functions/cliPasswordArgv');
+const { walletPathFromArgv } = require('../functions/cliWalletArgv');
 
 // Contracts
 const OP_BOOTSTRAP = require('../contracts/bootstrap.ts');
@@ -30,9 +31,9 @@ const COMMANDS = {
 
 // Define Main Program
 async function main (input = {}) {
-  // Environment
+  // Environment — read --wallet before Commander parse / start()
   const environment = new Environment({
-    path: process.wallet
+    path: walletPathFromArgv(process.argv, process.wallet || file)
   });
 
   // Argument Parsing
@@ -90,9 +91,10 @@ async function main (input = {}) {
   return this;
 }
 
-// Run Program
-main(settings).catch((exception) => {
-  console.error('[FABRIC:HTTP]', 'Main Process Exception:', exception);
-}).then((output) => {
-  console.log('[FABRIC:HTTP]', 'CLI Output:', output);
-});
+if (require.main === module) {
+  main(settings).catch((exception) => {
+    console.error('[FABRIC:HTTP]', 'Main Process Exception:', exception);
+  }).then((output) => {
+    console.log('[FABRIC:HTTP]', 'CLI Output:', output);
+  });
+}

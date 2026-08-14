@@ -5,16 +5,16 @@ Living posture notes for `@fabric/http` **0.1.0-RC1**. Re-run **`npm audit`** af
 
 | Area | Posture |
 |------|---------|
-| `@fabric/core` | Git pin `FabricLabs/fabric#feature/rsi` (lockfile SHA `39bfbcb7b9657fb1f7a499f90863afeb65c82045`; Node **24.15.0**) |
+| `@fabric/core` | Git pin `FabricLabs/fabric#feature/rsi` (lockfile SHA `a80e8aa7e50150a4f7965cb6bc2e69bc4bcf7e80`; Node **24.15.0**) |
 | npm `allow-git` | **`.npmrc` `allow-git=all`** — nested git-dep preparation resolves core to a commit SHA; `root` is refused (intentional — do not flip to `root`) |
 | WebSocket (`ws`) | **Mitigated** — direct + override **`8.21.2`** (GHSA-58qx-3vcg-4xpx / fragment DoS) |
 | Express / body-parser / qs | **Mitigated** — `express@4.22.2`, `body-parser@1.20.6`, override `qs@6.15.3` |
 | undici (fomantic → `@actions/http-client`) | **Mitigated** — override **`6.28.0`** |
 | Markdown (SLIP-0044 script) | **Mitigated** — replaced `showdown` (unfixed ReDoS GHSA-rmmh-p597-ppvv) with **`marked@15.0.12`** |
 | PeerJS / browser mesh | **Removed** — `types/swarm.js` is a no-op stub; Hub native WebRTC |
-| npm audit (clean tree) | **4 high** residual — `extract-zip` via puppeteer / `@puppeteer/browsers` (no patched release; build/dev only). Runtime `ws` / Express / undici overrides remain clean. |
+| npm audit status | **4 high** residual — `extract-zip` via puppeteer / `@puppeteer/browsers` (no patched release; build/dev only). Runtime `ws` / Express / undici overrides remain clean. |
 
-## Overrides that keep the build tree clean
+## Overrides for mitigated runtime findings
 
 | Override | Why |
 |----------|-----|
@@ -64,7 +64,7 @@ ws  6.x / 8.18.x
 
 ## Recommendations
 
-1. After dependency edits: **`npm ci`** (or `npm i`) then **`npm audit`** and **`npm test`**. Prefer **`npm ci`** for reproducible installs; `npm run report:install` removes `node_modules` only and **keeps** `package-lock.json`.
+1. After dependency edits: **`npm ci`** (or `npm i`) then **`npm audit`** and **`npm test`**. Prefer **`npm ci`** for reproducible installs; `npm run report:install` wipes `node_modules` **and** `package-lock.json`, then `npm i --allow-git=all`.
 2. Keep **`engines.node`** at **24.15.0** with Hub / `@fabric/core`.
 3. Do not reintroduce **peerjs** or **showdown**.
 4. Treat Fomantic gulp as **build-only**; never expose its admin GitHub tooling on production HTTP paths.
@@ -74,11 +74,11 @@ ws  6.x / 8.18.x
 8. Follow-up (larger): `messageBodyJsonBridge` RFC6902 sidechain JSON → typed fields still does not preserve a full multi-op patch sequence end-to-end; keep rejecting unsupported ops and prefer Hub typed carriers until that lands.
 9. Follow-up (auth polish): site-login GET now looks up `_delegationRegistry` by opaque Bearer token (not path `sessionId`) with `timingSafeEqual` session binding + TTL/size prune matching desktop sessions. Remaining Hub-side: ensure any dual-keyed legacy registries migrate; prefer never returning path `sessionId` as the credential.
 10. **PR #69 auth boundary (partially closed)** — Hub self-sign is now **opt-in** (`allowHubSelfSign === true`) and **loopback-only**; LiveRelay omits unrecognized Bearer when `issueBearer` is absent; device-link origins are canonicalized for replay keys (`offerReplayKey` + create path); peer host parsing is IPv6-safe and rejects ports outside **1..65535**. Site-login / LiveRelay share `clientMayPollDesktopSession`; device-link adds thin-client Origins on allowlisted hubs (`clientMayAccessDeviceLink`). Still open on shared hosts: forgeable Origin/Referer for session/device-link **redeem** / poll (needs possession proof); bind `sessionId` into link messages in a coordinated client bump; async DNS self-check (`dns.promises.lookup`) to replace sync `lookupSync`.
-11. **Follow-up (ops):** keep `package.json` on `FabricLabs/fabric#feature/rsi` during RSI development, but **re-pin releases** to the lockfile SHA (`39bfbcb7b…` as of 2026-08-14 tip refresh). `npm run report:install` wipes `package-lock.json` then `npm i --allow-git=all` — bump the tip with `npm install FabricLabs/fabric#feature/rsi --allow-git=all` (or pin a SHA) when core moves.
+11. **Follow-up (ops):** keep `package.json` on `FabricLabs/fabric#feature/rsi` during RSI development, but **re-pin releases** to the lockfile SHA (`a80e8aa7e…` as of 2026-08-14 tip refresh). `npm run report:install` wipes `package-lock.json` then `npm i --allow-git=all` — bump the tip with `npm install FabricLabs/fabric#feature/rsi --allow-git=all` (or pin a SHA) when core moves.
 
 ### PR #69 review triage (`feature/rsi`)
 
-Latest automation security review (`e167d8e`) still flags session/device-link **redeem** as High/Medium because Origin headers are not possession proofs — not this slice (needs a coordinated possession proof). Core pin refreshed to `39bfbcb7b…` (wallet lock, Codacy/setup hardening, `Environment.stop()` wipe). Stale PR threads still describe Hub self-sign default-on and `wss:` origin bypass — both are **fixed** in this tree. JSONCall unauthorized-hash / watch-only `signWithKey`, peer port `1..65535`, 402 digest coercion, ARC type-only reject, federation `accept` boolean, and device-link `offerReplayKey` origin canonicalize threads are also **fixed** (threads remain unresolved on GitHub). CodeRabbit’s RFC6902 round-trip suggestion on `tests/messageBodyJsonBridge.test.js` is a **false positive**: the assertion matches the second constructed message (`{ a: 1 }`), not the first `rateSats` helper object.
+Latest automation security review (`f88da9c`) still flags session/device-link **redeem** as High/Medium because Origin headers are not possession proofs — not this slice (needs a coordinated possession proof). Core pin refreshed to `a80e8aa7e…` (Codacy CLTV threshold, journal bootstrap, wallet print hardening). Stale PR threads still describe Hub self-sign default-on and `wss:` origin bypass — both are **fixed** in this tree. JSONCall unauthorized-hash / watch-only `signWithKey`, peer port `1..65535`, 402 digest coercion, ARC type-only reject, federation `accept` boolean, and device-link `offerReplayKey` origin canonicalize threads are also **fixed** (threads remain unresolved on GitHub). CodeRabbit’s RFC6902 round-trip suggestion on `tests/messageBodyJsonBridge.test.js` is a **false positive**: the assertion matches the second constructed message (`{ a: 1 }`), not the first `rateSats` helper object.
 
 | Item | Status |
 |------|--------|
@@ -94,7 +94,7 @@ Latest automation security review (`e167d8e`) still flags session/device-link **
 | Canonical disclosure contact | Fixed — `security@fabric.pub` in README + SECURITY + AUDIT |
 | Device-link replay-key origin canonicalize | Fixed — `normalizeHubOrigin` inside `offerReplayKey` |
 | Peer port range `1..65535` | Fixed — `parseFabricPeerPort` / `isFabricAddress` / `normalizeFabricAddress` |
-| Pin `@fabric/core` to SHA for releases | Ops — keep `#feature/rsi` in RSI; lockfile records `39bfbcb7b…` |
+| Pin `@fabric/core` to SHA for releases | Ops — keep `#feature/rsi` in RSI; lockfile records `a80e8aa7e…` |
 | `extract-zip` via puppeteer | Residual — 4 high, build/dev only; no patched release |
 
 ## Disclosure
