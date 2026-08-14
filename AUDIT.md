@@ -5,7 +5,7 @@ Living posture notes for `@fabric/http` **0.1.0-RC1**. Re-run **`npm audit`** af
 
 | Area | Posture |
 |------|---------|
-| `@fabric/core` | Git pin `FabricLabs/fabric#2e4d2ac75e8e37260791cfd5503480cdc0915317` (immutable SHA from `feature/rsi` tip after install; Node **24.15.0**) |
+| `@fabric/core` | Git pin `FabricLabs/fabric#feature/rsi` (lockfile SHA `3745041e3f50f484b188ab8e6cb03f515fcccca2`; Node **24.15.0**) |
 | npm `allow-git` | **`.npmrc` `allow-git=all`** — nested git-dep preparation resolves core to a commit SHA; `root` is refused (intentional — do not flip to `root`) |
 | WebSocket (`ws`) | **Mitigated** — direct + override **`8.21.2`** (GHSA-58qx-3vcg-4xpx / fragment DoS) |
 | Express / body-parser / qs | **Mitigated** — `express@4.22.2`, `body-parser@1.20.6`, override `qs@6.15.3` |
@@ -73,27 +73,28 @@ ws  6.x / 8.18.x
 7. Follow-up (Hub / apps): core now ships Fabric BIP44 coin types **7777** (Bitcoin mainnet) / **7778** (otherwise). Align Hub account-derivation helpers that still hardcode `7778` for mainnet paths.
 8. Follow-up (larger): `messageBodyJsonBridge` RFC6902 sidechain JSON → typed fields still does not preserve a full multi-op patch sequence end-to-end; keep rejecting unsupported ops and prefer Hub typed carriers until that lands.
 9. Follow-up (auth polish): site-login GET now looks up `_delegationRegistry` by opaque Bearer token (not path `sessionId`) with `timingSafeEqual` session binding + TTL/size prune matching desktop sessions. Remaining Hub-side: ensure any dual-keyed legacy registries migrate; prefer never returning path `sessionId` as the credential.
-10. **PR #69 auth boundary (partially closed)** — Hub self-sign is now **opt-in** (`allowHubSelfSign === true`) and **loopback-only**; LiveRelay omits unrecognized Bearer when `issueBearer` is absent; device-link origins are canonicalized for replay keys (`offerReplayKey` + create path); peer host parsing is IPv6-safe and rejects ports outside **1..65535**. Hub / LiveRelay / device-link now share one Origin poll helper (`clientMayPollDesktopSession` in `fabricSiteLoginVerify`). Still open on shared hosts: forgeable Origin/Referer for session/device-link **redeem** / poll (needs possession proof); bind `sessionId` into link messages in a coordinated client bump; async DNS self-check (`dns.promises.lookup`) to replace sync `lookupSync`.
-11. **Follow-up (ops):** keep `package.json` on `FabricLabs/fabric#feature/rsi` during RSI development, but **re-pin releases** to the lockfile SHA (`2e4d2ac…` as of 2026-08-12 tip refresh). Plain `npm run report:install` keeps `package-lock.json` — bump the tip with `npm install FabricLabs/fabric#feature/rsi --allow-git=all` (or pin a SHA) when core moves.
+10. **PR #69 auth boundary (partially closed)** — Hub self-sign is now **opt-in** (`allowHubSelfSign === true`) and **loopback-only**; LiveRelay omits unrecognized Bearer when `issueBearer` is absent; device-link origins are canonicalized for replay keys (`offerReplayKey` + create path); peer host parsing is IPv6-safe and rejects ports outside **1..65535**. Site-login / LiveRelay share `clientMayPollDesktopSession`; device-link adds thin-client Origins on allowlisted hubs (`clientMayAccessDeviceLink`). Still open on shared hosts: forgeable Origin/Referer for session/device-link **redeem** / poll (needs possession proof); bind `sessionId` into link messages in a coordinated client bump; async DNS self-check (`dns.promises.lookup`) to replace sync `lookupSync`.
+11. **Follow-up (ops):** keep `package.json` on `FabricLabs/fabric#feature/rsi` during RSI development, but **re-pin releases** to the lockfile SHA (`3745041e…` as of 2026-08-13 tip refresh). `npm run report:install` wipes `package-lock.json` then `npm i --allow-git=all` — bump the tip with `npm install FabricLabs/fabric#feature/rsi --allow-git=all` (or pin a SHA) when core moves.
 
 ### PR #69 review triage (`feature/rsi`)
 
-Latest automation security review (HEAD `6809963…` + this pass) still flags 2 High + 2 Medium that need a coordinated product change (not a one-line patch). Core pin refreshed to `2e4d2ac…` (Beacon ready-round finalize + verified-pubkey peering suppress).
+Latest automation security review still flags session/device-link **redeem** as High/Medium because Origin headers are not possession proofs. Core pin refreshed to `3745041e…` (wallet lock / Environment). Stale PR threads still describe Hub self-sign default-on and `wss:` origin bypass — both are **fixed** in this tree.
 
 | Item | Status |
 |------|--------|
 | Hub self-sign forgeable Origin | Fixed — opt-in + loopback-only |
 | HTTPS-only default hub allowlist / `wss:` origin map | Fixed |
+| JSONCall unauthorized hash / watch-only `signWithKey` | Fixed — correlate from frame body; sign only when `_rootKey.private` |
 | `GET /sessions/:id` redeem via forgeable Origin | Open — needs possession proof (poll secret / signed challenge) |
 | LiveRelay Bearer redeem same poll gate | Open — same possession proof |
-| Device-link GET attestation disclosure | Open — same gate / possession proof |
+| Device-link GET attestation disclosure | Open — same capability (`sessionId`); thin-client Origins allowed on allowlisted hubs only |
 | Device-link `sessionId` bind in attest message | Deferred — coordinated Passport / desktop / SCL bump |
-| Shared Origin poll helper | Fixed this pass — Hub / LiveRelay / device-link use `clientMayPollDesktopSession` (does **not** close the High) |
+| Shared Origin poll helper | Site-login / LiveRelay: `clientMayPollDesktopSession`. Device-link: that plus thin-client Origins on allowlisted hubs |
 | `.npmrc` `allow-git=all` | Intentional — nested SHA fetches; do not flip to `root` |
 | Canonical disclosure contact | Fixed — `security@fabric.pub` in README + SECURITY + AUDIT |
 | Device-link replay-key origin canonicalize | Fixed — `normalizeHubOrigin` inside `offerReplayKey` |
 | Peer port range `1..65535` | Fixed — `parseFabricPeerPort` / `isFabricAddress` / `normalizeFabricAddress` |
-| Pin `@fabric/core` to SHA for releases | Ops — keep `#feature/rsi` in RSI; lockfile records `2e4d2ac…` |
+| Pin `@fabric/core` to SHA for releases | Ops — keep `#feature/rsi` in RSI; lockfile records `3745041e…` |
 | `extract-zip` via puppeteer | Residual — 4 high, build/dev only; no patched release |
 
 ## Disclosure

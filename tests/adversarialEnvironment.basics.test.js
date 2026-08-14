@@ -15,6 +15,9 @@ const {
   requestHasProxyForwardHeaders,
   clientMayPollDesktopSession
 } = require('../functions/fabricSiteLoginVerify');
+const {
+  clientMayAccessDeviceLink
+} = require('../functions/fabricDeviceLinkHttp');
 
 describe('adversarialEnvironment.basics (@fabric/http)', function () {
   it('rejects phishing hub origins for login/link completion', function () {
@@ -67,5 +70,20 @@ describe('adversarialEnvironment.basics (@fabric/http)', function () {
       socket: { remoteAddress: '127.0.0.1' },
       headers: {}
     }, origin), true);
+  });
+
+  it('lets thin clients poll device-link on allowlisted hubs only', function () {
+    const android = {
+      socket: { remoteAddress: '203.0.113.9' },
+      headers: { origin: 'https://localhost' }
+    };
+    const passport = {
+      socket: { remoteAddress: '203.0.113.9' },
+      headers: { origin: 'chrome-extension://abcdefghijklmnop' }
+    };
+    assert.strictEqual(clientMayAccessDeviceLink(android, 'https://relay.goon.vc'), true);
+    assert.strictEqual(clientMayAccessDeviceLink(passport, 'https://hub.fabric.pub'), true);
+    assert.strictEqual(clientMayAccessDeviceLink(android, 'https://phish.example'), false);
+    assert.strictEqual(clientMayPollDesktopSession(android, 'https://relay.goon.vc'), false);
   });
 });

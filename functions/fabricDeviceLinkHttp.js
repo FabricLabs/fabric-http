@@ -16,7 +16,7 @@
 
 const crypto = require('crypto');
 const Key = require('@fabric/core/types/key');
-const { normalizeHubOrigin } = require('./fabricHubAllowlist');
+const { normalizeHubOrigin, isAllowedFabricHub, isLoopbackHubOrigin } = require('./fabricHubAllowlist');
 const {
   fabricIdentityIdFromPubkeyHex,
   verifyIdentitySchnorr,
@@ -75,8 +75,53 @@ function offerKeyInUse (hub, key) {
   return false;
 }
 
-/** Same Origin/Referer/Sec-Fetch-Site gate as site-login poll (not a possession proof). */
-const clientMayAccessDeviceLink = clientMayPollDesktopSession;
+/**
+ * Capacitor / local dashboard WebView origins (https://localhost, capacitor://).
+ * Device-link create/poll from the Android app hits an allowlisted public hub
+ * (relay.goon.vc) whose Origin header will not match the hub.
+ */
+function isCompanionWebViewOrigin (originLike) {
+  const raw = String(originLike || '').trim();
+  if (!raw) return false;
+  try {
+    const u = new URL(raw.includes('://') ? raw : `https://${raw}`);
+    if (u.protocol === 'capacitor:' || u.protocol === 'ionic:') return true;
+    const origin = normalizeHubOrigin(`${u.protocol}//${u.host}`);
+    return !!(origin && isLoopbackHubOrigin(origin));
+  } catch (_) {
+    return false;
+  }
+}
+
+/** Passport popup / content-script (`chrome-extension:` / `moz-extension:`). */
+function isExtensionOrigin (originLike) {
+  const raw = String(originLike || '').trim().toLowerCase();
+  return raw.startsWith('chrome-extension:') || raw.startsWith('moz-extension:');
+}
+
+function isThinClientOrigin (originLike) {
+  return isCompanionWebViewOrigin(originLike) || isExtensionOrigin(originLike);
+}
+
+/**
+ * Site-login Origin gate, plus thin clients (Android WebView, Passport) talking
+ * to an allowlisted hub. Possession of the unguessable session id remains the
+ * capability; Schnorr on create/sign is the identity proof.
+ */
+function clientMayAccessDeviceLink (req, sessionOrigin) {
+  if (clientMayPollDesktopSession(req, sessionOrigin)) return true;
+  if (!isAllowedFabricHub(sessionOrigin)) return false;
+  const hdrOrigin = req && req.headers && req.headers.origin;
+  if (isThinClientOrigin(hdrOrigin)) return true;
+  const ref = req && req.headers && req.headers.referer;
+  if (typeof ref === 'string' && ref) {
+    try {
+      const u = new URL(ref);
+      if (isThinClientOrigin(`${u.protocol}//${u.host}`)) return true;
+    } catch (_) { /* ignore */ }
+  }
+  return false;
+}
 
 function sendJson (res, status, obj) {
   res.setHeader('Content-Type', 'application/json');
@@ -481,5 +526,9 @@ module.exports = {
   randomSessionId,
   offerReplayKey,
   offerKeyInUse,
-  markOfferConsumed
+  markOfferConsumed,
+  isCompanionWebViewOrigin,
+  isExtensionOrigin,
+  isThinClientOrigin,
+  clientMayAccessDeviceLink
 };

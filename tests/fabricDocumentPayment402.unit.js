@@ -80,4 +80,22 @@ describe('fabricDocumentPayment402', function () {
     assert.ok(h.includes('invoice='));
     assert.ok(h.includes('lnbc1test'));
   });
+
+  it('carries a Hub markup list price and omits costBasisSats from the 402 header', function () {
+    const originCost = 100;
+    const listed = Math.ceil((originCost * 11000) / 10000);
+    const s = buildFabricDocumentPaymentRequestHeader({
+      requestPath: '/documents/' + 'ab'.repeat(32),
+      documentOffer: {
+        documentId: 'ab'.repeat(32),
+        purchasePriceSats: listed,
+        costBasisSats: originCost,
+        network: 'regtest'
+      }
+    });
+    const j = JSON.parse(s);
+    assert.strictEqual(j.documentOffer.purchasePriceSats, 110);
+    assert.strictEqual(j.documentOffer.costBasisSats, undefined);
+    assert.ok(!JSON.stringify(j).includes('costBasis'));
+  });
 });

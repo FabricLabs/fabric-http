@@ -3,8 +3,10 @@ All notable changes to `@fabric/http` are documented here. This project follows 
 
 ## Unreleased
 - **Dependencies / security:** Clear **`npm audit`** (0 findings). Runtime pins: `ws@8.21.2`, `express@4.22.2`, `body-parser@1.20.6`, `express-session@1.19.0`, `webpack@5.109.2`. Overrides: `qs@6.15.3`, `body-parser`, `ws`, patched `@octokit/request@8.4.1` / `request-error@5.1.1` / `plugin-paginate-rest@9.2.2`, `@actions/http-client` → `undici@6.28.0`. Replace unfixed `showdown` with `marked@15.0.12` (`scripts/slip-0044.js`). Dev: `mocha@11.8.0` (stable), `ajv@8.20.0`. See [AUDIT.md](AUDIT.md).
-- **`@fabric/core` pin:** Declared as commit **`2faffae58bdecc2d14896dfbac70de03cba8323a`** (not moving `feature/rsi`). Local monorepo work may `npm link @fabric/core`.
-- **Device link:** `functions/fabricDeviceLinkHttp.js` requires `@fabric/core` `Key` / `Identity` (create/sign no longer throw `ReferenceError` masked as invalid xpub).
+- **`@fabric/core` pin:** `package.json` stays on **`FabricLabs/fabric#feature/rsi`** during RSI; lockfile records **`3745041e3f50f484b188ab8e6cb03f515fcccca2`** (wallet lock / Environment). Local monorepo work may `npm link @fabric/core`. Re-pin `package.json` to that SHA for a tagged RC.
+- **Device link:** `functions/fabricDeviceLinkHttp.js` requires `@fabric/core` `Key` / `Identity` (create/sign no longer throw `ReferenceError` masked as invalid xpub). Create/poll also accepts **thin-client Origins** (`capacitor:` / `ionic:` / loopback WebView, `chrome-extension:` / `moz-extension:`) when the session hub is allowlisted — so Android and Passport can rendezvous at `relay.goon.vc` / `hub.fabric.pub` without forging the hub Origin. Possession of the unguessable `sessionId` remains the capability.
+- **402 document offers:** `buildFabricDocumentPaymentRequestHeader` copies list `purchasePriceSats` only — Hub markup `costBasisSats` is omitted from the wire header.
+- **`report:install`:** wipes `package-lock.json` then `npm i --allow-git=all` so nested `@fabric/core` SHA prepare succeeds on npm 12 (same as Hub / GoonCitizen / Discord).
 - **npm git deps:** `.npmrc` / `report:install` use **`allow-git=all`** because nested `@fabric/core` lockfile preparation resolves a **commit SHA** (not only a branch tip); npm 12’s `allow-git=root` still refuses that nested SHA prepare step. See [AUDIT.md](AUDIT.md).
 - **SLIP-0044:** `scripts/slip-0044.js` fetches a **pinned commit** of `slip-0044.md` (not `master`).
 - **Engines:** Node pinned to **`24.15.0`** (aligned with `@fabric/core` / Hub).

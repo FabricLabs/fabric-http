@@ -7,7 +7,10 @@ const {
   identityFromXpub,
   offerReplayKey,
   offerKeyInUse,
-  markOfferConsumed
+  markOfferConsumed,
+  isCompanionWebViewOrigin,
+  isExtensionOrigin,
+  clientMayAccessDeviceLink
 } = require('../functions/fabricDeviceLinkHttp');
 const {
   fabricIdentityIdFromPubkeyHex,
@@ -69,5 +72,44 @@ describe('fabricDeviceLinkHttp offer replay keys', function () {
     const c = offerReplayKey(nonce, 'id1a', 'https://hub.example/path');
     assert.strictEqual(a, b);
     assert.strictEqual(a, c);
+  });
+});
+
+describe('fabricDeviceLinkHttp companion WebView access', function () {
+  it('treats Capacitor and loopback origins as companion WebViews', function () {
+    assert.strictEqual(isCompanionWebViewOrigin('https://localhost'), true);
+    assert.strictEqual(isCompanionWebViewOrigin('http://127.0.0.1:3041'), true);
+    assert.strictEqual(isCompanionWebViewOrigin('capacitor://localhost'), true);
+    assert.strictEqual(isCompanionWebViewOrigin('https://evil.example'), false);
+    assert.strictEqual(isExtensionOrigin('chrome-extension://abcdefghijklmnop'), true);
+    assert.strictEqual(isExtensionOrigin('https://relay.goon.vc'), false);
+  });
+
+  it('lets an Android WebView poll an allowlisted hub session', function () {
+    const req = {
+      headers: { origin: 'https://localhost' },
+      socket: { remoteAddress: '203.0.113.9' }
+    };
+    assert.strictEqual(clientMayAccessDeviceLink(req, 'https://relay.goon.vc'), true);
+    assert.strictEqual(clientMayAccessDeviceLink(req, 'https://phish.example'), false);
+  });
+
+  it('lets Passport (chrome-extension) create/poll an allowlisted hub session', function () {
+    const req = {
+      headers: { origin: 'chrome-extension://abcdefghijklmnopqrstuvwxyz' },
+      socket: { remoteAddress: '203.0.113.9' }
+    };
+    assert.strictEqual(clientMayAccessDeviceLink(req, 'https://relay.goon.vc'), true);
+    assert.strictEqual(clientMayAccessDeviceLink(req, 'https://phish.example'), false);
+  });
+
+  it('lets Firefox Passport (moz-extension) poll an allowlisted hub', function () {
+    const req = {
+      headers: { origin: 'moz-extension://aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' },
+      socket: { remoteAddress: '203.0.113.9' }
+    };
+    assert.strictEqual(isExtensionOrigin(req.headers.origin), true);
+    assert.strictEqual(clientMayAccessDeviceLink(req, 'https://hub.fabric.pub'), true);
+    assert.strictEqual(clientMayAccessDeviceLink(req, 'https://phish.example'), false);
   });
 });
