@@ -5,7 +5,7 @@ Living posture notes for `@fabric/http` **0.1.0-RC1**. Re-run **`npm audit`** af
 
 | Area | Posture |
 |------|---------|
-| `@fabric/core` | Git pin `FabricLabs/fabric#feature/rsi` (lockfile SHA `488a87da150b23c2591f1c75fa2c1ad6dac201f4`; Node **24.15.0**) |
+| `@fabric/core` | Git pin `FabricLabs/fabric#feature/rsi` (lockfile SHA `1fc616492428ec6e8c731e3afb74fd841407aa0e`; Node **24.15.0**) |
 | npm `allow-git` | **`.npmrc` `allow-git=all`** — nested git-dep preparation resolves core to a commit SHA; `root` is refused (intentional — do not flip to `root`) |
 | WebSocket (`ws`) | **Mitigated** — direct + override **`8.21.2`** (GHSA-58qx-3vcg-4xpx / fragment DoS) |
 | Express / body-parser / qs | **Mitigated** — `express@4.22.2`, `body-parser@1.20.6`, override `qs@6.15.3` |
@@ -64,7 +64,7 @@ ws  6.x / 8.18.x
 
 ## Recommendations
 
-1. After dependency edits: **`npm ci`** then **`npm audit`** and **`npm test`** against the checked-in lockfile. Use **`npm run report:install`** only when intentionally refreshing git pins (`#feature/rsi`); it wipes `node_modules` **and** `package-lock.json`, then `npm i --allow-git=all`. Diff the new lockfile before committing.
+1. After dependency edits: **`npm ci`** then **`npm audit`** and **`npm test`** against the checked-in lockfile. Use **`npm run report:install`** only when intentionally refreshing git pins (`#feature/rsi`); it wipes `node_modules` **and** `package-lock.json`, then `npm i --allow-git=all`. Diff the new lockfile before committing — do not treat the wiped lockfile as a release artifact until that review.
 2. Keep **`engines.node`** at **24.15.0** with Hub / `@fabric/core`.
 3. Do not reintroduce **peerjs** or **showdown**.
 4. Treat Fomantic gulp as **build-only**; never expose its admin GitHub tooling on production HTTP paths.
@@ -78,7 +78,7 @@ ws  6.x / 8.18.x
 
 ### PR #69 review triage (`feature/rsi`)
 
-Latest automation security review (`f88da9c`) still flags session/device-link **redeem** as High/Medium because Origin headers are not possession proofs — not this slice (needs a coordinated possession proof). Core pin refreshed to `488a87da1…` ([core #185](https://github.com/FabricLabs/fabric/pull/185): IdentityCrossSign compressed 66-hex ids, `_normPubkey`, candidate-retry bound, NOISE teardown). Stale PR threads still describe Hub self-sign default-on and `wss:` origin bypass — both are **fixed** in this tree. JSONCall unauthorized-hash / watch-only `signWithKey`, peer port `1..65535`, 402 digest coercion, ARC type-only reject, federation `accept` boolean, and device-link `offerReplayKey` origin canonicalize threads are also **fixed** (threads remain unresolved on GitHub). CodeRabbit’s RFC6902 round-trip suggestion on `tests/messageBodyJsonBridge.test.js` is a **false positive**: the assertion matches the second constructed message (`{ a: 1 }`), not the first `rateSats` helper object. CodeRabbit 402 markup-from-`costBasisSats` is **wontfix** (privacy).
+Latest automation security review (`5161e76`) still flags session/device-link **redeem** as High/Medium because Origin headers are not possession proofs — not this slice (needs a coordinated possession proof). Core pin refreshed to `488a87da1…` ([core #185](https://github.com/FabricLabs/fabric/pull/185): IdentityCrossSign compressed 66-hex ids, `_normPubkey`, candidate-retry bound, NOISE teardown). Stale PR threads still describe Hub self-sign default-on and `wss:` origin bypass — both are **fixed** in this tree. JSONCall unauthorized-hash / watch-only `signWithKey`, peer port `1..65535`, 402 digest coercion, ARC type-only reject, federation `accept` boolean, and device-link `offerReplayKey` origin canonicalize threads are also **fixed** (threads remain unresolved on GitHub). CodeRabbit’s RFC6902 round-trip suggestion on `tests/messageBodyJsonBridge.test.js` is a **false positive**: the assertion matches the second constructed message (`{ a: 1 }`), not the first `rateSats` helper object. CodeRabbit 402 markup-from-`costBasisSats` is **wontfix** (privacy). `--wallet -p` is not a path.
 
 | Item | Status |
 |------|--------|

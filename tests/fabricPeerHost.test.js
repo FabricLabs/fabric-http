@@ -20,6 +20,8 @@ describe('@fabric/http fabricPeerHost', function () {
 
   it('classifies hub / loopback / fabric addresses', function () {
     assert.strictEqual(isNetworkHubAddress('hub.fabric.pub:7777'), true);
+    assert.strictEqual(isNetworkHubAddress('65.21.231.166:7777'), true);
+    assert.strictEqual(isNetworkHubAddress('65.21.231.149:7778'), true);
     assert.strictEqual(isLoopbackFabricAddress('127.0.0.1:7777'), true);
     assert.strictEqual(isFabricAddress('relay.goon.vc:7777'), true);
     assert.strictEqual(isFabricAddress('https://relay.goon.vc'), false);
@@ -76,6 +78,14 @@ describe('@fabric/http fabricPeerHost', function () {
       'hub.fabric.pub:7777'
     );
     assert.strictEqual(
+      canonicalizeFabricPeerDial('65.21.231.166:7778', { includeLocalInterfaces: false, resolveDns: false }),
+      'hub.fabric.pub:7777'
+    );
+    assert.strictEqual(
+      canonicalizeFabricPeerDial('65.21.231.149:7778', { includeLocalInterfaces: false, resolveDns: false }),
+      'relay.goon.vc:7777'
+    );
+    assert.strictEqual(
       canonicalizeFabricPeerDial('relay.goon.vc:7778', {
         listenPort: 7777,
         advertiseHost: 'relay.goon.vc',
@@ -101,6 +111,21 @@ describe('@fabric/http fabricPeerHost', function () {
       }),
       '203.0.113.9:7778'
     );
+    const pin = 'aa'.repeat(32) + '@hub.fabric.pub:7778';
+    assert.deepStrictEqual(
+      require('../functions/fabricPeerHost').splitFabricHostPort(pin),
+      { host: 'hub.fabric.pub', port: 7778 }
+    );
+    assert.strictEqual(
+      canonicalizeFabricPeerDial(pin, { includeLocalInterfaces: false, resolveDns: false }),
+      'hub.fabric.pub:7777'
+    );
+    assert.deepStrictEqual(
+      require('../functions/fabricPeerHost').splitFabricHostPort('deadbeef@[::1]:7777'),
+      { host: '::1', port: 7777 }
+    );
+    assert.strictEqual(isFabricAddress(pin), true);
+    assert.strictEqual(isFabricAddress('deadbeef@[::1]:7777'), true);
   });
 
   it('treats advertiseHost / ownHosts as self', function () {

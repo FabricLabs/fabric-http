@@ -41,14 +41,21 @@ function parseFabricPeerPort (raw) {
 }
 
 /**
- * Split `host:port`, bracketed IPv6 `[::1]:7777`, or bare host / IPv6.
- * Naive `split(':')[0]` breaks on IPv6 — always use this helper.
+ * Split `host:port`, `pubkey@host:port`, bracketed IPv6 `[::1]:7777`, or bare host / IPv6.
+ * Naive `split(':')[0]` breaks on IPv6 — always use this helper. Optional userinfo
+ * (`pubkey@`) is stripped so gossip pins share the same host as `host:port`.
  * @param {*} address
  * @returns {{ host: string, port: number|null }}
  */
 function splitFabricHostPort (address) {
-  const s = String(address || '').trim().toLowerCase();
+  let s = String(address || '').trim().toLowerCase();
   if (!s) return { host: '', port: null };
+
+  // pubkey@host:port (and pubkey@[::1]:port) share the same dial key as host:port.
+  if (!s.startsWith('[')) {
+    const at = s.lastIndexOf('@');
+    if (at >= 0) s = s.slice(at + 1);
+  }
 
   if (s.startsWith('[')) {
     const end = s.indexOf(']');
@@ -80,7 +87,7 @@ function splitFabricHostPort (address) {
  */
 function isNetworkHubAddress (address) {
   const host = splitFabricHostPort(address).host;
-  return host === 'hub.fabric.pub' || host === 'relay.goon.vc';
+  return canonicalNetworkHubHost(host) != null;
 }
 
 /**
@@ -237,6 +244,25 @@ function isSelfFabricAddress (address, listenPortOrOpts, opts) {
 const STALE_NETWORK_HUB_PEER_PORT = 7778;
 /** Canonical Fabric Peer listen port for network hubs. */
 const CANONICAL_NETWORK_HUB_PEER_PORT = 7777;
+/**
+ * Dedicated NIC IPs for the production hubs. Gossip / peersDb often stores
+ * `IP:7778` from the old port plan; rewrite to the DNS seed on :7777.
+ */
+const NETWORK_HUB_HOST_ALIASES = Object.freeze({
+  '65.21.231.166': 'hub.fabric.pub',
+  '65.21.231.149': 'relay.goon.vc'
+});
+
+/**
+ * Canonical DNS name for a known network hub (hostname or dedicated NIC).
+ * @param {*} host
+ * @returns {string|null}
+ */
+function canonicalNetworkHubHost (host) {
+  const h = String(host || '').trim().toLowerCase();
+  if (h === 'hub.fabric.pub' || h === 'relay.goon.vc') return h;
+  return NETWORK_HUB_HOST_ALIASES[h] || null;
+}
 
 /**
  * Format `host:port`, wrapping IPv6 hosts in brackets.
@@ -253,8 +279,8 @@ function formatFabricHostPort (host, port) {
 }
 
 /**
- * Drop self-dials; rewrite known network hubs still advertised on historical `:7778`.
- * Desktop nodes that listen on 7778 are unchanged unless the host is this process.
+ * Drop self-dials; rewrite known network hubs still advertised on historical `:7778`
+ * (DNS or dedicated NIC IP). Desktop nodes on :7778 are unchanged unless this process.
  * @param {*} address
  * @param {number|string|Object} [listenPortOrOpts]
  * @param {Object} [opts]
@@ -270,8 +296,12 @@ function canonicalizeFabricPeerDial (address, listenPortOrOpts, opts) {
   const formatted = formatFabricHostPort(host, port);
   if (!formatted) return null;
   if (isSelfFabricAddress(formatted, options)) return null;
-  if (isNetworkHubAddress(formatted) && port === STALE_NETWORK_HUB_PEER_PORT) {
-    const rewritten = formatFabricHostPort(host, CANONICAL_NETWORK_HUB_PEER_PORT);
+  const alias = canonicalNetworkHubHost(host);
+  if (alias) {
+    const nextPort = port === STALE_NETWORK_HUB_PEER_PORT
+      ? CANONICAL_NETWORK_HUB_PEER_PORT
+      : port;
+    const rewritten = formatFabricHostPort(alias, nextPort);
     if (!rewritten || isSelfFabricAddress(rewritten, options)) return null;
     return rewritten;
   }
@@ -289,10 +319,15 @@ function isFabricAddress (value) {
   if (!s || /^https?:\/\//i.test(s)) return false;
   const { host, port } = splitFabricHostPort(s);
   if (!host || port == null) return false;
-  if (s.startsWith('[')) {
-    return isIP(host) === 6 && /^\[[0-9a-fA-F:]+\]:\d{1,5}$/.test(s);
+  const formatted = formatFabricHostPort(host, port);
+  if (!formatted) return false;
+  let rest = s;
+  if (!rest.startsWith('[')) {
+    const at = rest.lastIndexOf('@');
+    if (at >= 0) rest = rest.slice(at + 1);
   }
-  return /^[a-zA-Z0-9._-]+:\d{1,5}$/.test(s);
+  if (rest.startsWith('[') || host.includes(':')) return isIP(host) === 6;
+  return /^[a-zA-Z0-9._-]+:\d{1,5}$/.test(formatted);
 }
 
 /**
@@ -345,6 +380,8 @@ module.exports = {
   MAX_FABRIC_PEER_PORT,
   parseFabricPeerPort,
   splitFabricHostPort,
+  NETWORK_HUB_HOST_ALIASES,
+  canonicalNetworkHubHost,
   isNetworkHubAddress,
   isLoopbackFabricAddress,
   collectOwnFabricHosts,
