@@ -2,7 +2,7 @@
 All notable changes to `@fabric/http` are documented here. This project follows semantic-ish versioning with **RC** milestones aligned to **hub.fabric.pub** and **`@fabric/core`**.
 
 ## Unreleased
-- **Device-link cancel:** `DELETE /device-links/:sessionId` drops pending sessions (missing id is success; `linked` is 409). Browser client `cancelDeviceLinkSession`. Origin gate matches GET.
+- **Device-link cancel:** `DELETE /device-links/:sessionId` drops pending sessions (missing id is success; `linked` is 409). Browser client `cancelDeviceLinkSession` (fetch rejection is `ok: false`; 404 remains success). Origin gate matches GET.
 - **HTTPServer memory:** do not `console.log` full Internal message/commit bodies (verbosity ≥ 5 gets a type/keys summary). `commit()` Transaction data is patches + clock, not a full `state` snapshot. `StateUpdate` broadcasts are skipped below verbosity 5 (was JSON.stringify of the entire HTTP tree on every resource Create — OpenSSF GHSA floods OOMed Hub).
 - **Chat shoutbox:** `fabricChatNormalize` re-exports `@fabric/core/functions/fabricChatText` (`chatTextOf` / `chatActorIdOf`); Hub-cache `normalizeP2pChatMessage` stays in http.
 - **IdentityCrossSign:** `functions/identityCrossSign.js` / `identityCrossSignVerify.js` / `fabricIdentitySchnorr.js` re-export `@fabric/core` (leaves on pin `f1b5e147` after [#185](https://github.com/FabricLabs/fabric/pull/185); `signCrossSign` binds `localPubkey` to `fabricKey`; compressed 66-hex identity ids). `fabricSiteLoginVerify` also re-exports `resolveFabricSigningIdentity`.

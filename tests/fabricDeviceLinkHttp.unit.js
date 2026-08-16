@@ -13,7 +13,7 @@ const {
   clientMayAccessDeviceLink,
   handleDeviceLinkCancel
 } = require('../functions/fabricDeviceLinkHttp');
-const { deviceLinkHeaders } = require('../functions/fabricDeviceLinkClient');
+const { cancelDeviceLinkSession, deviceLinkHeaders } = require('../functions/fabricDeviceLinkClient');
 const {
   fabricIdentityIdFromPubkeyHex,
   buildFabricIdentitySignedPayload
@@ -237,5 +237,46 @@ describe('fabricDeviceLinkHttp cancel', function () {
     }, res);
     assert.strictEqual(res.out.statusCode, 403);
     assert.strictEqual(hub._deviceLinkSessions.has(sessionId), true);
+  });
+});
+
+describe('cancelDeviceLinkSession client', function () {
+  it('treats HTTP 404 as success', async function () {
+    const out = await cancelDeviceLinkSession('https://relay.goon.vc', 'aa'.repeat(24), {
+      origin: 'https://relay.goon.vc',
+      fetchImpl: async () => ({
+        ok: false,
+        status: 404,
+        json: async () => ({ ok: false, error: 'unknown or expired device link' })
+      })
+    });
+    assert.strictEqual(out.ok, true);
+    assert.strictEqual(out.cancelled, true);
+  });
+
+  it('returns ok: false when fetchImpl rejects', async function () {
+    const out = await cancelDeviceLinkSession('https://relay.goon.vc', 'aa'.repeat(24), {
+      origin: 'https://relay.goon.vc',
+      fetchImpl: async () => {
+        throw new Error('hub unreachable');
+      }
+    });
+    assert.strictEqual(out.ok, false);
+    assert.strictEqual(out.cancelled, false);
+    assert.match(String(out.error), /hub unreachable/);
+  });
+
+  it('keeps already-linked as ok: true, cancelled: false', async function () {
+    const out = await cancelDeviceLinkSession('https://relay.goon.vc', 'aa'.repeat(24), {
+      origin: 'https://relay.goon.vc',
+      fetchImpl: async () => ({
+        ok: false,
+        status: 409,
+        json: async () => ({ ok: false, error: 'already linked' })
+      })
+    });
+    assert.strictEqual(out.ok, true);
+    assert.strictEqual(out.cancelled, false);
+    assert.strictEqual(out.alreadyLinked, true);
   });
 });

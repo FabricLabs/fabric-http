@@ -91,6 +91,7 @@ async function fetchDeviceLinkSession (hubBase, sessionId, opts = {}) {
 /**
  * Drop a pending (or accepted-but-not-linked) session. 404 / already-gone is success
  * so Cancel is always safe. A completed `linked` session returns 409 from the hub.
+ * Fetch rejection is `ok: false` — the remote row may still exist.
  */
 async function cancelDeviceLinkSession (hubBase, sessionId, opts = {}) {
   const fetchImpl = opts.fetchImpl || globalThis.fetch;
@@ -106,7 +107,12 @@ async function cancelDeviceLinkSession (hubBase, sessionId, opts = {}) {
     });
     const data = await res.json().catch(() => ({}));
     if (res.status === 404 || (res.ok && data && data.ok !== false)) {
-      return { ok: true, cancelled: true, existed: !!(data && data.existed), ...data };
+      return {
+        ...data,
+        ok: true,
+        cancelled: true,
+        existed: !!(data && data.existed)
+      };
     }
     if (res.status === 409) {
       return { ok: true, cancelled: false, alreadyLinked: true, error: (data && data.error) || 'already linked' };
@@ -114,7 +120,7 @@ async function cancelDeviceLinkSession (hubBase, sessionId, opts = {}) {
     return { ok: false, status: res.status, error: (data && data.error) || `HTTP ${res.status}` };
   } catch (err) {
     return {
-      ok: true,
+      ok: false,
       cancelled: false,
       error: (err && err.message) ? String(err.message) : 'cancel failed'
     };
