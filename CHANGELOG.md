@@ -2,6 +2,7 @@
 All notable changes to `@fabric/http` are documented here. This project follows semantic-ish versioning with **RC** milestones aligned to **hub.fabric.pub** and **`@fabric/core`**.
 
 ## Unreleased
+- **POST null body:** legacy HTTP `Store._POST` of `req.body == null` returns **400** `JSON body required` instead of an unhandled `TypeError` in `@fabric/core` `State.serialize` (`@type`). Pair with core null-safe serialize.
 - **Device-link cancel:** `DELETE /device-links/:sessionId` drops pending sessions (missing id is success; `linked` is 409). Browser client `cancelDeviceLinkSession` (fetch rejection is `ok: false`; 404 remains success). Origin gate matches GET.
 - **HTTPServer memory:** do not `console.log` full Internal message/commit bodies (verbosity ≥ 5 gets a type/keys summary). `commit()` Transaction data is patches + clock, not a full `state` snapshot. `StateUpdate` broadcasts are skipped below verbosity 5 (was JSON.stringify of the entire HTTP tree on every resource Create — OpenSSF GHSA floods OOMed Hub).
 - **Chat shoutbox:** `fabricChatNormalize` re-exports `@fabric/core/functions/fabricChatText` (`chatTextOf` / `chatActorIdOf`); Hub-cache `normalizeP2pChatMessage` stays in http.

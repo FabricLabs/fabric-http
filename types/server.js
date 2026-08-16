@@ -2006,7 +2006,15 @@ class FabricHTTPServer extends Service {
         result = await server._GET(req.path);
         break;
       case 'POST':
-        result = await server._POST(req.path, req.body);
+        if (req.body == null) {
+          return res.status(400).json({ status: 'error', message: 'JSON body required' });
+        }
+        try {
+          result = await server._POST(req.path, req.body);
+        } catch (err) {
+          const msg = err && err.message ? err.message : String(err);
+          return res.status(400).json({ status: 'error', message: msg });
+        }
         if (!result) return res.status(500).end();
         return res.redirect(303, result);
       case 'PUT':
