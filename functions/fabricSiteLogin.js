@@ -181,7 +181,8 @@ function getSession (req, sessionId, store) {
  * @param {string} sessionId
  * @param {object} body
  * @param {Map} store
- * @param {{ issueBearer?: (pubkeyHex: string) => string }} [opts]
+ * @param {object} [opts]
+ * @param {function} [opts.issueBearer] `(pubkeyHex) => token` — omit to skip Bearer mint
  */
 function completeSession (req, sessionId, body, store, opts = {}) {
   pruneSessions(store);

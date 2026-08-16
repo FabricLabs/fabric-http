@@ -131,4 +131,17 @@ describe('@fabric/http PR #69 review coverage', function () {
     assert.strictEqual(parsed.documentOffer.purchasePriceSats, 110);
     assert.strictEqual(parsed.documentOffer.costBasisSats, undefined);
   });
+
+  it('first-class AMP inventory frames keep the wire name when JSON type is 98', function () {
+    const Message = require('@fabric/core/types/message');
+    const wire = Message.fromVector(['P2P_INVENTORY_RESPONSE', JSON.stringify({
+      type: 98,
+      host: '203.0.113.99',
+      port: 7777
+    })]);
+    assert.strictEqual(wire.type, 'P2P_INVENTORY_RESPONSE');
+    assert.notStrictEqual(wire.type, 'P2P_PEERING_OFFER');
+    const body = JSON.parse(String(wire.body));
+    assert.strictEqual(body.type, 98);
+  });
 });

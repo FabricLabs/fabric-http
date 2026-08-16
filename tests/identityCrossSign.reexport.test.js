@@ -86,5 +86,17 @@ describe('@fabric/http IdentityCrossSign re-exports', function () {
     assert.strictEqual(typeof material.keySettingsFromEnv, 'function');
     const hex = 'aa'.repeat(32);
     assert.strictEqual(material.classifyFabricKeyMaterial(hex).kind, 'seedHex');
+    assert.strictEqual(material.classifyFabricKeyMaterial('xprv1not-a-real-key').kind, 'xprv');
+  });
+
+  it('resolves core identity account path + coin type on this pin', function () {
+    const {
+      fabricIdentityAccountPath,
+      resolveFabricIdentityCoinType
+    } = require('@fabric/core/constants');
+    assert.strictEqual(typeof fabricIdentityAccountPath, 'function');
+    assert.strictEqual(typeof resolveFabricIdentityCoinType, 'function');
+    assert.strictEqual(fabricIdentityAccountPath(0, 'mainnet'), "m/44'/7777'/0'");
+    assert.strictEqual(resolveFabricIdentityCoinType('mainnet'), 7777);
   });
 });

@@ -1,7 +1,7 @@
 # Outstanding (security-first)
 Living queue for this repo. Detail and closed items live in [SECURITY.md](../SECURITY.md) and [AUDIT.md](../AUDIT.md). Suite march: [@fabric/core `docs/PRODUCTION_MARCH.md`](https://github.com/FabricLabs/fabric/blob/feature/rsi/docs/PRODUCTION_MARCH.md).
 
-**Last reviewed:** 2026-08-15 (http this slice, core lockfile `4a1ff0a57`).
+**Last reviewed:** 2026-08-15 (http this slice, core lockfile `9306aba05`).
 
 ## Blockers before treating public Hub login as browser-grade auth
 1. **Possession proof on redeem** — `GET /sessions/:id`, LiveRelay Bearer, and device-link GET still authorize with forgeable `Origin` / `Referer` / `Sec-Fetch-Site` (plus thin-client Origins on allowlisted hubs). QR / `fabric://` expose `sessionId`. Needs a one-time poll secret or signed browser challenge ([PR #69](https://github.com/FabricLabs/fabric-http/pull/69) High, still open).
@@ -24,6 +24,7 @@ Living queue for this repo. Detail and closed items live in [SECURITY.md](../SEC
 - Own-host DNS cache via `dns.promises.lookup` (no `lookupSync`). Device-link per-origin create FIFO cap (`MAX_SESSIONS_PER_ORIGIN`).
 - Expired `GET /sessions/:delegationToken` requires matching Bearer (path is not a registry credential). Browser device-link fetch omits client-set Origin/Referer.
 - CLI `scripts/cli.js` / `scripts/node.js` load `~/.fabric/env` via `@fabric/core/functions/fabricHomeEnv` before `Environment.start()` (process env still wins). Missing-module catch is `MODULE_NOT_FOUND` only so a broken home env still fails startup.
+- `@fabric/core` lockfile **`9306aba05`**: `fabricIdentityAccountPath` / `resolveFabricIdentityCoinType` exported; `classifyFabricKeyMaterial` treats `xprv`/`tprv` as keys not mnemonics; first-class AMP frames keep the wire name so inventory JSON `type: 98` cannot enqueue a peering candidate (locked in `tests/pr69.review.coverage.js` + `tests/identityCrossSign.reexport.test.js`).
 
 ## PRs
-[#69](https://github.com/FabricLabs/fabric-http/pull/69) — Cursor review restates **2 High + 2 Medium** on Origin-gated redeem / device-link `sessionId` bind (still open; not this slice). CodeRabbit 402 markup-from-`costBasisSats` is **wontfix** (privacy). Federation invite policy/`accept`, ARC type-only, 402 blob ids, `wss:` origin, JSONCall hash, and `--wallet` are **already in tree**. Pin `@fabric/core` via lockfile (`#feature/rsi` + `npm run report:install`), currently **`4a1ff0a57`** locally staged ([core #185](https://github.com/FabricLabs/fabric/pull/185)); GitHub http HEAD is still `7536341`. Hub and Passport lockfiles now **`4a1ff0a57` / `7536341`**. `puppeteer@25.7.0` (extract-zip) is deferred.
+[#69](https://github.com/FabricLabs/fabric-http/pull/69) — Cursor review restates **2 High + 2 Medium** on Origin-gated redeem / device-link `sessionId` bind (still open; not this slice). CodeRabbit 402 markup-from-`costBasisSats` is **wontfix** (privacy). Federation invite policy/`accept`, ARC type-only, 402 blob ids, `wss:` origin, JSONCall hash, and `--wallet` are **already in tree**. Pin `@fabric/core` via lockfile (`#feature/rsi` + `npm run report:install`), currently **`9306aba05`** ([core #185](https://github.com/FabricLabs/fabric/pull/185)). GitHub http HEAD is still **`cff2ce66`** until this pin lands. Hub GitHub **`0f221d9`**. GoonCitizen / Discord / Passport still lock **`4a1ff0a57`** until they `report:install` after this http push. `puppeteer@25.7.0` (extract-zip) is deferred.
