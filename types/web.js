@@ -24,7 +24,7 @@ const jsonRpcTransport = require('../functions/fabricJsonRpcTransport');
  * have to be the repository root.
  *
  * @param {string} moduleDirname - `__dirname` of the file that is one segment below the repo root
- * @param {{ envVar?: string, subdir?: string }} [opts] - `envVar` names `process.env[envVar]` as the app root; `subdir` is appended (default `assets`).
+ * @param {{ envVar: (string|undefined), subdir: (string|undefined) }} [opts] `envVar` names `process.env[envVar]` as the app root; `subdir` is appended (default `assets`).
  * @returns {string}
  */
 function resolveAppAssetsDir (moduleDirname, opts) {

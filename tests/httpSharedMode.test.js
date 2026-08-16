@@ -47,4 +47,33 @@ describe('@fabric/http httpSharedMode', function () {
       env: { FABRIC_HUB_INTERFACE: '0.0.0.0' }
     }), '127.0.0.1');
   });
+
+  it('applySharedModeWebsocketGate requires token when shared + env token', function () {
+    const { applySharedModeWebsocketGate } = require('../functions/httpSharedMode');
+    const gated = applySharedModeWebsocketGate({}, {
+      bindAll: true,
+      env: { FABRIC_WS_CLIENT_TOKEN: 'secret-ws' }
+    });
+    assert.strictEqual(gated.websocket.requireClientToken, true);
+    assert.strictEqual(gated.websocket.clientToken, 'secret-ws');
+
+    const untouched = applySharedModeWebsocketGate({ websocket: { requireClientToken: false } }, {
+      bindAll: true,
+      env: { FABRIC_WS_CLIENT_TOKEN: 'secret-ws' }
+    });
+    assert.strictEqual(untouched.websocket.requireClientToken, false);
+
+    const loopback = applySharedModeWebsocketGate({}, {
+      bindAll: false,
+      env: { FABRIC_WS_CLIENT_TOKEN: 'secret-ws' }
+    });
+    assert.ok(!loopback.websocket);
+  });
+
+  it('applySharedModeWebsocketGate fail-closes shared bind without env token', function () {
+    const { applySharedModeWebsocketGate } = require('../functions/httpSharedMode');
+    const gated = applySharedModeWebsocketGate({}, { bindAll: true, env: {} });
+    assert.strictEqual(gated.websocket.requireClientToken, true);
+    assert.ok(!gated.websocket.clientToken);
+  });
 });

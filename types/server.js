@@ -125,7 +125,7 @@ function xmlEscape (value) {
  * `express.send` can label theme fonts as `application/octet-stream`. With `X-Content-Type-Options: nosniff`
  * (set by @fabric/hub) Chromium/Electron may refuse to load @font-face resources; set explicit font MIME
  * types for common Fomantic (Semantic) theme files under /themes/…/assets/fonts/
- * @param {import('http').ServerResponse} res
+ * @param {http.ServerResponse} res
  * @param {string} filePath
  */
 function fabricHttpStaticSetHeaders (res, filePath) {
@@ -147,9 +147,9 @@ function fabricHttpStaticSetHeaders (res, filePath) {
 }
 
 /**
- * @param {import('http').ServerResponse} res
+ * @param {http.ServerResponse} res
  * @param {string} filePath
- * @param {((res: import('http').ServerResponse, p: string) => void) | null | undefined} [user]
+ * @param {Function|null|undefined} [user] Callback `(res, filePath) => void`
  */
 function mergeStaticSetHeaders (res, filePath, user) {
   if (typeof user === 'function') {
@@ -178,7 +178,7 @@ function resolveFabricHttpPackageAssetsDir () {
 
 /**
  * True when the client’s first `Accept` is `text/html` (browser navigation / refresh), for SPA HTML shell.
- * @param {import('http').IncomingMessage} req
+ * @param {http.IncomingMessage} req
  * @returns {boolean}
  */
 function acceptFirstHtmlNavigation (req) {
@@ -323,7 +323,8 @@ class FabricHTTPServer extends Service {
     this.definitions = {};
     this.methods = {};
     this.stores = {};
-    /** @type {Map<string, FabricResource>} Resource instances keyed by name. */
+    /** Resource instances keyed by name. */
+    /** @type {Map<string, FabricResource>} */
     this.resources = new Map();
     this.subscriptions = new Map(); // Track subscriptions by path
     /**
@@ -394,7 +395,8 @@ class FabricHTTPServer extends Service {
     // Browser WebRTC peers (native RTCPeerConnection + WebSocket signaling from Hub).
     // The legacy npm `peer` ExpressPeerServer (PeerJS) was removed; register via Hub RPC / Bridge.
     this.webrtcPeers = new Map();
-    /** @type {Map<string, string>} peer id → unregister secret (from last successful Register) */
+    /** peer id → unregister secret (from last successful Register) */
+    /** @type {Map<string, string>} */
     this.webrtcPeerSecrets = new Map();
 
     return this;
@@ -1497,9 +1499,9 @@ class FabricHTTPServer extends Service {
 
   /**
    * JSON for API clients, HTML application shell for `Accept: text/html` (e.g. SPA deep-link refresh on JSON routes).
-   * @param {import('http').IncomingMessage} req
-   * @param {import('http').ServerResponse} res
-   * @param {() => Promise<void>} onJSON
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {Function} onJSON Async callback that writes the JSON body
    */
   jsonOrShell (req, res, onJSON) {
     const html = this.getApplicationHtml();
@@ -1526,9 +1528,9 @@ class FabricHTTPServer extends Service {
 
   /**
    * Always JSON (no `Accept` negotiation). For API-only routes.
-   * @param {import('http').IncomingMessage} req
-   * @param {import('http').ServerResponse} res
-   * @param {() => Promise<void>} onJSON
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {Function} onJSON Async callback that writes the JSON body
    */
   jsonOnly (req, res, onJSON) {
     return (async () => {
@@ -1545,8 +1547,8 @@ class FabricHTTPServer extends Service {
 
   /**
    * If the request’s first `Accept` type is `text/html`, send the configured shell; otherwise return false.
-   * @param {import('http').IncomingMessage} req
-   * @param {import('http').ServerResponse} res
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
    * @returns {boolean} true if a response was sent
    */
   serveSpaShellIfHtmlNavigation (req, res) {

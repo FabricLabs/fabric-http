@@ -76,8 +76,38 @@ function resolveHttpListenHost (opts = {}) {
   return '127.0.0.1';
 }
 
+/**
+ * When HTTP is shared (`0.0.0.0`), require WebSocket client tokens unless the
+ * operator explicitly set `websocket.requireClientToken: false`.
+ *
+ * Fail-closed: shared bind turns `requireClientToken` on even when
+ * `FABRIC_WS_CLIENT_TOKEN` is unset (handshakes reject until a token is
+ * configured). When the env token is present, it fills `websocket.clientToken`
+ * if settings left it empty.
+ *
+ * @param {object} [settings]
+ * @param {object} [opts]
+ * @param {boolean} [opts.bindAll] shared bind active
+ * @param {NodeJS.ProcessEnv} [opts.env]
+ * @returns {object} settings (possibly cloned with websocket gate)
+ */
+function applySharedModeWebsocketGate (settings = {}, opts = {}) {
+  if (!opts.bindAll) return settings;
+  const env = opts.env || process.env;
+  const ws = Object.assign({}, settings.websocket || {});
+  const explicitOff = ws.requireClientToken === false ||
+    ws.requireClientToken === 0 ||
+    ws.requireClientToken === '0';
+  if (explicitOff) return settings;
+  ws.requireClientToken = true;
+  const envTok = String(env.FABRIC_WS_CLIENT_TOKEN || '').trim();
+  if (envTok && !ws.clientToken) ws.clientToken = envTok;
+  return Object.assign({}, settings, { websocket: ws });
+}
+
 module.exports = {
   DEFAULT_HTTP_LISTEN_ENV_KEYS,
   isHttpSharedModeEnabled,
-  resolveHttpListenHost
+  resolveHttpListenHost,
+  applySharedModeWebsocketGate
 };

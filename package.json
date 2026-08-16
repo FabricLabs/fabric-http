@@ -23,7 +23,7 @@
     "coverage": "c8 npm test",
     "deploy": "npm run build && fabric-http",
     "docs": "npm run build:docs && fabric-http docs",
-    "make:api": "jsdoc2md --configure jsdoc.json --files types/*.js schemata/*.js services/*.js settings/deprecations.js README.md > API.md",
+    "make:api": "jsdoc2md --configure jsdoc.json --files types/*.js settings/deprecations.js README.md > API.md.tmp && mv API.md.tmp API.md",
     "reports": "npm run report:install && npm run build:coverage && npm run report:todo",
     "report:coverage": "npm run build:coverage && c8 report --reporter=text-lcov > reports/coverage.lcov",
     "report:install": "rm -rf node_modules && echo \"\\n\" > package-lock.json && echo \"$ npm i --allow-git=all\" > reports/install.log && npm i --allow-git=all >> reports/install.log 2>&1",
