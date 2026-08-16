@@ -528,9 +528,42 @@ function handleDeviceLinkGet (hub, req, res) {
   }
 }
 
+function handleDeviceLinkCancel (hub, req, res) {
+  try {
+    if (!hub._deviceLinkSessions) hub._deviceLinkSessions = new Map();
+    pruneSessions(hub);
+    const sessionId = req && req.params && req.params.sessionId
+      ? String(req.params.sessionId).trim()
+      : '';
+    if (!sessionId) {
+      sendJson(res, 400, { ok: false, error: 'sessionId required' });
+      return;
+    }
+    const session = hub._deviceLinkSessions.get(sessionId);
+    if (!session) {
+      sendJson(res, 200, { ok: true, cancelled: true, existed: false });
+      return;
+    }
+    if (!isLocalRequest(req) && !clientMayAccessDeviceLink(req, session.origin)) {
+      sendJson(res, 403, { ok: false, error: 'origin does not match this session' });
+      return;
+    }
+    if (session.status === 'linked') {
+      sendJson(res, 409, { ok: false, error: 'device link is already complete' });
+      return;
+    }
+    hub._deviceLinkSessions.delete(sessionId);
+    sendJson(res, 200, { ok: true, cancelled: true, existed: true });
+  } catch (err) {
+    console.error('[HUB:DEVICE-LINK:DELETE]', err && err.stack ? err.stack : err);
+    sendJson(res, 500, { ok: false, error: 'device link cancel failed' });
+  }
+}
+
 function mountFabricDeviceLinkHttp (hub) {
   if (!hub._deviceLinkSessions) hub._deviceLinkSessions = new Map();
   hub.http._addRoute('POST', '/device-links/:sessionId/signatures', (req, res) => handleDeviceLinkSign(hub, req, res));
+  hub.http._addRoute('DELETE', '/device-links/:sessionId', (req, res) => handleDeviceLinkCancel(hub, req, res));
   hub.http._addRoute('GET', '/device-links/:sessionId', (req, res) => handleDeviceLinkGet(hub, req, res));
   hub.http._addRoute('POST', '/device-links', (req, res) => handleDeviceLinkCreate(hub, req, res));
 }
@@ -557,5 +590,6 @@ module.exports = {
   isThinClientOrigin,
   clientMayAccessDeviceLink,
   pruneDeviceLinkSessions: pruneSessions,
-  evictDeviceLinkOriginOverflow
+  evictDeviceLinkOriginOverflow,
+  handleDeviceLinkCancel
 };

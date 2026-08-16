@@ -88,6 +88,39 @@ async function fetchDeviceLinkSession (hubBase, sessionId, opts = {}) {
   return { ok: true, ...data };
 }
 
+/**
+ * Drop a pending (or accepted-but-not-linked) session. 404 / already-gone is success
+ * so Cancel is always safe. A completed `linked` session returns 409 from the hub.
+ */
+async function cancelDeviceLinkSession (hubBase, sessionId, opts = {}) {
+  const fetchImpl = opts.fetchImpl || globalThis.fetch;
+  const base = String(hubBase || '').replace(/\/$/, '');
+  const sid = String(sessionId || '').trim();
+  if (!base || !sid) return { ok: true, skipped: true };
+  const origin = String(opts.origin || base).trim().replace(/\/$/, '');
+  try {
+    const res = await fetchImpl(`${base}/device-links/${encodeURIComponent(sid)}`, {
+      method: 'DELETE',
+      headers: deviceLinkHeaders(origin),
+      cache: 'no-store'
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 404 || (res.ok && data && data.ok !== false)) {
+      return { ok: true, cancelled: true, existed: !!(data && data.existed), ...data };
+    }
+    if (res.status === 409) {
+      return { ok: true, cancelled: false, alreadyLinked: true, error: (data && data.error) || 'already linked' };
+    }
+    return { ok: false, status: res.status, error: (data && data.error) || `HTTP ${res.status}` };
+  } catch (err) {
+    return {
+      ok: true,
+      cancelled: false,
+      error: (err && err.message) ? String(err.message) : 'cancel failed'
+    };
+  }
+}
+
 async function postDeviceLinkSignature (hubBase, sessionId, body, opts = {}) {
   const fetchImpl = opts.fetchImpl || globalThis.fetch;
   const base = String(hubBase || '').replace(/\/$/, '');
@@ -116,5 +149,6 @@ module.exports = {
   createDeviceLinkOffer,
   fetchDeviceLinkSession,
   postDeviceLinkSignature,
+  cancelDeviceLinkSession,
   deviceLinkHeaders
 };

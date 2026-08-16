@@ -10,7 +10,8 @@ const {
   markOfferConsumed,
   isCompanionWebViewOrigin,
   isExtensionOrigin,
-  clientMayAccessDeviceLink
+  clientMayAccessDeviceLink,
+  handleDeviceLinkCancel
 } = require('../functions/fabricDeviceLinkHttp');
 const { deviceLinkHeaders } = require('../functions/fabricDeviceLinkClient');
 const {
@@ -149,5 +150,92 @@ describe('fabricDeviceLinkHttp companion WebView access', function () {
     assert.strictEqual(isExtensionOrigin(req.headers.origin), true);
     assert.strictEqual(clientMayAccessDeviceLink(req, 'https://hub.fabric.pub'), true);
     assert.strictEqual(clientMayAccessDeviceLink(req, 'https://phish.example'), false);
+  });
+});
+
+describe('fabricDeviceLinkHttp cancel', function () {
+  function mockRes () {
+    const out = { statusCode: 0, body: null };
+    return {
+      out,
+      setHeader () {},
+      status (code) { out.statusCode = code; return this; },
+      send (body) {
+        out.body = typeof body === 'string' ? JSON.parse(body) : body;
+        return this;
+      }
+    };
+  }
+
+  it('DELETE of a missing session is success (Cancel is always safe)', function () {
+    const hub = { _deviceLinkSessions: new Map() };
+    const res = mockRes();
+    handleDeviceLinkCancel(hub, {
+      params: { sessionId: 'aa'.repeat(24) },
+      headers: { origin: 'https://relay.goon.vc' },
+      socket: { remoteAddress: '203.0.113.9' }
+    }, res);
+    assert.strictEqual(res.out.statusCode, 200);
+    assert.strictEqual(res.out.body.ok, true);
+    assert.strictEqual(res.out.body.existed, false);
+  });
+
+  it('DELETE drops a pending session when Origin matches', function () {
+    const sessionId = 'bb'.repeat(24);
+    const hub = {
+      _deviceLinkSessions: new Map([[sessionId, {
+        status: 'pending',
+        origin: 'https://relay.goon.vc',
+        createdAt: Date.now()
+      }]])
+    };
+    const res = mockRes();
+    handleDeviceLinkCancel(hub, {
+      params: { sessionId },
+      headers: { origin: 'https://relay.goon.vc' },
+      socket: { remoteAddress: '203.0.113.9' }
+    }, res);
+    assert.strictEqual(res.out.statusCode, 200);
+    assert.strictEqual(res.out.body.cancelled, true);
+    assert.strictEqual(res.out.body.existed, true);
+    assert.strictEqual(hub._deviceLinkSessions.has(sessionId), false);
+  });
+
+  it('DELETE of a linked session is 409 and keeps the row', function () {
+    const sessionId = 'cc'.repeat(24);
+    const hub = {
+      _deviceLinkSessions: new Map([[sessionId, {
+        status: 'linked',
+        origin: 'https://relay.goon.vc',
+        createdAt: Date.now()
+      }]])
+    };
+    const res = mockRes();
+    handleDeviceLinkCancel(hub, {
+      params: { sessionId },
+      headers: { origin: 'https://relay.goon.vc' },
+      socket: { remoteAddress: '203.0.113.9' }
+    }, res);
+    assert.strictEqual(res.out.statusCode, 409);
+    assert.strictEqual(hub._deviceLinkSessions.has(sessionId), true);
+  });
+
+  it('DELETE with a mismatched Origin is 403', function () {
+    const sessionId = 'dd'.repeat(24);
+    const hub = {
+      _deviceLinkSessions: new Map([[sessionId, {
+        status: 'pending',
+        origin: 'https://relay.goon.vc',
+        createdAt: Date.now()
+      }]])
+    };
+    const res = mockRes();
+    handleDeviceLinkCancel(hub, {
+      params: { sessionId },
+      headers: { origin: 'https://phish.example' },
+      socket: { remoteAddress: '203.0.113.9' }
+    }, res);
+    assert.strictEqual(res.out.statusCode, 403);
+    assert.strictEqual(hub._deviceLinkSessions.has(sessionId), true);
   });
 });
