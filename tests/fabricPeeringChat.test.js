@@ -48,6 +48,29 @@ describe('@fabric/http fabricChatNormalize', function () {
     assert.strictEqual(n.actor.id, x);
     assert.strictEqual(chatActorIdOf({}, { signer: 'bb' }), 'bb');
   });
+
+  it('copies optional Hub-cache fields and omits them when absent', function () {
+    const n = normalizeP2pChatMessage({
+      text: 'hello',
+      actor: { publicKey: 'aa', pubkey: 'bb' },
+      object: { clientId: 7, id: 'm1' },
+      target: 'peer-1',
+      created: 123
+    });
+    assert.strictEqual(n.object.created, 123);
+    assert.strictEqual(n.object.clientId, '7');
+    assert.strictEqual(n.object.id, 'm1');
+    assert.strictEqual(n.actor.publicKey, 'aa');
+    assert.strictEqual(n.actor.pubkey, 'bb');
+    assert.strictEqual(n.target, 'peer-1');
+
+    const bare = normalizeP2pChatMessage({ text: 'hello' });
+    assert.ok(!Object.prototype.hasOwnProperty.call(bare.object, 'clientId'));
+    assert.ok(!Object.prototype.hasOwnProperty.call(bare.object, 'id'));
+    assert.ok(!Object.prototype.hasOwnProperty.call(bare.actor, 'publicKey'));
+    assert.ok(!Object.prototype.hasOwnProperty.call(bare, 'target'));
+    assert.strictEqual(typeof bare.object.created, 'number');
+  });
 });
 
 describe('@fabric/http fabricPeeringHttp', function () {

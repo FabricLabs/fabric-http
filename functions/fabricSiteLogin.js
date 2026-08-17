@@ -273,6 +273,10 @@ function completeSession (req, sessionId, body, store, opts = {}) {
  * @param {import('http').ServerResponse} res
  * @param {string} pathname
  * @param {() => Promise<object>} readBody
+ * @returns {Promise<boolean|'spa'>} `false` when the path is not `/sessions*`;
+ *   `true` when this handler wrote the HTTP response; `'spa'` when GET
+ *   `/sessions` should fall through to dashboard HTML. Callers must use
+ *   strict checks (`=== true` / `=== 'spa'`) because `'spa'` is truthy.
  */
 async function tryHandleSiteLogin (relay, req, res, pathname, readBody) {
   if (!pathname.startsWith('/sessions')) return false;

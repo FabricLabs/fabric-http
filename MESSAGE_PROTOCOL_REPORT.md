@@ -562,7 +562,7 @@ Service.commit()
    - Look for `{type: "HEARTBEAT"}` or `type: 'HEARTBEAT'`
 
 2. **Search for toObject() + send pattern**:
-   - `grep -r "toObject.*send\|send.*toObject"`
+   - `grep -ri "toObject.*send\|send.*toObject"`
    - Check if HEARTBEAT messages use this pattern
 
 3. **Add debug logging**:
