@@ -2,6 +2,7 @@
 All notable changes to `@fabric/http` are documented here. This project follows semantic-ish versioning with **RC** milestones aligned to **hub.fabric.pub** and **`@fabric/core`**.
 
 ## Unreleased
+- **PR #69 file-count:** stop committing generated `libraries/fomantic/dist` (Gulp output). Served CSS/fonts stay in `assets/` from `npm run build:semantic`. Hub-allowlist and shared-mode tests fold into `tests/pr69.review.coverage.js`.
 - **PR #69 file-count fold:** small added mocha files merged into `tests/pr69.review.coverage.js` and `tests/web.server.js` (already on the PR). Dropped skipped puppeteer `tests/browser.js`. Generated JSDoc `docs/*.html` restored to `master` / removed so `npm run build:docs` is the source of truth (CI `npm run ci` does not require committed HTML).
 - **PR #69 review nits:** docs record lockfile `@fabric/core` **`2a074a71`**. Codacy mocha HMAC fixture no longer uses a `*secret*` literal; `.codacy.yml` excludes `tests/**` (same class as core). `report:install` creates `reports/` before wiping the lockfile. `tryHandleSiteLogin` JSDoc documents the `false` / `true` / `'spa'` contract. Chat-normalize tests cover optional Hub-cache fields. Protocol-report grep examples use `-ri`.
 - **POST null body:** legacy HTTP `Store._POST` of `req.body == null` returns **400** `JSON body required` instead of an unhandled `TypeError` in `@fabric/core` `State.serialize` (`@type`). Pair with core null-safe serialize.

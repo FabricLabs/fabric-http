@@ -36,6 +36,16 @@ const {
 } = require('../functions/oracleAttestation');
 const App = require('../types/app');
 const SPA = require('../types/spa');
+const {
+  isAllowedFabricHub,
+  assertAllowedFabricHub,
+  normalizeHubOrigin
+} = require('../functions/fabricHubAllowlist');
+const {
+  isHttpSharedModeEnabled,
+  resolveHttpListenHost,
+  applySharedModeWebsocketGate
+} = require('../functions/httpSharedMode');
 
 describe('@fabric/http PR #69 review coverage', function () {
   function mockRes () {
@@ -428,5 +438,129 @@ describe('@fabric/http IdentityCrossSign re-exports', function () {
     assert.strictEqual(typeof resolveFabricIdentityCoinType, 'function');
     assert.strictEqual(fabricIdentityAccountPath(0, 'mainnet'), "m/44'/7777'/0'");
     assert.strictEqual(resolveFabricIdentityCoinType('mainnet'), 7777);
+  });
+});
+
+describe('@fabric/http fabricHubAllowlist', function () {
+  it('allows default HTTPS network hubs and loopback', function () {
+    assert.strictEqual(isAllowedFabricHub('https://relay.goon.vc'), true);
+    assert.strictEqual(isAllowedFabricHub('https://hub.fabric.pub/sessions'), true);
+    assert.strictEqual(isAllowedFabricHub('http://127.0.0.1:3041'), true);
+    assert.strictEqual(isAllowedFabricHub('http://localhost:8080'), true);
+  });
+
+  it('rejects cleartext production hubs unless explicitly allowlisted', function () {
+    assert.strictEqual(isAllowedFabricHub('http://hub.fabric.pub'), false);
+    assert.strictEqual(isAllowedFabricHub('http://relay.goon.vc'), false);
+    assert.strictEqual(
+      isAllowedFabricHub('http://hub.fabric.pub', {
+        env: { FABRIC_HUB_ALLOWLIST: 'http://hub.fabric.pub' }
+      }),
+      true
+    );
+  });
+
+  it('rejects unknown hubs unless allowlisted via env', function () {
+    assert.strictEqual(isAllowedFabricHub('https://evil.example'), false);
+    assert.strictEqual(
+      isAllowedFabricHub('https://evil.example', {
+        env: { FABRIC_HUB_ALLOWLIST: 'https://evil.example' }
+      }),
+      true
+    );
+    const prev = process.env.FABRIC_HUB_ALLOWLIST;
+    process.env.FABRIC_HUB_ALLOWLIST = 'https://evil.example';
+    try {
+      assert.strictEqual(
+        isAllowedFabricHub('https://evil.example', { env: {} }),
+        false
+      );
+    } finally {
+      if (prev == null) delete process.env.FABRIC_HUB_ALLOWLIST;
+      else process.env.FABRIC_HUB_ALLOWLIST = prev;
+    }
+  });
+
+  it('assertAllowedFabricHub normalizes origin', function () {
+    const ok = assertAllowedFabricHub('https://relay.goon.vc/path');
+    assert.strictEqual(ok.ok, true);
+    assert.strictEqual(ok.hubBase, 'https://relay.goon.vc');
+    const bad = assertAllowedFabricHub('https://phishing.test');
+    assert.strictEqual(bad.ok, false);
+    assert.match(bad.error, /not allowed/);
+  });
+
+  it('normalizeHubOrigin rejects non-http(s)', function () {
+    assert.strictEqual(normalizeHubOrigin('ftp://x'), null);
+  });
+});
+
+describe('@fabric/http httpSharedMode', function () {
+  it('treats common truthy persisted shapes as shared', function () {
+    assert.strictEqual(isHttpSharedModeEnabled(true), true);
+    assert.strictEqual(isHttpSharedModeEnabled(1), true);
+    assert.strictEqual(isHttpSharedModeEnabled('true'), true);
+    assert.strictEqual(isHttpSharedModeEnabled('1'), true);
+    assert.strictEqual(isHttpSharedModeEnabled(' YES '), true);
+  });
+
+  it('treats falsey and unknown as not shared', function () {
+    assert.strictEqual(isHttpSharedModeEnabled(false), false);
+    assert.strictEqual(isHttpSharedModeEnabled(0), false);
+    assert.strictEqual(isHttpSharedModeEnabled('false'), false);
+    assert.strictEqual(isHttpSharedModeEnabled(undefined), false);
+    assert.strictEqual(isHttpSharedModeEnabled(null), false);
+  });
+
+  it('resolveHttpListenHost defaults and overrides', function () {
+    assert.strictEqual(resolveHttpListenHost({ mode: 'relay', env: {} }), '127.0.0.1');
+    assert.strictEqual(resolveHttpListenHost({ mode: 'relay', httpSharedMode: true, env: {} }), '0.0.0.0');
+    assert.strictEqual(resolveHttpListenHost({ mode: 'server', env: {} }), '0.0.0.0');
+    assert.strictEqual(resolveHttpListenHost({
+      mode: 'relay',
+      httpSharedMode: false,
+      env: { FABRIC_HUB_INTERFACE: '192.168.1.10' }
+    }), '192.168.1.10');
+    assert.strictEqual(resolveHttpListenHost({
+      mode: 'relay',
+      env: { FABRIC_HUB_INTERFACE: '65.21.231.149', FABRIC_HTTP_INTERFACE: '192.168.1.10' }
+    }), '65.21.231.149');
+    assert.strictEqual(resolveHttpListenHost({
+      mode: 'server',
+      host: '127.0.0.1',
+      env: {}
+    }), '127.0.0.1');
+    assert.strictEqual(resolveHttpListenHost({
+      mode: 'relay',
+      host: '127.0.0.1',
+      env: { FABRIC_HUB_INTERFACE: '0.0.0.0' }
+    }), '127.0.0.1');
+  });
+
+  it('applySharedModeWebsocketGate requires token when shared + env token', function () {
+    const gated = applySharedModeWebsocketGate({}, {
+      bindAll: true,
+      env: { FABRIC_WS_CLIENT_TOKEN: 'ws-token-fixture' }
+    });
+    assert.strictEqual(gated.websocket.requireClientToken, true);
+    assert.strictEqual(gated.websocket.clientToken, 'ws-token-fixture');
+
+    const untouched = applySharedModeWebsocketGate({ websocket: { requireClientToken: false } }, {
+      bindAll: true,
+      env: { FABRIC_WS_CLIENT_TOKEN: 'ws-token-fixture' }
+    });
+    assert.strictEqual(untouched.websocket.requireClientToken, false);
+
+    const loopback = applySharedModeWebsocketGate({}, {
+      bindAll: false,
+      env: { FABRIC_WS_CLIENT_TOKEN: 'ws-token-fixture' }
+    });
+    assert.ok(!loopback.websocket);
+  });
+
+  it('applySharedModeWebsocketGate fail-closes shared bind without env token', function () {
+    const gated = applySharedModeWebsocketGate({}, { bindAll: true, env: {} });
+    assert.strictEqual(gated.websocket.requireClientToken, true);
+    assert.ok(!gated.websocket.clientToken);
   });
 });

@@ -65,3 +65,6 @@ stores
 
 # config
 config.json
+
+# Fomantic Gulp output — `npm run build:semantic` mirrors this into assets/
+libraries/fomantic/dist/**
