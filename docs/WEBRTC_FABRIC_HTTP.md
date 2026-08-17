@@ -37,7 +37,7 @@ For the same static + JSON-RPC surface without the full **@fabric/hub** stack, t
 
 - `npm run sample:hub` — `FabricHTTPServer` on **127.0.0.1:8099** by default (override `PORT` / `HOST`; `PORT=8080` only if you are not also running a real Hub on 8080), `cors: true`, `POST /services/rpc` with a trivial `HubStubPing` method, and `examples/hub-local-dev-assets/hub-mesh-bridge.html` (same `postMessage` contract as a Hub page for **@fabric/passport** background mesh). For extension checks, point the UI at the sample origin or at a real Hub on `http://localhost:8080`.
 
-- **CORS / preflight:** When `settings.cors` is true, `OPTIONS` to each configured JSON-RPC path (e.g. `/services/rpc`) returns **204** so browser `fetch` with `Authorization` from an extension or another origin can complete the preflight (see `tests/jsonrpc.cors.preflight.js`).
+- **CORS / preflight:** When `settings.cors` is true, `OPTIONS` to each configured JSON-RPC path (e.g. `/services/rpc`) returns **204** so browser `fetch` with `Authorization` from an extension or another origin can complete the preflight (see `tests/web.server.js`).
 
 - Stricter auth for local tests: set `FABRIC_JSONRPC_REQUIRE_AUTH=1` and `FABRIC_HTTP_TOKEN_SECRET=…` (bearer via `middlewares/auth.js`).
 

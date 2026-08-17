@@ -22,6 +22,20 @@ const {
   isHubPageOriginMatch
 } = require('../functions/fabricWebRtcInterop');
 const payment402 = require('../functions/fabricDocumentPayment402');
+const { SAMPLE_HUB_HTTP_SERVER_NAME, DEFAULT_SAMPLE_HUB_HTTP_PORT } = require('../constants');
+const { verifyBearerToken, buildBearerToken } = require('../middlewares/auth');
+const { walletPathFromArgv } = require('../functions/cliWalletArgv');
+const FabricDistributedExecutionHTTP = require('../types/distributedExecutionHttp');
+const Key = require('@fabric/core/types/key');
+const {
+  ATTESTATION_TYPE,
+  KIND_PEERING,
+  buildOracleAttestation,
+  verifyOracleAttestation,
+  stableStringify
+} = require('../functions/oracleAttestation');
+const App = require('../types/app');
+const SPA = require('../types/spa');
 
 describe('@fabric/http PR #69 review coverage', function () {
   function mockRes () {
@@ -143,5 +157,276 @@ describe('@fabric/http PR #69 review coverage', function () {
     assert.notStrictEqual(wire.type, 'P2P_PEERING_OFFER');
     const body = JSON.parse(String(wire.body));
     assert.strictEqual(body.type, 98);
+  });
+});
+
+describe('constants (sample hub literals)', function () {
+  it('exposes sample server name and default port', function () {
+    assert.strictEqual(typeof SAMPLE_HUB_HTTP_SERVER_NAME, 'string');
+    assert(SAMPLE_HUB_HTTP_SERVER_NAME.length > 0);
+    assert.strictEqual(typeof DEFAULT_SAMPLE_HUB_HTTP_PORT, 'number');
+    assert(DEFAULT_SAMPLE_HUB_HTTP_PORT > 0);
+  });
+});
+
+describe('middlewares/auth — buildBearerToken / verifyBearerToken', function () {
+  it('produces a token that verifyBearerToken accepts', function () {
+    const secret = 'unit-test-bearer-secret';
+    const token = buildBearerToken(secret, { sub: 'u1', role: 'admin' });
+    const v = verifyBearerToken(token, secret);
+    assert.strictEqual(v.valid, true);
+    assert.deepStrictEqual(v.payload, { sub: 'u1', role: 'admin' });
+  });
+
+  it('rejects when secret differs', function () {
+    const token = buildBearerToken('a', { x: 1 });
+    const v = verifyBearerToken(token, 'b');
+    assert.strictEqual(v.valid, false);
+  });
+
+  it('rejects array payloads (non–plain object)', function () {
+    assert.throws(function () {
+      buildBearerToken('a', [1, 2]);
+    }, /plain object/);
+  });
+});
+
+describe('walletPathFromArgv', function () {
+  const fallback = '/tmp/default-wallet.json';
+
+  it('returns fallback when argv has no --wallet', function () {
+    assert.strictEqual(walletPathFromArgv(['node', 'cli'], fallback), fallback);
+  });
+
+  it('reads --wallet=VALUE before Commander parse', function () {
+    assert.strictEqual(
+      walletPathFromArgv(['node', 'cli', '--wallet=/tmp/custom.json'], fallback),
+      '/tmp/custom.json'
+    );
+  });
+
+  it('reads --wallet VALUE as a separate token', function () {
+    assert.strictEqual(
+      walletPathFromArgv(['node', 'cli', '--wallet', '/tmp/split.json', 'serve'], fallback),
+      '/tmp/split.json'
+    );
+  });
+
+  it('ignores --wallet after a -- terminator', function () {
+    assert.strictEqual(
+      walletPathFromArgv(['node', 'cli', '--', '--wallet=/tmp/ignored.json'], fallback),
+      fallback
+    );
+  });
+
+  it('does not treat --wallet --flag as a path', function () {
+    assert.strictEqual(
+      walletPathFromArgv(['node', 'cli', '--wallet', '--password=x'], fallback),
+      fallback
+    );
+  });
+
+  it('does not treat --wallet -p as a path', function () {
+    assert.strictEqual(
+      walletPathFromArgv(['node', 'cli', '--wallet', '-p'], fallback),
+      fallback
+    );
+  });
+
+  it('keeps a dash-prefixed filename via --wallet=VALUE', function () {
+    assert.strictEqual(
+      walletPathFromArgv(['node', 'cli', '--wallet=-secret.json'], fallback),
+      '-secret.json'
+    );
+  });
+});
+
+describe('types/distributedExecutionHttp', function () {
+  it('bind registers routes when callbacks provided', function () {
+    const routes = [];
+    const server = {
+      _addRoute (method, path, handler) {
+        routes.push({ method, path });
+      }
+    };
+    const mod = new FabricDistributedExecutionHTTP({
+      getManifest: async () => ({ version: 1 }),
+      getEpochStatus: async () => ({ ok: true }),
+      getSidechainState: async () => ({ clock: 0 }),
+      submitSidechainStatePatch: async () => ({ ok: true }),
+      getSidechainJournal: async () => ({ entries: [] }),
+      getSidechainSnapshots: async () => ({ snapshots: [] })
+    });
+    mod.bind(server);
+    assert.ok(routes.some((r) => r.path === '/services/distributed/manifest'));
+    assert.ok(routes.some((r) => r.path === '/services/distributed/epoch'));
+    assert.ok(routes.some((r) => r.method === 'GET' && r.path === '/services/distributed/sidechain'));
+    assert.ok(routes.some((r) => r.method === 'GET' && r.path === '/services/distributed/statechain'));
+    assert.ok(routes.some((r) => r.method === 'POST' && r.path === '/services/distributed/sidechain/patches'));
+    assert.ok(routes.some((r) => r.method === 'POST' && r.path === '/services/distributed/statechain/patches'));
+    assert.ok(routes.some((r) => r.method === 'GET' && r.path === '/services/distributed/sidechain/journal'));
+    assert.ok(routes.some((r) => r.method === 'GET' && r.path === '/services/distributed/sidechain/snapshots'));
+    assert.ok(routes.some((r) => r.method === 'GET' && r.path === '/services/distributed/statechain/journal'));
+    assert.ok(routes.some((r) => r.method === 'GET' && r.path === '/services/distributed/statechain/snapshots'));
+  });
+});
+
+describe('@fabric/http oracleAttestation', function () {
+  it('stableStringify sorts object keys', function () {
+    assert.strictEqual(stableStringify({ b: 1, a: 2 }), '{"a":2,"b":1}');
+  });
+
+  it('signs and verifies a peering claim', function () {
+    const key = new Key();
+    const claim = { kind: KIND_PEERING, version: 1, fabricPeerId: key.pubkey };
+    const att = buildOracleAttestation({
+      claim,
+      key,
+      issuer: { publicKeyHex: key.pubkey, fabricIdentityId: key.pubkey }
+    });
+    assert.strictEqual(att['@type'], ATTESTATION_TYPE);
+    assert.strictEqual(att.kind, KIND_PEERING);
+    assert.ok(att.signature);
+    assert.strictEqual(verifyOracleAttestation(att), true);
+  });
+
+  it('rejects tampered claims', function () {
+    const key = new Key();
+    const att = buildOracleAttestation({
+      claim: { kind: KIND_PEERING, version: 1, n: 1 },
+      key
+    });
+    att.claim.n = 2;
+    assert.strictEqual(verifyOracleAttestation(att), false);
+  });
+});
+
+describe('@fabric/http state model contract', function () {
+  this.timeout(15000);
+
+  it('App stores canonical data under _state.content', function () {
+    const app = new App({ resources: {} });
+    app.state = { users: { a: 1 } };
+    assert.ok(app._state && app._state.content);
+    assert.deepStrictEqual(app._state.content, { users: { a: 1 } });
+  });
+
+  it('App public state reads are snapshots', function () {
+    const app = new App({ resources: {} });
+    app.state = { users: { a: 1 } };
+    const snapshot = app.state;
+    snapshot.users.a = 2;
+    assert.strictEqual(app._state.content.users.a, 1);
+  });
+
+  it('SPA stores canonical data under _state.content', function () {
+    const spa = new SPA({ resources: {} });
+    spa.state = { title: 'X', users: {} };
+    assert.deepStrictEqual(spa._state.content, { title: 'X', users: {} });
+  });
+
+  it('SPA public state reads are snapshots', function () {
+    const spa = new SPA({ resources: {} });
+    spa.state = { title: 'X', users: { a: 1 } };
+    const snapshot = spa.state;
+    snapshot.users.a = 2;
+    assert.strictEqual(spa._state.content.users.a, 1);
+  });
+});
+
+describe('@fabric/http IdentityCrossSign re-exports', function () {
+  this.timeout(10000);
+  it('re-exports canonical strings from @fabric/core', function () {
+    const httpXs = require('../functions/identityCrossSign');
+    const coreXs = require('@fabric/core/functions/identityCrossSign');
+    assert.strictEqual(httpXs.SIGN_TYPE, coreXs.SIGN_TYPE);
+    assert.strictEqual(httpXs.REVOKE_TYPE, coreXs.REVOKE_TYPE);
+    assert.strictEqual(typeof httpXs.buildCrossSignMessage, 'function');
+  });
+
+  it('re-exports Schnorr helpers used by site-login / device-link', function () {
+    const schnorr = require('../functions/fabricIdentitySchnorr');
+    const core = require('@fabric/core/functions/fabricIdentitySchnorr');
+    assert.strictEqual(
+      typeof schnorr.buildFabricIdentitySignedPayload,
+      'function'
+    );
+    assert.strictEqual(
+      schnorr.buildFabricIdentitySignedPayload,
+      core.buildFabricIdentitySignedPayload
+    );
+  });
+
+  it('re-exports sign/verify for IdentityCrossSign bodies', function () {
+    const httpXv = require('../functions/identityCrossSignVerify');
+    const coreXv = require('@fabric/core/functions/identityCrossSignVerify');
+    assert.strictEqual(typeof httpXv.signCrossSign, 'function');
+    assert.strictEqual(httpXv.verifyCrossSignObject, coreXv.verifyCrossSignObject);
+  });
+
+  it('exposes resolveFabricSigningIdentity from site-login verify', function () {
+    const site = require('../functions/fabricSiteLoginVerify');
+    const schnorr = require('../functions/fabricIdentitySchnorr');
+    assert.strictEqual(
+      site.resolveFabricSigningIdentity,
+      schnorr.resolveFabricSigningIdentity
+    );
+  });
+
+  it('signs a raw HD Key with fabricKey pubkey via the core pin', function () {
+    const crypto = require('crypto');
+    const Identity = require('@fabric/core/types/identity');
+    const { signCrossSign, verifyCrossSignObject } = require('../functions/identityCrossSignVerify');
+    const master = new Key();
+    const ident = new Identity(master);
+    const peer = new Identity(new Key());
+    const obj = signCrossSign(master, {
+      peerPubkey: peer.pubkey,
+      nonce: crypto.randomBytes(32).toString('hex')
+    });
+    assert.strictEqual(obj.localPubkey.toLowerCase(), ident.fabricKey.pubkey.toLowerCase());
+    assert.notStrictEqual(obj.localPubkey.toLowerCase(), String(master.pubkey).toLowerCase());
+    assert.strictEqual(verifyCrossSignObject(obj).ok, true);
+  });
+
+  it('rejects unknown kind and truncated identity-id hex via the core pin', function () {
+    const crypto = require('crypto');
+    const Identity = require('@fabric/core/types/identity');
+    const { SIGN_TYPE, buildCrossSignMessage } = require('../functions/identityCrossSign');
+    const { signCrossSign } = require('../functions/identityCrossSignVerify');
+    const { fabricIdentityIdFromPubkeyHex } = require('../functions/fabricIdentitySchnorr');
+    const ident = new Identity(new Key());
+    const peer = new Identity(new Key());
+    const nonce = crypto.randomBytes(32).toString('hex');
+    assert.throws(
+      () => signCrossSign(ident, { peerPubkey: peer.pubkey, nonce }, 'ChatMessage'),
+      /unknown cross-sign type/i
+    );
+    assert.strictEqual(buildCrossSignMessage(nonce, 'aa', peer.pubkey), null);
+    assert.throws(() => fabricIdentityIdFromPubkeyHex('02aa'), /66 hex/i);
+    assert.ok(typeof fabricIdentityIdFromPubkeyHex(ident.fabricKey.pubkey) === 'string');
+    assert.strictEqual(SIGN_TYPE, 'IdentityCrossSign');
+  });
+
+  it('resolves core home-env / key-material helpers on this pin', function () {
+    const home = require('@fabric/core/functions/fabricHomeEnv');
+    const material = require('@fabric/core/functions/fabricKeyMaterial');
+    assert.strictEqual(typeof home.loadFabricHomeEnv, 'function');
+    assert.strictEqual(typeof material.parseRawSeedHex, 'function');
+    assert.strictEqual(typeof material.keySettingsFromEnv, 'function');
+    const hex = 'aa'.repeat(32);
+    assert.strictEqual(material.classifyFabricKeyMaterial(hex).kind, 'seedHex');
+    assert.strictEqual(material.classifyFabricKeyMaterial('xprv1not-a-real-key').kind, 'xprv');
+  });
+
+  it('resolves core identity account path + coin type on this pin', function () {
+    const {
+      fabricIdentityAccountPath,
+      resolveFabricIdentityCoinType
+    } = require('@fabric/core/constants');
+    assert.strictEqual(typeof fabricIdentityAccountPath, 'function');
+    assert.strictEqual(typeof resolveFabricIdentityCoinType, 'function');
+    assert.strictEqual(fabricIdentityAccountPath(0, 'mainnet'), "m/44'/7777'/0'");
+    assert.strictEqual(resolveFabricIdentityCoinType('mainnet'), 7777);
   });
 });

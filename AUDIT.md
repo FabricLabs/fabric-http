@@ -12,7 +12,7 @@ Living posture notes for `@fabric/http` **0.1.0-RC1**. Re-run **`npm audit`** af
 | undici (fomantic → `@actions/http-client`) | **Mitigated** — override **`6.28.0`** |
 | Markdown (SLIP-0044 script) | **Mitigated** — replaced `showdown` (unfixed ReDoS GHSA-rmmh-p597-ppvv) with **`marked@15.0.12`** |
 | PeerJS / browser mesh | **Removed** — `types/swarm.js` is a no-op stub; Hub native WebRTC |
-| npm audit status | **4 high** residual — `extract-zip@2.0.1` chain via production pin `puppeteer@24.37.5` / `@puppeteer/browsers` (Sandbox / `tests/browser.js`; Hub `scripts/node.js` does not import it). `puppeteer@25.7.0` is a deferred bump. Runtime `ws` / Express / undici overrides remain clean. |
+| npm audit status | **4 high** residual — `extract-zip@2.0.1` chain via production pin `puppeteer@24.37.5` / `@puppeteer/browsers` (Sandbox / `tests/sandbox.js`; Hub `scripts/node.js` does not import it). `puppeteer@25.7.0` is a deferred bump. Runtime `ws` / Express / undici overrides remain clean. |
 
 ## Overrides for mitigated runtime findings
 
