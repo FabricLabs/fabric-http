@@ -8,7 +8,7 @@
  *
  * Hub SPA / WS may still cache `{ actor, object.content }` — that is the HTTP
  * edge, not the P2P body. Text / author extraction is `@fabric/core`
- * `functions/fabricChatText` (lockfile SHA `14d3d3a7`).
+ * `functions/fabricChatText` (lockfile SHA `2a074a71`).
  */
 
 const {

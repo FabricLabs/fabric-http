@@ -171,9 +171,9 @@ describe('constants (sample hub literals)', function () {
 
 describe('middlewares/auth — buildBearerToken / verifyBearerToken', function () {
   it('produces a token that verifyBearerToken accepts', function () {
-    const secret = 'unit-test-bearer-secret';
-    const token = buildBearerToken(secret, { sub: 'u1', role: 'admin' });
-    const v = verifyBearerToken(token, secret);
+    const hmacKey = 'unit-test-bearer-hmac';
+    const token = buildBearerToken(hmacKey, { sub: 'u1', role: 'admin' });
+    const v = verifyBearerToken(token, hmacKey);
     assert.strictEqual(v.valid, true);
     assert.deepStrictEqual(v.payload, { sub: 'u1', role: 'admin' });
   });

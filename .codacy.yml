@@ -2,3 +2,5 @@
 exclude_paths:
   - "scripts/build-semantic.js"
   - "scripts/download-fonts.js"
+  # Mocha fixtures trip Codacy “hardcoded password” on HMAC/test keys (same as core).
+  - "tests/**"
