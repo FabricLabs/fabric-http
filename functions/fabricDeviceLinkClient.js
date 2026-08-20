@@ -14,12 +14,13 @@ const {
   buildDeviceLinkMessage,
   parseDeviceLinkMessage
 } = require('./fabricDeviceLinkMessages');
+const { applyPollSecretHeader } = require('./fabricSiteLoginVerify');
 
 function isBrowserFetchGlobal () {
   return typeof globalThis.window === 'object' && globalThis.window === globalThis;
 }
 
-function deviceLinkHeaders (origin) {
+function deviceLinkHeaders (origin, opts = {}) {
   const o = String(origin || '').replace(/\/$/, '');
   const h = { Accept: 'application/json', 'Content-Type': 'application/json' };
   // Fetch forbids client-set Origin/Referer in browsers; they send the real page origin.
@@ -28,7 +29,7 @@ function deviceLinkHeaders (origin) {
     h.Origin = o;
     h.Referer = `${o}/`;
   }
-  return h;
+  return applyPollSecretHeader(h, opts.pollSecret);
 }
 
 /**
@@ -78,7 +79,7 @@ async function fetchDeviceLinkSession (hubBase, sessionId, opts = {}) {
     return { ok: false, error: 'origin required (browser page origin)' };
   }
   const res = await fetchImpl(`${base}/device-links/${encodeURIComponent(sessionId)}`, {
-    headers: deviceLinkHeaders(origin),
+    headers: deviceLinkHeaders(origin, { pollSecret: opts.pollSecret }),
     cache: 'no-store'
   });
   const data = await res.json().catch(() => ({}));
@@ -102,7 +103,7 @@ async function cancelDeviceLinkSession (hubBase, sessionId, opts = {}) {
   try {
     const res = await fetchImpl(`${base}/device-links/${encodeURIComponent(sid)}`, {
       method: 'DELETE',
-      headers: deviceLinkHeaders(origin),
+      headers: deviceLinkHeaders(origin, { pollSecret: opts.pollSecret }),
       cache: 'no-store'
     });
     const data = await res.json().catch(() => ({}));

@@ -7,7 +7,9 @@ const {
   verifyFabricDesktopLoginSignedPayload,
   originsMatchForDesktopSession,
   isLocalRequest,
-  clientMayPollDesktopSession
+  clientMayPollDesktopSession,
+  tokensEqual,
+  requestMayRedeemSessionSecret
 } = require('./fabricSiteLoginVerify');
 const SESSION_TTL_MS = 10 * 60 * 1000;
 const MAX_SESSIONS = 256;
@@ -60,19 +62,6 @@ function getBearerToken (req) {
   return '';
 }
 
-/**
- * Constant-time UTF-8 token compare (rejects empty / length-mismatched inputs).
- * @param {string} a
- * @param {string} b
- * @returns {boolean}
- */
-function tokensEqual (a, b) {
-  const left = Buffer.from(String(a || ''), 'utf8');
-  const right = Buffer.from(String(b || ''), 'utf8');
-  if (!left.length || left.length !== right.length) return false;
-  return crypto.timingSafeEqual(left, right);
-}
-
 function pruneDelegationRegistry (hub) {
   if (!hub._delegationRegistry) return;
   const now = Date.now();
@@ -123,11 +112,13 @@ function handleSessionCreate (hub, req, res) {
 
     const sessionId = randomSessionId();
     const nonce = randomNonce();
+    const pollSecret = randomNonce();
     const message = buildLoginMessage(sessionId, origin, nonce);
 
     hub._desktopAuthSessions.set(sessionId, {
       origin,
       nonce,
+      pollSecret,
       message,
       createdAt: Date.now(),
       status: 'pending'
@@ -138,6 +129,8 @@ function handleSessionCreate (hub, req, res) {
       sessionId,
       message,
       nonce,
+      // Creator-only; never put this on fabric:// / QR (the signer does not redeem GET).
+      pollSecret,
       // hub = site origin that holds the session (desktop/extension callback base).
       protocolUrl: `fabric://login?sessionId=${encodeURIComponent(sessionId)}&hub=${encodeURIComponent(origin)}`,
       // Both completion modes share the same challenge; clients pick one.
@@ -363,6 +356,10 @@ function handleSessionGet (hub, req, res) {
     }
 
     if (session.status === 'signed') {
+      if (!requestMayRedeemSessionSecret(req, session)) {
+        sendJson(res, 403, { ok: false, error: 'poll secret required to redeem this session' });
+        return;
+      }
       if (!hub._delegationRegistry) hub._delegationRegistry = new Map();
       pruneDelegationRegistry(hub);
       let delegationToken = session.delegationToken;
@@ -423,5 +420,7 @@ module.exports = {
   handleSessionGet,
   handleDesktopSign,
   mountFabricDesktopAuthHttp,
-  mountFabricSiteLoginHttp
+  mountFabricSiteLoginHttp,
+  tokensEqual,
+  requestMayRedeemSessionSecret
 };

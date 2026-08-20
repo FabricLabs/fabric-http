@@ -7,6 +7,7 @@
 
 const FABRIC_PROTOCOL = 'fabric';
 const { assertAllowedFabricHub } = require('./fabricHubAllowlist');
+const { applyPollSecretHeader } = require('./fabricSiteLoginVerify');
 
 /**
  * @param {string} urlStr
@@ -59,10 +60,14 @@ function parseFabricLoginUrl (urlStr, opts = {}) {
 /**
  * Headers so remote hubs accept GET/POST the same way Hub desktop does
  * (Origin/Referer must match the session's declared origin off-loopback).
+ * Pass `opts.pollSecret` from the create JSON for off-loopback signed redeem
+ * (`X-Fabric-Poll-Secret`). Never copy that value into `fabric://` / QR.
  * @param {string} hubBase
+ * @param {Object} [opts]
+ * @param {string} [opts.pollSecret]
  * @returns {Record<string, string>}
  */
-function fabricLoginRequestHeaders (hubBase) {
+function fabricLoginRequestHeaders (hubBase, opts = {}) {
   const origin = String(hubBase || '').replace(/\/$/, '');
   const headers = {
     Accept: 'application/json',
@@ -72,7 +77,7 @@ function fabricLoginRequestHeaders (hubBase) {
     headers.Origin = origin;
     headers.Referer = `${origin}/`;
   }
-  return headers;
+  return applyPollSecretHeader(headers, opts && opts.pollSecret);
 }
 
 module.exports = {

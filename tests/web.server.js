@@ -394,6 +394,10 @@ describe('JSON-RPC CORS preflight (browser → localhost Hub)', function () {
         String(r.headers['access-control-allow-headers'] || ''),
         /\bauthorization\b/i
       );
+      assert.match(
+        String(r.headers['access-control-allow-headers'] || ''),
+        /\bx-fabric-poll-secret\b/i
+      );
     } finally {
       await server.stop();
     }

@@ -11,7 +11,8 @@ const {
   isCompanionWebViewOrigin,
   isExtensionOrigin,
   clientMayAccessDeviceLink,
-  handleDeviceLinkCancel
+  handleDeviceLinkCancel,
+  handleDeviceLinkGet
 } = require('../functions/fabricDeviceLinkHttp');
 const { cancelDeviceLinkSession, deviceLinkHeaders } = require('../functions/fabricDeviceLinkClient');
 const {
@@ -136,6 +137,8 @@ describe('fabricDeviceLinkHttp companion WebView access', function () {
       assert.strictEqual(browserHeaders.Origin, undefined);
       assert.strictEqual(browserHeaders.Referer, undefined);
       assert.strictEqual(browserHeaders.Accept, 'application/json');
+      const withSecret = deviceLinkHeaders('https://hub.example', { pollSecret: 'ab'.repeat(32) });
+      assert.strictEqual(withSecret['X-Fabric-Poll-Secret'], 'ab'.repeat(32));
     } finally {
       if (prior === undefined) delete globalThis.window;
       else globalThis.window = prior;
@@ -180,12 +183,59 @@ describe('fabricDeviceLinkHttp cancel', function () {
     assert.strictEqual(res.out.body.existed, false);
   });
 
-  it('DELETE drops a pending session when Origin matches', function () {
+  it('loopback DELETE of a pending session does not need pollSecret', function () {
+    const sessionId = '99'.repeat(24);
+    const hub = {
+      _deviceLinkSessions: new Map([[sessionId, {
+        status: 'pending',
+        origin: 'http://127.0.0.1:8080',
+        pollSecret: 'aa'.repeat(32),
+        createdAt: Date.now()
+      }]])
+    };
+    const res = mockRes();
+    handleDeviceLinkCancel(hub, {
+      params: { sessionId },
+      headers: {},
+      socket: { remoteAddress: '127.0.0.1' }
+    }, res);
+    assert.strictEqual(res.out.statusCode, 200);
+    assert.strictEqual(hub._deviceLinkSessions.has(sessionId), false);
+  });
+
+  it('DELETE drops a pending session when Origin and pollSecret match', function () {
     const sessionId = 'bb'.repeat(24);
+    const pollSecret = 'ee'.repeat(32);
     const hub = {
       _deviceLinkSessions: new Map([[sessionId, {
         status: 'pending',
         origin: 'https://relay.goon.vc',
+        pollSecret,
+        createdAt: Date.now()
+      }]])
+    };
+    const res = mockRes();
+    handleDeviceLinkCancel(hub, {
+      params: { sessionId },
+      headers: {
+        origin: 'https://relay.goon.vc',
+        'x-fabric-poll-secret': pollSecret
+      },
+      socket: { remoteAddress: '203.0.113.9' }
+    }, res);
+    assert.strictEqual(res.out.statusCode, 200);
+    assert.strictEqual(res.out.body.cancelled, true);
+    assert.strictEqual(res.out.body.existed, true);
+    assert.strictEqual(hub._deviceLinkSessions.has(sessionId), false);
+  });
+
+  it('DELETE of a pending remote session without pollSecret is 403', function () {
+    const sessionId = 'dd'.repeat(24);
+    const hub = {
+      _deviceLinkSessions: new Map([[sessionId, {
+        status: 'pending',
+        origin: 'https://relay.goon.vc',
+        pollSecret: 'ff'.repeat(32),
         createdAt: Date.now()
       }]])
     };
@@ -195,25 +245,58 @@ describe('fabricDeviceLinkHttp cancel', function () {
       headers: { origin: 'https://relay.goon.vc' },
       socket: { remoteAddress: '203.0.113.9' }
     }, res);
+    assert.strictEqual(res.out.statusCode, 403);
+    assert.match(res.out.body.error, /poll secret/i);
+    assert.strictEqual(hub._deviceLinkSessions.has(sessionId), true);
+  });
+
+  it('GET pending still works with Origin only (responder has QR sessionId)', function () {
+    const sessionId = 'ab'.repeat(24);
+    const hub = {
+      _deviceLinkSessions: new Map([[sessionId, {
+        status: 'pending',
+        origin: 'https://relay.goon.vc',
+        pollSecret: 'cd'.repeat(32),
+        nonce: '11'.repeat(32),
+        label: 'device',
+        initiator: {
+          id: 'id1',
+          xpub: 'xpub1',
+          pubkeyHex: '02' + '00'.repeat(32),
+          offerMessage: 'offer'
+        },
+        createdAt: Date.now()
+      }]])
+    };
+    const res = mockRes();
+    handleDeviceLinkGet(hub, {
+      params: { sessionId },
+      headers: { origin: 'https://relay.goon.vc' },
+      socket: { remoteAddress: '203.0.113.9' }
+    }, res);
     assert.strictEqual(res.out.statusCode, 200);
-    assert.strictEqual(res.out.body.cancelled, true);
-    assert.strictEqual(res.out.body.existed, true);
-    assert.strictEqual(hub._deviceLinkSessions.has(sessionId), false);
+    assert.strictEqual(res.out.body.status, 'pending');
+    assert.strictEqual(res.out.body.pollSecret, undefined);
   });
 
   it('DELETE of a linked session is 409 and keeps the row', function () {
     const sessionId = 'cc'.repeat(24);
+    const pollSecret = '99'.repeat(32);
     const hub = {
       _deviceLinkSessions: new Map([[sessionId, {
         status: 'linked',
         origin: 'https://relay.goon.vc',
+        pollSecret,
         createdAt: Date.now()
       }]])
     };
     const res = mockRes();
     handleDeviceLinkCancel(hub, {
       params: { sessionId },
-      headers: { origin: 'https://relay.goon.vc' },
+      headers: {
+        origin: 'https://relay.goon.vc',
+        'x-fabric-poll-secret': pollSecret
+      },
       socket: { remoteAddress: '203.0.113.9' }
     }, res);
     assert.strictEqual(res.out.statusCode, 409);

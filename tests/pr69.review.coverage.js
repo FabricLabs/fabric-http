@@ -4,10 +4,11 @@
  * @fileoverview Coverage locks from FabricLabs/fabric-http PR #69 review comments.
  *
  * Highs: Hub self-sign is loopback-only; GET /sessions/:delegationToken is not
- * a registry credential without matching Bearer. Medium: `wss:` / `ws:` Hub
+ * a registry credential without matching Bearer. Signed-session redeem and
+ * device-link cancel require the create-response `pollSecret` off-loopback
+ * (`X-Fabric-Poll-Secret`; never on `fabric://` / QR). Medium: `wss:` / `ws:` Hub
  * addresses map to `https:` / `http:` page origins and do not fail-open for
- * `https://wss`. Possession-proof redeem (sessionId as poll capability) remains
- * tracked in docs/OUTSTANDING.md.
+ * `https://wss`.
  */
 
 const assert = require('assert');
@@ -15,7 +16,8 @@ const { describe, it } = require('mocha');
 
 const {
   handleDesktopSign,
-  handleSessionGet
+  handleSessionGet,
+  handleSessionCreate
 } = require('../functions/fabricSiteLoginHttp');
 const {
   expectedOriginFromHubAddress,
@@ -138,6 +140,140 @@ describe('@fabric/http PR #69 review coverage', function () {
       socket: { remoteAddress: '203.0.113.9' }
     }, res);
     assert.strictEqual(res.out.statusCode, 404);
+  });
+
+  it('create returns pollSecret and omits it from fabric:// and pending GET', function () {
+    const hub = { _desktopAuthSessions: new Map() };
+    const created = mockRes();
+    handleSessionCreate(hub, {
+      body: { origin: 'https://hub.fabric.pub' },
+      headers: { origin: 'https://hub.fabric.pub' },
+      socket: { remoteAddress: '203.0.113.9' }
+    }, created);
+    const createBody = JSON.parse(created.out.body);
+    assert.strictEqual(created.out.statusCode, 200);
+    assert.match(createBody.pollSecret, /^[a-f0-9]{64}$/);
+    assert.ok(!String(createBody.protocolUrl).includes(createBody.pollSecret));
+    assert.ok(!String(createBody.protocolUrl).includes('pollSecret'));
+    const pending = mockRes();
+    handleSessionGet(hub, {
+      params: { sessionId: createBody.sessionId },
+      headers: { origin: 'https://hub.fabric.pub', accept: 'application/json' },
+      socket: { remoteAddress: '203.0.113.9' }
+    }, pending);
+    const pendingBody = JSON.parse(pending.out.body);
+    assert.strictEqual(pending.out.statusCode, 200);
+    assert.strictEqual(pendingBody.status, 'pending');
+    assert.strictEqual(pendingBody.pollSecret, undefined);
+  });
+
+  it('remote GET of a signed session without pollSecret is 403 (token stays)', function () {
+    const sessionId = 'aa'.repeat(24);
+    const pollSecret = 'bb'.repeat(32);
+    const hub = {
+      _desktopAuthSessions: new Map([[sessionId, {
+        status: 'signed',
+        origin: 'https://hub.fabric.pub',
+        pollSecret,
+        identity: { id: 'id1', xpub: 'xpub1' },
+        signer: 'client',
+        signature: 'cc'.repeat(64),
+        pubkeyHex: '02' + 'dd'.repeat(32),
+        message: 'login',
+        createdAt: Date.now()
+      }]])
+    };
+    const denied = mockRes();
+    handleSessionGet(hub, {
+      params: { sessionId },
+      headers: { origin: 'https://hub.fabric.pub', accept: 'application/json' },
+      socket: { remoteAddress: '203.0.113.9' }
+    }, denied);
+    assert.strictEqual(denied.out.statusCode, 403);
+    assert.match(JSON.parse(denied.out.body).error, /poll secret/i);
+    assert.strictEqual(hub._desktopAuthSessions.has(sessionId), true);
+
+    const redeemed = mockRes();
+    handleSessionGet(hub, {
+      params: { sessionId },
+      headers: {
+        origin: 'https://hub.fabric.pub',
+        accept: 'application/json',
+        'x-fabric-poll-secret': pollSecret
+      },
+      socket: { remoteAddress: '203.0.113.9' }
+    }, redeemed);
+    const body = JSON.parse(redeemed.out.body);
+    assert.strictEqual(redeemed.out.statusCode, 200);
+    assert.strictEqual(body.status, 'signed');
+    assert.ok(body.delegationToken);
+    assert.strictEqual(hub._desktopAuthSessions.has(sessionId), false);
+  });
+
+  it('loopback GET of a signed session does not need pollSecret', function () {
+    const sessionId = '11'.repeat(24);
+    const hub = {
+      _desktopAuthSessions: new Map([[sessionId, {
+        status: 'signed',
+        origin: 'http://127.0.0.1:8080',
+        pollSecret: '22'.repeat(32),
+        identity: { id: 'id1', xpub: 'xpub1' },
+        signer: 'hub',
+        createdAt: Date.now()
+      }]])
+    };
+    const res = mockRes();
+    handleSessionGet(hub, {
+      params: { sessionId },
+      headers: { accept: 'application/json' },
+      socket: { remoteAddress: '127.0.0.1' }
+    }, res);
+    assert.strictEqual(res.out.statusCode, 200);
+    assert.strictEqual(JSON.parse(res.out.body).status, 'signed');
+  });
+
+  it('LiveRelay getSession redeem requires pollSecret off-loopback', function () {
+    const { getSession } = require('../functions/fabricSiteLogin');
+    const sessionId = '33'.repeat(24);
+    const pollSecret = '44'.repeat(32);
+    const store = new Map([[sessionId, {
+      status: 'signed',
+      origin: 'https://relay.goon.vc',
+      pollSecret,
+      identity: { id: 'id1', xpub: 'xpub1' },
+      delegationToken: 'tok',
+      signer: 'client',
+      createdAt: Date.now()
+    }]]);
+    const denied = getSession({
+      headers: { origin: 'https://relay.goon.vc' },
+      socket: { remoteAddress: '203.0.113.9' }
+    }, sessionId, store);
+    assert.strictEqual(denied.status, 403);
+    assert.strictEqual(store.has(sessionId), true);
+    const ok = getSession({
+      headers: {
+        origin: 'https://relay.goon.vc',
+        'x-fabric-poll-secret': pollSecret
+      },
+      socket: { remoteAddress: '203.0.113.9' }
+    }, sessionId, store);
+    assert.strictEqual(ok.status, 200);
+    assert.strictEqual(ok.json.delegationToken, 'tok');
+    assert.strictEqual(store.has(sessionId), false);
+  });
+
+  it('fabricLoginRequestHeaders attaches pollSecret without putting it on fabric://', function () {
+    const { fabricLoginRequestHeaders, parseFabricLoginUrl } = require('../functions/fabricProtocolLogin');
+    const pollSecret = '55'.repeat(32);
+    const sessionId = 'aa'.repeat(24);
+    const hub = 'https://hub.fabric.pub';
+    const headers = fabricLoginRequestHeaders(hub, { pollSecret });
+    assert.strictEqual(headers['X-Fabric-Poll-Secret'], pollSecret);
+    const parsed = parseFabricLoginUrl(`fabric://login?sessionId=${sessionId}&hub=${encodeURIComponent(hub)}`);
+    assert.strictEqual(parsed.ok, true);
+    assert.ok(!String(parsed.hubBase).includes(pollSecret));
+    assert.strictEqual(parsed.sessionId, sessionId);
   });
 
   it('402 document-offer header builder omits costBasisSats', function () {

@@ -1635,7 +1635,7 @@ class FabricHTTPServer extends Service {
     res.header('X-Powered-By', '@fabric/http');
     if (this.settings.cors) {
       res.header('Access-Control-Allow-Origin', '*');
-      res.header('Access-Control-Allow-Headers', 'accept, content-type, authorization, x-fabric-identity');
+      res.header('Access-Control-Allow-Headers', 'accept, content-type, authorization, x-fabric-identity, x-fabric-poll-secret');
       res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE, PATCH, HEAD');
       res.header(
         'Access-Control-Expose-Headers',

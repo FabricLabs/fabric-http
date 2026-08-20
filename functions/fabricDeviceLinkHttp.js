@@ -12,6 +12,9 @@
  * 2. Responder GET pending, POST …/signatures { role:'responder', … }.
  * 3. Initiator POST …/signatures { role:'initiator', … } countersigns the link message.
  * 4. GET returns status `linked` with both attestations until SESSION_TTL_MS.
+ *    Pending/accepted GET stays Origin-gated so the responder (QR `sessionId`
+ *    only) can sign. DELETE of pending/accepted requires the create-response
+ *    `pollSecret` off-loopback so a captured QR cannot cancel the offer.
  */
 
 const crypto = require('crypto');
@@ -21,7 +24,8 @@ const {
   fabricIdentityIdFromPubkeyHex,
   verifyIdentitySchnorr,
   isLocalRequest,
-  clientMayPollDesktopSession
+  clientMayPollDesktopSession,
+  requestMayRedeemSessionSecret
 } = require('./fabricSiteLoginVerify');
 const {
   DEVICE_LINK_PREFIX,
@@ -106,8 +110,9 @@ function isThinClientOrigin (originLike) {
 
 /**
  * Site-login Origin gate, plus thin clients (Android WebView, Passport) talking
- * to an allowlisted hub. Possession of the unguessable session id remains the
- * capability; Schnorr on create/sign is the identity proof.
+ * to an allowlisted hub. Pending/accepted GET still uses this gate so the
+ * responder (QR `sessionId` only) can sign. Signed login redeem and device-link
+ * cancel additionally require `pollSecret` from the create JSON.
  */
 function clientMayAccessDeviceLink (req, sessionOrigin) {
   if (clientMayPollDesktopSession(req, sessionOrigin)) return true;
@@ -271,9 +276,11 @@ function handleDeviceLinkCreate (hub, req, res) {
     }
 
     evictDeviceLinkOriginOverflow(hub, origin);
+    const pollSecret = randomNonce();
     hub._deviceLinkSessions.set(sessionId, {
       origin,
       nonce,
+      pollSecret,
       label,
       createdAt: Date.now(),
       status: 'pending',
@@ -294,6 +301,7 @@ function handleDeviceLinkCreate (hub, req, res) {
       sessionId,
       nonce,
       label,
+      pollSecret,
       offerMessage,
       initiatorId,
       protocolUrl: `fabric://link?sessionId=${encodeURIComponent(sessionId)}&hub=${encodeURIComponent(origin)}`
@@ -548,6 +556,10 @@ function handleDeviceLinkCancel (hub, req, res) {
       sendJson(res, 403, { ok: false, error: 'origin does not match this session' });
       return;
     }
+    if (!requestMayRedeemSessionSecret(req, session)) {
+      sendJson(res, 403, { ok: false, error: 'poll secret required to cancel this session' });
+      return;
+    }
     if (session.status === 'linked') {
       sendJson(res, 409, { ok: false, error: 'device link is already complete' });
       return;
@@ -591,5 +603,6 @@ module.exports = {
   clientMayAccessDeviceLink,
   pruneDeviceLinkSessions: pruneSessions,
   evictDeviceLinkOriginOverflow,
-  handleDeviceLinkCancel
+  handleDeviceLinkCancel,
+  handleDeviceLinkGet
 };

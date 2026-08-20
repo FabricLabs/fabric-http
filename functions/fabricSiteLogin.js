@@ -13,7 +13,8 @@ const {
   verifyFabricDesktopLoginSignedPayload,
   isLoopbackHostname,
   isLocalRequest,
-  clientMayPollDesktopSession
+  clientMayPollDesktopSession,
+  requestMayRedeemSessionSecret
 } = require('./fabricSiteLoginVerify');
 
 const SESSION_TTL_MS = 10 * 60 * 1000;
@@ -93,10 +94,12 @@ function createSession (req, body, store) {
 
   const sessionId = randomSessionId();
   const nonce = randomNonce();
+  const pollSecret = randomNonce();
   const message = buildLoginMessage(sessionId, origin, nonce);
   store.set(sessionId, {
     origin,
     nonce,
+    pollSecret,
     message,
     createdAt: Date.now(),
     status: 'pending'
@@ -109,6 +112,7 @@ function createSession (req, body, store) {
       sessionId,
       message,
       nonce,
+      pollSecret,
       protocolUrl: `fabric://login?sessionId=${encodeURIComponent(sessionId)}&hub=${encodeURIComponent(origin)}`,
       signingModes: ['client'],
       acceptsClientSignature: true
@@ -156,6 +160,9 @@ function getSession (req, sessionId, store) {
   }
 
   if (session.status === 'signed') {
+    if (!requestMayRedeemSessionSecret(req, session)) {
+      return { status: 403, json: { ok: false, error: 'poll secret required to redeem this session' } };
+    }
     const payload = {
       ok: true,
       status: 'signed',
@@ -354,6 +361,7 @@ module.exports = {
   completeSession,
   hasClientSignatureBody,
   clientMayPollDesktopSession,
+  requestMayRedeemSessionSecret,
   tryHandleSiteLogin,
   tryHandleFabricSiteLogin: tryHandleSiteLogin,
   // re-exports for tests

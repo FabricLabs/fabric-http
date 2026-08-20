@@ -5,6 +5,8 @@
 
 **Status:** `0.1.0-RC1` — run **`npm run ci`** before release tags (tests + script build).
 
+**Mark:** serif lowercase **f** (Arvo) in white on royal purple `#4C1D95` — favicon and desktop icons from `npm run make:icons` (`assets/favicon.svg`, `assets/icons/`).
+
 Robust library for implementing Fabric-enabled Web Applications.
 
 ## What is Fabric?

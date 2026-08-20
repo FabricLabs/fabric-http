@@ -6,12 +6,16 @@
  * desktop peers stay interchangeable against LiveRelay on relay.goon.vc.
  */
 
+const crypto = require('crypto');
 const {
   buildFabricIdentitySignedPayload,
   fabricIdentityIdFromPubkeyHex,
   resolveFabricSigningIdentity,
   verifyIdentitySchnorr
 } = require('./fabricIdentitySchnorr');
+
+/** Create-response secret for signed-session redeem / device-link cancel. Not in QR. */
+const POLL_SECRET_HEADER = 'x-fabric-poll-secret';
 
 const DESKTOP_LOGIN_PREFIX = 'fabric:hub-login:1';
 
@@ -92,10 +96,11 @@ function hostHeaderMatchesSessionOrigin (requestHost, sessionOrigin) {
 }
 
 /**
- * Browser-ish poll gate for `GET /sessions/:id` and device-link GET.
+ * Browser-ish poll gate for pending `GET /sessions/:id` and device-link GET.
  * Matching Origin / Referer / Sec-Fetch-Site is **not** a possession proof —
- * non-browser clients can forge those headers. Shared-host redeem still needs
- * a one-time poll secret or signed challenge (see SECURITY.md).
+ * non-browser clients can forge those headers. Signed-session redeem and
+ * device-link cancel additionally require `requestMayRedeemSessionSecret`
+ * (`X-Fabric-Poll-Secret` from the create JSON — never from QR).
  * @param {import('http').IncomingMessage} req
  * @param {string} sessionOrigin
  * @returns {boolean}
@@ -119,6 +124,83 @@ function clientMayPollDesktopSession (req, sessionOrigin) {
     if (host && hostHeaderMatchesSessionOrigin(host, sessionOrigin)) return true;
   }
   return false;
+}
+
+/**
+ * Constant-time UTF-8 token compare (rejects empty / length-mismatched inputs).
+ * @param {string} a
+ * @param {string} b
+ * @returns {boolean}
+ */
+function tokensEqual (a, b) {
+  const left = Buffer.from(String(a || ''), 'utf8');
+  const right = Buffer.from(String(b || ''), 'utf8');
+  if (!left.length || left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
+}
+
+/**
+ * Poll secret from `X-Fabric-Poll-Secret` (or `X-Poll-Secret`) or `?pollSecret=`.
+ * Never read from `fabric://` / QR — those carry only `sessionId`.
+ * @param {import('http').IncomingMessage} [req]
+ * @returns {string}
+ */
+function pollSecretFromRequest (req) {
+  const h = req && req.headers;
+  if (h && typeof h === 'object') {
+    const header = h[POLL_SECRET_HEADER] || h['x-poll-secret'];
+    if (typeof header === 'string' && header.trim()) return header.trim();
+  }
+  if (req && req.query && typeof req.query.pollSecret === 'string') {
+    const q = String(req.query.pollSecret).trim();
+    if (q) return q;
+  }
+  if (req && typeof req.url === 'string') {
+    try {
+      const u = new URL(req.url, 'http://127.0.0.1');
+      const q = u.searchParams.get('pollSecret');
+      if (q && String(q).trim()) return String(q).trim();
+    } catch (_) { /* ignore */ }
+  }
+  return '';
+}
+
+/**
+ * True when the request presents the create-response `pollSecret`.
+ * @param {import('http').IncomingMessage} [req]
+ * @param {{ pollSecret?: string }} [session]
+ * @returns {boolean}
+ */
+function requestPresentsSessionPollSecret (req, session) {
+  const expected = session && typeof session.pollSecret === 'string' ? session.pollSecret : '';
+  if (!expected) return false;
+  return tokensEqual(pollSecretFromRequest(req), expected);
+}
+
+/**
+ * Sensitive redeem (signed login token, device-link cancel) for non-loopback
+ * clients. Direct loopback still skips the secret so local desktop/dev works.
+ * Matching Origin is **not** enough — those headers are forgeable.
+ * @param {import('http').IncomingMessage} [req]
+ * @param {{ pollSecret?: string }} [session]
+ * @returns {boolean}
+ */
+function requestMayRedeemSessionSecret (req, session) {
+  if (isLocalRequest(req)) return true;
+  return requestPresentsSessionPollSecret(req, session);
+}
+
+/**
+ * Attach `X-Fabric-Poll-Secret` when the create response stored a secret.
+ * @param {object} [headers]
+ * @param {string} [pollSecret]
+ * @returns {object}
+ */
+function applyPollSecretHeader (headers, pollSecret) {
+  const h = headers && typeof headers === 'object' ? { ...headers } : {};
+  const secret = String(pollSecret || '').trim();
+  if (secret) h['X-Fabric-Poll-Secret'] = secret;
+  return h;
 }
 
 function parseDesktopLoginMessage (msg) {
@@ -182,6 +264,7 @@ function verifyFabricDesktopLoginSignedPayload (payload, expected) {
 
 module.exports = {
   DESKTOP_LOGIN_PREFIX,
+  POLL_SECRET_HEADER,
   buildLoginMessage,
   parseDesktopLoginMessage,
   verifyFabricDesktopLoginSignedPayload,
@@ -190,6 +273,11 @@ module.exports = {
   refererOriginMatchesSession,
   hostHeaderMatchesSessionOrigin,
   clientMayPollDesktopSession,
+  tokensEqual,
+  pollSecretFromRequest,
+  requestPresentsSessionPollSecret,
+  requestMayRedeemSessionSecret,
+  applyPollSecretHeader,
   isLoopbackHostname,
   requestHasProxyForwardHeaders,
   isLocalRequest,
