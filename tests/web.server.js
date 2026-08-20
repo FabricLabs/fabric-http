@@ -378,7 +378,22 @@ describe('JSON-RPC CORS preflight (browser → localhost Hub)', function () {
       });
       assert.strictEqual(r.statusCode, 204, `body: ${r.body}`);
       const allow = (r.headers['access-control-allow-origin'] || r.headers['Access-Control-Allow-Origin']);
-      assert.ok(allow, 'expected Access-Control-Allow-Origin');
+      assert.ok(
+        allow === '*' || allow === 'chrome-extension://test',
+        'expected Access-Control-Allow-Origin to authorize the request origin'
+      );
+      assert.match(
+        String(r.headers['access-control-allow-methods'] || ''),
+        /\bPOST\b/
+      );
+      assert.match(
+        String(r.headers['access-control-allow-headers'] || ''),
+        /\bcontent-type\b/i
+      );
+      assert.match(
+        String(r.headers['access-control-allow-headers'] || ''),
+        /\bauthorization\b/i
+      );
     } finally {
       await server.stop();
     }

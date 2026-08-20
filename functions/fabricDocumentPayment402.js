@@ -37,15 +37,12 @@ function decodeFabricPaymentRequestHeaderValue (encoded) {
 
 /**
  * @param {unknown} raw
- * @returns {number|null} Rounded non-negative safe integer, or `null` if invalid
+ * @returns {number|null} Non-negative safe integer, or `null` if invalid (no `Number()` coercion)
  */
 function normalizePurchasePriceSats (raw) {
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return null;
-  const rounded = Math.round(n);
-  if (rounded < 0) return null;
-  if (!Number.isSafeInteger(rounded)) return null;
-  return rounded;
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 0) return null;
+  if (!Number.isSafeInteger(raw)) return null;
+  return raw;
 }
 
 /**

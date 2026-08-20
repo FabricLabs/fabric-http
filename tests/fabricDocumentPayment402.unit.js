@@ -49,6 +49,10 @@ describe('fabricDocumentPayment402', function () {
     assert.strictEqual(normalizePurchasePriceSats(-1), null);
     assert.strictEqual(normalizePurchasePriceSats(Number.MAX_SAFE_INTEGER + 42), null);
     assert.strictEqual(normalizePurchasePriceSats(900), 900);
+    assert.strictEqual(normalizePurchasePriceSats(true), null);
+    assert.strictEqual(normalizePurchasePriceSats(''), null);
+    assert.strictEqual(normalizePurchasePriceSats('110'), null);
+    assert.strictEqual(normalizePurchasePriceSats(1.7), null);
   });
 
   it('buildFabricDocumentPaymentRequestHeader omits invalid purchasePriceSats', function () {
