@@ -14,8 +14,8 @@ const {
   verifyIdentitySchnorr
 } = require('./fabricIdentitySchnorr');
 
-/** Create-response secret for signed-session redeem / device-link cancel. Not in QR. */
-const POLL_SECRET_HEADER = 'x-fabric-poll-secret';
+/** Create-response header for signed-session redeem / device-link cancel. Not in QR. */
+const FABRIC_POLL_HEADER = 'x-fabric-poll-secret';
 
 const DESKTOP_LOGIN_PREFIX = 'fabric:hub-login:1';
 
@@ -140,27 +140,17 @@ function tokensEqual (a, b) {
 }
 
 /**
- * Poll secret from `X-Fabric-Poll-Secret` (or `X-Poll-Secret`) or `?pollSecret=`.
- * Never read from `fabric://` / QR — those carry only `sessionId`.
+ * Poll secret from `X-Fabric-Poll-Secret` (or `X-Poll-Secret`) only.
+ * Query strings, `fabric://`, and QR stay sessionId-only so the secret
+ * cannot leak via logs, Referer, or a copied URL.
  * @param {import('http').IncomingMessage} [req]
  * @returns {string}
  */
 function pollSecretFromRequest (req) {
   const h = req && req.headers;
   if (h && typeof h === 'object') {
-    const header = h[POLL_SECRET_HEADER] || h['x-poll-secret'];
+    const header = h[FABRIC_POLL_HEADER] || h['x-poll-secret'];
     if (typeof header === 'string' && header.trim()) return header.trim();
-  }
-  if (req && req.query && typeof req.query.pollSecret === 'string') {
-    const q = String(req.query.pollSecret).trim();
-    if (q) return q;
-  }
-  if (req && typeof req.url === 'string') {
-    try {
-      const u = new URL(req.url, 'http://127.0.0.1');
-      const q = u.searchParams.get('pollSecret');
-      if (q && String(q).trim()) return String(q).trim();
-    } catch (_) { /* ignore */ }
   }
   return '';
 }
@@ -264,7 +254,7 @@ function verifyFabricDesktopLoginSignedPayload (payload, expected) {
 
 module.exports = {
   DESKTOP_LOGIN_PREFIX,
-  POLL_SECRET_HEADER,
+  FABRIC_POLL_HEADER,
   buildLoginMessage,
   parseDesktopLoginMessage,
   verifyFabricDesktopLoginSignedPayload,

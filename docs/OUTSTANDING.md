@@ -4,7 +4,7 @@ Living queue for this repo. Detail and closed items live in [SECURITY.md](../SEC
 **Last reviewed:** 2026-08-20. [#69](https://github.com/FabricLabs/fabric-http/pull/69) signed-session redeem and device-link **DELETE** now require the create-response `pollSecret` off-loopback. Remaining: bind `sessionId` into device-link attest messages (coordinated client bump); device-link GET `linked` still Origin-gated so the responder (QR only) can read attestations. Already in tree: Hub self-sign loopback, `wss:` origin map, HTTPS allowlist, `offerReplayKey` canonicalize, `security@fabric.pub`, SLIP-0044 row-count, peer port `1..65535`, WS close wait, commit Transaction assertion, POST-null 400, device-link cancel `ok: false`. File-count: restored generated `libraries/fomantic/dist` and `docs/*.html` from FabricLabs/master (`4779a319`) so GitHub/CodeRabbit stop counting vendor/JSDoc deletes. Do not add playnet/nmap/wasm/backups trees.
 
 ## Blockers before treating public Hub login as browser-grade auth
-1. **Coordinated clients** — Hub SPA, GoonSPA, GoonCitizen `SiteLogin`, and Passport initiator cancel must send `X-Fabric-Poll-Secret` from the create JSON. Do not put `pollSecret` on `fabric://` / QR.
+1. **Coordinated clients** — Hub SPA, GoonSPA, GoonCitizen `SiteLogin`, and Passport initiator cancel must send `X-Fabric-Poll-Secret` from the create JSON. Do not put `pollSecret` on `fabric://` / QR / query strings.
 2. **Bind `sessionId` into device-link attest messages** — coordinated Passport / desktop / GoonCitizen bump so a captured signature cannot recreate `linked` under a new id.
 
 ## Next slices

@@ -4,6 +4,8 @@
  * Render the canonical Fabric lettermark (serif lowercase f) and copy it into
  * package `assets/` plus sibling app trees (Hub, GoonCitizen, goon.vc, Passport).
  *
+ * Requires macOS (`swift`, `sips`, `iconutil`).
+ *
  *   node scripts/render-fabric-icon.js
  *   node scripts/render-fabric-icon.js --no-sync
  */
@@ -222,6 +224,9 @@ function writeAndroidLaunchers (appRoot, masterPng) {
 }
 
 function main () {
+  if (process.platform !== 'darwin') {
+    throw new Error('npm run make:icons requires macOS (swift, sips, iconutil)');
+  }
   const noSync = process.argv.includes('--no-sync');
   if (!fs.existsSync(FONT)) {
     throw new Error('Arvo Bold TTF missing: ' + FONT);

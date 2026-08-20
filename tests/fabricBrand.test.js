@@ -14,6 +14,9 @@ const constants = require('../constants');
 const SPA = require('../types/spa');
 
 describe('fabricBrand', function () {
+  // Coverage instrumentation can slow SPA bootstrap enough to hit Mocha's 2s default.
+  this.timeout(15000);
+
   it('canonizes a white serif f on royal purple', function () {
     assert.strictEqual(FABRIC_BRAND_LETTER, 'f');
     assert.strictEqual(FABRIC_BRAND_FOREGROUND, '#FFFFFF');

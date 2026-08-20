@@ -6,7 +6,7 @@
  * Highs: Hub self-sign is loopback-only; GET /sessions/:delegationToken is not
  * a registry credential without matching Bearer. Signed-session redeem and
  * device-link cancel require the create-response `pollSecret` off-loopback
- * (`X-Fabric-Poll-Secret`; never on `fabric://` / QR). Medium: `wss:` / `ws:` Hub
+ * (`X-Fabric-Poll-Secret` header only; never on `fabric://` / QR / query). Medium: `wss:` / `ws:` Hub
  * addresses map to `https:` / `http:` page origins and do not fail-open for
  * `https://wss`.
  */
@@ -208,6 +208,59 @@ describe('@fabric/http PR #69 review coverage', function () {
     assert.strictEqual(body.status, 'signed');
     assert.ok(body.delegationToken);
     assert.strictEqual(hub._desktopAuthSessions.has(sessionId), false);
+  });
+
+  it('remote GET of a signed session ignores ?pollSecret=', function () {
+    const sessionId = '66'.repeat(24);
+    const pollSecret = '77'.repeat(32);
+    const hub = {
+      _desktopAuthSessions: new Map([[sessionId, {
+        status: 'signed',
+        origin: 'https://hub.fabric.pub',
+        pollSecret,
+        identity: { id: 'id1', xpub: 'xpub1' },
+        signer: 'client',
+        createdAt: Date.now()
+      }]])
+    };
+    const denied = mockRes();
+    handleSessionGet(hub, {
+      params: { sessionId },
+      url: '/sessions/' + sessionId + '?pollSecret=' + pollSecret,
+      query: { pollSecret },
+      headers: { origin: 'https://hub.fabric.pub', accept: 'application/json' },
+      socket: { remoteAddress: '203.0.113.9' }
+    }, denied);
+    assert.strictEqual(denied.out.statusCode, 403);
+    assert.strictEqual(hub._desktopAuthSessions.has(sessionId), true);
+  });
+
+  it('remote GET of a signed session with the wrong pollSecret is 403 (token stays)', function () {
+    const sessionId = '88'.repeat(24);
+    const pollSecret = '99'.repeat(32);
+    const wrong = 'aa'.repeat(32);
+    const hub = {
+      _desktopAuthSessions: new Map([[sessionId, {
+        status: 'signed',
+        origin: 'https://hub.fabric.pub',
+        pollSecret,
+        identity: { id: 'id1', xpub: 'xpub1' },
+        signer: 'client',
+        createdAt: Date.now()
+      }]])
+    };
+    const denied = mockRes();
+    handleSessionGet(hub, {
+      params: { sessionId },
+      headers: {
+        origin: 'https://hub.fabric.pub',
+        accept: 'application/json',
+        'x-fabric-poll-secret': wrong
+      },
+      socket: { remoteAddress: '203.0.113.9' }
+    }, denied);
+    assert.strictEqual(denied.out.statusCode, 403);
+    assert.strictEqual(hub._desktopAuthSessions.has(sessionId), true);
   });
 
   it('loopback GET of a signed session does not need pollSecret', function () {

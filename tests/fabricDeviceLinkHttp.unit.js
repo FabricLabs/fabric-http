@@ -250,6 +250,30 @@ describe('fabricDeviceLinkHttp cancel', function () {
     assert.strictEqual(hub._deviceLinkSessions.has(sessionId), true);
   });
 
+  it('DELETE of a pending remote session with the wrong pollSecret is 403', function () {
+    const sessionId = 'ee'.repeat(24);
+    const pollSecret = '11'.repeat(32);
+    const hub = {
+      _deviceLinkSessions: new Map([[sessionId, {
+        status: 'pending',
+        origin: 'https://relay.goon.vc',
+        pollSecret,
+        createdAt: Date.now()
+      }]])
+    };
+    const res = mockRes();
+    handleDeviceLinkCancel(hub, {
+      params: { sessionId },
+      headers: {
+        origin: 'https://relay.goon.vc',
+        'x-fabric-poll-secret': '22'.repeat(32)
+      },
+      socket: { remoteAddress: '203.0.113.9' }
+    }, res);
+    assert.strictEqual(res.out.statusCode, 403);
+    assert.strictEqual(hub._deviceLinkSessions.has(sessionId), true);
+  });
+
   it('GET pending still works with Origin only (responder has QR sessionId)', function () {
     const sessionId = 'ab'.repeat(24);
     const hub = {
