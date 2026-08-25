@@ -63,6 +63,7 @@
     "functions/**/*.js",
     "services/**/*.js",
     "middlewares/**/*.js",
+    "components/**/*.js",
     "contracts/hasRole.js",
     "constants.js",
     "module.js",
