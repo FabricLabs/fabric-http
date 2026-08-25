@@ -68,3 +68,11 @@ config.json
 
 # Fomantic Gulp output — `npm run build:semantic` mirrors this into assets/
 libraries/fomantic/dist/**
+
+# Stale 2022 browser bundle + local scratch (not the Hub SPA)
+assets/scripts/fabric.http.js
+assets/scripts/index.min.js
+backups/
+reports/nmap-*.txt
+reports/nyc/
+reports/coverage.lcov

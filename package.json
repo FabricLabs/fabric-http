@@ -58,6 +58,24 @@
     "node": "24.15.0",
     "npm": ">=12.0.0"
   },
+  "files": [
+    "types/**/*.js",
+    "functions/**/*.js",
+    "services/**/*.js",
+    "middlewares/**/*.js",
+    "constants.js",
+    "module.js",
+    "settings/**/*.js",
+    "settings/**/*.json",
+    "scripts/node.js",
+    "assets/**",
+    "!assets/scripts/fabric.http.js",
+    "!assets/scripts/index.min.js",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "SECURITY.md"
+  ],
   "exports": {
     ".": "./types/web.js",
     "./module.js": "./module.js",

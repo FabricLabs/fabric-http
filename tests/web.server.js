@@ -51,6 +51,8 @@ describe('@fabric/http/types/server', function () {
         throw E;
       }
 
+      assert.strictEqual(server.http.listening, true);
+
       try {
         await server.stop();
       } catch (E) {

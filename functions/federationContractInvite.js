@@ -8,11 +8,79 @@
  * `@fabric/core/functions/applicationNamespaces`.
  *
  * v2 optional fields include Hub co-signer policy plus app labels:
- * `inviteePubkey`, `groupId`, `groupName`.
+ * `inviteePubkey`, `groupId`, `groupName`. Built invites stamp `expiresAt`
+ * (epoch ms, default 7 days after `invitedAt`).
  */
 
 const FEDERATION_CONTRACT_INVITE = 'FederationContractInvite';
 const FEDERATION_CONTRACT_INVITE_RESPONSE = 'FederationContractInviteResponse';
+/** Default lifetime for shareable FederationContractInvite JSON (7 days). */
+const DEFAULT_FEDERATION_INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Canonical expire timestamp as epoch milliseconds.
+ * Accepts a number (ms) or an ISO-8601 string. Missing / empty → null.
+ * @param {unknown} value
+ * @returns {number|null}
+ */
+function normalizeInviteExpiresAtMs (value) {
+  if (value == null || value === '') return null;
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return Math.floor(value);
+  }
+  if (typeof value === 'string') {
+    const t = value.trim();
+    if (!t) return null;
+    if (/^\d+(\.\d+)?$/.test(t)) {
+      const n = Number(t);
+      if (Number.isFinite(n) && n > 0) return Math.floor(n);
+      return null;
+    }
+    const parsed = Date.parse(t);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return null;
+}
+
+/** @param {unknown} value @returns {number|null} Positive epoch ms, or null. */
+function positiveEpochMs (value) {
+  if (value == null || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * Resolve expiresAt for a new invite. Explicit `expiresAt` wins; otherwise
+ * `invitedAt` (or now) + `ttlMs` (default 7 days).
+ * @param {object} [fields]
+ * @returns {number}
+ */
+function resolveFederationInviteExpiresAt (fields = {}) {
+  const invitedAt = positiveEpochMs(fields.invitedAt) ?? Date.now();
+  if (fields.expiresAt != null && fields.expiresAt !== '') {
+    const exp = normalizeInviteExpiresAtMs(fields.expiresAt);
+    if (exp == null) throw new TypeError('invalid expiresAt');
+    return exp;
+  }
+  let ttl = DEFAULT_FEDERATION_INVITE_TTL_MS;
+  if (fields.ttlMs != null && Number.isFinite(Number(fields.ttlMs))) {
+    ttl = Math.max(1, Math.floor(Number(fields.ttlMs)));
+  }
+  return invitedAt + ttl;
+}
+
+/**
+ * Legacy invites without expiresAt remain valid. Present + past → expired.
+ * @param {object} invite
+ * @param {number} [now]
+ * @returns {boolean}
+ */
+function federationInviteIsExpired (invite, now = Date.now()) {
+  if (!invite || typeof invite !== 'object') return false;
+  const exp = normalizeInviteExpiresAtMs(invite.expiresAt);
+  if (exp == null) return false;
+  return now > exp;
+}
 
 /**
  * @param {unknown} raw
@@ -71,6 +139,11 @@ function parseFederationContractInvite (content) {
     if (ver !== 1 && ver !== 2) return null;
     if (!p.inviteId || typeof p.inviteId !== 'string') return null;
     if (!validateInviteV2PolicyFields(p)) return null;
+    if (Object.prototype.hasOwnProperty.call(p, 'expiresAt') && p.expiresAt != null && p.expiresAt !== '') {
+      const exp = normalizeInviteExpiresAtMs(p.expiresAt);
+      if (exp == null) return null;
+      p.expiresAt = exp;
+    }
     return p;
   } catch (_) {
     return null;
@@ -84,6 +157,11 @@ function parseFederationContractInviteLoose (value) {
     if (ver !== 1 && ver !== 2) return null;
     if (!value.inviteId || typeof value.inviteId !== 'string') return null;
     if (!validateInviteV2PolicyFields(value)) return null;
+    if (Object.prototype.hasOwnProperty.call(value, 'expiresAt') && value.expiresAt != null && value.expiresAt !== '') {
+      const exp = normalizeInviteExpiresAtMs(value.expiresAt);
+      if (exp == null) return null;
+      if (value.expiresAt !== exp) value.expiresAt = exp;
+    }
     return value;
   }
   return parseFederationContractInvite(value);
@@ -156,8 +234,11 @@ function buildFederationContractInviteJson (fields) {
       ? String(fields.contractId).trim()
       : null,
     note: fields.note != null && String(fields.note).trim() ? String(fields.note).trim().slice(0, 2000) : null,
-    invitedAt: fields.invitedAt != null ? Number(fields.invitedAt) : Date.now()
+    invitedAt: positiveEpochMs(fields.invitedAt) ?? Date.now()
   };
+  doc.expiresAt = resolveFederationInviteExpiresAt(Object.assign({}, fields, {
+    invitedAt: doc.invitedAt
+  }));
   if (spendingTerms) doc.spendingTerms = spendingTerms;
   if (proposedPolicy) doc.proposedPolicy = proposedPolicy;
   if (termsSummary) doc.termsSummary = termsSummary;
@@ -186,7 +267,7 @@ function buildFederationContractInviteResponseJson (fields) {
     responderPubkey: fields.responderPubkey != null && String(fields.responderPubkey).trim()
       ? String(fields.responderPubkey).trim()
       : null,
-    respondedAt: fields.respondedAt != null ? Number(fields.respondedAt) : Date.now()
+    respondedAt: positiveEpochMs(fields.respondedAt) ?? Date.now()
   });
 }
 
@@ -208,6 +289,11 @@ function formatFederationInviteSpendingSummary (invite) {
 module.exports = {
   FEDERATION_CONTRACT_INVITE,
   FEDERATION_CONTRACT_INVITE_RESPONSE,
+  DEFAULT_FEDERATION_INVITE_TTL_MS,
+  positiveEpochMs,
+  normalizeInviteExpiresAtMs,
+  resolveFederationInviteExpiresAt,
+  federationInviteIsExpired,
   normalizeSpendingTerms,
   normalizeProposedPolicy,
   validateInviteV2PolicyFields,

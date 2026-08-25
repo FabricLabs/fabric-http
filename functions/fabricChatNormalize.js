@@ -30,15 +30,18 @@ function normalizeP2pChatMessage (chat, opts = {}) {
     ? chat.object
     : {};
   const actorId = chatActorIdOf(chat, opts) || 'unknown';
+  // `Number(null)` and `Number('')` are 0, which is finite — so a plain
+  // `isFinite` gate would accept epoch 0 and skip the `ts` fallback, stamping
+  // 1970 onto messages that carry a good timestamp. Require a positive value.
   let created = Number(objIn.created);
-  if (!Number.isFinite(created) && objIn.ts) {
+  if (!(created > 0) && objIn.ts) {
     const parsed = Date.parse(objIn.ts);
-    created = Number.isFinite(parsed) ? parsed : Date.now();
+    created = parsed > 0 ? parsed : Date.now();
   }
-  if (!Number.isFinite(created) && chat && typeof chat === 'object' && chat.created != null) {
+  if (!(created > 0) && chat && typeof chat === 'object' && chat.created != null) {
     created = Number(chat.created);
   }
-  if (!Number.isFinite(created)) created = Date.now();
+  if (!(created > 0)) created = Date.now();
 
   const object = {
     content: text,

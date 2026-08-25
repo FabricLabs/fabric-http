@@ -71,6 +71,37 @@ describe('@fabric/http fabricChatNormalize', function () {
     assert.ok(!Object.prototype.hasOwnProperty.call(bare, 'target'));
     assert.strictEqual(typeof bare.object.created, 'number');
   });
+
+  it('never emits a non-positive created (epoch 0 breaks chat sort order)', function () {
+    // `Number(null)` and `Number('')` are 0, which is finite. Gating the
+    // fallbacks on `isFinite` alone accepted epoch 0 and, worse, skipped the
+    // `ts` fallback entirely — stamping 1970 onto messages carrying a good
+    // timestamp. Hub used to patch this downstream; it belongs here.
+    const before = Date.now();
+    for (const created of [null, '', 0, -5, NaN, 'nope', undefined]) {
+      const out = normalizeP2pChatMessage({ object: { content: 'hi', created } });
+      assert.ok(out.object.created > 0, `created=${String(created)} produced ${out.object.created}`);
+      assert.ok(out.object.created >= before, `created=${String(created)} should fall back to now()`);
+    }
+  });
+
+  it('falls back to object.ts when created is missing or non-positive', function () {
+    const ts = '2026-08-24T00:00:00.000Z';
+    for (const created of [null, '', 0, undefined]) {
+      const out = normalizeP2pChatMessage({ object: { content: 'hi', created, ts } });
+      assert.strictEqual(out.object.created, Date.parse(ts), `created=${String(created)}`);
+    }
+    // An unparseable `ts` still yields now(), not NaN or 0.
+    const bad = normalizeP2pChatMessage({ object: { content: 'hi', created: null, ts: 'not-a-date' } });
+    assert.ok(bad.object.created > 0);
+  });
+
+  it('honours a positive created and the outer chat.created fallback', function () {
+    const exact = normalizeP2pChatMessage({ object: { content: 'hi', created: 1700000000000 } });
+    assert.strictEqual(exact.object.created, 1700000000000);
+    const outer = normalizeP2pChatMessage({ created: 1600000000000, object: { content: 'hi', created: null } });
+    assert.strictEqual(outer.object.created, 1600000000000);
+  });
 });
 
 describe('@fabric/http fabricPeeringHttp', function () {

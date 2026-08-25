@@ -10,7 +10,11 @@ const {
   buildFederationContractInviteResponseJson,
   normalizeSpendingTerms,
   normalizeProposedPolicy,
-  formatFederationInviteSpendingSummary
+  formatFederationInviteSpendingSummary,
+  DEFAULT_FEDERATION_INVITE_TTL_MS,
+  positiveEpochMs,
+  normalizeInviteExpiresAtMs,
+  federationInviteIsExpired
 } = require('../functions/federationContractInvite');
 
 describe('federationContractInvite (@fabric/http)', function () {
@@ -28,7 +32,57 @@ describe('federationContractInvite (@fabric/http)', function () {
     assert.strictEqual(p.contractId, 'c1');
     assert.strictEqual(p.note, 'hello');
     assert.strictEqual(p.invitedAt, 99);
+    assert.strictEqual(p.expiresAt, 99 + DEFAULT_FEDERATION_INVITE_TTL_MS);
     assert.strictEqual(p.v, 1);
+  });
+
+  it('defaults expiresAt to 7 days after invitedAt and honours an explicit value', function () {
+    const json = buildFederationContractInviteJson({
+      inviteId: 'exp-1',
+      inviterHubId: 'deadbeef',
+      invitedAt: 1_700_000_000_000
+    });
+    const p = parseFederationContractInvite(json);
+    assert.strictEqual(p.expiresAt, 1_700_000_000_000 + DEFAULT_FEDERATION_INVITE_TTL_MS);
+    assert.strictEqual(federationInviteIsExpired(p, 1_700_000_000_000 + DEFAULT_FEDERATION_INVITE_TTL_MS), false);
+    assert.strictEqual(federationInviteIsExpired(p, 1_700_000_000_000 + DEFAULT_FEDERATION_INVITE_TTL_MS + 1), true);
+
+    const custom = parseFederationContractInvite(buildFederationContractInviteJson({
+      inviteId: 'exp-2',
+      inviterHubId: 'deadbeef',
+      invitedAt: 1_700_000_000_000,
+      expiresAt: 1_700_000_000_000 + 3600000
+    }));
+    assert.strictEqual(custom.expiresAt, 1_700_000_000_000 + 3600000);
+
+    const ttl = parseFederationContractInvite(buildFederationContractInviteJson({
+      inviteId: 'exp-3',
+      inviterHubId: 'deadbeef',
+      invitedAt: 50,
+      ttlMs: 10
+    }));
+    assert.strictEqual(ttl.expiresAt, 60);
+    assert.strictEqual(federationInviteIsExpired({ type: 'FederationContractInvite', inviteId: 'legacy' }), false);
+  });
+
+  it('rejects non-positive invitedAt and expiresAt timestamps', function () {
+    assert.strictEqual(positiveEpochMs(null), null);
+    assert.strictEqual(positiveEpochMs(0), null);
+    assert.strictEqual(positiveEpochMs(-1), null);
+    assert.strictEqual(positiveEpochMs(''), null);
+    assert.strictEqual(positiveEpochMs(42), 42);
+    assert.strictEqual(normalizeInviteExpiresAtMs(0), null);
+    assert.strictEqual(normalizeInviteExpiresAtMs(-5), null);
+
+    const before = Date.now();
+    const zeroInvited = parseFederationContractInvite(buildFederationContractInviteJson({
+      inviteId: 'zero-invited',
+      inviterHubId: 'deadbeef',
+      invitedAt: 0
+    }));
+    const after = Date.now();
+    assert.ok(zeroInvited.invitedAt >= before && zeroInvited.invitedAt <= after);
+    assert.strictEqual(zeroInvited.expiresAt, zeroInvited.invitedAt + DEFAULT_FEDERATION_INVITE_TTL_MS);
   });
 
   it('round-trips extended invite with app group labels', function () {
@@ -73,6 +127,20 @@ describe('federationContractInvite (@fabric/http)', function () {
     assert.strictEqual(p.accept, true);
     assert.strictEqual(p.responderPubkey, '02aa');
     assert.strictEqual(p.respondedAt, 1);
+  });
+
+  it('never stamps non-positive respondedAt on invite responses', function () {
+    const before = Date.now();
+    const p = parseFederationContractInviteResponse(
+      buildFederationContractInviteResponseJson({
+        inviteId: 'resp-zero',
+        accept: false,
+        respondedAt: 0
+      })
+    );
+    const after = Date.now();
+    assert.ok(p.respondedAt >= before && p.respondedAt <= after);
+    assert.strictEqual(p.accept, false);
   });
 
   it('rejects malformed payloads', function () {
@@ -136,6 +204,14 @@ describe('federationContractInvite (@fabric/http)', function () {
     });
     assert.strictEqual(parseFederationContractInvite(badPolicy), null);
     assert.strictEqual(parseFederationContractInviteLoose(JSON.parse(badPolicy)), null);
+
+    const badExpiry = JSON.stringify({
+      type: 'FederationContractInvite',
+      v: 1,
+      inviteId: 'x',
+      expiresAt: 'not-a-date'
+    });
+    assert.strictEqual(parseFederationContractInvite(badExpiry), null);
   });
 
   it('buildFederationContractInviteResponseJson requires boolean accept', function () {

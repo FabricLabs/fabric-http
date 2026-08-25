@@ -2477,8 +2477,19 @@ class FabricHTTPServer extends Service {
     }
 
     if (this.settings.listen) {
-      this.http.on('listening', notifyReady);
-      await this.http.listen(this.settings.port, this.interface);
+      await new Promise((resolve, reject) => {
+        const srv = this.http;
+        const onErr = (err) => {
+          srv.removeListener('error', onErr);
+          reject(err);
+        };
+        srv.once('error', onErr);
+        srv.listen(this.settings.port, this.interface, () => {
+          srv.removeListener('error', onErr);
+          notifyReady();
+          resolve();
+        });
+      });
     } else {
       if ((this.settings.verbosity || 0) >= 3) {
         console.warn('[HTTP:SERVER]', 'Listening is disabled.  Only events will be emitted!');
