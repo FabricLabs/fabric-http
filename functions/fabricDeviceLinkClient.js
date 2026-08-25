@@ -33,20 +33,17 @@ function deviceLinkHeaders (origin, opts = {}) {
 }
 
 /**
+ * Prepare a device-link session (server-only nonce + sessionId-bound offer).
  * @param {object} opts
  * @param {string} opts.hubBase
  * @param {string} opts.origin
- * @param {string} opts.label
+ * @param {string} [opts.label]
  * @param {{ id: string, xpub: string }} opts.identity
- * @param {string} opts.pubkeyHex
- * @param {string} opts.signature — BIP340 over buildDeviceLinkOfferMessage(...)
  * @param {typeof fetch} [opts.fetchImpl]
  */
-async function createDeviceLinkOffer (opts) {
+async function prepareDeviceLinkOffer (opts) {
   const fetchImpl = opts.fetchImpl || globalThis.fetch;
   const hubBase = String(opts.hubBase || '').replace(/\/$/, '');
-  // Require the browser page origin — do not silently fall back to hubBase
-  // (that can skip session gates that compare Origin to the declared page).
   const origin = String(opts.origin || '').trim().replace(/\/$/, '');
   if (!origin) {
     return { ok: false, error: 'origin required (browser page origin)' };
@@ -57,7 +54,42 @@ async function createDeviceLinkOffer (opts) {
     body: JSON.stringify({
       origin,
       label: opts.label || 'device',
-      nonce: opts.nonce || undefined,
+      identity: opts.identity
+    }),
+    cache: 'no-store'
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) {
+    return { ok: false, error: (data && data.error) || `HTTP ${res.status}` };
+  }
+  return { ok: true, ...data };
+}
+
+/**
+ * Commit a prepared offer with the initiator Schnorr signature.
+ * @param {object} opts
+ * @param {string} opts.sessionId
+ * @param {string} opts.hubBase
+ * @param {string} opts.origin
+ * @param {{ id: string, xpub: string }} opts.identity
+ * @param {string} opts.pubkeyHex
+ * @param {string} opts.signature
+ * @param {typeof fetch} [opts.fetchImpl]
+ */
+async function commitDeviceLinkOffer (opts) {
+  const fetchImpl = opts.fetchImpl || globalThis.fetch;
+  const hubBase = String(opts.hubBase || '').replace(/\/$/, '');
+  const origin = String(opts.origin || '').trim().replace(/\/$/, '');
+  if (!origin) {
+    return { ok: false, error: 'origin required (browser page origin)' };
+  }
+  const res = await fetchImpl(`${hubBase}/device-links`, {
+    method: 'POST',
+    headers: deviceLinkHeaders(origin),
+    body: JSON.stringify({
+      origin,
+      sessionId: opts.sessionId,
+      label: opts.label || 'device',
       identity: opts.identity,
       pubkeyHex: opts.pubkeyHex,
       signature: opts.signature
@@ -69,6 +101,16 @@ async function createDeviceLinkOffer (opts) {
     return { ok: false, error: (data && data.error) || `HTTP ${res.status}` };
   }
   return { ok: true, ...data };
+}
+
+/**
+ * @deprecated Prefer prepareDeviceLinkOffer + commitDeviceLinkOffer (v2 protocol).
+ */
+async function createDeviceLinkOffer (opts) {
+  if (!opts.signature) {
+    return prepareDeviceLinkOffer(opts);
+  }
+  return commitDeviceLinkOffer(opts);
 }
 
 async function fetchDeviceLinkSession (hubBase, sessionId, opts = {}) {
@@ -153,6 +195,8 @@ module.exports = {
   buildDeviceLinkOfferMessage,
   buildDeviceLinkMessage,
   parseDeviceLinkMessage,
+  prepareDeviceLinkOffer,
+  commitDeviceLinkOffer,
   createDeviceLinkOffer,
   fetchDeviceLinkSession,
   postDeviceLinkSignature,

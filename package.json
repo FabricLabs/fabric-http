@@ -111,6 +111,7 @@
     "./functions/fabricPeerHost": "./functions/fabricPeerHost.js",
     "./functions/fabricPubkey": "./functions/fabricPubkey.js",
     "./functions/fabricChatNormalize": "./functions/fabricChatNormalize.js",
+    "./functions/fabricMessageParent": "./functions/fabricMessageParent.js",
     "./functions/fabricPeeringHttp": "./functions/fabricPeeringHttp.js",
     "./functions/fabricBrand": "./functions/fabricBrand.js"
   },

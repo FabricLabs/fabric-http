@@ -4,14 +4,15 @@
  * Mutual device-link attestations (Passport ↔ Hub ↔ desktop peers).
  *
  * Challenge (both parties BIP340-sign the same UTF-8 string):
- *   fabric:device-link:1:<64-hex nonce>:<initiatorId>:<responderId>:<label>
+ *   fabric:device-link:2:<sessionId>:<64-hex nonce>:<initiatorId>:<responderId>:<label>
  *
  * Flow (Hub rendezvous under `/device-links`):
- * 1. Initiator POST /device-links with identity + Schnorr over an *offer* preamble
- *    (or create unsigned pending + sign later — we require initiator offer signature).
- * 2. Responder GET pending, POST …/signatures { role:'responder', … }.
- * 3. Initiator POST …/signatures { role:'initiator', … } countersigns the link message.
- * 4. GET returns status `linked` with both attestations until SESSION_TTL_MS.
+ * 1. Initiator POST /device-links **without** signature → `{ sessionId, nonce, offerMessage, pollSecret }`
+ *    (server-only nonce; client must not send `nonce`).
+ * 2. Initiator POST /device-links with `sessionId` + Schnorr over `offerMessage` → `pending`.
+ * 3. Responder GET pending, POST …/signatures { role:'responder', … }.
+ * 4. Initiator POST …/signatures { role:'initiator', … } countersigns the link message.
+ * 5. GET returns status `linked` with both attestations until SESSION_TTL_MS.
  *    Pending/accepted GET stays Origin-gated so the responder (QR `sessionId`
  *    only) can sign. DELETE of pending/accepted requires the create-response
  *    `pollSecret` off-loopback so a captured QR cannot cancel the offer.
@@ -29,6 +30,9 @@ const {
 } = require('./fabricSiteLoginVerify');
 const {
   DEVICE_LINK_PREFIX,
+  DEVICE_LINK_V1_PREFIX,
+  DEVICE_LINK_V2_PREFIX,
+  isSessionIdHex,
   buildDeviceLinkMessage,
   buildDeviceLinkOfferMessage,
   parseDeviceLinkMessage
@@ -188,6 +192,122 @@ function identityFromXpub (xpub) {
   };
 }
 
+function handleDeviceLinkPrepare (hub, req, res, ctx) {
+  const { origin, label, initiatorId, initiatorPubkeyHex, identity } = ctx;
+  if (ctx.bodyNonce) {
+    sendJson(res, 400, {
+      ok: false,
+      error: 'client nonce rejected; omit nonce and sign the server offerMessage'
+    });
+    return;
+  }
+  const sessionId = randomSessionId();
+  const nonce = randomNonce();
+  const replayKey = offerReplayKey(nonce, initiatorId, origin);
+  if (offerKeyInUse(hub, replayKey)) {
+    sendJson(res, 409, {
+      ok: false,
+      error: 'offer nonce already used for this initiator/origin (replay rejected)'
+    });
+    return;
+  }
+  const offerMessage = buildDeviceLinkOfferMessage(sessionId, nonce, initiatorId, label, origin);
+  const pollSecret = randomNonce();
+  evictDeviceLinkOriginOverflow(hub, origin);
+  hub._deviceLinkSessions.set(sessionId, {
+    origin,
+    nonce,
+    pollSecret,
+    label,
+    createdAt: Date.now(),
+    status: 'awaiting_offer',
+    initiator: {
+      id: initiatorId,
+      xpub: identity.xpub,
+      pubkeyHex: initiatorPubkeyHex
+    },
+    offerMessage,
+    responder: null,
+    initiatorCountersignature: null,
+    linkMessage: null
+  });
+  sendJson(res, 200, {
+    ok: true,
+    status: 'awaiting_offer',
+    sessionId,
+    nonce,
+    label,
+    pollSecret,
+    offerMessage,
+    initiatorId,
+    protocolUrl: `fabric://link?sessionId=${encodeURIComponent(sessionId)}&hub=${encodeURIComponent(origin)}`
+  });
+}
+
+function handleDeviceLinkCommit (hub, req, res, ctx) {
+  const {
+    origin,
+    label,
+    initiatorId,
+    initiatorPubkeyHex,
+    identity,
+    signature,
+    pubkeyHex,
+    sessionId,
+    bodyNonce
+  } = ctx;
+  if (bodyNonce) {
+    sendJson(res, 400, {
+      ok: false,
+      error: 'client nonce rejected; omit nonce and sign the server offerMessage'
+    });
+    return;
+  }
+  if (!sessionId || !isSessionIdHex(sessionId)) {
+    sendJson(res, 400, { ok: false, error: 'sessionId required (48 hex chars)' });
+    return;
+  }
+  const session = hub._deviceLinkSessions.get(sessionId);
+  if (!session) {
+    sendJson(res, 404, { ok: false, error: 'unknown or expired device link' });
+    return;
+  }
+  if (session.status !== 'awaiting_offer') {
+    sendJson(res, 409, { ok: false, error: 'session is not awaiting an offer signature' });
+    return;
+  }
+  if (normalizeHubOrigin(session.origin) !== origin) {
+    sendJson(res, 403, { ok: false, error: 'origin does not match this session' });
+    return;
+  }
+  if (session.initiator.id !== initiatorId || session.initiator.pubkeyHex !== initiatorPubkeyHex) {
+    sendJson(res, 400, { ok: false, error: 'identity does not match prepared session' });
+    return;
+  }
+  const offerVerify = verifyIdentitySchnorr(session.offerMessage, signature, pubkeyHex, {
+    id: initiatorId,
+    xpub: identity.xpub
+  });
+  if (!offerVerify.ok) {
+    sendJson(res, 400, { ok: false, error: offerVerify.error || 'invalid offer signature' });
+    return;
+  }
+  session.status = 'pending';
+  session.initiator.offerSignature = signature.toLowerCase();
+  session.initiator.offerMessage = session.offerMessage;
+  sendJson(res, 200, {
+    ok: true,
+    status: 'pending',
+    sessionId,
+    nonce: session.nonce,
+    label: session.label || label,
+    pollSecret: session.pollSecret,
+    offerMessage: session.offerMessage,
+    initiatorId,
+    protocolUrl: `fabric://link?sessionId=${encodeURIComponent(sessionId)}&hub=${encodeURIComponent(origin)}`
+  });
+}
+
 function handleDeviceLinkCreate (hub, req, res) {
   try {
     if (!hub._deviceLinkSessions) hub._deviceLinkSessions = new Map();
@@ -223,8 +343,11 @@ function handleDeviceLinkCreate (hub, req, res) {
     const identity = body.identity;
     const signature = typeof body.signature === 'string' ? body.signature.trim() : '';
     const pubkeyHex = typeof body.pubkeyHex === 'string' ? body.pubkeyHex.trim() : '';
-    if (!identity || typeof identity !== 'object' || !identity.xpub || !signature || !pubkeyHex) {
-      sendJson(res, 400, { ok: false, error: 'identity.xpub, pubkeyHex, and signature required' });
+    const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim().toLowerCase() : '';
+    const bodyNonce = typeof body.nonce === 'string' && body.nonce.trim() ? body.nonce.trim().toLowerCase() : '';
+
+    if (!identity || typeof identity !== 'object' || !identity.xpub) {
+      sendJson(res, 400, { ok: false, error: 'identity.xpub required' });
       return;
     }
 
@@ -242,70 +365,33 @@ function handleDeviceLinkCreate (hub, req, res) {
       sendJson(res, 400, { ok: false, error: 'Identity id does not match xpub' });
       return;
     }
-    if (initiatorPubkeyHex !== pubkeyHex.toLowerCase()) {
+    if (pubkeyHex && initiatorPubkeyHex !== pubkeyHex.toLowerCase()) {
       sendJson(res, 400, { ok: false, error: 'Public key does not match xpub' });
       return;
     }
 
-    let nonce = typeof body.nonce === 'string' ? body.nonce.trim().toLowerCase() : '';
-    if (nonce) {
-      if (!/^[a-f0-9]{64}$/.test(nonce)) {
-        sendJson(res, 400, { ok: false, error: 'nonce must be 64 hex chars when provided' });
-        return;
-      }
-    } else {
-      nonce = randomNonce();
-    }
-    const sessionId = randomSessionId();
-    const replayKey = offerReplayKey(nonce, initiatorId, origin);
-    if (offerKeyInUse(hub, replayKey)) {
-      sendJson(res, 409, {
-        ok: false,
-        error: 'offer nonce already used for this initiator/origin (replay rejected)'
-      });
-      return;
-    }
-    const offerMessage = buildDeviceLinkOfferMessage(nonce, initiatorId, label, origin);
-    const offerVerify = verifyIdentitySchnorr(offerMessage, signature, pubkeyHex, {
-      id: initiatorId,
-      xpub: identity.xpub
-    });
-    if (!offerVerify.ok) {
-      sendJson(res, 400, { ok: false, error: offerVerify.error || 'invalid offer signature' });
-      return;
-    }
-
-    evictDeviceLinkOriginOverflow(hub, origin);
-    const pollSecret = randomNonce();
-    hub._deviceLinkSessions.set(sessionId, {
+    const ctx = {
+      body,
       origin,
-      nonce,
-      pollSecret,
       label,
-      createdAt: Date.now(),
-      status: 'pending',
-      initiator: {
-        id: initiatorId,
-        xpub: identity.xpub,
-        pubkeyHex: pubkeyHex.toLowerCase(),
-        offerSignature: signature.toLowerCase(),
-        offerMessage
-      },
-      responder: null,
-      initiatorCountersignature: null,
-      linkMessage: null
-    });
-
-    sendJson(res, 200, {
-      ok: true,
-      sessionId,
-      nonce,
-      label,
-      pollSecret,
-      offerMessage,
+      identity,
       initiatorId,
-      protocolUrl: `fabric://link?sessionId=${encodeURIComponent(sessionId)}&hub=${encodeURIComponent(origin)}`
-    });
+      initiatorPubkeyHex,
+      signature,
+      pubkeyHex: pubkeyHex || initiatorPubkeyHex,
+      sessionId,
+      bodyNonce
+    };
+
+    if (!signature) {
+      handleDeviceLinkPrepare(hub, req, res, ctx);
+      return;
+    }
+    if (!pubkeyHex) {
+      sendJson(res, 400, { ok: false, error: 'pubkeyHex and signature required to commit offer' });
+      return;
+    }
+    handleDeviceLinkCommit(hub, req, res, ctx);
   } catch (err) {
     console.error('[HUB:DEVICE-LINK:CREATE]', err && err.stack ? err.stack : err);
     sendJson(res, 500, { ok: false, error: 'device link create failed' });
@@ -328,6 +414,10 @@ function handleDeviceLinkSign (hub, req, res) {
       sendJson(res, 404, { ok: false, error: 'unknown or expired device link' });
       return;
     }
+    if (session.status === 'awaiting_offer') {
+      sendJson(res, 409, { ok: false, error: 'initiator must commit offer signature before signing roles' });
+      return;
+    }
     if (!clientMayAccessDeviceLink(req, session.origin)) {
       sendJson(res, 403, { ok: false, error: 'origin does not match this session' });
       return;
@@ -344,13 +434,10 @@ function handleDeviceLinkSign (hub, req, res) {
         sendJson(res, 409, { ok: false, error: 'responder already set or session not pending' });
         return;
       }
-      let responderKey;
       let responderId;
       try {
-        const resolved = identityFromXpub(identity && identity.xpub);
-        responderKey = resolved.key;
-        responderId = resolved.id;
-      } catch (e) {
+        responderId = identityFromXpub(identity && identity.xpub).id;
+      } catch (_) {
         sendJson(res, 400, { ok: false, error: 'invalid responder xpub' });
         return;
       }
@@ -359,6 +446,7 @@ function handleDeviceLinkSign (hub, req, res) {
         return;
       }
       const linkMessage = buildDeviceLinkMessage(
+        sessionId,
         session.nonce,
         session.initiator.id,
         responderId,
@@ -449,6 +537,26 @@ function handleDeviceLinkGet (hub, req, res) {
     }
     if (!clientMayAccessDeviceLink(req, session.origin)) {
       sendJson(res, 403, { ok: false, error: 'origin does not match this session' });
+      return;
+    }
+
+    if (session.status === 'awaiting_offer') {
+      sendJson(res, 200, {
+        ok: true,
+        status: 'awaiting_offer',
+        kind: 'device_link',
+        sessionId,
+        origin: session.origin,
+        nonce: session.nonce,
+        label: session.label,
+        offerMessage: session.offerMessage,
+        initiator: {
+          id: session.initiator.id,
+          xpub: session.initiator.xpub,
+          pubkeyHex: session.initiator.pubkeyHex
+        },
+        createdAt: session.createdAt
+      });
       return;
     }
 
@@ -564,6 +672,11 @@ function handleDeviceLinkCancel (hub, req, res) {
       sendJson(res, 409, { ok: false, error: 'device link is already complete' });
       return;
     }
+    if (session.status === 'awaiting_offer') {
+      hub._deviceLinkSessions.delete(sessionId);
+      sendJson(res, 200, { ok: true, cancelled: true, existed: true });
+      return;
+    }
     hub._deviceLinkSessions.delete(sessionId);
     sendJson(res, 200, { ok: true, cancelled: true, existed: true });
   } catch (err) {
@@ -582,9 +695,12 @@ function mountFabricDeviceLinkHttp (hub) {
 
 module.exports = {
   DEVICE_LINK_PREFIX,
+  DEVICE_LINK_V1_PREFIX,
+  DEVICE_LINK_V2_PREFIX,
   SESSION_TTL_MS,
   MAX_SESSIONS,
   MAX_SESSIONS_PER_ORIGIN,
+  isSessionIdHex,
   buildDeviceLinkMessage,
   buildDeviceLinkOfferMessage,
   parseDeviceLinkMessage,
@@ -604,5 +720,9 @@ module.exports = {
   pruneDeviceLinkSessions: pruneSessions,
   evictDeviceLinkOriginOverflow,
   handleDeviceLinkCancel,
-  handleDeviceLinkGet
+  handleDeviceLinkGet,
+  handleDeviceLinkCreate,
+  handleDeviceLinkSign,
+  handleDeviceLinkPrepare,
+  handleDeviceLinkCommit
 };

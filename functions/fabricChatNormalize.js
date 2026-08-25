@@ -35,8 +35,10 @@ function normalizeP2pChatMessage (chat, opts = {}) {
   // 1970 onto messages that carry a good timestamp. Require a positive value.
   let created = Number(objIn.created);
   if (!(created > 0) && objIn.ts) {
+    // Only take a `ts` that actually parsed: assigning Date.now() here would make
+    // the outer `chat.created` fallback below unreachable.
     const parsed = Date.parse(objIn.ts);
-    created = parsed > 0 ? parsed : Date.now();
+    if (parsed > 0) created = parsed;
   }
   if (!(created > 0) && chat && typeof chat === 'object' && chat.created != null) {
     created = Number(chat.created);

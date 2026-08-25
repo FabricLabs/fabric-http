@@ -102,6 +102,15 @@ describe('@fabric/http fabricChatNormalize', function () {
     const outer = normalizeP2pChatMessage({ created: 1600000000000, object: { content: 'hi', created: null } });
     assert.strictEqual(outer.object.created, 1600000000000);
   });
+
+  it('prefers the outer chat.created over an unparseable object.ts', function () {
+    // Stamping now() on a bad `ts` would make the outer fallback unreachable.
+    const out = normalizeP2pChatMessage({
+      created: 1600000000000,
+      object: { content: 'hi', created: null, ts: 'not-a-date' }
+    });
+    assert.strictEqual(out.object.created, 1600000000000);
+  });
 });
 
 describe('@fabric/http fabricPeeringHttp', function () {

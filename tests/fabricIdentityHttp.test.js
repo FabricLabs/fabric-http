@@ -101,11 +101,25 @@ describe('@fabric/http identity HTTP', function () {
     assert.strictEqual(link.kind, 'link');
   });
 
-  it('builds device-link messages', function () {
-    const msg = buildDeviceLinkMessage('aa'.repeat(32), 'id1a', 'id1b', 'phone');
+  it('builds v2 device-link messages with sessionId binding', function () {
+    const sessionId = 'ab'.repeat(24);
+    const nonce = 'aa'.repeat(32);
+    const msg = buildDeviceLinkMessage(sessionId, nonce, 'id1a', 'id1b', 'phone');
+    assert.ok(msg.startsWith('fabric:device-link:2:'));
     const parsed = parseDeviceLinkMessage(msg);
+    assert.strictEqual(parsed.version, 2);
+    assert.strictEqual(parsed.sessionId, sessionId);
     assert.strictEqual(parsed.initiatorId, 'id1a');
     assert.strictEqual(parsed.responderId, 'id1b');
+  });
+
+  it('parses legacy v1 device-link messages', function () {
+    const nonce = 'aa'.repeat(32);
+    const msg = `fabric:device-link:1:${nonce}:id1a:id1b:phone`;
+    const parsed = parseDeviceLinkMessage(msg);
+    assert.strictEqual(parsed.version, 1);
+    assert.strictEqual(parsed.sessionId, null);
+    assert.strictEqual(parsed.nonce, nonce);
   });
 
   it('matches loopback origins across localhost/127.0.0.1', function () {
