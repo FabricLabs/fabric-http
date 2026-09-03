@@ -88,4 +88,40 @@ describe('@fabric/http messageBodyJsonBridge', function () {
       patches: [{ op: 'nope', path: '/x' }]
     }), /RFC6902/);
   });
+
+  it('sidechain patch frames round-trip vector parent through AMP wire', function () {
+    const Key = require('@fabric/core/types/key');
+    const { frameIdOf } = require('../functions/fabricMessageParent');
+    const key = new Key();
+    const digest = 'ef'.repeat(32);
+    const genesis = messageFromJsonBody('SIDECHAIN_STATE_PATCH', {
+      basisClock: 0,
+      basisDigest: '00'.repeat(32),
+      patches: [{ op: 'add', path: '/registry', value: { v: 1 } }]
+    }).signWithKey(key);
+
+    const patches = [{ op: 'replace', path: '/registry/v', value: 2 }];
+    const child = messageFromJsonBody('SIDECHAIN_STATE_PATCH', {
+      basisClock: 1,
+      basisDigest: digest,
+      patches
+    });
+    child.parent = genesis.id;
+    child.signWithKey(key);
+
+    const vec = child.toVector();
+    assert.strictEqual(vec.length, 3);
+    assert.strictEqual(vec[2], genesis.id);
+
+    const restored = Message.fromVector(vec);
+    assert.strictEqual(restored.parent, genesis.id);
+    assert.strictEqual(String(restored.data), String(child.data));
+
+    const wire = Message.fromBuffer(child.toBuffer());
+    assert.strictEqual(wire.parent, genesis.id);
+    assert.strictEqual(frameIdOf(wire), frameIdOf(child));
+    const view = messageBodyToJson(wire);
+    assert.strictEqual(view.format, 'fields');
+    assert.deepStrictEqual(view.rfc6902.patches, patches);
+  });
 });

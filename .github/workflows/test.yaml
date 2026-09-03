@@ -18,6 +18,8 @@ jobs:
     steps:
     - name: Checkout branch
       uses: actions/checkout@v7
+      with:
+        persist-credentials: false
 
     - name: Install system dependencies (Ubuntu)
       if: matrix.os == 'ubuntu-latest'

@@ -60,6 +60,22 @@ describe('@fabric/http PR #69 review coverage', function () {
     };
   }
 
+  it('fabricMessageParent re-export matches core and supports parent vectors', function () {
+    const Key = require('@fabric/core/types/key');
+    const Message = require('@fabric/core/types/message');
+    const httpParent = require('../functions/fabricMessageParent');
+    const coreParent = require('@fabric/core/functions/fabricMessageParent');
+    assert.strictEqual(httpParent.ZERO_PARENT, coreParent.ZERO_PARENT);
+    assert.strictEqual(httpParent.frameIdOf, coreParent.frameIdOf);
+
+    const key = new Key();
+    const genesis = Message.fromVector(['P2P_CHAT_MESSAGE', 'hub-genesis']).signWithKey(key);
+    const child = Message.fromVector(['P2P_CHAT_MESSAGE', 'hub-child', genesis]).signWithKey(key);
+    const vec = child.toVector();
+    assert.strictEqual(vec.length, 3);
+    assert.strictEqual(Message.fromVector(vec).parent, genesis.id);
+  });
+
   it('maps wss/ws Hub addresses to https/http page origins (no https://wss fail-open)', function () {
     assert.strictEqual(expectedOriginFromHubAddress('wss://hub.fabric.pub'), 'https://hub.fabric.pub');
     assert.strictEqual(expectedOriginFromHubAddress('ws://127.0.0.1:8080'), 'http://127.0.0.1:8080');
