@@ -72,8 +72,14 @@ describe('package files[] closure', function () {
     try {
       packed = packedPaths();
     } catch (exception) {
-      // Without a usable npm this cannot be checked; skip rather than pass.
-      this.skip();
+      const code = exception && exception.code;
+      const msg = String((exception && exception.message) || '');
+      // Without npm on PATH this cannot be checked; skip rather than pass.
+      if (code === 'ENOENT' || /spawn npm/i.test(msg)) {
+        this.skip();
+        return;
+      }
+      throw exception;
     }
   });
 

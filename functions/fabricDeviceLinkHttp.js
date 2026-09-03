@@ -138,6 +138,67 @@ function sendJson (res, status, obj) {
   res.status(status).send(JSON.stringify(obj));
 }
 
+/**
+ * Canonical Hub HTTP origin for `fabric://link?hub=` — where sessions live,
+ * not the initiator page origin stored on the session for access control.
+ * @param {object} hub
+ * @param {object} [req]
+ * @returns {string|null}
+ */
+function resolveDeviceLinkHubBase (hub, req) {
+  const env = process.env || {};
+  const settings = (hub && hub.settings) || {};
+  const candidates = [
+    settings.publicOrigin,
+    settings.payjoin && settings.payjoin.publicOrigin,
+    env.FABRIC_HUB_PUBLIC_ORIGIN,
+    env.FABRIC_PUBLIC_ORIGIN
+  ];
+  for (const raw of candidates) {
+    const normalized = normalizeHubOrigin(String(raw || '').trim());
+    if (normalized) return normalized;
+  }
+  const httpSettings = hub && hub.http && hub.http.settings;
+  if (httpSettings) {
+    const hostname = String(httpSettings.hostname || httpSettings.host || '').trim();
+    const port = Number(httpSettings.port || 0);
+    if (hostname) {
+      const host = hostname === '0.0.0.0' ? '127.0.0.1' : hostname;
+      const scheme = port === 443 ? 'https' : 'http';
+      const omitPort = (scheme === 'https' && (!port || port === 443)) ||
+        (scheme === 'http' && (!port || port === 80));
+      const raw = omitPort ? `${scheme}://${host}` : `${scheme}://${host}:${port}`;
+      const normalized = normalizeHubOrigin(raw);
+      if (normalized) return normalized;
+    }
+  }
+  if (req && req.headers) {
+    const host = String(req.headers['x-forwarded-host'] || req.headers.host || '')
+      .split(',')[0]
+      .trim();
+    const proto = String(req.headers['x-forwarded-proto'] || '')
+      .split(',')[0]
+      .trim()
+      .toLowerCase();
+    const socketEncrypted = req.socket && req.socket.encrypted;
+    const scheme = proto === 'https' || proto === 'http'
+      ? proto
+      : (socketEncrypted ? 'https' : 'http');
+    if (host) {
+      const normalized = normalizeHubOrigin(`${scheme}://${host}`);
+      if (normalized) return normalized;
+    }
+  }
+  return null;
+}
+
+function deviceLinkProtocolUrl (hub, req, sessionId, pageOrigin) {
+  const hubBase = resolveDeviceLinkHubBase(hub, req) ||
+    normalizeHubOrigin(pageOrigin) ||
+    String(pageOrigin || '');
+  return `fabric://link?sessionId=${encodeURIComponent(sessionId)}&hub=${encodeURIComponent(hubBase)}`;
+}
+
 function pruneSessions (hub) {
   if (!hub._deviceLinkSessions) return;
   const now = Date.now();
@@ -240,7 +301,7 @@ function handleDeviceLinkPrepare (hub, req, res, ctx) {
     pollSecret,
     offerMessage,
     initiatorId,
-    protocolUrl: `fabric://link?sessionId=${encodeURIComponent(sessionId)}&hub=${encodeURIComponent(origin)}`
+    protocolUrl: deviceLinkProtocolUrl(hub, req, sessionId, origin)
   });
 }
 
@@ -304,7 +365,7 @@ function handleDeviceLinkCommit (hub, req, res, ctx) {
     pollSecret: session.pollSecret,
     offerMessage: session.offerMessage,
     initiatorId,
-    protocolUrl: `fabric://link?sessionId=${encodeURIComponent(sessionId)}&hub=${encodeURIComponent(origin)}`
+    protocolUrl: deviceLinkProtocolUrl(hub, req, sessionId, origin)
   });
 }
 
@@ -717,6 +778,8 @@ module.exports = {
   isExtensionOrigin,
   isThinClientOrigin,
   clientMayAccessDeviceLink,
+  resolveDeviceLinkHubBase,
+  deviceLinkProtocolUrl,
   pruneDeviceLinkSessions: pruneSessions,
   evictDeviceLinkOriginOverflow,
   handleDeviceLinkCancel,

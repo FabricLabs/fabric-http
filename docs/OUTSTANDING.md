@@ -1,7 +1,7 @@
 # Outstanding (security-first)
 Living queue for this repo. Detail and closed items live in [SECURITY.md](../SECURITY.md) and [AUDIT.md](../AUDIT.md). Suite march: [@fabric/core `docs/PRODUCTION_MARCH.md`](https://github.com/FabricLabs/fabric/blob/feature/rsi/docs/PRODUCTION_MARCH.md).
 
-**Last reviewed:** 2026-08-25 — Wave 3 device-link v2 (`prepare`/`commit`, server nonce, `sessionId` binding) plus two [#69](https://github.com/FabricLabs/fabric-http/pull/69) review-thread passes. `npm test` **266 passing / 0 failing** (21 pending).
+**[#69](https://github.com/FabricLabs/fabric-http/pull/69) CodeRabbit audit (2026-09-03):** all **54** inline threads reviewed. The four new Sept comments (device-link `protocolUrl` hub base, exact `offerMessage` nonce bind, `npm pack` fail-closed, CI `permissions: contents: read`) are staged. Prior threads verified fixed, wontfix, or deferred — see table in review output. `tests/distributedExecutionHttp.test.js` now asserts `statechain` journal/snapshot route aliases (CodeRabbit nitpick, Aug review).
 
 **[#69](https://github.com/FabricLabs/fabric-http/pull/69) second pass (2026-08-25): no code findings left.** Of 212 review threads, **9** are unresolved and every one is stale, wontfix, or a misread — verified against current code, not assumed:
 - `types/server.js` "unauthorized JSONCall wrong hash" and "signs without private key" are both **fixed**: the correlation hash is computed from `message.body` *before* the auth check and passed into the denial body, and all four sign sites guard `_rootKey && _rootKey.private`.

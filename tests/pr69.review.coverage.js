@@ -76,6 +76,22 @@ describe('@fabric/http PR #69 review coverage', function () {
     assert.strictEqual(Message.fromVector(vec).parent, genesis.id);
   });
 
+  it('device-link protocolUrl uses rendezvous hub base, not page origin', function () {
+    const {
+      resolveDeviceLinkHubBase,
+      deviceLinkProtocolUrl
+    } = require('../functions/fabricDeviceLinkHttp');
+    const hub = {
+      settings: { publicOrigin: 'https://hub.fabric.pub' },
+      http: { settings: { hostname: '127.0.0.1', port: 8080 } }
+    };
+    const req = { headers: { host: 'relay.goon.vc' }, socket: {} };
+    assert.strictEqual(resolveDeviceLinkHubBase(hub, req), 'https://hub.fabric.pub');
+    const url = deviceLinkProtocolUrl(hub, req, 'aa'.repeat(24), 'https://goon.vc');
+    assert.match(url, /hub=https%3A%2F%2Fhub\.fabric\.pub/);
+    assert.ok(!url.includes('goon.vc'));
+  });
+
   it('maps wss/ws Hub addresses to https/http page origins (no https://wss fail-open)', function () {
     assert.strictEqual(expectedOriginFromHubAddress('wss://hub.fabric.pub'), 'https://hub.fabric.pub');
     assert.strictEqual(expectedOriginFromHubAddress('ws://127.0.0.1:8080'), 'http://127.0.0.1:8080');

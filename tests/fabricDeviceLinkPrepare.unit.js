@@ -61,8 +61,42 @@ describe('fabricDeviceLinkHttp prepare/commit (v2)', function () {
     assert.strictEqual(res.out.body.status, 'awaiting_offer');
     assert.ok(res.out.body.sessionId);
     assert.ok(res.out.body.nonce);
-    assert.ok(res.out.body.offerMessage.includes(res.out.body.sessionId));
+    assert.strictEqual(
+      res.out.body.offerMessage,
+      buildDeviceLinkOfferMessage(
+        res.out.body.sessionId,
+        res.out.body.nonce,
+        ident.id,
+        'phone',
+        origin
+      )
+    );
     assert.ok(res.out.body.pollSecret);
+  });
+
+  it('protocolUrl uses rendezvous hub base, not page origin when they differ', function () {
+    const hub = mockHub();
+    hub.settings = { publicOrigin: 'https://hub.fabric.pub' };
+    const key = new Key();
+    const ident = new Identity(key);
+    const fabric = ident.fabricKey;
+    const pageOrigin = 'https://goon.vc';
+    const res = mockRes();
+    handleDeviceLinkCreate(hub, {
+      body: {
+        origin: pageOrigin,
+        label: 'phone',
+        identity: { xpub: fabric.xpub, id: ident.id }
+      },
+      headers: { origin: pageOrigin, host: 'hub.fabric.pub' },
+      socket: { remoteAddress: '127.0.0.1' }
+    }, res);
+    assert.strictEqual(res.out.statusCode, 200);
+    assert.match(
+      res.out.body.protocolUrl,
+      /hub=https%3A%2F%2Fhub\.fabric\.pub/
+    );
+    assert.ok(!res.out.body.protocolUrl.includes(encodeURIComponent(pageOrigin)));
   });
 
   it('rejects client-supplied nonce on prepare', function () {

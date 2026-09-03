@@ -13,10 +13,16 @@ describe('types/distributedExecutionHttp', function () {
     };
     const mod = new FabricDistributedExecutionHTTP({
       getManifest: async () => ({ version: 1 }),
-      getEpochStatus: async () => ({ ok: true })
+      getEpochStatus: async () => ({ ok: true }),
+      getSidechainJournal: async () => ({ entries: [] }),
+      getSidechainSnapshots: async () => ({ snapshots: [] })
     });
     mod.bind(server);
     assert.ok(routes.some((r) => r.path === '/services/distributed/manifest'));
     assert.ok(routes.some((r) => r.path === '/services/distributed/epoch'));
+    assert.ok(routes.some((r) => r.method === 'GET' && r.path === '/services/distributed/sidechain/journal'));
+    assert.ok(routes.some((r) => r.method === 'GET' && r.path === '/services/distributed/statechain/journal'));
+    assert.ok(routes.some((r) => r.method === 'GET' && r.path === '/services/distributed/sidechain/snapshots'));
+    assert.ok(routes.some((r) => r.method === 'GET' && r.path === '/services/distributed/statechain/snapshots'));
   });
 });
