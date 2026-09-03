@@ -2,9 +2,7 @@
 
 const {
   HTTP_IDENTITY_HEADER_NAME,
-  HTTP_SIGNATURE_HEADER_NAME,
-  HTTP_IDENTITY_HEADER_NAME_LOWER,
-  HTTP_SIGNATURE_HEADER_NAME_LOWER
+  HTTP_IDENTITY_HEADER_NAME_LOWER
 } = require('../constants');
 
 const crypto = require('crypto');
@@ -133,6 +131,8 @@ module.exports = function FabricAuthenticationMiddleware (request, response, nex
   } else {
     if (this.settings.verbosity > 2) this.emit('warning', `[WARNING] No "${HTTP_IDENTITY_HEADER_NAME}" header.  Consider rejecting here.`);
   }
+
+  // X-Fabric-Signature is not read or verified here. Bearer HMAC uses tokenSecret/seed.
 
   if (request.token) {
     const secret = this.settings.tokenSecret || this.settings.seed;

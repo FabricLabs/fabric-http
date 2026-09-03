@@ -25,6 +25,8 @@ function ephemeralPort () {
 // Types
 const Client = require('../types/client');
 const Server = require('../types/server');
+const HTTPServer = require('../types/server');
+const { httpRequest } = require('./helpers/httpRequest');
 
 describe('@fabric/http/types/server', function () {
   describe('Server', function () {
@@ -48,6 +50,8 @@ describe('@fabric/http/types/server', function () {
         console.error('Could not start:', E);
         throw E;
       }
+
+      assert.strictEqual(server.http.listening, true);
 
       try {
         await server.stop();
@@ -317,5 +321,134 @@ describe('@fabric/http/types/server', function () {
 
       test();
     });
+  });
+});
+
+describe('HTTP POST null body', function () {
+  it('legacy POST without a body returns 400 instead of throwing', async function () {
+    const server = Object.create(HTTPServer.prototype);
+    server.settings = { verbosity: 0, debug: false, security: {} };
+    server.routes = [];
+    server.resources = { get () { return null; } };
+    server._POST = async function () {
+      throw new Error('should not POST');
+    };
+    const out = { statusCode: 0, body: null };
+    const res = {
+      status (code) { out.statusCode = code; return this; },
+      json (body) { out.body = body; return this; },
+      end () { return this; },
+      redirect () { out.redirected = true; return this; }
+    };
+    await HTTPServer.prototype._handleRoutableRequest.call(server, {
+      method: 'POST',
+      path: '/collections/widgets',
+      body: null,
+      authenticated: false
+    }, res, function next () { out.next = true; });
+    assert.strictEqual(out.statusCode, 400);
+    assert.strictEqual(out.body && out.body.message, 'JSON body required');
+    assert.strictEqual(out.redirected, undefined);
+  });
+});
+
+describe('JSON-RPC CORS preflight (browser → localhost Hub)', function () {
+  this.timeout(60000);
+
+  it('OPTIONS /services/rpc is 204 with CORS headers when cors is enabled', async function () {
+    const port = await ephemeralPort();
+    const server = new HTTPServer({
+      port,
+      host: '127.0.0.1',
+      interface: '127.0.0.1',
+      hostname: '127.0.0.1',
+      listen: true,
+      cors: true,
+      jsonRpc: { enabled: true, paths: ['/services/rpc'] }
+    });
+    await server.start();
+    try {
+      const r = await httpRequest({
+        port,
+        method: 'OPTIONS',
+        path: '/services/rpc',
+        headers: {
+          Origin: 'chrome-extension://test',
+          'Access-Control-Request-Method': 'POST',
+          'Access-Control-Request-Headers': 'content-type, authorization'
+        }
+      });
+      assert.strictEqual(r.statusCode, 204, `body: ${r.body}`);
+      const allow = (r.headers['access-control-allow-origin'] || r.headers['Access-Control-Allow-Origin']);
+      assert.ok(
+        allow === '*' || allow === 'chrome-extension://test',
+        'expected Access-Control-Allow-Origin to authorize the request origin'
+      );
+      assert.match(
+        String(r.headers['access-control-allow-methods'] || ''),
+        /\bPOST\b/
+      );
+      assert.match(
+        String(r.headers['access-control-allow-headers'] || ''),
+        /\bcontent-type\b/i
+      );
+      assert.match(
+        String(r.headers['access-control-allow-headers'] || ''),
+        /\bauthorization\b/i
+      );
+      assert.match(
+        String(r.headers['access-control-allow-headers'] || ''),
+        /\bx-fabric-poll-secret\b/i
+      );
+    } finally {
+      await server.stop();
+    }
+  });
+});
+
+describe('HTTPServer internal event logging', function () {
+  this.timeout(15000);
+
+  it('does not print full Internal message bodies at default verbosity', async function () {
+    const port = await ephemeralPort();
+    const server = new Server({
+      listen: true,
+      port,
+      interface: '127.0.0.1',
+      networking: false,
+      verbosity: 2
+    });
+    const lines = [];
+    const orig = console.log;
+    console.log = function () {
+      lines.push(Array.prototype.slice.call(arguments).join(' '));
+    };
+    try {
+      await server.start();
+      server.emit('message', {
+        '@type': 'Transaction',
+        security_advisory: {
+          summary: 'Malicious code in @zalastax/nolb-foo (npm)'
+        }
+      });
+      assert.ok(!lines.some((line) => String(line).includes('security_advisory')));
+      assert.ok(!lines.some((line) => String(line).includes('zalastax')));
+    } finally {
+      console.log = orig;
+      await server.stop();
+    }
+  });
+
+  it('commit Transaction data omits full state', async function () {
+    const server = new Server({ listen: false, networking: false, verbosity: 2 });
+    server._state.content.documents = { pad: 'x'.repeat(1024) };
+    server.observer = require('fast-json-patch').observe(server._state.content);
+    server._state.content.probe = 1;
+    const seen = [];
+    server.on('message', (msg) => seen.push(msg));
+    await server.commit();
+    const tx = seen.find((m) => m && m['@type'] === 'Transaction');
+    assert.ok(tx, 'commit() must emit a Transaction message');
+    assert.ok(!tx['@data'] || tx['@data'].state === undefined);
   });
 });

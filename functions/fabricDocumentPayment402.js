@@ -37,15 +37,21 @@ function decodeFabricPaymentRequestHeaderValue (encoded) {
 
 /**
  * @param {unknown} raw
- * @returns {number|null} Rounded non-negative safe integer, or `null` if invalid
+ * @returns {number|null} Non-negative safe integer, or `null` if invalid (no `Number()` coercion)
  */
 function normalizePurchasePriceSats (raw) {
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return null;
-  const rounded = Math.round(n);
-  if (rounded < 0) return null;
-  if (!Number.isSafeInteger(rounded)) return null;
-  return rounded;
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 0) return null;
+  if (!Number.isSafeInteger(raw)) return null;
+  return raw;
+}
+
+/**
+ * Exact 32-byte SHA-256 hex (no whitespace trim / coercion).
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+function isExactSha256Hex (value) {
+  return typeof value === 'string' && /^[0-9a-fA-F]{64}$/.test(value);
 }
 
 /** @param {unknown} inv */
@@ -77,7 +83,9 @@ function invoiceSummary (inv) {
  * @param {object} [opts.invoice] return value from `bitcoin.createInvoice`
  * @param {string} [opts.requestPath] HTTP path challenged
  * @param {string} [opts.detail] human reason (truncated)
- * @param {object|null} [opts.documentOffer] optional `{ documentId?, contentHashHex?, purchasePriceSats?, network? }`
+ * @param {object|null} [opts.documentOffer] optional `{ documentId?, contentHashHex?, purchasePriceSats?, network?, blobIndex?, blobHashHex? }`
+ *   — `contentHashHex` MUST be from `@fabric/core/functions/documentPaymentHash`
+ *     (`resolveDocumentContentHashHex`); never raw file `sha256`.
  */
 function buildFabricDocumentPaymentRequestHeader (opts = {}) {
   const { invoice, requestPath = '', detail = '', documentOffer = null } = opts;
@@ -105,15 +113,33 @@ function buildFabricDocumentPaymentRequestHeader (opts = {}) {
   if (summary) payload.invoice = summary;
 
   const doc = documentOffer && typeof documentOffer === 'object' ? documentOffer : null;
-  if (doc && (doc.documentId || doc.contentHashHex || doc.purchasePriceSats != null || doc.network)) {
+  if (doc && (doc.documentId || doc.contentHashHex || doc.purchasePriceSats != null || doc.network || doc.blobIndex != null || doc.blobHashHex != null)) {
     payload.documentOffer = {};
     if (doc.documentId != null) payload.documentOffer.documentId = String(doc.documentId).slice(0, 4096);
-    if (doc.contentHashHex != null) payload.documentOffer.contentHashHex = String(doc.contentHashHex).slice(0, 128);
+    if (doc.contentHashHex != null) {
+      // Exact 32-byte hex only — do not trim/truncate invalid hashes into plausible digests.
+      if (isExactSha256Hex(doc.contentHashHex)) {
+        payload.documentOffer.contentHashHex = String(doc.contentHashHex).toLowerCase();
+      }
+    }
     const priceSats = doc.purchasePriceSats != null ? normalizePurchasePriceSats(doc.purchasePriceSats) : null;
     if (priceSats != null) {
       payload.documentOffer.purchasePriceSats = priceSats;
     }
     if (doc.network != null) payload.documentOffer.network = String(doc.network).slice(0, 64);
+    // Do not round/truncate blob identifiers — omit invalid metadata instead.
+    // Accept only a non-negative safe integer (no string Number() coercion).
+    if (doc.blobIndex != null) {
+      const idx = doc.blobIndex;
+      if (typeof idx === 'number' && Number.isSafeInteger(idx) && idx >= 0) {
+        payload.documentOffer.blobIndex = idx;
+      }
+    }
+    if (doc.blobHashHex != null) {
+      if (isExactSha256Hex(doc.blobHashHex)) {
+        payload.documentOffer.blobHashHex = String(doc.blobHashHex).toLowerCase();
+      }
+    }
   }
 
   return JSON.stringify(payload);

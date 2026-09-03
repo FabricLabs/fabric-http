@@ -7,7 +7,8 @@ const {
   decodeFabricPaymentRequestHeaderValue,
   normalizePurchasePriceSats,
   buildLightningL402WwwAuthenticate,
-  extractBolt11
+  extractBolt11,
+  invoiceSummary
 } = require('../functions/fabricDocumentPayment402');
 
 describe('fabricDocumentPayment402', function () {
@@ -48,6 +49,10 @@ describe('fabricDocumentPayment402', function () {
     assert.strictEqual(normalizePurchasePriceSats(-1), null);
     assert.strictEqual(normalizePurchasePriceSats(Number.MAX_SAFE_INTEGER + 42), null);
     assert.strictEqual(normalizePurchasePriceSats(900), 900);
+    assert.strictEqual(normalizePurchasePriceSats(true), null);
+    assert.strictEqual(normalizePurchasePriceSats(''), null);
+    assert.strictEqual(normalizePurchasePriceSats('110'), null);
+    assert.strictEqual(normalizePurchasePriceSats(1.7), null);
   });
 
   it('buildFabricDocumentPaymentRequestHeader omits invalid purchasePriceSats', function () {
@@ -79,5 +84,61 @@ describe('fabricDocumentPayment402', function () {
     assert.ok(h.includes('macaroon='));
     assert.ok(h.includes('invoice='));
     assert.ok(h.includes('lnbc1test'));
+  });
+
+  it('carries a Hub markup list price and omits costBasisSats from the 402 header', function () {
+    const originCost = 100;
+    const listed = Math.ceil((originCost * 11000) / 10000);
+    const s = buildFabricDocumentPaymentRequestHeader({
+      requestPath: '/documents/' + 'ab'.repeat(32),
+      documentOffer: {
+        documentId: 'ab'.repeat(32),
+        purchasePriceSats: listed,
+        costBasisSats: originCost,
+        network: 'regtest'
+      }
+    });
+    const j = JSON.parse(s);
+    assert.strictEqual(j.documentOffer.purchasePriceSats, 110);
+    assert.strictEqual(j.documentOffer.costBasisSats, undefined);
+    assert.ok(!JSON.stringify(j).includes('costBasis'));
+  });
+
+  it('does not copy contentBase64 or invalid blob metadata onto the 402 header', function () {
+    const s = buildFabricDocumentPaymentRequestHeader({
+      documentOffer: {
+        documentId: 'cd'.repeat(32),
+        purchasePriceSats: 110,
+        contentBase64: 'AAAA',
+        blobIndex: '0',
+        blobHashHex: 'not-a-hash',
+        contentHashHex: 'zz'.repeat(32)
+      }
+    });
+    const j = JSON.parse(s);
+    assert.strictEqual(j.documentOffer.purchasePriceSats, 110);
+    assert.strictEqual(j.documentOffer.contentBase64, undefined);
+    assert.strictEqual(j.documentOffer.blobIndex, undefined);
+    assert.strictEqual(j.documentOffer.blobHashHex, undefined);
+    assert.strictEqual(j.documentOffer.contentHashHex, undefined);
+  });
+
+  it('invoiceSummary prefers paymentRequest and omits empty invoices', function () {
+    assert.strictEqual(
+      extractBolt11({ paymentRequest: 'lnbc111' }),
+      'lnbc111'
+    );
+    assert.strictEqual(invoiceSummary(null), null);
+    assert.strictEqual(invoiceSummary({}), null);
+    const sum = invoiceSummary({
+      id: 'inv1',
+      payment_request: 'lnbc222',
+      amount: '0.001',
+      currency: 'BTC',
+      memo: 'doc'
+    });
+    assert.strictEqual(sum.bolt11, 'lnbc222');
+    assert.strictEqual(sum.id, 'inv1');
+    assert.strictEqual(sum.memo, 'doc');
   });
 });

@@ -20,6 +20,7 @@ const WebSocket = require('isomorphic-ws');
 // Fabric Types
 // const Message = require('@fabric/core/types/message');
 const FabricRemote = require('@fabric/core/types/remote');
+const { randomUnit } = require('@fabric/core/functions/bytes');
 
 /**
  * Interact with a remote {@link Resource}.  This is currently the only
@@ -42,7 +43,7 @@ class Remote extends FabricRemote {
 
     this.settings = Object.assign({
       backoff: 2,
-      entropy: Math.random(),
+      entropy: randomUnit(),
       macaroon: null,
       secure: true,
       debug: false,
@@ -58,7 +59,7 @@ class Remote extends FabricRemote {
     this.secure = this.settings.secure;
     this.socket = null;
 
-    this.endpoint = `${(this.secure) ? 'wss' : 'ws'}:${this.host}:${this.port}/`;
+    this.endpoint = `${this.secure ? 'wss' : 'ws'}://${this.host}:${this.port}/`;
 
     this._nextReconnect = 0;
     this._reconnectAttempts = 0;
@@ -81,7 +82,9 @@ class Remote extends FabricRemote {
   }
 
   _handleSocketOpen () {
-    console.log('socket open!');
+    if ((this.settings.verbosity || 0) >= 4) {
+      console.log('[FABRIC:REMOTE]', 'socket open');
+    }
 
     /* const INV_MSG = Message.fromVector(['INVENTORY_REQUEST', {
       created: (new Date()).toISOString()
@@ -91,11 +94,15 @@ class Remote extends FabricRemote {
   }
 
   _handleSocketClose () {
-    console.log('socket closed!');
+    if ((this.settings.verbosity || 0) >= 4) {
+      console.log('[FABRIC:REMOTE]', 'socket closed');
+    }
   }
 
   _handleSocketMessage (msg) {
-    console.log('socket message:', msg);
+    if ((this.settings.verbosity || 0) >= 5) {
+      console.log('[FABRIC:REMOTE]', 'socket message:', msg);
+    }
     /* const message = Message.fromBuffer(msg);
     console.log('parsed:', message);
     switch (message.type) {

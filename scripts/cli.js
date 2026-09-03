@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+try {
+  require('@fabric/core/functions/fabricHomeEnv').loadFabricHomeEnv();
+} catch (_) { /* older @fabric/core pin */ }
+
 // Constants
 const {
   BITCOIN_GENESIS
@@ -17,6 +21,8 @@ const { Command } = require('commander');
 
 // Fabric Types
 const Environment = require('@fabric/core/types/environment');
+const { readCliPasswordFromArgv } = require('@fabric/core/functions/cliPasswordArgv');
+const { walletPathFromArgv } = require('../functions/cliWalletArgv');
 
 // Contracts
 const OP_BOOTSTRAP = require('../contracts/bootstrap.ts');
@@ -29,16 +35,26 @@ const COMMANDS = {
 
 // Define Main Program
 async function main (input = {}) {
-  // Environment
+  // Environment — read --wallet before Commander parse / start()
   const environment = new Environment({
-    path: process.wallet
+    path: walletPathFromArgv(process.argv, process.wallet || file)
   });
 
   // Argument Parsing
   const program = new Command();
 
-  // Read Environment
+  // Unlock before serving so `--password=VALUE` matches `@fabric/core` `fabric`.
   environment.start();
+  const passwordFromArgv = readCliPasswordFromArgv(process.argv);
+  if (environment.walletLocked && passwordFromArgv) {
+    try {
+      environment.unlockWallet(passwordFromArgv);
+    } catch (exception) {
+      console.error('[FABRIC:HTTP]', 'Unlock failed:', exception.message || exception);
+      process.exit(1);
+      return;
+    }
+  }
 
   // Configure Program
   program.name('fabric-http');
@@ -79,9 +95,10 @@ async function main (input = {}) {
   return this;
 }
 
-// Run Program
-main(settings).catch((exception) => {
-  console.error('[FABRIC:HTTP]', 'Main Process Exception:', exception);
-}).then((output) => {
-  console.log('[FABRIC:HTTP]', 'CLI Output:', output);
-});
+if (require.main === module) {
+  main(settings).catch((exception) => {
+    console.error('[FABRIC:HTTP]', 'Main Process Exception:', exception);
+  }).then((output) => {
+    console.log('[FABRIC:HTTP]', 'CLI Output:', output);
+  });
+}

@@ -67,6 +67,12 @@ const SPA = require('./spa');
 
 // Dependencies
 const WebSocket = require('ws');
+const messageTransport = require('../functions/fabricMessageTransport');
+const jsonRpcTransport = require('../functions/fabricJsonRpcTransport');
+const webrtcInterop = require('../functions/fabricWebRtcInterop');
+const {
+  buildApplicationResourceContract
+} = require('../functions/applicationResourceContract');
 
 /** First four bytes of every Fabric AMP frame on the wire (binary WebSocket payloads must match). */
 const FABRIC_AMP_MAGIC = Buffer.from(
@@ -119,7 +125,7 @@ function xmlEscape (value) {
  * `express.send` can label theme fonts as `application/octet-stream`. With `X-Content-Type-Options: nosniff`
  * (set by @fabric/hub) Chromium/Electron may refuse to load @font-face resources; set explicit font MIME
  * types for common Fomantic (Semantic) theme files under /themes/…/assets/fonts/
- * @param {import('http').ServerResponse} res
+ * @param {http.ServerResponse} res
  * @param {string} filePath
  */
 function fabricHttpStaticSetHeaders (res, filePath) {
@@ -141,9 +147,9 @@ function fabricHttpStaticSetHeaders (res, filePath) {
 }
 
 /**
- * @param {import('http').ServerResponse} res
+ * @param {http.ServerResponse} res
  * @param {string} filePath
- * @param {((res: import('http').ServerResponse, p: string) => void) | null | undefined} [user]
+ * @param {Function|null|undefined} [user] Callback `(res, filePath) => void`
  */
 function mergeStaticSetHeaders (res, filePath, user) {
   if (typeof user === 'function') {
@@ -172,7 +178,7 @@ function resolveFabricHttpPackageAssetsDir () {
 
 /**
  * True when the client’s first `Accept` is `text/html` (browser navigation / refresh), for SPA HTML shell.
- * @param {import('http').IncomingMessage} req
+ * @param {http.IncomingMessage} req
  * @returns {boolean}
  */
 function acceptFirstHtmlNavigation (req) {
@@ -317,9 +323,16 @@ class FabricHTTPServer extends Service {
     this.definitions = {};
     this.methods = {};
     this.stores = {};
-    /** @type {Map<string, FabricResource>} Resource instances keyed by name. */
+    /** Resource instances keyed by name. */
+    /** @type {Map<string, FabricResource>} */
     this.resources = new Map();
     this.subscriptions = new Map(); // Track subscriptions by path
+    /**
+     * Optional sync/async enricher for OPTIONS `/` Application Resource Contract.
+     * Return `{ contract?, services?, status?, fabricCapabilities?, methods? }`.
+     * @type {null|function(): (object|Promise<object>)}
+     */
+    this._optionsEnricher = null;
 
     // ## Fabric Agent
     // Establishes network connectivity with Fabric.  Manages peers, connections, and messages.
@@ -382,7 +395,8 @@ class FabricHTTPServer extends Service {
     // Browser WebRTC peers (native RTCPeerConnection + WebSocket signaling from Hub).
     // The legacy npm `peer` ExpressPeerServer (PeerJS) was removed; register via Hub RPC / Bridge.
     this.webrtcPeers = new Map();
-    /** @type {Map<string, string>} peer id → unregister secret (from last successful Register) */
+    /** peer id → unregister secret (from last successful Register) */
+    /** @type {Map<string, string>} */
     this.webrtcPeerSecrets = new Map();
 
     return this;
@@ -500,8 +514,19 @@ class FabricHTTPServer extends Service {
     this._notifySubscribers(meta.list, listValue);
   }
 
+  _summarizeInternalEvent (msg) {
+    if (msg == null) return 'null';
+    if (typeof msg !== 'object') return String(msg).slice(0, 96);
+    const t = msg['@type'] || msg.type || 'object';
+    const keys = Object.keys(msg);
+    return `${t} keys=${keys.slice(0, 8).join(',')}${keys.length > 8 ? '…' : ''}`;
+  }
+
   _broadcastStateUpdate () {
-    const message = Message.fromVector(['StateUpdate', JSON.stringify(this.state)]);
+    // Do not JSON.stringify the full HTTPServer state on every resource mutation
+    // (OpenSSF advisory floods OOMed Hub while this ran on every Create).
+    if ((this.settings.verbosity || 0) < 5) return;
+    const message = Message.fromVector(['StateUpdate', JSON.stringify({ clock: this.clock })]);
     if (this._rootKey && this._rootKey.private) message.signWithKey(this._rootKey);
     this.broadcast(message);
   }
@@ -524,15 +549,14 @@ class FabricHTTPServer extends Service {
         '@type': 'Transaction',
         '@data': {
           changes: this['@changes'],
-          state: this.state
+          clock: this.clock
         }
       };
 
       this.emit('changes', this['@changes']);
-      this.emit('state', this.state);
       this.emit('message', message);
 
-      // Broadcast to connected peers
+      // Broadcast to connected peers (patches only — not a full state snapshot)
       const outbound = Message.fromVector(['Transaction', JSON.stringify(message['@data'])]);
       if (this._rootKey && this._rootKey.private) outbound.signWithKey(this._rootKey);
       this.broadcast(outbound);
@@ -935,9 +959,7 @@ class FabricHTTPServer extends Service {
   }
 
   _isWebRtcRegistryMethod (methodName) {
-    return methodName === 'RegisterWebRTCPeer' ||
-      methodName === 'UnregisterWebRTCPeer' ||
-      methodName === 'ListWebRTCPeers';
+    return webrtcInterop.isWebRtcRegistryMethod(methodName);
   }
 
   _handleAppMessage (msg) {
@@ -1062,8 +1084,8 @@ class FabricHTTPServer extends Service {
           const data = typeof msg === 'string' ? msg : msg.toString('utf8');
           const parsed = JSON.parse(data);
           if (parsed && typeof parsed === 'object' && !Buffer.isBuffer(parsed)) {
-            const ctrl = parsed.type ?? parsed['@type'];
-            if (typeof ctrl === 'string' && ctrl.toUpperCase() === 'HEARTBEAT' && ctrl !== 'HEARTBEAT') {
+            const ctrl = messageTransport.extractTransportControlType(parsed);
+            if (messageTransport.isNonCanonicalHeartbeatAlias(ctrl)) {
               if ((server.settings.verbosity || 0) >= 2) {
                 console.warn('[SERVER]', 'Ignoring WebSocket text frame: canonical type is HEARTBEAT.');
               }
@@ -1079,10 +1101,10 @@ class FabricHTTPServer extends Service {
           // — `new Message(parsed)` lacks preimage/hash and breaks Actor / receipts.
           if (parsed && typeof parsed === 'object' && !Buffer.isBuffer(parsed)) {
             const rawType = parsed.type || parsed['@type'];
-            if (rawType === 'HEARTBEAT') {
+            if (rawType === messageTransport.HEARTBEAT_TYPE) {
               const payload = parsed.body ?? parsed.data ?? parsed.content ?? parsed['@data'] ?? '';
               message = Message.fromVector([
-                'HEARTBEAT',
+                messageTransport.HEARTBEAT_TYPE,
                 typeof payload === 'string' ? payload : JSON.stringify(payload)
               ]);
             } else {
@@ -1103,8 +1125,7 @@ class FabricHTTPServer extends Service {
 
         // System messages (HEARTBEAT, Ping, Pong) may not have signatures.
         // `message.type` from `fromBuffer` is wire form (e.g. P2P_PING). Text JSON control types are canonical strings.
-        const systemMessageTypes = ['HEARTBEAT', 'Ping', 'Pong', 'P2P_PING', 'P2P_PONG'];
-        if (!message.raw.signature.toString() && !systemMessageTypes.includes(messageType)) {
+        if (!message.raw.signature.toString() && !messageTransport.isSystemMessageType(messageType)) {
           let headerForLog;
           try {
             headerForLog = message.header;
@@ -1119,64 +1140,59 @@ class FabricHTTPServer extends Service {
         const actor = new Actor(obj);
 
         let local = null;
-        const switchType = messageType || message.type;
+        const switchType = messageTransport.normalizeTransportType(messageType || message.type);
 
         // Use extracted messageType for switch statement
         switch (switchType) {
-          case 'HEARTBEAT':
+          case messageTransport.HEARTBEAT_TYPE:
             // HEARTBEAT messages are keepalive signals, no action needed
             if (server.settings.debug) console.debug('[SERVER]', 'Received HEARTBEAT from:', handle);
             break;
-          case 'JSONCall':
-          case 'JSON_CALL':
+          case messageTransport.JSON_CALL_CANONICAL_TYPE:
             // console.trace('[SERVER]', 'received JSON call:', message.body);
             try {
-              const jsonCallPayload = JSON.parse(message.body);
-              const preimage = crypto.createHash('sha256').update(message.body).digest('hex');
-              const hash = crypto.createHash('sha256').update(preimage).digest('hex');
-
+              // Correlate denials/errors to the raw frame body (cheap SHA256 pair) before JSON.parse.
+              const { hash } = jsonRpcTransport.computeWebSocketJsonCallHashPair(
+                message.body == null ? '' : String(message.body)
+              );
+              // Reject JSON-RPC transport auth before parsing so public sockets cannot burn CPU on
+              // attacker-controlled JSON.parse while still returning a hash clients can match.
               if (!socket._fabricJsonRpcTransportAuthorized) {
-                const errBody = JSON.stringify({
-                  method: 'JSONCallResult',
-                  params: [hash, null],
-                  error: {
-                    code: -32001,
-                    message: 'Unauthorized: valid bearer or client token required for JSON-RPC (same policy as POST /services/rpc)'
-                  }
-                });
-                const denied = Message.fromVector(['JSONCall', errBody]);
+                const errBody = JSON.stringify(jsonRpcTransport.buildWebSocketJsonCallErrorBody({
+                  hash,
+                  code: -32001,
+                  message: 'Unauthorized: valid bearer or client token required for JSON-RPC (same policy as POST /services/rpc)'
+                }));
+                const denied = Message.fromVector([messageTransport.JSON_CALL_CANONICAL_TYPE, errBody]);
                 if (server._rootKey && server._rootKey.private) denied.signWithKey(server._rootKey);
                 socket.send(denied.toBuffer());
                 break;
               }
 
-              const transportAuthorized = server._isJsonRpcTransportAuthorized(request);
+              const jsonCallPayload = jsonRpcTransport.parseWebSocketJsonCallBody(message.body);
+
               const wrtcCfg = server.settings.webrtc || {};
               if (
                 server._isWebRtcRegistryMethod(jsonCallPayload.method) &&
                 wrtcCfg.requireTransportAuth === true &&
-                !transportAuthorized
+                socket._fabricTransportAuthorized !== true
               ) {
-                const errBody = JSON.stringify({
-                  method: 'JSONCallResult',
-                  params: [hash, null],
-                  error: {
-                    code: -32001,
-                    message: 'Unauthorized: WebRTC registry JSONCall requires bearer or WebSocket client token (webrtc.requireTransportAuth)'
-                  }
-                });
-                const denied = Message.fromVector(['JSONCall', errBody]);
+                const errBody = JSON.stringify(jsonRpcTransport.buildWebSocketJsonCallErrorBody({
+                  hash,
+                  code: -32001,
+                  message: 'Unauthorized: WebRTC registry JSONCall requires bearer or WebSocket client token (webrtc.requireTransportAuth)'
+                }));
+                const denied = Message.fromVector([messageTransport.JSON_CALL_CANONICAL_TYPE, errBody]);
                 if (server._rootKey && server._rootKey.private) denied.signWithKey(server._rootKey);
                 socket.send(denied.toBuffer());
                 break;
               }
 
-              const kernel = new Actor(jsonCallPayload);
               const result = await server._handleCall({
                 hash: hash,
                 method: jsonCallPayload.method,
                 params: jsonCallPayload.params,
-                _fabricTransportAuthorized: transportAuthorized
+                _fabricTransportAuthorized: socket._fabricTransportAuthorized === true
               });
 
               if (server.settings.debug) {
@@ -1185,15 +1201,30 @@ class FabricHTTPServer extends Service {
 
               this.commit();
 
-              const callResultMessage = Message.fromVector(['JSONCall', JSON.stringify({
-                method: 'JSONCallResult',
-                params: [hash, result]
-              })]).signWithKey(this._rootKey);
+              const callResultMessage = Message.fromVector([
+                messageTransport.JSON_CALL_CANONICAL_TYPE,
+                JSON.stringify(jsonRpcTransport.buildWebSocketJsonCallResultBody({ hash, result }))
+              ]);
+              if (this._rootKey && this._rootKey.private) callResultMessage.signWithKey(this._rootKey);
 
               socket.send(callResultMessage.toBuffer());
             } catch (exception) {
               console.error('[SERVER]', 'Could not parse JSON blob:', exception);
-              return;
+              try {
+                const { hash } = jsonRpcTransport.computeWebSocketJsonCallHashPair(
+                  message.body == null ? '' : String(message.body)
+                );
+                const errBody = JSON.stringify(jsonRpcTransport.buildWebSocketJsonCallErrorBody({
+                  hash,
+                  code: -32603,
+                  message: (exception && exception.message) || 'JSONCall failed'
+                }));
+                const failed = Message.fromVector([messageTransport.JSON_CALL_CANONICAL_TYPE, errBody]);
+                if (server._rootKey && server._rootKey.private) failed.signWithKey(server._rootKey);
+                socket.send(failed.toBuffer());
+              } catch (_) {
+                // Best-effort error frame; avoid throwing out of the WS handler.
+              }
             }
             break;
           case 'GET':
@@ -1235,11 +1266,10 @@ class FabricHTTPServer extends Service {
               console.log('[SERVER]', 'patched:', result);
               break;
             }
-          case 'Ping':
-          case 'P2P_PING':
+          case messageTransport.PING_CANONICAL_TYPE:
             {
               const now = Date.now();
-              local = Message.fromVector(['Pong', now.toString()]);
+              local = Message.fromVector([messageTransport.PONG_CANONICAL_TYPE, now.toString()]);
               if (server._rootKey && server._rootKey.private) local.signWithKey(server._rootKey);
               let sendResult = null;
               try {
@@ -1249,14 +1279,17 @@ class FabricHTTPServer extends Service {
               }
               return sendResult;
             }
-          case 'GenericMessage':
+          case messageTransport.GENERIC_MESSAGE_TYPE:
             {
-              local = Message.fromVector(['GenericMessage', JSON.stringify({
-                type: 'GenericMessageReceipt',
-                content: actor.id
-              })]);
+              // Fail closed: unauthenticated GenericMessage must not dispatch local calls or
+              // peer-broadcast (handleFabricMessage). Prefer typed AMP / JSONCall on public hosts.
+              if (socket._fabricTransportAuthorized !== true) {
+                if (server.settings.debug) {
+                  console.debug('[SERVER]', 'Denied websocket GenericMessage (transport auth required)');
+                }
+                break;
+              }
 
-              if (server._rootKey && server._rootKey.private) local.signWithKey(server._rootKey);
               let msgData = null;
 
               try {
@@ -1264,20 +1297,19 @@ class FabricHTTPServer extends Service {
               } catch (exception) {}
 
               if (msgData) {
-                const transportAuthorized = server._isJsonRpcTransportAuthorized(request);
                 const baseCall = msgData.data || {
                   method: 'GenericMessage',
                   params: [msgData.data]
                 };
                 if (baseCall && typeof baseCall === 'object') {
                   server.emit('call', Object.assign({}, baseCall, {
-                    _fabricTransportAuthorized: transportAuthorized
+                    _fabricTransportAuthorized: true
                   }));
                 } else {
                   server.emit('call', {
                     method: 'GenericMessage',
                     params: [baseCall],
-                    _fabricTransportAuthorized: transportAuthorized
+                    _fabricTransportAuthorized: true
                   });
                 }
 
@@ -1285,19 +1317,17 @@ class FabricHTTPServer extends Service {
               }
               break;
             }
-          case 'Pong':
-          case 'P2P_PONG':
+          case messageTransport.PONG_CANONICAL_TYPE:
             {
               socket._resetKeepAlive();
               return;
             }
           case 'Call':
             {
-              const transportAuthorized = server._isJsonRpcTransportAuthorized(request);
               server.emit('call', {
                 method: message['@data'].data.method,
                 params: message['@data'].data.params,
-                _fabricTransportAuthorized: transportAuthorized
+                _fabricTransportAuthorized: socket._fabricTransportAuthorized === true
               });
               break;
             }
@@ -1330,7 +1360,7 @@ class FabricHTTPServer extends Service {
         }
 
         // Skip receipt for keepalive/system message types.
-        if (systemMessageTypes.includes(switchType)) return;
+        if (messageTransport.isSystemMessageType(switchType)) return;
 
         // Send receipt of acknowledgement
         const receipt = Message.fromVector(['P2P_MESSAGE_RECEIPT', {
@@ -1469,9 +1499,9 @@ class FabricHTTPServer extends Service {
 
   /**
    * JSON for API clients, HTML application shell for `Accept: text/html` (e.g. SPA deep-link refresh on JSON routes).
-   * @param {import('http').IncomingMessage} req
-   * @param {import('http').ServerResponse} res
-   * @param {() => Promise<void>} onJSON
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {Function} onJSON Async callback that writes the JSON body
    */
   jsonOrShell (req, res, onJSON) {
     const html = this.getApplicationHtml();
@@ -1498,9 +1528,9 @@ class FabricHTTPServer extends Service {
 
   /**
    * Always JSON (no `Accept` negotiation). For API-only routes.
-   * @param {import('http').IncomingMessage} req
-   * @param {import('http').ServerResponse} res
-   * @param {() => Promise<void>} onJSON
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
+   * @param {Function} onJSON Async callback that writes the JSON body
    */
   jsonOnly (req, res, onJSON) {
     return (async () => {
@@ -1517,8 +1547,8 @@ class FabricHTTPServer extends Service {
 
   /**
    * If the request’s first `Accept` type is `text/html`, send the configured shell; otherwise return false.
-   * @param {import('http').IncomingMessage} req
-   * @param {import('http').ServerResponse} res
+   * @param {http.IncomingMessage} req
+   * @param {http.ServerResponse} res
    * @returns {boolean} true if a response was sent
    */
   serveSpaShellIfHtmlNavigation (req, res) {
@@ -1530,12 +1560,54 @@ class FabricHTTPServer extends Service {
     return true;
   }
 
+  /**
+   * Register an enricher for `OPTIONS /` Application Resource Contract responses.
+   * Used by Hub (and other apps) to attach Fabric contract identity, peering
+   * service pointers, and live status (e.g. OracleAttestation).
+   * @param {null|function(): (object|Promise<object>)} fn
+   * @returns {FabricHTTPServer}
+   */
+  setOptionsEnricher (fn) {
+    this._optionsEnricher = typeof fn === 'function' ? fn : null;
+    return this;
+  }
+
+  /**
+   * Build the Application Resource Contract document for `OPTIONS /`.
+   * @param {object} [extra] Merged after enricher output
+   * @returns {Promise<object>}
+   */
+  async buildOptionsApplicationContract (extra = {}) {
+    let enrich = {};
+    if (typeof this._optionsEnricher === 'function') {
+      try {
+        enrich = await this._optionsEnricher() || {};
+      } catch (e) {
+        this.emit('warning', `OPTIONS enricher: ${(e && e.message) || e}`);
+        enrich = {};
+      }
+    }
+    return buildApplicationResourceContract(this, Object.assign({}, enrich, extra || {}));
+  }
+
   _handleOptionsRequest (req, res) {
-    res.send({
-      name: this.settings.name,
-      description: this.settings.description,
-      resources: this.definitions
-    });
+    Promise.resolve(this.buildOptionsApplicationContract())
+      .then((doc) => {
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.status(200).json(doc);
+      })
+      .catch((e) => {
+        // EventEmitter throws if `error` is emitted with zero listeners.
+        if (this.listenerCount('error') > 0) {
+          this.emit('error', e);
+        } else {
+          console.warn('[SERVER]', 'OPTIONS failed:', (e && e.message) || e);
+        }
+        res.status(500).json({
+          '@type': 'Error',
+          message: (e && e.message) || String(e)
+        });
+      });
   }
 
   _logMiddleware (req, res, next) {
@@ -1563,7 +1635,7 @@ class FabricHTTPServer extends Service {
     res.header('X-Powered-By', '@fabric/http');
     if (this.settings.cors) {
       res.header('Access-Control-Allow-Origin', '*');
-      res.header('Access-Control-Allow-Headers', 'accept, content-type, authorization, x-fabric-identity');
+      res.header('Access-Control-Allow-Headers', 'accept, content-type, authorization, x-fabric-identity, x-fabric-poll-secret');
       res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE, PATCH, HEAD');
       res.header(
         'Access-Control-Expose-Headers',
@@ -1620,23 +1692,21 @@ class FabricHTTPServer extends Service {
         const body = req && req.body ? req.body : {};
         const id = body.id != null ? body.id : null;
         if (cfg.requireAuth === true && !this._isJsonRpcTransportAuthorized(req)) {
-          return res.status(401).json({
-            jsonrpc: '2.0',
+          return res.status(401).json(jsonRpcTransport.buildJsonRpcErrorEnvelope({
             id,
-            error: { code: -32001, message: 'Unauthorized: valid bearer/session token required for JSON-RPC' }
-          });
+            code: -32001,
+            message: 'Unauthorized: valid bearer/session token required for JSON-RPC'
+          }));
         }
         const method = body.method;
-        let params = body.params;
-        if (params === undefined || params === null) params = [];
-        if (!Array.isArray(params)) params = [params];
+        const params = jsonRpcTransport.normalizeJsonRpcParams(body.params);
 
         if (!method) {
-          res.status(400).json({
-            jsonrpc: '2.0',
+          res.status(400).json(jsonRpcTransport.buildJsonRpcErrorEnvelope({
             id,
-            error: { code: -32600, message: 'Invalid Request: method required' }
-          });
+            code: -32600,
+            message: 'Invalid Request: method required'
+          }));
           return;
         }
 
@@ -1649,32 +1719,22 @@ class FabricHTTPServer extends Service {
           });
         } catch (callErr) {
           if ((this.settings.verbosity || 0) >= 3) console.error('[HTTP:SERVER] RPC call error:', callErr);
-          res.status(500).json({
-            jsonrpc: '2.0',
+          res.status(500).json(jsonRpcTransport.buildJsonRpcErrorEnvelope({
             id,
-            error: {
-              code: -32603,
-              message: callErr && callErr.message ? callErr.message : 'Internal error'
-            }
-          });
+            code: -32603,
+            message: callErr && callErr.message ? callErr.message : 'Internal error'
+          }));
           return;
         }
 
-        res.status(200).json({
-          jsonrpc: '2.0',
-          id,
-          result
-        });
+        res.status(200).json(jsonRpcTransport.buildJsonRpcSuccessEnvelope({ id, result }));
       } catch (err) {
         console.error('[HTTP:SERVER] RPC handler error:', err);
-        res.status(500).json({
-          jsonrpc: '2.0',
+        res.status(500).json(jsonRpcTransport.buildJsonRpcErrorEnvelope({
           id: null,
-          error: {
-            code: -32603,
-            message: err && err.message ? err.message : 'Internal error'
-          }
-        });
+          code: -32603,
+          message: err && err.message ? err.message : 'Internal error'
+        }));
       }
     };
 
@@ -1946,7 +2006,15 @@ class FabricHTTPServer extends Service {
         result = await server._GET(req.path);
         break;
       case 'POST':
-        result = await server._POST(req.path, req.body);
+        if (req.body == null) {
+          return res.status(400).json({ status: 'error', message: 'JSON body required' });
+        }
+        try {
+          result = await server._POST(req.path, req.body);
+        } catch (err) {
+          const msg = err && err.message ? err.message : String(err);
+          return res.status(400).json({ status: 'error', message: msg });
+        }
         if (!result) return res.status(500).end();
         return res.redirect(303, result);
       case 'PUT':
@@ -2355,15 +2423,19 @@ class FabricHTTPServer extends Service {
     this.on('call', this._handleCall.bind(this));
 
     // TODO: convert to bound functions
-    this.on('commit', async function (msg) {
-      console.log('[HTTP:SERVER]', 'Internal commit:', msg);
+    this.on('commit', (msg) => {
+      if ((this.settings.verbosity || 0) >= 5) {
+        console.log('[HTTP:SERVER]', 'Internal commit:', this._summarizeInternalEvent(msg));
+      }
     });
 
     this.on('debug', this.debug.bind(this));
     this.on('log', this.log.bind(this));
     this.on('warning', this.warn.bind(this));
-    this.on('message', async function (msg) {
-      console.log('[HTTP:SERVER]', 'Internal message:', msg);
+    this.on('message', (msg) => {
+      if ((this.settings.verbosity || 0) >= 5) {
+        console.log('[HTTP:SERVER]', 'Internal message:', this._summarizeInternalEvent(msg));
+      }
     });
 
     this._registerMethod('GenericMessage', (msg) => {
@@ -2405,8 +2477,19 @@ class FabricHTTPServer extends Service {
     }
 
     if (this.settings.listen) {
-      this.http.on('listening', notifyReady);
-      await this.http.listen(this.settings.port, this.interface);
+      await new Promise((resolve, reject) => {
+        const srv = this.http;
+        const onErr = (err) => {
+          srv.removeListener('error', onErr);
+          reject(err);
+        };
+        srv.once('error', onErr);
+        srv.listen(this.settings.port, this.interface, () => {
+          srv.removeListener('error', onErr);
+          notifyReady();
+          resolve();
+        });
+      });
     } else {
       if ((this.settings.verbosity || 0) >= 3) {
         console.warn('[HTTP:SERVER]', 'Listening is disabled.  Only events will be emitted!');
@@ -2554,5 +2637,3 @@ class FabricHTTPServer extends Service {
 }
 
 module.exports = FabricHTTPServer;
-module.exports.resolveFabricHttpPackageAssetsDir = resolveFabricHttpPackageAssetsDir;
-module.exports.acceptFirstHtmlNavigation = acceptFirstHtmlNavigation;

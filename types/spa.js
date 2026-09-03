@@ -16,6 +16,7 @@ const config = {
 
 // core dependencies
 const crypto = require('crypto');
+const { fabricFaviconHeadHtml } = require('../functions/fabricBrand');
 const merge = require('lodash.merge');
 const page = require('page');
 const pluralize = require('pluralize');
@@ -261,6 +262,7 @@ class SPA extends App {
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>${this.title || this.settings.title}</title>
+    ${fabricFaviconHeadHtml()}
     <!-- <link rel="manifest" href="/manifest.json"> -->
     <link rel="stylesheet" type="text/css" href="/semantic.min.css" />
     <link rel="stylesheet" type="text/css" href="/styles/screen.css" />
