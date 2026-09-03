@@ -2,6 +2,7 @@
 All notable changes to `@fabric/http` are documented here. This project follows semantic-ish versioning with **RC** milestones aligned to **hub.fabric.pub** and **`@fabric/core`**.
 
 ## Unreleased
+- **Distributed HTTP:** optional `GET|POST /services/distributed/epoch/signatures` for Beacon Federation signature collection (k-of-n BIP340); Hub wires the same callbacks as RPC. Codacy: pin `codecov/codecov-action` to full SHA `fb8b3582…` (v7.0.0). Docs: production plan links core `SIGNATURE_PROOF_MODEL` + Hub federation ladder; RFC6902 multi-op via `patchesCanonical` closed.
 - **HTTPServer.listen:** `start()` waits for the Node `listening` event (or rejects on bind error). `await server.listen()` is not a Promise, so callers previously returned before the socket existed.
 - **FederationContractInvite expiry:** built invites stamp `expiresAt` (epoch ms),
   default **7 days** after `invitedAt`. Parse keeps legacy payloads without the

@@ -1,12 +1,15 @@
 'use strict';
 
 /**
- * HTTP surface for distributed execution: manifest, epoch status, and optional
- * sidechain document (shared mutual state) for operators. Not a Fabric type —
- * document APIs live in `@fabric/core/functions/sidechainState`.
+ * HTTP surface for distributed execution: manifest, epoch status, optional
+ * sidechain document, and Beacon Federation signature collection.
+ * Not a Fabric type — document APIs live in `@fabric/core/functions/sidechainState`;
+ * epoch witnesses in `@fabric/core/functions/beaconFederationSigning`.
  * Binds routes on a {@link FabricHTTPServer} via `_addRoute` (same pattern as Hub services).
  *
  * Canonical paths use `/sidechain`. `/statechain` aliases are transitional for one release.
+ *
+ * @see @fabric/core/docs/SIGNATURE_PROOF_MODEL.md
  */
 const merge = require('lodash.merge');
 const Service = require('@fabric/core/types/service');
@@ -21,6 +24,8 @@ class FabricDistributedExecutionHTTP extends Service {
    * @param {Function} [settings.submitSidechainStatePatch] Body/params → patch result.
    * @param {Function} [settings.getSidechainJournal] Returns journal summary.
    * @param {Function} [settings.getSidechainSnapshots] Returns snapshot index.
+   * @param {Function} [settings.listPendingBeaconEpochSignatures] Pending federation rounds.
+   * @param {Function} [settings.submitBeaconEpochSignature] Accumulate BIP340 epoch witness.
    */
   constructor (settings = {}) {
     super(settings);
@@ -32,7 +37,9 @@ class FabricDistributedExecutionHTTP extends Service {
       getSidechainState: null,
       submitSidechainStatePatch: null,
       getSidechainJournal: null,
-      getSidechainSnapshots: null
+      getSidechainSnapshots: null,
+      listPendingBeaconEpochSignatures: null,
+      submitBeaconEpochSignature: null
     }, settings);
   }
 
@@ -50,6 +57,12 @@ class FabricDistributedExecutionHTTP extends Service {
     }
     if (typeof this.settings.getEpochStatus === 'function') {
       httpServer._addRoute('GET', `${base}/epoch`, this._handleEpoch.bind(this));
+    }
+    if (typeof this.settings.listPendingBeaconEpochSignatures === 'function') {
+      httpServer._addRoute('GET', `${base}/epoch/signatures`, this._handleListEpochSignatures.bind(this));
+    }
+    if (typeof this.settings.submitBeaconEpochSignature === 'function') {
+      httpServer._addRoute('POST', `${base}/epoch/signatures`, this._handleSubmitEpochSignature.bind(this));
     }
     if (typeof this.settings.getSidechainState === 'function') {
       httpServer._addRoute('GET', `${base}/sidechain`, this._handleGetSidechain.bind(this));
@@ -85,6 +98,28 @@ class FabricDistributedExecutionHTTP extends Service {
       const body = await Promise.resolve(this.settings.getEpochStatus(req));
       res.setHeader('Content-Type', 'application/json');
       res.status(200).send(JSON.stringify(body));
+    } catch (e) {
+      res.status(500).json({ status: 'error', message: e && e.message ? e.message : String(e) });
+    }
+  }
+
+  async _handleListEpochSignatures (req, res) {
+    try {
+      const body = await Promise.resolve(this.settings.listPendingBeaconEpochSignatures(req));
+      res.setHeader('Content-Type', 'application/json');
+      res.status(200).send(JSON.stringify(body));
+    } catch (e) {
+      res.status(500).json({ status: 'error', message: e && e.message ? e.message : String(e) });
+    }
+  }
+
+  async _handleSubmitEpochSignature (req, res) {
+    try {
+      const params = (req && req.body && typeof req.body === 'object') ? req.body : {};
+      const body = await Promise.resolve(this.settings.submitBeaconEpochSignature(params, req));
+      const err = body && body.status === 'error';
+      res.setHeader('Content-Type', 'application/json');
+      res.status(err ? 400 : 200).send(JSON.stringify(body));
     } catch (e) {
       res.status(500).json({ status: 'error', message: e && e.message ? e.message : String(e) });
     }
