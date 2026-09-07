@@ -16,7 +16,7 @@ This package fails closed on missing auth secrets, enforces Hub origin allowlist
 **Basics coverage:** [`tests/adversarialEnvironment.basics.test.js`](tests/adversarialEnvironment.basics.test.js). Broader auth / WS hardening: [`tests/security.auth.server.js`](tests/security.auth.server.js).
 
 ## Hub allowlist
-`functions/fabricHubAllowlist.js` — default network hubs + loopback; extras via `FABRIC_HUB_ALLOWLIST`. Unknown origins must not receive signed login/link completions.
+`FABRIC_HUB_ALLOWLIST` — default network hubs + loopback; extras via `FABRIC_HUB_ALLOWLIST` (exact origins and optional HTTPS-only `*.example.com` suffixes). Unknown origins must not receive signed login/link completions.
 
 ## Outstanding (auth / carriers)
 - **WebSocket `GenericMessage` AMP-verify** — unauthenticated frames are already dropped before local `call` dispatch and `handleFabricMessage` peer broadcast (`types/server.js`). Remaining: prefer named outer types / `JSONCall` for new Hub UI paths; optionally verify AMP signatures before any remaining peer relay of signed carriers; do not treat unsigned JSON carriers as equivalent to author-signed AMP. Hub tracking: [MESSAGE_TRANSPORT.md](https://github.com/FabricLabs/hub.fabric.pub/blob/master/MESSAGE_TRANSPORT.md). Shared-host WS: Hub calls `applySharedModeWebsocketGate` (`functions/httpSharedMode.js`) so shared HTTP bind (`HTTP_SHARED_MODE` / `0.0.0.0`) auto-enables `websocket.requireClientToken` (fail-closed even when `FABRIC_WS_CLIENT_TOKEN` is unset — handshakes reject until a token is configured). Explicit `websocket.requireClientToken: false` still wins.

@@ -1712,10 +1712,16 @@ class FabricHTTPServer extends Service {
 
         let result = null;
         try {
+          this._jsonRpcRequestContext = {
+            remoteAddress: req && req.socket && req.socket.remoteAddress
+              ? String(req.socket.remoteAddress)
+              : '',
+            authorized: this._isJsonRpcTransportAuthorized(req) === true
+          };
           result = await this._handleCall({
             method,
             params,
-            _fabricTransportAuthorized: this._isJsonRpcTransportAuthorized(req)
+            _fabricTransportAuthorized: this._jsonRpcRequestContext.authorized
           });
         } catch (callErr) {
           if ((this.settings.verbosity || 0) >= 3) console.error('[HTTP:SERVER] RPC call error:', callErr);
@@ -1725,6 +1731,8 @@ class FabricHTTPServer extends Service {
             message: callErr && callErr.message ? callErr.message : 'Internal error'
           }));
           return;
+        } finally {
+          this._jsonRpcRequestContext = null;
         }
 
         res.status(200).json(jsonRpcTransport.buildJsonRpcSuccessEnvelope({ id, result }));
@@ -2285,7 +2293,11 @@ class FabricHTTPServer extends Service {
     // Other Middlewares
     this.express.use(parsers.urlencoded({ extended: true }));
     // Fabric HTTP APIs expect JSON **objects** (or arrays where applicable), not bare primitives.
-    this.express.use(parsers.json());
+    // Default 12mb fits Hub CreateDocument payloads up to MAX_DOCUMENT_BYTES (8 MiB) as base64.
+    const jsonLimit = (this.settings && this.settings.jsonBodyLimit) ||
+      process.env.FABRIC_HTTP_JSON_LIMIT ||
+      '12mb';
+    this.express.use(parsers.json({ limit: jsonLimit }));
 
     for (let name in this.settings.middlewares) {
       const middleware = this.settings.middlewares[name];
