@@ -6,7 +6,7 @@
 ## What `@fabric/http` provides
 
 - JSON-RPC and WebSocket can require a **bearer** (`middlewares/auth.js`) and a **WebSocket** client token (`settings.websocket`) consistent with the HTTP JSON-RPC policy (`jsonRpc.requireAuth`). See `tests/security.auth.server.js`.
-- **CORS:** With `cors: true`, `OPTIONS` on each JSON-RPC path returns **204** so extension or web `fetch` preflights succeed (`tests/jsonrpc.cors.preflight.js`). A minimal Hub-shaped static + RPC dev server is **`npm run sample:hub`** (default `http://127.0.0.1:8099`, `hub-mesh-bridge.html`); see `docs/WEBRTC_FABRIC_HTTP.md`.
+- **CORS:** With `cors: true`, `OPTIONS` on each JSON-RPC path returns **204** so extension or web `fetch` preflights succeed (`tests/web.server.js`). A minimal Hub-shaped static + RPC dev server is **`npm run sample:hub`** (default `http://127.0.0.1:8099`, `hub-mesh-bridge.html`); see `docs/WEBRTC_FABRIC_HTTP.md`.
 
 ## Suggested test shape (extension)
 

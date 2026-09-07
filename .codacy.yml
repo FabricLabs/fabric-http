@@ -2,3 +2,8 @@
 exclude_paths:
   - "scripts/build-semantic.js"
   - "scripts/download-fonts.js"
+  # Offline icon generator: spawnSync + path.join over repo trees (not HTTP).
+  - "scripts/render-fabric-icon.js"
+  - "scripts/render-fabric-icon.swift"
+  # Mocha fixtures trip Codacy “hardcoded password” on HMAC/test keys (same as core).
+  - "tests/**"

@@ -227,7 +227,7 @@ describe('@fabric/http standards', function () {
       if (!okError(j)) assert.fail(ajv.errorsText(okError.errors));
     });
 
-    it('OPTIONS / returns JSON describing the server', async function () {
+    it('OPTIONS / returns Application Resource Contract JSON', async function () {
       const r = await httpRequest({
         port,
         method: 'OPTIONS',
@@ -238,8 +238,15 @@ describe('@fabric/http standards', function () {
       const ct = r.headers['content-type'] || '';
       assert.ok(ct.includes('json'), `expected JSON content-type, got ${ct}`);
       const j = JSON.parse(r.body);
+      assert.strictEqual(j['@type'], 'ApplicationResourceContract');
       assert.ok(typeof j.name === 'string');
       assert.ok('description' in j);
+      assert.ok(j.contract && typeof j.contract.id === 'string');
+      assert.strictEqual(j.contract.messageType, 'CONTRACT_PUBLISH');
+      assert.ok(j.resources && typeof j.resources === 'object');
+      assert.ok(j.capabilities && j.capabilities.http);
+      assert.ok(j.capabilities.http.jsonRpc === true);
+      assert.ok(j.services && j.services.rpc);
     });
 
     it('serves /sitemap.xml with collected runtime URLs', async function () {

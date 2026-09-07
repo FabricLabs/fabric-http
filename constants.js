@@ -10,6 +10,7 @@ const SESSION_SEED = '79084a7963fc1761e8f6871d6aa704c4922316030af4aa5a076dde35fc
 
 // auth
 const HTTP_IDENTITY_HEADER_NAME = 'X-Fabric-Identity';
+/** Declared for IDENTITY.md body-sign sketches. `middlewares/auth.js` does not verify this header. */
 const HTTP_SIGNATURE_HEADER_NAME = 'X-Fabric-Signature';
 const HTTP_IDENTITY_HEADER_NAME_LOWER = HTTP_IDENTITY_HEADER_NAME.toLowerCase();
 const HTTP_SIGNATURE_HEADER_NAME_LOWER = HTTP_SIGNATURE_HEADER_NAME.toLowerCase();
@@ -35,6 +36,12 @@ const BROWSER_TARGET = '#browser-content';
 const SAMPLE_HUB_HTTP_SERVER_NAME = 'fabric-http-hub-local-stub';
 const DEFAULT_SAMPLE_HUB_HTTP_PORT = 8099;
 
+const {
+  FABRIC_BRAND_PURPLE,
+  FABRIC_BRAND_FOREGROUND,
+  FABRIC_BRAND_LETTER
+} = require('./functions/fabricBrand');
+
 // exports (literals only — no functions; see FabricHTTPServer statics in `types/server.js`.)
 module.exports = {
   TICK_INTERVAL,
@@ -53,5 +60,8 @@ module.exports = {
   P2P_SESSION_ACK,
   PREFERRED_CONTENT_TYPE,
   SAMPLE_HUB_HTTP_SERVER_NAME,
-  DEFAULT_SAMPLE_HUB_HTTP_PORT
+  DEFAULT_SAMPLE_HUB_HTTP_PORT,
+  FABRIC_BRAND_PURPLE,
+  FABRIC_BRAND_FOREGROUND,
+  FABRIC_BRAND_LETTER
 };

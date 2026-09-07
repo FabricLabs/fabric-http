@@ -51,6 +51,41 @@ describe('@fabric/http/types/remote', function () {
       test();
     });
 
+    it('defaults entropy to a crypto-backed unit-interval float', function () {
+      const a = new Remote();
+      const b = new Remote();
+      assert.ok(a.settings.entropy > 0 && a.settings.entropy < 1);
+      assert.ok(b.settings.entropy > 0 && b.settings.entropy < 1);
+      assert.notStrictEqual(a.settings.entropy, b.settings.entropy);
+    });
+
+    it('builds a ws(s):// endpoint URL', function () {
+      const remote = new Remote({ host: 'example.test', port: 443, secure: true });
+      assert.strictEqual(remote.endpoint, 'wss://example.test:443/');
+      const plain = new Remote({ host: '127.0.0.1', port: 8080, secure: false });
+      assert.strictEqual(plain.endpoint, 'ws://127.0.0.1:8080/');
+    });
+
+    it('keeps socket lifecycle logs quiet at default verbosity', function () {
+      const remote = new Remote(sample);
+      const logs = [];
+      const orig = console.log;
+      console.log = function () { logs.push(Array.from(arguments)); };
+      try {
+        remote._handleSocketOpen();
+        remote._handleSocketClose();
+        remote._handleSocketMessage({ data: 'x' });
+        assert.strictEqual(logs.length, 0);
+        remote.settings.verbosity = 5;
+        remote._handleSocketOpen();
+        remote._handleSocketClose();
+        remote._handleSocketMessage({ data: 'x' });
+        assert.ok(logs.length >= 3);
+      } finally {
+        console.log = orig;
+      }
+    });
+
     it('handles usernames and passwords', function (done) {
       async function test () {
         try {

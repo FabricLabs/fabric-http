@@ -14,6 +14,7 @@
 - **TLS** — Terminate TLS in front of any server built with this library (reverse proxy or platform load balancer).
 - **WebSocket** — Ensure proxies pass **Upgrade** correctly and set reasonable **idle timeouts** for long-lived JSON-RPC sessions.
 - **Secrets** — Session secrets, API keys, and Fabric seeds belong in **environment** or a secrets manager, not in repo config.
+- **Federation / Beacon** — When Hub configures `FABRIC_DISTRIBUTED_FEDERATION_VALIDATORS`, sidechain patches and Beacon epochs require Schnorr **`federationWitness`** (k-of-n BIP340 accumulate). HTTP binders expose optional **`GET|POST /services/distributed/epoch/signatures`** for pending rounds / signature submit (same surface as RPC `ListPendingBeaconEpochSignatures` / `SubmitBeaconEpochSignature`). Proof model: [@fabric/core `SIGNATURE_PROOF_MODEL.md`](https://github.com/FabricLabs/fabric/blob/feature/rsi/docs/SIGNATURE_PROOF_MODEL.md).
 
 ## Stack position
 ```text
@@ -28,6 +29,9 @@ Browser / legacy web  →  @fabric/http (this repo)  →  @fabric/core  →  bit
 | Doc | Purpose |
 |-----|---------|
 | [README.md](../README.md) | Install & quick start |
+| [core TYPES_AND_SERVICES.md](https://github.com/FabricLabs/fabric/blob/feature/rsi/docs/TYPES_AND_SERVICES.md) | Suite `types/` + `services/` homes (this package is HTTP/SPA only) |
+| [core SIGNATURE_PROOF_MODEL.md](https://github.com/FabricLabs/fabric/blob/feature/rsi/docs/SIGNATURE_PROOF_MODEL.md) | Signatures authorize; L1 observes |
+| [Hub FEDERATION_DEPLOYMENT.md](https://github.com/FabricLabs/hub.fabric.pub/blob/feature/rsi/docs/FEDERATION_DEPLOYMENT.md) | Validator ladder + Beacon seals |
 | [MARKETING_OVERVIEW.md](MARKETING_OVERVIEW.md) | Positioning & copy |
 | [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) | Tag, publish, pre-release verification |
 | [hub.fabric.pub docs](https://github.com/FabricLabs/hub.fabric.pub/tree/main/docs) | Operator deploy (PRODUCTION, payments) |

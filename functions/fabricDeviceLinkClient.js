@@ -1,0 +1,205 @@
+'use strict';
+
+/**
+ * Browser/Electron helpers for mutual device-link HTTP flow.
+ * Signing is left to the caller (unlocked Key / IPC).
+ *
+ * Must NOT require the Hub server module (`fabricDeviceLink.js`) — that pulls
+ * Node `http` via fabricDesktopAuth/httpSpaShell and breaks the SPA webpack bundle.
+ */
+
+const {
+  DEVICE_LINK_PREFIX,
+  buildDeviceLinkOfferMessage,
+  buildDeviceLinkMessage,
+  parseDeviceLinkMessage
+} = require('./fabricDeviceLinkMessages');
+const { applyPollSecretHeader } = require('./fabricSiteLoginVerify');
+
+function isBrowserFetchGlobal () {
+  return typeof globalThis.window === 'object' && globalThis.window === globalThis;
+}
+
+function deviceLinkHeaders (origin, opts = {}) {
+  const o = String(origin || '').replace(/\/$/, '');
+  const h = { Accept: 'application/json', 'Content-Type': 'application/json' };
+  // Fetch forbids client-set Origin/Referer in browsers; they send the real page origin.
+  // Node / Electron-main helpers still attach them for loopback and unit tests.
+  if (o && !isBrowserFetchGlobal()) {
+    h.Origin = o;
+    h.Referer = `${o}/`;
+  }
+  return applyPollSecretHeader(h, opts.pollSecret);
+}
+
+/**
+ * Prepare a device-link session (server-only nonce + sessionId-bound offer).
+ * @param {object} opts
+ * @param {string} opts.hubBase
+ * @param {string} opts.origin
+ * @param {string} [opts.label]
+ * @param {{ id: string, xpub: string }} opts.identity
+ * @param {typeof fetch} [opts.fetchImpl]
+ */
+async function prepareDeviceLinkOffer (opts) {
+  const fetchImpl = opts.fetchImpl || globalThis.fetch;
+  const hubBase = String(opts.hubBase || '').replace(/\/$/, '');
+  const origin = String(opts.origin || '').trim().replace(/\/$/, '');
+  if (!origin) {
+    return { ok: false, error: 'origin required (browser page origin)' };
+  }
+  const res = await fetchImpl(`${hubBase}/device-links`, {
+    method: 'POST',
+    headers: deviceLinkHeaders(origin),
+    body: JSON.stringify({
+      origin,
+      label: opts.label || 'device',
+      identity: opts.identity
+    }),
+    cache: 'no-store'
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) {
+    return { ok: false, error: (data && data.error) || `HTTP ${res.status}` };
+  }
+  return { ok: true, ...data };
+}
+
+/**
+ * Commit a prepared offer with the initiator Schnorr signature.
+ * @param {object} opts
+ * @param {string} opts.sessionId
+ * @param {string} opts.hubBase
+ * @param {string} opts.origin
+ * @param {{ id: string, xpub: string }} opts.identity
+ * @param {string} opts.pubkeyHex
+ * @param {string} opts.signature
+ * @param {typeof fetch} [opts.fetchImpl]
+ */
+async function commitDeviceLinkOffer (opts) {
+  const fetchImpl = opts.fetchImpl || globalThis.fetch;
+  const hubBase = String(opts.hubBase || '').replace(/\/$/, '');
+  const origin = String(opts.origin || '').trim().replace(/\/$/, '');
+  if (!origin) {
+    return { ok: false, error: 'origin required (browser page origin)' };
+  }
+  const res = await fetchImpl(`${hubBase}/device-links`, {
+    method: 'POST',
+    headers: deviceLinkHeaders(origin),
+    body: JSON.stringify({
+      origin,
+      sessionId: opts.sessionId,
+      label: opts.label || 'device',
+      identity: opts.identity,
+      pubkeyHex: opts.pubkeyHex,
+      signature: opts.signature
+    }),
+    cache: 'no-store'
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) {
+    return { ok: false, error: (data && data.error) || `HTTP ${res.status}` };
+  }
+  return { ok: true, ...data };
+}
+
+/**
+ * @deprecated Prefer prepareDeviceLinkOffer + commitDeviceLinkOffer (v2 protocol).
+ */
+async function createDeviceLinkOffer (opts) {
+  if (!opts.signature) {
+    return prepareDeviceLinkOffer(opts);
+  }
+  return commitDeviceLinkOffer(opts);
+}
+
+async function fetchDeviceLinkSession (hubBase, sessionId, opts = {}) {
+  const fetchImpl = opts.fetchImpl || globalThis.fetch;
+  const base = String(hubBase || '').replace(/\/$/, '');
+  const origin = String(opts.origin || '').trim().replace(/\/$/, '');
+  if (!origin) {
+    return { ok: false, error: 'origin required (browser page origin)' };
+  }
+  const res = await fetchImpl(`${base}/device-links/${encodeURIComponent(sessionId)}`, {
+    headers: deviceLinkHeaders(origin, { pollSecret: opts.pollSecret }),
+    cache: 'no-store'
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) {
+    return { ok: false, status: res.status, error: (data && data.error) || `HTTP ${res.status}` };
+  }
+  return { ok: true, ...data };
+}
+
+/**
+ * Drop a pending (or accepted-but-not-linked) session. 404 / already-gone is success
+ * so Cancel is always safe. A completed `linked` session returns 409 from the hub.
+ * Fetch rejection is `ok: false` — the remote row may still exist.
+ */
+async function cancelDeviceLinkSession (hubBase, sessionId, opts = {}) {
+  const fetchImpl = opts.fetchImpl || globalThis.fetch;
+  const base = String(hubBase || '').replace(/\/$/, '');
+  const sid = String(sessionId || '').trim();
+  if (!base || !sid) return { ok: true, skipped: true };
+  const origin = String(opts.origin || base).trim().replace(/\/$/, '');
+  try {
+    const res = await fetchImpl(`${base}/device-links/${encodeURIComponent(sid)}`, {
+      method: 'DELETE',
+      headers: deviceLinkHeaders(origin, { pollSecret: opts.pollSecret }),
+      cache: 'no-store'
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 404 || (res.ok && data && data.ok !== false)) {
+      return {
+        ...data,
+        ok: true,
+        cancelled: true,
+        existed: !!(data && data.existed)
+      };
+    }
+    if (res.status === 409) {
+      return { ok: true, cancelled: false, alreadyLinked: true, error: (data && data.error) || 'already linked' };
+    }
+    return { ok: false, status: res.status, error: (data && data.error) || `HTTP ${res.status}` };
+  } catch (err) {
+    return {
+      ok: false,
+      cancelled: false,
+      error: (err && err.message) ? String(err.message) : 'cancel failed'
+    };
+  }
+}
+
+async function postDeviceLinkSignature (hubBase, sessionId, body, opts = {}) {
+  const fetchImpl = opts.fetchImpl || globalThis.fetch;
+  const base = String(hubBase || '').replace(/\/$/, '');
+  const origin = String(opts.origin || '').trim().replace(/\/$/, '');
+  if (!origin) {
+    return { ok: false, status: 400, error: 'origin required (browser page origin)' };
+  }
+  const res = await fetchImpl(`${base}/device-links/${encodeURIComponent(sessionId)}/signatures`, {
+    method: 'POST',
+    headers: deviceLinkHeaders(origin),
+    body: JSON.stringify(body),
+    cache: 'no-store'
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) {
+    return { ok: false, status: res.status, error: (data && data.error) || `HTTP ${res.status}` };
+  }
+  return { ok: true, ...data };
+}
+
+module.exports = {
+  DEVICE_LINK_PREFIX,
+  buildDeviceLinkOfferMessage,
+  buildDeviceLinkMessage,
+  parseDeviceLinkMessage,
+  prepareDeviceLinkOffer,
+  commitDeviceLinkOffer,
+  createDeviceLinkOffer,
+  fetchDeviceLinkSession,
+  postDeviceLinkSignature,
+  cancelDeviceLinkSession,
+  deviceLinkHeaders
+};
