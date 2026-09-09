@@ -2,7 +2,8 @@
 All notable changes to `@fabric/http` are documented here. This project follows semantic-ish versioning with **RC** milestones aligned to **hub.fabric.pub** and **`@fabric/core`**.
 
 ## Unreleased
-- **JSON body limit:** `HTTPServer` `body-parser` JSON default is **`12mb`** (override with `settings.jsonBodyLimit` or `FABRIC_HTTP_JSON_LIMIT`) so Hub `CreateDocument` can carry up to the 8 MiB document cap as base64.
+- **PR #79 review:** JSON-RPC no longer stores `_jsonRpcRequestContext` on the shared `HTTPServer` across `await` (concurrent HTTP calls raced auth/remoteAddress). Auth and remote address travel on the per-call object. Global JSON body limit defaults to **100kb**; **12mb** applies only to `/services/rpc` (and `jsonBodyLargePaths` / enabled `jsonRpc.paths`). Hub allowlist rejects shared-platform and public multi-part suffix wildcards (`*.vercel.app`, `*.co.uk`); exact preview origins and operator suffixes (`*.hub.example.com`) remain.
+- **JSON body limit:** `HTTPServer` large JSON default remains **`12mb`** on RPC paths (override with `settings.jsonBodyLimit` or `FABRIC_HTTP_JSON_LIMIT`) so Hub `CreateDocument` can carry up to the 8 MiB document cap as base64. Use `jsonBodyLimitDefault` / `FABRIC_HTTP_JSON_LIMIT_DEFAULT` for the small global limit.
 - **Distributed HTTP:** optional `GET|POST /services/distributed/epoch/signatures` for Beacon Federation signature collection (k-of-n BIP340); Hub wires the same callbacks as RPC. Codacy: pin `codecov/codecov-action` to full SHA `fb8b3582…` (v7.0.0). Docs: production plan links core `SIGNATURE_PROOF_MODEL` + Hub federation ladder; RFC6902 multi-op via `patchesCanonical` closed.
 - **HTTPServer.listen:** `start()` waits for the Node `listening` event (or rejects on bind error). `await server.listen()` is not a Promise, so callers previously returned before the socket existed.
 - **FederationContractInvite expiry:** built invites stamp `expiresAt` (epoch ms),

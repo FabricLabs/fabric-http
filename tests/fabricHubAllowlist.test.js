@@ -23,23 +23,49 @@ describe('fabricHubAllowlist', function () {
     );
   });
 
-  it('allows HTTPS host suffixes only when explicitly listed', function () {
+  it('rejects shared-platform and public-suffix wildcards; allows exact preview origins', function () {
     const preview = 'https://pub-fabric-hub-git-feature-rsi-fabric-labs.vercel.app';
+    assert.strictEqual(normalizeHttpsHostSuffix('*.vercel.app'), null);
+    assert.strictEqual(normalizeHttpsHostSuffix('*.co.uk'), null);
+    assert.strictEqual(parseAllowlistToken('*.vercel.app'), null);
     assert.strictEqual(
       isAllowedFabricHub(preview, { env: { FABRIC_HUB_ALLOWLIST: '*.vercel.app' } }),
-      true
+      false
     );
     assert.strictEqual(
       isAllowedFabricHub(preview, { extra: ['*.vercel.app'] }),
+      false
+    );
+    assert.strictEqual(
+      isAllowedFabricHub(preview, { extra: [preview] }),
+      true
+    );
+  });
+
+  it('allows operator-controlled HTTPS host suffixes when explicitly listed', function () {
+    const preview = 'https://feature.hub.example.com';
+    assert.ok(normalizeHttpsHostSuffix('*.hub.example.com'));
+    assert.strictEqual(
+      isAllowedFabricHub(preview, { env: { FABRIC_HUB_ALLOWLIST: '*.hub.example.com' } }),
       true
     );
     assert.strictEqual(
-      isAllowedFabricHub('http://evil.vercel.app', { extra: ['*.vercel.app'] }),
+      isAllowedFabricHub(preview, { extra: ['*.example.com'] }),
+      true
+    );
+    assert.strictEqual(
+      isAllowedFabricHub('http://evil.example.com', { extra: ['*.example.com'] }),
       false
     );
     assert.strictEqual(
-      isAllowedFabricHub('https://evil.example', { extra: ['*.vercel.app'] }),
+      isAllowedFabricHub('https://evil.other', { extra: ['*.example.com'] }),
       false
+    );
+    // Operator domain under a multi-part public suffix is fine; the bare PSL is not.
+    assert.ok(normalizeHttpsHostSuffix('*.myorg.co.uk'));
+    assert.strictEqual(
+      isAllowedFabricHub('https://a.myorg.co.uk', { extra: ['*.myorg.co.uk'] }),
+      true
     );
   });
 

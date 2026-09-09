@@ -9,8 +9,9 @@
  * `opts.extra` when intentionally operating without TLS.
  *
  * Opt-in extras (same sources) may be:
- * - exact origins: `https://preview.example.com`
- * - HTTPS host suffixes: `*.example.com` (HTTPS only; suffix needs ≥2 DNS labels)
+ * - exact origins: `https://preview.example.com` (preferred for CDN previews)
+ * - HTTPS host suffixes: `*.hub.example.com` (HTTPS only; operator-controlled
+ *   domains with ≥2 DNS labels — not shared platforms or public suffixes)
  */
 
 const DEFAULT_FABRIC_HUB_ORIGINS = [
@@ -50,10 +51,55 @@ function isLoopbackHubOrigin (origin) {
 }
 
 /**
- * Normalize an HTTPS host-suffix token (`*.vercel.app` / `suffix:.vercel.app` / `.vercel.app`).
- * Rejects short public suffixes (e.g. `*.com`, `*.app`).
+ * Shared multi-tenant / CDN parent domains. A `*.vercel.app` suffix would authorize
+ * unrelated deployments; operators must allowlist exact preview origins instead.
+ * @type {ReadonlySet<string>}
+ */
+const SHARED_PLATFORM_HOST_SUFFIXES = new Set([
+  'vercel.app',
+  'now.sh',
+  'netlify.app',
+  'netlify.com',
+  'pages.dev',
+  'workers.dev',
+  'github.io',
+  'herokuapp.com',
+  'railway.app',
+  'onrender.com',
+  'fly.dev',
+  'web.app',
+  'firebaseapp.com',
+  'azurewebsites.net',
+  'cloudfront.net',
+  'amplifyapp.com',
+  'surge.sh',
+  'ngl.app'
+]);
+
+/**
+ * Common multi-part public suffixes (not a full PSL). Wildcards here would
+ * authorize arbitrary registrants (`*.co.uk`).
+ * @type {ReadonlySet<string>}
+ */
+const PUBLIC_MULTIPART_SUFFIXES = new Set([
+  'co.uk', 'org.uk', 'ac.uk', 'gov.uk', 'me.uk', 'net.uk',
+  'com.au', 'net.au', 'org.au', 'edu.au',
+  'co.nz', 'org.nz', 'net.nz',
+  'co.jp', 'or.jp', 'ne.jp',
+  'com.br', 'org.br', 'net.br',
+  'co.kr', 'or.kr', 'ne.kr',
+  'com.mx', 'org.mx',
+  'com.sg', 'com.hk', 'com.tw',
+  'co.in', 'org.in', 'net.in',
+  'com.cn', 'org.cn', 'net.cn'
+]);
+
+/**
+ * Normalize an HTTPS host-suffix token (`*.hub.example.com` / `suffix:.example.com`).
+ * Rejects short public suffixes (`*.com`), shared platforms (`*.vercel.app`), and
+ * multi-part public suffixes (`*.co.uk`). Exact preview origins remain allowed.
  * @param {string} raw
- * @returns {string|null} lowercase suffix including leading `.` (e.g. `.vercel.app`)
+ * @returns {string|null} lowercase suffix including leading `.` (e.g. `.hub.example.com`)
  */
 function normalizeHttpsHostSuffix (raw) {
   let s = String(raw || '').trim().toLowerCase();
@@ -61,11 +107,18 @@ function normalizeHttpsHostSuffix (raw) {
   if (s.startsWith('suffix:')) s = s.slice(7).trim();
   if (s.startsWith('*.')) s = s.slice(1);
   if (!s.startsWith('.')) s = `.${s}`;
-  // Require at least two labels after the leading dot: `.vercel.app`
-  const labels = s.slice(1).split('.').filter(Boolean);
+  // Require at least two labels after the leading dot: `.example.com`
+  const bare = s.slice(1);
+  const labels = bare.split('.').filter(Boolean);
   if (labels.length < 2) return null;
   if (!/^\.[a-z0-9.-]+$/.test(s)) return null;
   if (s.includes('..')) return null;
+  if (SHARED_PLATFORM_HOST_SUFFIXES.has(bare)) return null;
+  if (PUBLIC_MULTIPART_SUFFIXES.has(bare)) return null;
+  // Anything under a shared platform parent remains multi-tenant (*.x.vercel.app).
+  for (const platform of SHARED_PLATFORM_HOST_SUFFIXES) {
+    if (bare.endsWith(`.${platform}`)) return null;
+  }
   return s;
 }
 
@@ -185,6 +238,8 @@ function assertAllowedFabricHub (hubBase, opts = {}) {
 module.exports = {
   DEFAULT_FABRIC_HUB_ORIGINS,
   CLEARTEXT_PRODUCTION_HUB_ORIGINS,
+  SHARED_PLATFORM_HOST_SUFFIXES,
+  PUBLIC_MULTIPART_SUFFIXES,
   normalizeHubOrigin,
   isLoopbackHubOrigin,
   normalizeHttpsHostSuffix,
