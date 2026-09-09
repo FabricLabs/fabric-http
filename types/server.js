@@ -70,6 +70,7 @@ const WebSocket = require('ws');
 const messageTransport = require('../functions/fabricMessageTransport');
 const jsonRpcTransport = require('../functions/fabricJsonRpcTransport');
 const webrtcInterop = require('../functions/fabricWebRtcInterop');
+const { resolveJsonBodyLimitForRequest } = require('../functions/jsonBodyLimit');
 const {
   buildApplicationResourceContract
 } = require('../functions/applicationResourceContract');
@@ -1695,32 +1696,7 @@ class FabricHTTPServer extends Service {
    * @private
    */
   _jsonBodyLimitForRequest (req) {
-    const large = (this.settings && this.settings.jsonBodyLimit) ||
-      process.env.FABRIC_HTTP_JSON_LIMIT ||
-      '12mb';
-    const small = (this.settings && this.settings.jsonBodyLimitDefault) ||
-      process.env.FABRIC_HTTP_JSON_LIMIT_DEFAULT ||
-      '100kb';
-    if (!req || String(req.method || '').toUpperCase() !== 'POST') return small;
-
-    const pathName = String(req.path || '').split('?')[0] || '';
-    const largePaths = new Set();
-    const cfg = this.settings && this.settings.jsonRpc;
-    if (cfg && cfg.enabled !== false) {
-      const rpcPaths = Array.isArray(cfg.paths) && cfg.paths.length
-        ? cfg.paths
-        : ['/services/rpc'];
-      for (let i = 0; i < rpcPaths.length; i++) largePaths.add(String(rpcPaths[i]));
-    }
-    // Hub mounts CreateDocument on POST /services/rpc even when built-in jsonRpc is off.
-    largePaths.add('/services/rpc');
-    const extra = (this.settings && this.settings.jsonBodyLargePaths) || [];
-    if (Array.isArray(extra)) {
-      for (let i = 0; i < extra.length; i++) {
-        if (extra[i]) largePaths.add(String(extra[i]));
-      }
-    }
-    return largePaths.has(pathName) ? large : small;
+    return resolveJsonBodyLimitForRequest(this.settings, req, process.env);
   }
 
   /**
