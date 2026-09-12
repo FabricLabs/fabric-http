@@ -2,7 +2,8 @@
 
 /**
  * Render the canonical Fabric lettermark (serif lowercase f) and copy it into
- * package `assets/` plus sibling app trees (Hub, GoonCitizen, goon.vc, Passport).
+ * package `assets/` plus sibling app trees (Hub, goon.vc, Passport extension).
+ * Application digraph lettermarks are owned by their own repos.
  *
  * Requires macOS (`swift`, `sips`, `iconutil`).
  *
@@ -121,23 +122,6 @@ function syncDownstream (files) {
       ]
     },
     {
-      root: path.join(parent, 'star-citizen-live'),
-      copies: [
-        ['favicon.ico', 'assets/favicon.ico'],
-        ['favicon.svg', 'assets/favicon.svg'],
-        ['apple-touch-icon.png', 'assets/apple-touch-icon.png'],
-        ['icons/icon-512.png', 'assets/icon.png'],
-        ['favicon.ico', 'assets/icon.ico'],
-        ['icon.icns', 'assets/icon.icns'],
-        ['icons/icon-32.png', 'assets/tray.png'],
-        ['icon-letter-32.png', 'assets/trayTemplate.png'],
-        ['icon-letter-64.png', 'assets/trayTemplate@2x.png'],
-        ['favicon.ico', 'android-www/favicon.ico'],
-        ['favicon.svg', 'android-www/favicon.svg'],
-        ['apple-touch-icon.png', 'android-www/apple-touch-icon.png']
-      ]
-    },
-    {
       root: path.join(parent, 'goon.vc'),
       copies: [
         ['favicon.ico', 'assets/favicon.ico'],
@@ -173,54 +157,8 @@ function syncDownstream (files) {
       }
       copyFile(files[fromRel], path.join(job.root, toRel));
     }
-    if (path.basename(job.root) === 'star-citizen-live') {
-      writeAndroidLaunchers(job.root, files['icons/icon-1024.png']);
-    }
     console.log('[fabric-icon] synced', path.basename(job.root));
   }
-}
-
-function writeAndroidLaunchers (appRoot, masterPng) {
-  const res = path.join(appRoot, 'android', 'app', 'src', 'main', 'res');
-  if (!fs.existsSync(res)) {
-    console.log('[fabric-icon] skip android launchers (no res/)');
-    return;
-  }
-  const densities = [
-    ['mipmap-mdpi', 48, 108],
-    ['mipmap-hdpi', 72, 162],
-    ['mipmap-xhdpi', 96, 216],
-    ['mipmap-xxhdpi', 144, 324],
-    ['mipmap-xxxhdpi', 192, 432]
-  ];
-  for (const [dir, launcher, foreground] of densities) {
-    const folder = path.join(res, dir);
-    fs.mkdirSync(folder, { recursive: true });
-    const launcherPng = path.join(folder, 'ic_launcher.png');
-    run('sips', ['-z', String(launcher), String(launcher), masterPng, '--out', launcherPng]);
-    copyFile(launcherPng, path.join(folder, 'ic_launcher_round.png'));
-    run('sips', ['-z', String(foreground), String(foreground), masterPng, '--out', path.join(folder, 'ic_launcher_foreground.png')]);
-  }
-  const colorXml = [
-    '<?xml version="1.0" encoding="utf-8"?>',
-    '<resources>',
-    `    <color name="ic_launcher_background">${FABRIC_BRAND_PURPLE}</color>`,
-    '</resources>',
-    ''
-  ].join('\n');
-  fs.writeFileSync(path.join(res, 'values', 'ic_launcher_background.xml'), colorXml);
-  const bgVector = [
-    '<?xml version="1.0" encoding="utf-8"?>',
-    '<vector xmlns:android="http://schemas.android.com/apk/res/android"',
-    '    android:width="108dp"',
-    '    android:height="108dp"',
-    '    android:viewportWidth="108"',
-    '    android:viewportHeight="108">',
-    `    <path android:fillColor="${FABRIC_BRAND_PURPLE}" android:pathData="M0,0h108v108h-108z" />`,
-    '</vector>',
-    ''
-  ].join('\n');
-  fs.writeFileSync(path.join(res, 'drawable', 'ic_launcher_background.xml'), bgVector);
 }
 
 function main () {
