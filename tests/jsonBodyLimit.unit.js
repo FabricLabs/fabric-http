@@ -40,4 +40,25 @@ describe('resolveJsonBodyLimitForRequest', function () {
       '8mb'
     );
   });
+
+  it('treats trailing-slash RPC paths as large (no 413 on /services/rpc/)', function () {
+    const settings = {
+      jsonRpc: { enabled: true, paths: ['/services/rpc/'] },
+      jsonBodyLimit: '12mb',
+      jsonBodyLimitDefault: '100kb',
+      jsonBodyLargePaths: ['/services/documents/']
+    };
+    assert.strictEqual(
+      resolveJsonBodyLimitForRequest(settings, { method: 'POST', path: '/services/rpc/' }),
+      '12mb'
+    );
+    assert.strictEqual(
+      resolveJsonBodyLimitForRequest(settings, { method: 'POST', path: '/services/rpc' }),
+      '12mb'
+    );
+    assert.strictEqual(
+      resolveJsonBodyLimitForRequest(settings, { method: 'POST', path: '/services/documents/' }),
+      '12mb'
+    );
+  });
 });

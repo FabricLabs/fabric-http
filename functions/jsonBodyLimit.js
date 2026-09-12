@@ -1,6 +1,18 @@
 'use strict';
 
 /**
+ * Strip a trailing slash (except root), matching HTTPServer `_normalizeCollectionPath`.
+ * @param {string} pathName
+ * @returns {string}
+ */
+function normalizeJsonBodyPath (pathName) {
+  const raw = String(pathName || '').split('?')[0] || '';
+  if (!raw) return '/';
+  if (raw === '/') return '/';
+  return raw.endsWith('/') ? raw.slice(0, -1) : raw;
+}
+
+/**
  * Per-request JSON body-parser limit for Fabric HTTPServer.
  * Large bodies (Hub CreateDocument base64) stay on JSON-RPC paths only.
  *
@@ -22,26 +34,31 @@ function resolveJsonBodyLimitForRequest (settings = {}, req = {}, env = process.
     '100kb';
   if (!req || String(req.method || '').toUpperCase() !== 'POST') return small;
 
-  const pathName = String(req.path || '').split('?')[0] || '';
+  const pathName = normalizeJsonBodyPath(req.path);
   const largePaths = new Set();
+  const addPath = (p) => {
+    const n = normalizeJsonBodyPath(p);
+    if (n && n !== '/') largePaths.add(n);
+  };
   const cfg = settings && settings.jsonRpc;
   if (cfg && cfg.enabled !== false) {
     const rpcPaths = Array.isArray(cfg.paths) && cfg.paths.length
       ? cfg.paths
       : ['/services/rpc'];
-    for (let i = 0; i < rpcPaths.length; i++) largePaths.add(String(rpcPaths[i]));
+    for (let i = 0; i < rpcPaths.length; i++) addPath(rpcPaths[i]);
   }
   // Hub mounts CreateDocument on POST /services/rpc even when built-in jsonRpc is off.
-  largePaths.add('/services/rpc');
+  addPath('/services/rpc');
   const extra = (settings && settings.jsonBodyLargePaths) || [];
   if (Array.isArray(extra)) {
     for (let i = 0; i < extra.length; i++) {
-      if (extra[i]) largePaths.add(String(extra[i]));
+      if (extra[i]) addPath(extra[i]);
     }
   }
   return largePaths.has(pathName) ? large : small;
 }
 
 module.exports = {
+  normalizeJsonBodyPath,
   resolveJsonBodyLimitForRequest
 };
