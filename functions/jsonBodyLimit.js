@@ -1,12 +1,14 @@
 'use strict';
 
 /**
- * Strip a trailing slash (except root), matching HTTPServer `_normalizeCollectionPath`.
+ * Strip a trailing slash (except root) and fold case.
+ * Express route matching is case-insensitive by default; the body-parser limit
+ * must use the same path or `/SERVICES/RPC` keeps the small limit.
  * @param {string} pathName
  * @returns {string}
  */
 function normalizeJsonBodyPath (pathName) {
-  const raw = String(pathName || '').split('?')[0] || '';
+  const raw = String(pathName || '').split('?')[0].toLowerCase() || '';
   if (!raw) return '/';
   if (raw === '/') return '/';
   return raw.endsWith('/') ? raw.slice(0, -1) : raw;
