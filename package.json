@@ -1,6 +1,6 @@
 {
   "name": "@fabric/http",
-  "version": "0.1.0-RC1",
+  "version": "0.1.0",
   "description": "tools for serving the legacy web with Fabric",
   "main": "types/web.js",
   "module": "module.js",
@@ -120,7 +120,7 @@
     "Victor Wu"
   ],
   "dependencies": {
-    "@fabric/core": "github:FabricLabs/fabric#feature/rsi",
+    "@fabric/core": "martindale/fabric#feature/rsi",
     "assert-browserify": "=2.0.0",
     "babel-loader": "=8.2.5",
     "body-parser": "=1.20.6",
@@ -212,5 +212,14 @@
       "docs",
       "tests"
     ]
+  },
+  "allowScripts": {
+    "@fabric/core": true,
+    "@soatok/elliptic-to-noble": true,
+    "@soatok/elliptic-to-noble@9999.0.0": true,
+    "classic-level": true,
+    "classic-level@3.0.0": true,
+    "zeromq": true,
+    "zeromq@6.5.0": true
   }
 }
