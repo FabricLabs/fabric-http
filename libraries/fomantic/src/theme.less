@@ -2,15 +2,16 @@
         Import Directives
 *******************************/
 
-/*------------------
+/* ------------------
        Theme
--------------------*/
+------------------- */
 
-@theme: @@element;
+/* Fabric is the base theme. Empty the name when it matches so packaged imports do not double-load it. */
+@theme: if(@@element = "fabric", "", @@element);
 
-/*--------------------
+/* --------------------
    Site Variables
----------------------*/
+--------------------- */
 
 /* Default site.variables */
 @import "@{themesFolder}/fabric/globals/site.variables";
@@ -19,17 +20,14 @@
 @import (optional) "@{themesFolder}/@{site}/globals/site.variables";
 
 /* Component's site.variables */
-& when not (@theme = 'fabric') {
-  @import (optional) "@{themesFolder}/@{theme}/globals/site.variables";
-}
+@import (optional) "@{themesFolder}/@{theme}/globals/site.variables";
 
 /* Site theme site.variables */
 @import (optional) "@{siteFolder}/globals/site.variables";
 
-
-/*-------------------
+/* -------------------
  Component Variables
----------------------*/
+--------------------- */
 
 /* Default */
 @import "@{themesFolder}/fabric/@{type}s/@{element}.variables";
@@ -40,27 +38,31 @@
 /* Site Theme */
 @import (optional) "@{siteFolder}/@{type}s/@{element}.variables";
 
-
-/*-------------------------
+/* -------------------------
     Central Color Map
--------------------------*/
+------------------------- */
 
 /* Default */
 @import "@{themesFolder}/fabric/globals/colors.less";
 
-/* Site Theme */
+/* Packaged colors.less */
 @import (optional) "@{themesFolder}/@{site}/globals/colors.less";
 
+/* Packaged Theme */
+@import (optional) "@{themesFolder}/@{theme}/globals/colors.less";
+
+/* Site Theme */
+@import (optional) "@{siteFolder}/globals/colors.less";
 
 /*******************************
              Mix-ins
 *******************************/
 
-/*------------------
+/* ------------------
        Fonts
--------------------*/
+------------------- */
 
-/* Fabric UI: Fomantic fabric theme components + Arvo (latin woff2 vendored under themes/fabric/assets). */
+/* Fabric keeps Arvo as local woff2. Do not request Google Fonts. */
 .loadFonts() when (@importGoogleFonts) {
   @font-face {
     font-family: 'Arvo';
@@ -99,14 +101,13 @@
   }
 }
 
-/*------------------
+/* ------------------
      Overrides
--------------------*/
+------------------- */
 
+/* 2.9.4 definitions import overrides.less directly. Keep the mixin so older component files still compile. */
 .loadUIOverrides() {
-  & when not (@theme = 'fabric') {
-    @import (optional) "@{themesFolder}/fabric/@{type}s/@{element}.overrides";
-  }
+  @import (optional) "@{themesFolder}/fabric/@{type}s/@{element}.overrides";
   @import (optional) "@{themesFolder}/@{theme}/@{type}s/@{element}.overrides";
   @import (optional) "@{siteFolder}/@{type}s/@{element}.overrides";
 }

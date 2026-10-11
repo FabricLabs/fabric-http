@@ -68,6 +68,8 @@ class App extends Component {
       identities: {},
       resources: {},
       seeds: [
+        'hub.fabric.pub:7777',
+        'relay.goon.vc:7777',
         'hub.fabric.pub:9999',
         'chat.roleplaygateway.com:9999',
         'hub.roleplaygateway.com:9999'

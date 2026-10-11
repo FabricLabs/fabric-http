@@ -223,3 +223,25 @@
 @massiveCheckboxSize: @relativeMassive;
 @massiveCheckboxCircleScale: (@massiveRaw / 2);
 @massiveCheckboxCircleLeft: unit(((@massiveRaw - @massiveCheckboxCircleScale) / 2) + 0.05 , em);
+
+
+/* Fomantic 2.9.4 variables absent from the Fabric theme */
+@invisibleCheckboxLabelTransition: all @defaultDuration @defaultEasing;
+
+@invisibleCheckboxBackground: transparent;
+
+@invisibleCheckboxBorderColor: transparent;
+
+@invisibleCheckboxColor: inherit;
+
+@invisibleCheckboxBoxShadow: 0 0 0 @borderWidth @borderColor inset;
+
+@invisibleCheckboxFocusBoxShadow: 0 0 0 @borderWidth @selectedBorderColor inset;
+
+@invisibleCheckboxImageOpacityUnchecked: 0.5;
+
+@invisibleCheckboxImageOpacityUncheckedDisabled: @invisibleCheckboxImageOpacityUnchecked * @disabledCheckboxOpacity;
+
+@invisibleCheckboxImageOpacityFocus: 0.75;
+
+@invisibleCheckboxImageFilterUnchecked: grayscale(1);

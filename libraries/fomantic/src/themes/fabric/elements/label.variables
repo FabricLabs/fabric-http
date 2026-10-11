@@ -266,3 +266,13 @@
 @big     : @absoluteBig;
 @huge    : @absoluteHuge;
 @massive : @absoluteMassive;
+
+
+/* Fomantic 2.9.4 variables absent from the Fabric theme */
+@ribbonCenterSize: 1em;
+
+@ribbonCenterOffset: e(%("calc(50% - %d)", @ribbonCenterSize));
+
+@ribbonImageBottomDistance: @ribbonImageTopDistance;
+
+@ribbonZIndex: 1;

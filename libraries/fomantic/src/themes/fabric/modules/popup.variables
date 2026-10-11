@@ -136,3 +136,23 @@
 @invertedArrowTopBackground: @invertedBackground;
 @invertedArrowCenterBackground: @invertedBackground;
 @invertedArrowBottomBackground: @invertedBackground;
+
+
+/* Fomantic 2.9.4 variables absent from the Fabric theme */
+@tooltipDelay: 0.04s;
+
+@tooltipScaleInit: 0.8;
+
+@loadingOpacity: 0.3;
+
+@loadingColoredPercent: 30%;
+
+@loadingPointerEvents: none;
+
+@loaderSize: 2em;
+
+@loaderLineZIndex: 101;
+
+@invisibleZIndex: @loadingZIndex;
+
+@multilineWhiteSpace: pre-line;

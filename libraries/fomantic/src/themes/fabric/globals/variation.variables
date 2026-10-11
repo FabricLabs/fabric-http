@@ -96,7 +96,7 @@
 /* Input */
 @variationInputDisabled: true;
 @variationInputInverted: true;
-@variationInputStates: true;
+@variationInputStates: @variationAllStates;
 @variationInputTransparent: true;
 @variationInputCorner: true;
 @variationInputLoading: true;
@@ -209,7 +209,7 @@
 /* Text */
 @variationTextInverted: true;
 @variationTextDisabled: true;
-@variationTextStates: true;
+@variationTextStates: @variationAllStates;
 @variationTextSizes: @variationAllSizes;
 
 
@@ -226,7 +226,7 @@
 @variationFormDisabled: true;
 @variationFormTransparent: true;
 @variationFormLoading: true;
-@variationFormStates: true;
+@variationFormStates: @variationAllStates;
 @variationFormRequired: true;
 @variationFormInline: true;
 @variationFormGrouped: true;
@@ -274,7 +274,7 @@
 @variationMessageAttached: true;
 @variationMessageIcon: true;
 @variationMessageFloating: true;
-@variationMessageConsequences: true;
+@variationMessageConsequences: @variationAllConsequences;
 @variationMessageCentered: true;
 @variationMessageRightAligned: true;
 @variationMessageSizes: @variationAllSizes;
@@ -414,7 +414,7 @@
 @variationDropdownMultiple: true;
 @variationDropdownInline: true;
 @variationDropdownLoading: true;
-@variationDropdownStates: true;
+@variationDropdownStates: @variationAllStates;
 @variationDropdownClear: true;
 @variationDropdownLeft: true;
 @variationDropdownUpward: true;
@@ -579,3 +579,441 @@
 /* Emojis */
 @variationEmojiColons: true;
 @variationEmojiNoColons: true;
+
+
+/* Fomantic 2.9.4 variables absent from the Fabric theme */
+@variationAllColors: primary, secondary, red, orange, yellow, olive, green, teal, blue, violet, purple, pink, brown, grey, black;
+
+@variationAllStates: error, info, success, warning;
+
+@variationAllConsequences: positive, negative, error, info, success, warning;
+
+@variationButtonAnimatedFade: true;
+
+@variationButtonIcon: true;
+
+@variationButtonLoading: true;
+
+@variationButtonEqualWidth: true;
+
+@variationButtonVertical: true;
+
+@variationButtonWrapping: true;
+
+@variationButtonWrapped: true;
+
+@variationButtonSpaced: true;
+
+@variationButtonConsequences: positive, negative;
+
+@variationButtonColors: @variationAllColors;
+
+@variationContainerVeryRelaxed: true;
+
+@variationContainerWide: true;
+
+@variationContainerResizable: true;
+
+@variationContainerScrolling: true;
+
+@variationContainerScrollingShort: true;
+
+@variationContainerScrollingVeryShort: true;
+
+@variationContainerScrollingLong: true;
+
+@variationContainerScrollingVeryLong: true;
+
+@variationDividerColors: @variationAllColors;
+
+@variationHeaderSeamless: true;
+
+@variationHeaderColors: @variationAllColors;
+
+@variationIconDeprecated: true;
+
+@variationIconSolid: true;
+
+@variationIconAliases: true;
+
+@variationIconOutline: true;
+
+@variationIconBrand: true;
+
+@variationIconThin: false;
+
+@variationIconDuotone: false;
+
+@variationIconColors: @variationAllColors;
+
+@variationInputInvalid: false;
+
+@variationInputFile: true;
+
+@variationInputColors: @variationAllColors;
+
+@variationLabelCentered: true;
+
+@variationLabelColors: @variationAllColors;
+
+@variationListVeryRelaxed: true;
+
+@variationListHeader: true;
+
+@variationListDescription: true;
+
+@variationLoaderDouble: true;
+
+@variationLoaderColors: @variationAllColors;
+
+@variationSegmentVeryPadded: true;
+
+@variationSegmentSeamless: true;
+
+@variationSegmentResizable: true;
+
+@variationSegmentScrolling: true;
+
+@variationSegmentScrollingShort: true;
+
+@variationSegmentScrollingVeryShort: true;
+
+@variationSegmentScrollingLong: true;
+
+@variationSegmentScrollingVeryLong: true;
+
+@variationSegmentColors: @variationAllColors;
+
+@variationStepEqualWidth: true;
+
+@variationStepCircular: true;
+
+@variationStepUnstackable: true;
+
+@variationStepColors: @variationAllColors;
+
+@variationTextColors: @variationAllColors;
+
+@variationFormInvalid: true;
+
+@variationFormEqualWidth: true;
+
+@variationFormWide: true;
+
+@variationFormUnstackable: true;
+
+@variationGridVeryRelaxed: true;
+
+@variationGridHorizontal: true;
+
+@variationGridVertical: true;
+
+@variationGridAttached: true;
+
+@variationGridVeryCompact: true;
+
+@variationGridWide: true;
+
+@variationGridEqualWidth: true;
+
+@variationGridColors: @variationAllColors;
+
+@variationMenuCentered: true;
+
+@variationMenuIcon: true;
+
+@variationMenuEqualWidth: true;
+
+@variationMenuWrapping: true;
+
+@variationMenuWrapped: true;
+
+@variationMenuColors: @variationAllColors;
+
+@variationMessageColors: @variationAllColors;
+
+@variationTableVeryBasic: true;
+
+@variationTableVeryPadded: true;
+
+@variationTableVeryCompact: true;
+
+@variationTableEqualWidth: true;
+
+@variationTableWide: true;
+
+@variationTableResizable: true;
+
+@variationTableScrolling: true;
+
+@variationTableScrollingShort: true;
+
+@variationTableScrollingVeryShort: true;
+
+@variationTableScrollingLong: true;
+
+@variationTableScrollingVeryLong: true;
+
+@variationTableStuck: true;
+
+@variationTableStuckHead: true;
+
+@variationTableStuckFoot: true;
+
+@variationTableStuckFirst: true;
+
+@variationTableStuckLast: true;
+
+@variationTableOverflowing: true;
+
+@variationTableOverflowingShort: true;
+
+@variationTableOverflowingVeryShort: true;
+
+@variationTableOverflowingLong: true;
+
+@variationTableOverflowingVeryLong: true;
+
+@variationTableRowSpanned: true;
+
+@variationTableFullWidth: true;
+
+@variationTableUnstackable: true;
+
+@variationTableColors: @variationAllColors;
+
+@variationCardBasic: true;
+
+@variationCardFloated: true;
+
+@variationCardAligned: true;
+
+@variationCardImage: true;
+
+@variationCardHeader: true;
+
+@variationCardDescription: true;
+
+@variationCardMeta: true;
+
+@variationCardExtra: true;
+
+@variationCardButton: true;
+
+@variationCardStar: true;
+
+@variationCardLike: true;
+
+@variationCardEqualWidth: true;
+
+@variationCardColors: @variationAllColors;
+
+@variationCommentDisabled: true;
+
+@variationCommentAvatar: true;
+
+@variationCommentAuthor: true;
+
+@variationCommentMeta: true;
+
+@variationCommentActions: true;
+
+@variationCommentReply: true;
+
+@variationCommentColors: @variationAllColors;
+
+@variationFeedDisabled: true;
+
+@variationFeedMeta: true;
+
+@variationFeedSummary: true;
+
+@variationFeedUser: true;
+
+@variationFeedExtra: true;
+
+@variationFeedDate: true;
+
+@variationFeedLike: true;
+
+@variationFeedLabel: true;
+
+@variationFeedLabelIcon: true;
+
+@variationFeedLabelImage: true;
+
+@variationFeedLabelText: true;
+
+@variationFeedLabelUiLabel: true;
+
+@variationFeedConnected: true;
+
+@variationFeedDivided: true;
+
+@variationFeedOrdered: true;
+
+@variationFeedBasic: true;
+
+@variationFeedRightFloated: true;
+
+@variationFeedColors: @variationAllColors;
+
+@variationItemDisabled: true;
+
+@variationItemImage: true;
+
+@variationItemHeader: true;
+
+@variationItemDescription: true;
+
+@variationItemMeta: true;
+
+@variationItemExtra: true;
+
+@variationItemFavorite: true;
+
+@variationItemLike: true;
+
+@variationItemFloated: true;
+
+@variationItemVeryRelaxed: true;
+
+@variationStatisticEqualWidth: true;
+
+@variationStatisticFluid: true;
+
+@variationStatisticColors: @variationAllColors;
+
+@variationAccordionBasicStyled: true;
+
+@variationAccordionCompact: true;
+
+@variationAccordionVeryCompact: true;
+
+@variationAccordionRightDropdown: true;
+
+@variationAccordionTree: true;
+
+@variationCalendarMultiMonth: true;
+
+@variationCalendarSizes: @variationAllSizes;
+
+@variationCheckboxInvisible: true;
+
+@variationCheckboxCompact: true;
+
+@variationCheckboxColors: @variationAllColors;
+
+@variationDropdownResizable: true;
+
+@variationDropdownColumnar: true;
+
+@variationDropdownUnlimited: true;
+
+@variationDropdownHighlightMatches: false;
+
+@variationFlyoutInverted: true;
+
+@variationFlyoutBasic: true;
+
+@variationFlyoutFullscreen: true;
+
+@variationFlyoutCentered: true;
+
+@variationFlyoutActions: true;
+
+@variationFlyoutLeftActions: true;
+
+@variationFlyoutBlurring: true;
+
+@variationFlyoutColumnWidth: true;
+
+@variationFlyoutThin: true;
+
+@variationFlyoutWide: true;
+
+@variationFlyoutTop: true;
+
+@variationFlyoutBottom: true;
+
+@variationFlyoutLeft: true;
+
+@variationFlyoutRight: true;
+
+@variationFlyoutOverlay: true;
+
+@variationFlyoutScrolling: true;
+
+@variationFlyoutClose: true;
+
+@variationModalResizable: true;
+
+@variationModalClose: true;
+
+@variationModalCentered: true;
+
+@variationModalActions: true;
+
+@variationModalLeftActions: true;
+
+@variationNagColors: @variationAllColors;
+
+@variationPopupMultiline: true;
+
+@variationPopupColors: @variationAllColors;
+
+@variationProgressBasic: true;
+
+@variationProgressColors: @variationAllColors;
+
+@variationRatingPartial: true;
+
+@variationRatingColors: @variationAllColors;
+
+@variationSearchClear: true;
+
+@variationSearchHorizontalCategory: true;
+
+@variationSearchVeryShort: true;
+
+@variationSearchVeryLong: true;
+
+@variationSearchResizable: true;
+
+@variationSearchHighlightMatches: false;
+
+@variationSidebarVeryThin: true;
+
+@variationSidebarVeryWide: true;
+
+@variationSidebarBlurring: true;
+
+@variationSliderHighlight: true;
+
+@variationSliderBottomAligned: true;
+
+@variationSliderRightAligned: true;
+
+@variationSliderUiLabel: true;
+
+@variationSliderColors: @variationAllColors;
+
+@variationToastBasic: true;
+
+@variationToastUnclickable: true;
+
+@variationToastColors: @variationAllColors;
+
+@variationTransitionLooping: true;
+
+@variationTransitionInverted: true;
+
+@variationTransitionPulsating: true;
+
+@variationTransitionColors: @variationAllColors;
+
+@variationEmojiDisabled: true;
+
+@variationEmojiLoading: true;
+
+@variationEmojiLink: true;

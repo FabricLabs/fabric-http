@@ -481,3 +481,13 @@
 
 @invertedDropdownSelectedItemBackground: @strongTransparentWhite;
 @invertedDropdownSelectedItemColor: @invertedDropdownItemColor;
+
+
+/* Fomantic 2.9.4 variables absent from the Fabric theme */
+@invertedTabularBorderColor: @solidWhiteBorderColor;
+
+@invertedTabularBorder: @borderWidth solid @invertedTabularBorderColor;
+
+@invertedTabularActiveBackground: none @black;
+
+@invertedTabularHoveredTextColor: @invertedHoveredTextColor;

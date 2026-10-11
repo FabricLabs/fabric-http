@@ -98,3 +98,69 @@
 /* Inverted */
 @invertedTitleColor: @invertedTextColor;
 
+
+
+/* Fomantic 2.9.4 variables absent from the Fabric theme */
+@titleLineHeight: 1;
+
+@iconTransformRight: @menuIconTransform;
+
+@invertedStyledTitleColor: @invertedUnselectedTextColor;
+
+@invertedStyledBackground: @black;
+
+@invertedStyledTitleBorder: 1px solid @whiteBorderColor;
+
+@invertedStyledBoxShadow:
+    @subtleShadow,
+    0 0 0 1px @whiteBorderColor;
+
+@invertedStyledTitleHoverBackground: transparent;
+
+@invertedStyledTitleHoverColor: @invertedTextColor;
+
+@invertedStyledActiveTitleBackground: transparent;
+
+@invertedStyledActiveTitleColor: @invertedSelectedTextColor;
+
+@invertedStyledHoverChildTitleBackground: @invertedStyledTitleHoverBackground;
+
+@invertedStyledHoverChildTitleColor: @invertedStyledTitleHoverColor;
+
+@invertedStyledActiveChildTitleBackground: @invertedStyledActiveTitleBackground;
+
+@invertedStyledActiveChildTitleColor: @invertedStyledActiveTitleColor;
+
+@titlePaddingCompact: 0.25em 0;
+
+@contentPaddingCompact: 0.25em 0 0.5em;
+
+@titlePaddingVeryCompact: 0.125em 0;
+
+@contentPaddingVeryCompact: 0.125em 0 0.25em;
+
+@styledTitlePaddingCompact: 0.375em 0.5em;
+
+@styledContentPaddingCompact: 0.25em 0.5em 0.75em;
+
+@styledTitlePaddingVeryCompact: 0.1875em 0.25em;
+
+@styledContentPaddingVeryCompact: 0.125em 0.25em 0.375em;
+
+@basicStyledTitleColor: @mutedTextColor;
+
+@basicStyledTitleHoverColor: @textColor;
+
+@basicStyledActiveTitleColor: @selectedTextColor;
+
+@invertedBasicStyledTitleColor: @invertedMutedTextColor;
+
+@invertedBasicStyledTitleHoverColor: @invertedTextColor;
+
+@invertedBasicStyledActiveTitleColor: @invertedSelectedTextColor;
+
+@treeContentPadding: 0;
+
+@treeContentTopMargin: 0;
+
+@treeContentLeftMargin: 1.7em;

@@ -81,3 +81,21 @@
 @bigTrackHeight         : 0.6em;
 @bigTrackPositionTop    : (@bigHeight / 2) - (@bigTrackHeight / 2);
 
+
+
+/* Fomantic 2.9.4 variables absent from the Fabric theme */
+@invertedBackground: #333;
+
+@highlightOpacity: 0.6;
+
+@highlightTransition: all 0.2s @defaultEasing;
+
+@verticalTickDistance: 0.6em;
+
+@verticalUiLabelMargin: 0.3em;
+
+@invertedLabelColor: @invertedBackground;
+
+@uiLabelMargin: 0.5em;
+
+@uiLabelTickHeight: 2em;

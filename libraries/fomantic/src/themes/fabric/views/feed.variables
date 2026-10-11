@@ -139,3 +139,91 @@
 /*-------------------
       Variations
 --------------------*/
+
+
+/* Fomantic 2.9.4 variables absent from the Fabric theme */
+@textLabelTopMargin: 0.5em;
+
+@uiTextLabelTopMargin: 0.65em;
+
+@multilineTextLabelTopMargin: 0;
+
+@uiMultilineTextLabelTopMargin: 0.3em;
+
+@uiLabelTopMargin: 0.4em;
+
+@uiLabelZIndex: 1;
+
+@connectedBorderColor: @borderColor;
+
+@connectedBorderWidth: 2px;
+
+@connectedBorder: @connectedBorderWidth solid @connectedBorderColor;
+
+@connectedBorderLeftOffset: 1.2em;
+
+@connectedBorderTopOffset: 2.1em;
+
+@connectedBorderHeight: e(%("calc(100%% - %d)", @iconLabelSize));
+
+@dividedBorderColor: @borderColor;
+
+@dividedBorderWidth: @borderWidth;
+
+@dividedBorder: @dividedBorderWidth solid @dividedBorderColor;
+
+@orderedCountName: ordered;
+
+@orderedCountContent: counter(@orderedCountName);
+
+@orderedTopOffset: 0.6em;
+
+@orderedBottomMargin: 0.3em;
+
+@orderedBorderColor: transparent;
+
+@orderedBorderWidth: 2px;
+
+@orderedHeight: @labelWidth;
+
+@orderedBorder: @orderedBorderWidth solid @orderedBorderColor;
+
+@orderedBorderRadius: 50%;
+
+@orderedColor: @white;
+
+@orderedBackground: @orderedBasicBorderColor;
+
+@orderedBasicBorderColor: #bbbbbb;
+
+@orderedBasicColor: inherit;
+
+@orderedBasicBackground: transparent;
+
+@orderedConnectedBorderTopOffset: 2.7em;
+
+@orderedConnectedBorderHeight: e(%("calc(100%% - %d)", (@orderedConnectedBorderTopOffset - 0.2em)));
+
+@orderedConnectedLabeledBorderTopOffset: 4.85em;
+
+@orderedConnectedLabeledBorderHeight: e(%("calc(100%% - %d)", (@orderedConnectedLabeledBorderTopOffset - 0.2em)));
+
+@invertedBackground: @black;
+
+@invertedIconLabelColor: @invertedLightTextColor;
+
+@invertedLikeColor: @invertedLightTextColor;
+
+@invertedLikeHoverColor: @invertedSelectedTextColor;
+
+@invertedLikeActiveColor: @invertedLikeColor;
+
+@invertedMetadataActionColor: @invertedLightTextColor;
+
+@invertedMetadataActionHoverColor: @invertedSelectedTextColor;
+
+@invertedConnectedBorderColor: @whiteBorderColor;
+
+@invertedDividedBorderColor: @whiteBorderColor;
+
+@invertedTextLabelColor: @white;

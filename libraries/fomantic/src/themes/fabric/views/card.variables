@@ -254,3 +254,9 @@
   0 @shadowDistance 3px 0 @solidWhiteBorderColor,
   0 0 0 @borderWidth @solidWhiteBorderColor
 ;
+
+
+/* Fomantic 2.9.4 variables absent from the Fabric theme */
+@basicRaisedShadow: @floatingShadow;
+
+@basicRaisedShadowHover: @floatingShadowHover;

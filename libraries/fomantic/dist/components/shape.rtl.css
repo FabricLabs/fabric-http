@@ -1,10 +1,10 @@
 /*!
- * # Fomantic-UI 2.9.0 - Shape
- * http://github.com/fomantic/Fomantic-UI/
+ * # Fomantic-UI 2.9.4 - Shape
+ * https://github.com/fomantic/Fomantic-UI/
  *
  *
  * Released under the MIT license
- * http://opensource.org/licenses/MIT
+ * https://opensource.org/licenses/MIT
  *
  */
 
@@ -93,20 +93,18 @@
 *******************************/
 
 
-/*--------------
-      Loading
-  ---------------*/
-
+/* --------------
+        Loading
+    --------------- */
 .ui.loading.shape {
   position: absolute;
   top: -9999px;
   right: -9999px;
 }
 
-/*--------------
+/* --------------
     Animating
----------------*/
-
+--------------- */
 .ui.shape .animating.side {
   position: absolute;
   top: 0;
@@ -118,10 +116,9 @@
   opacity: 0.6;
 }
 
-/*--------------
+/* --------------
       CSS
----------------*/
-
+--------------- */
 .ui.shape.animating .sides {
   position: absolute;
   -webkit-transition: right 0.6s ease-in-out, width 0.6s ease-in-out, height 0.6s ease-in-out, -webkit-transform 0.6s ease-in-out;
@@ -139,10 +136,9 @@
   transition: none;
 }
 
-/*--------------
+/* --------------
      Active
----------------*/
-
+--------------- */
 .ui.shape .active.side {
   display: block;
 }

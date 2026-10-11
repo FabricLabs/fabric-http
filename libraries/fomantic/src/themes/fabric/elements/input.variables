@@ -100,3 +100,27 @@
 @bigInputSize: @relativeBig;
 @hugeInputSize: @relativeHuge;
 @massiveInputSize: @relativeMassive;
+
+
+/* Fomantic 2.9.4 variables absent from the Fabric theme */
+@labeledAndIconMargin: 4em;
+
+@labeledDropdownZIndex: 10;
+
+@fileButtonMargin: 1em;
+
+@fileButtonTextColor: @mutedTextColor;
+
+@fileButtonTextColorHover: @hoveredTextColor;
+
+@fileButtonBackground: #e0e1e2;
+
+@fileButtonBackgroundHover: #cacbcd;
+
+@fileButtonFontWeight: @bold;
+
+@fileButtonInvertedBackground: #e0e1e2;
+
+@fileButtonInvertedBackgroundHover: @white;
+
+@fileButtonInvertedTextColor: @mutedTextColor;

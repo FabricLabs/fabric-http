@@ -168,3 +168,13 @@
 --------------------*/
 
 @inlineFieldsMargin: 0 1em 0 0;
+
+
+/* Fomantic 2.9.4 variables absent from the Fabric theme */
+@actionTextareaMinHeight: (@inputVerticalPadding * 2) + @lineHeight;
+
+@iconOpacity: 0.5;
+
+@iconFocusOpacity: 1;
+
+@iconTransition: opacity 0.3s @defaultEasing;

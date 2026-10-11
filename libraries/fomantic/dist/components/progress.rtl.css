@@ -1,10 +1,10 @@
 /*!
- * # Fomantic-UI 2.9.0 - Progress Bar
- * http://github.com/fomantic/Fomantic-UI/
+ * # Fomantic-UI 2.9.4 - Progress
+ * https://github.com/fomantic/Fomantic-UI/
  *
  *
  * Released under the MIT license
- * http://opensource.org/licenses/MIT
+ * https://opensource.org/licenses/MIT
  *
  */
 
@@ -27,6 +27,12 @@
   padding: 0;
   border-radius: 0.28571429rem;
 }
+.ui.basic.progress {
+  background: transparent;
+  border: none;
+  -webkit-box-shadow: none;
+          box-shadow: none;
+}
 .ui.progress:first-child {
   margin: 0 0 2.5em;
 }
@@ -46,15 +52,17 @@
   line-height: 1;
   position: relative;
   width: 0;
-  min-width: 2em;
   background: #888888;
   border-radius: 0.28571429rem;
   -webkit-transition: width 0.1s ease, background-color 0.1s ease;
   transition: width 0.1s ease, background-color 0.1s ease;
   overflow: hidden;
 }
-.ui.ui.ui.progress:not([data-percent]):not(.indeterminate) .bar,
-.ui.ui.ui.progress[data-percent="0"]:not(.indeterminate) .bar {
+.ui.progress .bar:not(:empty) {
+  min-width: 2em;
+}
+.ui.ui.ui.progress:not([data-percent]):not(.indeterminate) .bar:not(:empty),
+.ui.ui.ui.progress[data-percent="0"]:not(.indeterminate) .bar:not(:empty) {
   background: transparent;
 }
 .ui.progress[data-percent="0"] .bar .progress {
@@ -263,10 +271,9 @@
 *******************************/
 
 
-/*--------------
-       Success
-  ---------------*/
-
+/* --------------
+         Success
+    --------------- */
 .ui.ui.progress.success .bar {
   background-color: #21BA45;
 }
@@ -279,10 +286,9 @@
   color: #1A531B;
 }
 
-/*--------------
-       Warning
-  ---------------*/
-
+/* --------------
+         Warning
+    --------------- */
 .ui.ui.progress.warning .bar {
   background-color: #F2C037;
 }
@@ -295,10 +301,9 @@
   color: #794B02;
 }
 
-/*--------------
-       Error
-  ---------------*/
-
+/* --------------
+         Error
+    --------------- */
 .ui.ui.progress.error .bar {
   background-color: #DB2828;
 }
@@ -311,16 +316,17 @@
   color: #912D2B;
 }
 
-/*--------------
-       Active
-  ---------------*/
-
+/* --------------
+         Active
+    --------------- */
 .ui.active.progress .bar {
   position: relative;
+}
+.ui.active.progress .bar:not(:empty) {
   min-width: 2em;
 }
 .ui.active.progress .bar::after {
-  content: '';
+  content: "";
   opacity: 0;
   position: absolute;
   top: 0;
@@ -363,10 +369,9 @@
   }
 }
 
-/*--------------
-      Disabled
-  ---------------*/
-
+/* --------------
+        Disabled
+    --------------- */
 .ui.disabled.progress {
   opacity: 0.35;
 }
@@ -382,11 +387,10 @@
 *******************************/
 
 
-/*--------------
-      Inverted
-  ---------------*/
-
-.ui.inverted.progress {
+/* --------------
+        Inverted
+    --------------- */
+.ui.inverted.progress:not(.basic) {
   background: rgba(255, 255, 255, 0.08);
   border: none;
 }
@@ -409,10 +413,9 @@
   color: #DB2828;
 }
 
-/*--------------
-      Attached
-  ---------------*/
-
+/* --------------
+        Attached
+    --------------- */
 
 /* bottom attached */
 .ui.progress.attached {
@@ -457,10 +460,9 @@
   bottom: auto;
 }
 
-/*--------------
+/* --------------
      Colors
----------------*/
-
+--------------- */
 .ui.indeterminate.primary.progress .bar::before,
 .ui.primary.progress .bar,
 .ui.progress .primary.bar {
@@ -612,10 +614,9 @@
   background-color: #545454;
 }
 
-/*--------------
+/* --------------
      Sizes
----------------*/
-
+--------------- */
 .ui.progress {
   font-size: 1rem;
 }
@@ -665,10 +666,9 @@
   height: 5em;
 }
 
-/*---------------
-    Indeterminate
-  ----------------*/
-
+/* ---------------
+      Indeterminate
+    ---------------- */
 .ui.indeterminate.progress .bar {
   width: 100%;
 }
@@ -679,7 +679,7 @@
   left: 0;
 }
 .ui.indeterminate.progress .bar::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   bottom: 0;
