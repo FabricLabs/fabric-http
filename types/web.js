@@ -4,6 +4,7 @@
  * Main package export (`require('@fabric/http')`):
  * - **Server** — `FabricHTTPServer` class (primary API for consumers: instantiate and start).
  * - **resolveAppAssetsDir** — path to an app’s static `assets/` (not the package tree); for app wiring only.
+ * - **compose** — Jade page compiler (`functions/compose`). Names existing component handles and hoists `script` tags into the layout.
  * - **constants** — numeric and string literals from `constants.js` (no functions).
  * - **protocol** — optional grouped helper modules for advanced transport/payment integrations.
  */
@@ -12,6 +13,7 @@ const Client = require('./client');
 const SPA = require('./spa');
 const Avatar = require('./avatar');
 const FabricAvatar = require('../components/FabricAvatar');
+const { compose } = require('../functions/compose');
 const payment402 = require('../functions/fabricDocumentPayment402');
 const { sendPaymentRequired402Response } = require('../functions/sendPaymentRequired402Response');
 const webrtcInterop = require('../functions/fabricWebRtcInterop');
@@ -63,6 +65,7 @@ module.exports = {
   Site: SPA,
   constants: require('../constants'),
   resolveAppAssetsDir,
+  compose: compose,
   protocol: {
     payments402: payment402,
     sendPaymentRequired402Response,

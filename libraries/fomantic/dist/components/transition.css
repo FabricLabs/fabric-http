@@ -1,10 +1,10 @@
 /*!
- * # Fomantic-UI 2.9.0 - Transition
- * http://github.com/fomantic/Fomantic-UI/
+ * # Fomantic-UI 2.9.4 - Transition
+ * https://github.com/fomantic/Fomantic-UI/
  *
  *
  * Released under the MIT license
- * http://opensource.org/licenses/MIT
+ * https://opensource.org/licenses/MIT
  *
  */
 
@@ -55,9 +55,10 @@
   display: block !important;
   visibility: visible !important;
   
-/*  backface-visibility: @backfaceVisibility;
-  transform: @use3DAcceleration;*/
+/* backface-visibility: @backfaceVisibility;
+      transform: @use3DAcceleration; */
 }
+
 /* Disabled */
 .disabled.transition {
   -webkit-animation-play-state: paused;
@@ -72,6 +73,152 @@
 .looping.transition {
   -webkit-animation-iteration-count: infinite;
           animation-iteration-count: infinite;
+}
+
+/* Pulsating */
+.pulsating.transition {
+  -webkit-animation-name: pulsating;
+          animation-name: pulsating;
+  -webkit-animation-duration: 2000ms;
+          animation-duration: 2000ms;
+  -webkit-box-shadow: 0 0 0 0 rgba(128, 128, 128, 0.5);
+          box-shadow: 0 0 0 0 rgba(128, 128, 128, 0.5);
+}
+.inverted.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+          box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+}
+@-webkit-keyframes pulsating {
+  100% {
+    -webkit-box-shadow: 0 0 0 0.8rem rgba(255, 255, 255, 0);
+            box-shadow: 0 0 0 0.8rem rgba(255, 255, 255, 0);
+  }
+}
+@keyframes pulsating {
+  100% {
+    -webkit-box-shadow: 0 0 0 0.8rem rgba(255, 255, 255, 0);
+            box-shadow: 0 0 0 0.8rem rgba(255, 255, 255, 0);
+  }
+}
+.primary.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(51, 102, 153, 0.5);
+          box-shadow: 0 0 0 0 rgba(51, 102, 153, 0.5);
+}
+.primary.inverted.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(84, 200, 255, 0.7);
+          box-shadow: 0 0 0 0 rgba(84, 200, 255, 0.7);
+}
+.secondary.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(27, 28, 29, 0.5);
+          box-shadow: 0 0 0 0 rgba(27, 28, 29, 0.5);
+}
+.secondary.inverted.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(84, 84, 84, 0.7);
+          box-shadow: 0 0 0 0 rgba(84, 84, 84, 0.7);
+}
+.red.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(219, 40, 40, 0.5);
+          box-shadow: 0 0 0 0 rgba(219, 40, 40, 0.5);
+}
+.red.inverted.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(255, 105, 94, 0.7);
+          box-shadow: 0 0 0 0 rgba(255, 105, 94, 0.7);
+}
+.orange.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(242, 113, 28, 0.5);
+          box-shadow: 0 0 0 0 rgba(242, 113, 28, 0.5);
+}
+.orange.inverted.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(255, 133, 27, 0.7);
+          box-shadow: 0 0 0 0 rgba(255, 133, 27, 0.7);
+}
+.yellow.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(251, 189, 8, 0.5);
+          box-shadow: 0 0 0 0 rgba(251, 189, 8, 0.5);
+}
+.yellow.inverted.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(255, 226, 31, 0.7);
+          box-shadow: 0 0 0 0 rgba(255, 226, 31, 0.7);
+}
+.olive.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(181, 204, 24, 0.5);
+          box-shadow: 0 0 0 0 rgba(181, 204, 24, 0.5);
+}
+.olive.inverted.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(217, 231, 120, 0.7);
+          box-shadow: 0 0 0 0 rgba(217, 231, 120, 0.7);
+}
+.green.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(33, 186, 69, 0.5);
+          box-shadow: 0 0 0 0 rgba(33, 186, 69, 0.5);
+}
+.green.inverted.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(46, 204, 64, 0.7);
+          box-shadow: 0 0 0 0 rgba(46, 204, 64, 0.7);
+}
+.teal.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(0, 181, 173, 0.5);
+          box-shadow: 0 0 0 0 rgba(0, 181, 173, 0.5);
+}
+.teal.inverted.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(109, 255, 255, 0.7);
+          box-shadow: 0 0 0 0 rgba(109, 255, 255, 0.7);
+}
+.blue.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(33, 133, 208, 0.5);
+          box-shadow: 0 0 0 0 rgba(33, 133, 208, 0.5);
+}
+.blue.inverted.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(84, 200, 255, 0.7);
+          box-shadow: 0 0 0 0 rgba(84, 200, 255, 0.7);
+}
+.violet.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(100, 53, 201, 0.5);
+          box-shadow: 0 0 0 0 rgba(100, 53, 201, 0.5);
+}
+.violet.inverted.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(162, 145, 251, 0.7);
+          box-shadow: 0 0 0 0 rgba(162, 145, 251, 0.7);
+}
+.purple.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(163, 51, 200, 0.5);
+          box-shadow: 0 0 0 0 rgba(163, 51, 200, 0.5);
+}
+.purple.inverted.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(220, 115, 255, 0.7);
+          box-shadow: 0 0 0 0 rgba(220, 115, 255, 0.7);
+}
+.pink.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(224, 57, 151, 0.5);
+          box-shadow: 0 0 0 0 rgba(224, 57, 151, 0.5);
+}
+.pink.inverted.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(255, 142, 223, 0.7);
+          box-shadow: 0 0 0 0 rgba(255, 142, 223, 0.7);
+}
+.brown.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(165, 103, 63, 0.5);
+          box-shadow: 0 0 0 0 rgba(165, 103, 63, 0.5);
+}
+.brown.inverted.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(214, 124, 28, 0.7);
+          box-shadow: 0 0 0 0 rgba(214, 124, 28, 0.7);
+}
+.grey.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(118, 118, 118, 0.5);
+          box-shadow: 0 0 0 0 rgba(118, 118, 118, 0.5);
+}
+.grey.inverted.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(220, 221, 222, 0.7);
+          box-shadow: 0 0 0 0 rgba(220, 221, 222, 0.7);
+}
+.black.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(27, 28, 29, 0.5);
+          box-shadow: 0 0 0 0 rgba(27, 28, 29, 0.5);
+}
+.black.inverted.pulsating.transition {
+  -webkit-box-shadow: 0 0 0 0 rgba(84, 84, 84, 0.7);
+          box-shadow: 0 0 0 0 rgba(84, 84, 84, 0.7);
 }
 
 

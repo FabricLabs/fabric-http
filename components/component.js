@@ -87,9 +87,10 @@ class Component extends FabricElement {
   connectedCallback () {
     console.log('[MAKI:COMPONENT]', 'Component added to page:', this);
     const state = (typeof window !== 'undefined' && window.app) ? window.app.state : this.state;
-    const html = this._getInnerHTML(state);
+    const html = String(this._getInnerHTML(state));
+    const hash = crypto.createHash('sha256').update(html).digest('hex');
 
-    this.setAttribute('data-integrity', Fabric.sha256(html));
+    this.setAttribute('data-integrity', hash);
     this.setAttribute('data-fingerprint', this.fingerprint);
     // this.innerHTML = html;
     this.innerHTML = html + '';

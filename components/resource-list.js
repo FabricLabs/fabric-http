@@ -21,4 +21,11 @@ class ResourceList extends Component {
   }
 }
 
+const { registerComponent } = require('../functions/componentCatalog');
+
+registerComponent(ResourceList, 'fabric-resource-list', {
+  handle: 'fabric-resource-list',
+  path: '/resources'
+});
+
 module.exports = ResourceList;

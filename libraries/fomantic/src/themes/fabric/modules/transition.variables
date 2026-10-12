@@ -8,3 +8,17 @@
 
 @use3DAcceleration: translateZ(0);
 @backfaceVisibility: hidden;
+
+
+/* Fomantic 2.9.4 variables absent from the Fabric theme */
+@pulsatingColor: #808080;
+
+@pulsatingInvertedColor: #fff;
+
+@pulsatingDuration: 2000ms;
+
+@pulsatingDistance: 0.8rem;
+
+@pulsatingOpacity: 50%;
+
+@pulsatingInvertedOpacity: 70%;

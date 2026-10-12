@@ -1,10 +1,10 @@
 /*!
- * # Fomantic-UI 2.9.0 - Search
- * http://github.com/fomantic/Fomantic-UI/
+ * # Fomantic-UI 2.9.4 - Search
+ * https://github.com/fomantic/Fomantic-UI/
  *
  *
  * Released under the MIT license
- * http://opensource.org/licenses/MIT
+ * https://opensource.org/licenses/MIT
  *
  */
 
@@ -41,18 +41,16 @@
   border-radius: 500rem;
 }
 
-/*--------------
+/* --------------
      Icon
----------------*/
-
+--------------- */
 .ui.search .prompt ~ .search.icon {
   cursor: pointer;
 }
 
-/*--------------
+/* --------------
     Results
----------------*/
-
+--------------- */
 .ui.search > .results {
   display: none;
   position: absolute;
@@ -79,10 +77,9 @@
   border-radius: 0 0 0.28571429rem 0.28571429rem;
 }
 
-/*--------------
+/* --------------
     Result
----------------*/
-
+--------------- */
 .ui.search > .results .result {
   cursor: pointer;
   display: block;
@@ -112,10 +109,9 @@
   height: 100%;
 }
 
-/*--------------
+/* --------------
       Info
----------------*/
-
+--------------- */
 .ui.search > .results .result .image + .content {
   margin: 0 6em 0 0;
 }
@@ -136,10 +132,9 @@
   color: #21BA45;
 }
 
-/*--------------
+/* --------------
     Message
----------------*/
-
+--------------- */
 .ui.search > .results > .message {
   padding: 1em 1em;
 }
@@ -172,23 +167,21 @@
 *******************************/
 
 
-/*--------------------
+/* --------------------
        Focus
----------------------*/
-
+--------------------- */
 .ui.search > .prompt:focus {
   border-color: rgba(34, 36, 38, 0.35);
   background: #FFFFFF;
   color: rgba(0, 0, 0, 0.95);
 }
 
-/*--------------------
-         Loading
-  ---------------------*/
-
-.ui.loading.search .input > i.icon:before {
+/* --------------------
+           Loading
+    --------------------- */
+.ui.loading.search .input > i.icon::before {
   position: absolute;
-  content: '';
+  content: "";
   top: 50%;
   left: 50%;
   margin: -0.64285714em 0 0 -0.64285714em;
@@ -197,9 +190,9 @@
   border-radius: 500rem;
   border: 0.2em solid rgba(0, 0, 0, 0.1);
 }
-.ui.loading.search .input > i.icon:after {
+.ui.loading.search .input > i.icon::after {
   position: absolute;
-  content: '';
+  content: "";
   top: 50%;
   left: 50%;
   margin: -0.64285714em 0 0 -0.64285714em;
@@ -213,10 +206,9 @@
           box-shadow: 0 0 0 1px transparent;
 }
 
-/*--------------
+/* --------------
       Hover
----------------*/
-
+--------------- */
 .ui.search > .results .result:hover,
 .ui.category.search > .results .category .result:hover {
   background: #F9FAFB;
@@ -225,10 +217,9 @@
   background: #E0E0E0;
 }
 
-/*--------------
+/* --------------
       Active
----------------*/
-
+--------------- */
 .ui.category.search > .results .category.active {
   background: #F3F4F5;
 }
@@ -250,10 +241,9 @@
   color: rgba(0, 0, 0, 0.85);
 }
 
-/*--------------------
-          Disabled
-  ----------------------*/
-
+/* --------------------
+            Disabled
+    ---------------------- */
 
 /* Disabled */
 .ui.disabled.search {
@@ -268,43 +258,55 @@
 *******************************/
 
 
-/*--------------
-      Selection
-  ---------------*/
-
-.ui.search.selection .prompt {
-  border-radius: 0.28571429rem;
-}
-
-/* Remove input */
-.ui.search.selection > .icon.input > .remove.icon {
-  pointer-events: none;
-  position: absolute;
-  left: auto;
-  opacity: 0;
-  color: '';
-  top: 0;
-  right: 0;
-  -webkit-transition: color 0.1s ease, opacity 0.1s ease;
-  transition: color 0.1s ease, opacity 0.1s ease;
-}
-.ui.search.selection > .icon.input > .active.remove.icon {
+/* --------------
+        Clear Icon
+    --------------- */
+.ui.search > .icon.input > .remove.icon {
+  pointer-events: all;
+  -webkit-transition: opacity 0.1s ease;
+  transition: opacity 0.1s ease;
   cursor: pointer;
-  opacity: 0.8;
-  pointer-events: auto;
+  opacity: 0.6;
 }
-.ui.search.selection > .icon.input:not([class*="left icon"]) > .icon ~ .remove.icon {
+.ui.search > .icon.input > .remove.icon:hover {
+  opacity: 1;
+}
+.ui.search > .icon.input:not([class*="left icon"]) > .icon ~ .remove.icon {
   right: 1.85714em;
 }
-.ui.search.selection > .icon.input > .remove.icon:hover {
+.ui.search input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  cursor: pointer;
+  -webkit-transition: opacity 0.1s ease;
+  transition: opacity 0.1s ease;
+  opacity: 0.6;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 352 512'%3E%3Cpath d='M242.7 256l100.1-100.1c12.3-12.3 12.3-32.2 0-44.5l-22.2-22.2c-12.3-12.3-32.2-12.3-44.5 0L176 189.3 75.9 89.2c-12.3-12.3-32.2-12.3-44.5 0L9.2 111.5c-12.3 12.3-12.3 32.2 0 44.5L109.3 256 9.2 356.1c-12.3 12.3-12.3 32.2 0 44.5l22.2 22.2c12.3 12.3 32.2 12.3 44.5 0L176 322.7l100.1 100.1c12.3 12.3 32.2 12.3 44.5 0l22.2-22.2c12.3-12.3 12.3-32.2 0-44.5L242.7 256z'/%3E%3C/svg%3E") no-repeat;
+  height: 1em;
+  width: 1em;
+}
+.ui.search input[type="search"]::-webkit-search-cancel-button:hover {
   opacity: 1;
-  color: #DB2828;
+}
+.ui.loading.search input[type="search"]::-webkit-search-cancel-button {
+  display: none;
+}
+.ui.search > .icon.input > input:-moz-placeholder ~ .remove.icon {
+  display: none;
+}
+.ui.search > .icon.input > input:-ms-input-placeholder ~ .remove.icon {
+  display: none;
+}
+.ui.search > .icon.input > input:placeholder-shown ~ .remove.icon,
+.ui.search.loading > .icon.input > .remove.icon {
+  display: none;
+}
+.ui.search > .icon.input > input:-ms-input-placeholder ~ .remove.icon {
+  display: none;
 }
 
-/*--------------
-      Category
-  ---------------*/
-
+/* --------------
+        Category
+    --------------- */
 .ui.category.search .results {
   width: 28em;
 }
@@ -364,6 +366,15 @@
   transition: background 0.1s ease, border-color 0.1s ease;
   padding: 0.85714286em 1.14285714em;
 }
+.ui.horizontal.category.search > .results .category,
+.ui.horizontal.category.search > .results .category > .name,
+.ui.horizontal.category.search > .results .category > .results {
+  display: block;
+}
+.ui.horizontal.category.search > .results .category > .results {
+  width: 100%;
+  border-left: 0;
+}
 
 
 /*******************************
@@ -371,38 +382,54 @@
 *******************************/
 
 
-/*-------------------
-       Scrolling
-  --------------------*/
-
+/* -------------------
+         Scrolling
+    -------------------- */
 .ui.scrolling.search > .results,
 .ui.search.long > .results,
 .ui.search.short > .results {
   overflow-x: hidden;
   overflow-y: auto;
+  -ms-scroll-chaining: none;
+      overscroll-behavior: none;
   -webkit-backface-visibility: hidden;
           backface-visibility: hidden;
-  -webkit-overflow-scrolling: touch;
 }
 @media only screen and (max-width: 767.98px) {
   .ui.scrolling.search > .results {
     max-height: 12.17714286em;
+  }
+  .resizable.ui.scrolling.search > .results {
+    height: 12.17714286em;
   }
 }
 @media only screen and (min-width: 768px) {
   .ui.scrolling.search > .results {
     max-height: 18.26571429em;
   }
+  .resizable.ui.scrolling.search > .results {
+    height: 18.26571429em;
+  }
 }
 @media only screen and (min-width: 992px) {
   .ui.scrolling.search > .results {
     max-height: 24.35428571em;
+  }
+  .resizable.ui.scrolling.search > .results {
+    height: 24.35428571em;
   }
 }
 @media only screen and (min-width: 1920px) {
   .ui.scrolling.search > .results {
     max-height: 36.53142857em;
   }
+  .resizable.ui.scrolling.search > .results {
+    height: 36.53142857em;
+  }
+}
+.ui.scrolling.resizable.search > .results {
+  resize: vertical;
+  max-height: none;
 }
 @media only screen and (max-width: 767.98px) {
   .ui.search.short > .results {
@@ -461,10 +488,9 @@
   }
 }
 
-/*-------------------
-       Left / Right
-  --------------------*/
-
+/* -------------------
+         Left / Right
+    -------------------- */
 .ui[class*="left aligned"].search > .results {
   right: auto;
   left: 0;
@@ -474,18 +500,16 @@
   left: auto;
 }
 
-/*--------------
+/* --------------
     Fluid
----------------*/
-
+--------------- */
 .ui.fluid.search .results {
   width: 100%;
 }
 
-/*--------------
+/* --------------
       Sizes
----------------*/
-
+--------------- */
 .ui.search {
   font-size: 1em;
 }
@@ -511,10 +535,9 @@
   font-size: 1.71428571em;
 }
 
-/*--------------
+/* --------------
       Mobile
----------------*/
-
+--------------- */
 @media only screen and (max-width: 767.98px) {
   .ui.search .results {
     max-width: calc(100vw - 2rem);

@@ -83,3 +83,11 @@
 @toastActionPadding: 0.5em;
 @toastActionPaddingBottom: 0.75em;
 @toastActionCenteredMargin: 0.25em;
+
+
+/* Fomantic 2.9.4 variables absent from the Fabric theme */
+@invertedToastBoxBorder: 1px solid rgba(225, 225, 225, 0.5);
+
+@toastImageMiniImageAdjustment: e(%("calc(%d + %d)", @inputVerticalPadding, @toastMiniImageHeight));
+
+@toastImageMiniImagePadding: 4.4em;

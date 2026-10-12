@@ -67,4 +67,11 @@ class Menu extends Collection {
   }
 }
 
+const { registerComponent } = require('../functions/componentCatalog');
+
+registerComponent(Menu, 'fabric-menu', {
+  handle: 'fabric-menu',
+  path: '/resources'
+});
+
 module.exports = Menu;

@@ -1,5 +1,10 @@
-fabric-application(route="#{this.route}", integrity="#{this.integrity}")
-  header
-  fabric-grid-row#browser
-    fabric-browser
-  footer
+extends ../views/layout.jade
+
+block content
+  include ../views/client.jade
+
+block scripts
+  script(type="text/javascript").
+    if (customElements && !customElements.get('fabric-peer-list')) {
+      customElements.define('fabric-peer-list', FabricPeerList);
+    }

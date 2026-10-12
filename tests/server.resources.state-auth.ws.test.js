@@ -37,7 +37,7 @@ describe('@fabric/http server resource state/auth/ws wiring', function () {
       accessLog: path.join(os.tmpdir(), `fabric-http-state-${port}.log`),
       resources: {
         Person: {
-          components: { list: 'person-list', view: 'person-view' }
+          components: { list: 'fabric-resource-list', view: 'fabric-resource-view' }
         }
       }
     });
@@ -84,7 +84,7 @@ describe('@fabric/http server resource state/auth/ws wiring', function () {
       accessLog: path.join(os.tmpdir(), `fabric-http-ws-sub-${port}.log`),
       resources: {
         Person: {
-          components: { list: 'person-list', view: 'person-view' }
+          components: { list: 'fabric-resource-list', view: 'fabric-resource-view' }
         }
       }
     });
@@ -155,7 +155,7 @@ describe('@fabric/http server resource state/auth/ws wiring', function () {
       accessLog: path.join(os.tmpdir(), `fabric-http-ws-scope-${port}.log`),
       resources: {
         Document: {
-          components: { list: 'document-list', view: 'document-view' }
+          components: { list: 'fabric-resource-list', view: 'fabric-resource-view' }
         }
       }
     });
@@ -236,7 +236,7 @@ describe('@fabric/http server resource state/auth/ws wiring', function () {
       },
       resources: {
         Note: {
-          components: { list: 'note-list', view: 'note-view' }
+          components: { list: 'fabric-resource-list', view: 'fabric-resource-view' }
         }
       }
     });
@@ -284,7 +284,7 @@ describe('@fabric/http server resource state/auth/ws wiring', function () {
       resources: {
         Secret: {
           auth: { read: true, write: true },
-          components: { list: 'secret-list', view: 'secret-view' }
+          components: { list: 'fabric-resource-list', view: 'fabric-resource-view' }
         }
       }
     });
@@ -368,7 +368,7 @@ describe('@fabric/http server resource state/auth/ws wiring', function () {
       },
       resources: {
         Note: {
-          components: { list: 'note-list', view: 'note-view' }
+          components: { list: 'fabric-resource-list', view: 'fabric-resource-view' }
         }
       }
     });

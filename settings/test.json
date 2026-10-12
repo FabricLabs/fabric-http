@@ -5,8 +5,8 @@
     "Example": {
       "name": "Example",
       "components": {
-        "list": "example-list",
-        "view": "example-view"
+        "list": "fabric-resource-list",
+        "view": "fabric-resource-view"
       },
       "routes": {
         "list": "/examples",

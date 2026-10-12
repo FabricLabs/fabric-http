@@ -248,3 +248,91 @@
 @small: 0.9em;
 @medium: 1em;
 @large: 1.1em;
+
+
+/* Fomantic 2.9.4 variables absent from the Fabric theme */
+@headerBackgroundHex: @offWhite;
+
+@footerBackgroundHex: @offWhite;
+
+@invertedPositiveColor: @positiveTextColor;
+
+@invertedPositiveBackgroundColor: @positiveBorderColor;
+
+@invertedNegativeColor: @negativeTextColor;
+
+@invertedNegativeBackgroundColor: @negativeBorderColor;
+
+@invertedErrorColor: @errorTextColor;
+
+@invertedErrorBackgroundColor: @errorBorderColor;
+
+@invertedWarningColor: @warningTextColor;
+
+@invertedWarningBackgroundColor: #eec97e;
+
+@invertedActiveColor: @textColor;
+
+@invertedActiveBackgroundColor: #a0a0a0;
+
+@invertedHeaderBackgroundHex: #252525;
+
+@invertedFooterBackground: @invertedHeaderBackground;
+
+@invertedFooterBackgroundHex: @invertedHeaderBackgroundHex;
+
+@invertedFooterColor: @invertedHeaderColor;
+
+@invertedFooterBorderColor: @invertedHeaderBorderColor;
+
+@scrollingMobileMaxItems: 3;
+
+@scrollingTabletMaxItems: 4;
+
+@scrollingComputerMaxItems: 6;
+
+@scrollingWidescreenMaxItems: 8;
+
+@scrollingItemHeight: (@cellVerticalPadding * 2) + @lineHeight;
+
+@scrollingMobileMaxBodyHeight: (@scrollingItemHeight * @scrollingMobileMaxItems);
+
+@scrollingTabletMaxBodyHeight: (@scrollingItemHeight * @scrollingTabletMaxItems);
+
+@scrollingComputerMaxBodyHeight: (@scrollingItemHeight * @scrollingComputerMaxItems);
+
+@scrollingWidescreenMaxBodyHeight: (@scrollingItemHeight * @scrollingWidescreenMaxItems);
+
+@stuckBackground: @background;
+
+@stuckHeaderBackground: @offWhite;
+
+@stuckFooterBackground: @stuckHeaderBackground;
+
+@invertedStuckBackground: @invertedBackground;
+
+@invertedStuckHeaderBackground: @invertedHeaderBackgroundHex;
+
+@invertedStuckFooterBackground: @invertedStuckHeaderBackground;
+
+@stuckZIndex: 800;
+
+@overflowingMobileMaxItems: 5;
+
+@overflowingTabletMaxItems: 6;
+
+@overflowingComputerMaxItems: 8;
+
+@overflowingWidescreenMaxItems: 10;
+
+@overflowingItemHeight: (@cellVerticalPadding * 2) + @lineHeight;
+
+@overflowingMobileMaxHeight: (@overflowingItemHeight * @overflowingMobileMaxItems);
+
+@overflowingTabletMaxHeight: (@overflowingItemHeight * @overflowingTabletMaxItems);
+
+@overflowingComputerMaxHeight: (@overflowingItemHeight * @overflowingComputerMaxItems);
+
+@overflowingWidescreenMaxHeight: (@overflowingItemHeight * @overflowingWidescreenMaxItems);
+
+@resizableDirection: vertical;

@@ -117,3 +117,7 @@
 @widescreenMonitorWidth: auto;
 @widescreenMargin: 0;
 @widescreenMonitorGutter: 23%;
+
+
+/* Fomantic 2.9.4 variables absent from the Fabric theme */
+@stackableMobileGutter: 0;

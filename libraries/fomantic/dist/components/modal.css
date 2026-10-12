@@ -1,10 +1,10 @@
 /*!
- * # Fomantic-UI 2.9.0 - Modal
- * http://github.com/fomantic/Fomantic-UI/
+ * # Fomantic-UI 2.9.4 - Modal
+ * https://github.com/fomantic/Fomantic-UI/
  *
  *
  * Released under the MIT license
- * http://opensource.org/licenses/MIT
+ * https://opensource.org/licenses/MIT
  *
  */
 
@@ -33,6 +33,7 @@
       -ms-user-select: text;
           user-select: text;
   will-change: top, left, margin, transform, opacity;
+  outline: none;
 }
 .ui.modal > :first-child:not(.close):not(.dimmer),
 .ui.modal > i.icon:first-child + *,
@@ -55,10 +56,9 @@
 *******************************/
 
 
-/*--------------
-     Close
----------------*/
-
+/* --------------
+         Close
+    --------------- */
 .ui.modal > .close {
   cursor: pointer;
   position: absolute;
@@ -72,14 +72,15 @@
   height: 2.25rem;
   padding: 0.625rem 0 0 0;
 }
+.ui.modal > .close:focus,
 .ui.modal > .close:hover {
   opacity: 1;
+  outline: none;
 }
 
-/*--------------
+/* --------------
      Header
----------------*/
-
+--------------- */
 .ui.modal > .header {
   display: block;
   font-family: 'Arvo', 'Helvetica Neue', Arial, Helvetica, sans-serif;
@@ -97,10 +98,9 @@
   font-weight: bold;
 }
 
-/*--------------
+/* --------------
      Content
----------------*/
-
+--------------- */
 .ui.modal > .content {
   display: block;
   width: 100%;
@@ -162,7 +162,8 @@
   width: auto;
   padding-left: 2em;
 }
-/*rtl:ignore*/
+
+/* rtl:ignore */
 .ui.modal > .content > .image > i.icon {
   margin: 0;
   opacity: 1;
@@ -171,10 +172,9 @@
   font-size: 8rem;
 }
 
-/*--------------
-     Actions
----------------*/
-
+/* --------------
+         Actions
+    --------------- */
 .ui.modal > .actions {
   background: #F9FAFB;
   padding: 1rem 1rem;
@@ -184,8 +184,16 @@
 .ui.modal .actions > .button:not(.fluid) {
   margin-left: 0.75em;
 }
+.ui.ui.modal > .basic.actions,
 .ui.basic.modal > .actions {
   border-top: none;
+}
+.ui.modal > .left.actions {
+  text-align: left;
+}
+.ui.modal > .left.actions > .button:not(.fluid) {
+  margin-left: 0.5em;
+  margin-right: 0.5em;
 }
 .ui.modal > .centered,
 .ui.modal > .center.aligned {
@@ -197,10 +205,9 @@
   margin-right: 0.5em;
 }
 
-/*-------------------
+/* -------------------
        Responsive
---------------------*/
-
+-------------------- */
 
 /* Modal Width */
 @media only screen and (max-width: 767.98px) {
@@ -219,6 +226,16 @@
   .ui.modal:not(.fullscreen) {
     width: 850px;
     margin: 0 0 0 0;
+  }
+  .ui.modal:not(.fullscreen) > .active.dimmer + .close:not(.inside) {
+    pointer-events: none;
+    opacity: 0.1;
+  }
+  .ui.dimmer > .ui.modal:not(.fullscreen) > .close:not(.inside) {
+    text-shadow: -1px -1px 2px rgba(0, 0, 0, 0.3), 1px -1px 2px rgba(0, 0, 0, 0.3), -1px 2px 2px rgba(0, 0, 0, 0.3), 1px 2px 2px rgba(0, 0, 0, 0.3);
+  }
+  .ui.inverted.dimmer > .ui.modal:not(.fullscreen) > .close:not(.inside) {
+    text-shadow: -1px -1px 2px rgba(255, 255, 255, 0.3), 1px -1px 2px rgba(255, 255, 255, 0.3), -1px 2px 2px rgba(255, 255, 255, 0.3), 1px 2px 2px rgba(255, 255, 255, 0.3);
   }
 }
 @media only screen and (min-width: 1200px) {
@@ -268,7 +285,8 @@
     top: 0.5rem !important;
     right: 0.5rem !important;
   }
-  /*rtl:ignore*/
+  
+/* rtl:ignore */
   .ui.modal .image.content {
     -webkit-box-orient: vertical;
     -webkit-box-direction: normal;
@@ -286,7 +304,8 @@
     font-size: 5rem;
     text-align: center;
   }
-  /*rtl:ignore*/
+  
+/* rtl:ignore */
   .ui.modal > .content > .description {
     display: block;
     width: 100% !important;
@@ -306,10 +325,9 @@
   }
 }
 
-/*--------------
+/* --------------
     Coupling
----------------*/
-
+--------------- */
 .ui.inverted.dimmer > .ui.modal {
   -webkit-box-shadow: 1px 3px 10px 2px rgba(0, 0, 0, 0.2);
           box-shadow: 1px 3px 10px 2px rgba(0, 0, 0, 0.2);
@@ -328,10 +346,15 @@
           box-shadow: none !important;
   color: #FFFFFF;
 }
+.ui.ui.modal > .basic.header,
+.ui.ui.modal > .basic.actions,
 .ui.basic.modal > .header,
 .ui.basic.modal > .content,
 .ui.basic.modal > .actions {
   background-color: transparent;
+}
+.ui.modal > .basic.header {
+  border-bottom: none;
 }
 .ui.basic.modal > .header {
   color: #FFFFFF;
@@ -388,10 +411,9 @@
 *******************************/
 
 
-/*--------------
-     Aligned
-  ---------------*/
-
+/* --------------
+       Aligned
+    --------------- */
 .modals.dimmer .ui.top.aligned.modal {
   top: 5vh;
 }
@@ -407,32 +429,39 @@
   }
 }
 
-/*--------------
-      Scrolling
-  ---------------*/
-
+/* --------------
+        Scrolling
+    --------------- */
 
 /* Scrolling Dimmer */
 .scrolling.dimmable.dimmed {
   overflow: hidden;
 }
 .scrolling.dimmable > .dimmer {
-  -webkit-box-pack: start;
-      -ms-flex-pack: start;
-          justify-content: flex-start;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
   position: fixed;
+}
+.scrolling.dimmable:not(body) > .dimmer {
+  position: absolute;
 }
 .scrolling.dimmable.dimmed > .dimmer {
   overflow: auto;
-  -webkit-overflow-scrolling: touch;
+  -ms-scroll-chaining: none;
+      overscroll-behavior: none;
+}
+.modals.dimmer .ui.scrolling.modal.fullscreen {
+  top: 0;
 }
 .modals.dimmer .ui.scrolling.modal:not(.fullscreen) {
   margin: 2rem auto;
+  top: 1em;
 }
 
 /* Fix for Firefox, Edge, IE11 */
 .modals.dimmer .ui.scrolling.modal:not([class*="overlay fullscreen"])::after {
-  content: '\00A0';
+  content: "\00A0";
   position: absolute;
   height: 2rem;
 }
@@ -440,7 +469,8 @@
 /* Undetached Scrolling */
 .scrolling.undetached.dimmable.dimmed {
   overflow: auto;
-  -webkit-overflow-scrolling: touch;
+  -ms-scroll-chaining: none;
+      overscroll-behavior: none;
 }
 .scrolling.undetached.dimmable.dimmed > .dimmer {
   overflow: hidden;
@@ -454,6 +484,12 @@
 .ui.modal > .scrolling.content {
   max-height: calc(80vh - 10rem);
   overflow: auto;
+  -ms-scroll-chaining: none;
+      overscroll-behavior: none;
+}
+.ui.modal > .resizable.scrolling.content {
+  resize: vertical;
+  max-height: none;
 }
 .ui.overlay.fullscreen.modal > .content {
   min-height: calc(100vh - 9.1rem);
@@ -462,10 +498,9 @@
   max-height: calc(100vh - 9.1rem);
 }
 
-/*--------------
-     Full Screen
-  ---------------*/
-
+/* --------------
+       Full Screen
+    --------------- */
 .ui.fullscreen.modal {
   width: 95%;
   left: 2.5%;
@@ -492,10 +527,9 @@
   color: #FFFFFF;
 }
 
-/*--------------
+/* --------------
       Size
----------------*/
-
+--------------- */
 .ui.modal {
   font-size: 1rem;
 }
@@ -733,8 +767,8 @@
 
 
 /*****************************
-            Inverted
-  *******************************/
+              Inverted
+    *******************************/
 
 .ui.inverted.modal {
   background: rgba(0, 0, 0, 0.9);

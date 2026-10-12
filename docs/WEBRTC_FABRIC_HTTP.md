@@ -52,4 +52,4 @@ For the same static + JSON-RPC surface without the full **@fabric/hub** stack, t
 
 - [MESSAGE_SPEC.md](./MESSAGE_SPEC.md)
 - `README.md` (Peering / WebRTC pointer)
-- Upstream: [`SESSION_AND_WEBRTC.md`](https://github.com/FabricLabs/fabric/blob/develop/docs/SESSION_AND_WEBRTC.md) in `@fabric/core` (path in your checkout).
+- WebRTC signaling itself is Hub's Bridge, not a core document.

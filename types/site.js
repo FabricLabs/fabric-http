@@ -1,7 +1,9 @@
  'use strict';
 
 // Fabric Types
+const path = require('path');
 const Actor = require('@fabric/core/types/actor');
+const { composeFile, loadReferenceComponents } = require('../functions/compose');
 
 // Internal Types
 // const Bridge = require('../types/bridge');
@@ -53,6 +55,7 @@ class Site extends Actor {
 
   render (state = this.state) {
     const html = this._getHTML(state);
+    if (/<html[\s>]/i.test(html)) return html;
     return this.spa._renderWith(html);
   }
 
@@ -61,53 +64,17 @@ class Site extends Actor {
   }
 
   _getHTML (state) {
-    // TODO: obvious modularization...
-    // - fabric-site
-    //   - fabric-bridge
-    //   - fabric-console
-    //   - fabric-menu
-    //   - fabric-grid
-    return `
-      <${this.handle} class="ui container" id="site">
-        <fabric-bridge host="localhost" port="9999" secure="false"></fabric-bridge>
-        <fabric-console id="console" style="display: none;">
-          <fabric-card class="ui fluid card">
-            <fabric-card-content class="content">
-              <p>Console...</p>
-            </fabric-card-content>
-          </fabric-card>
-        </fabric-console>
-        <fabric-menu id="tray">
-          <i id="tray-settings" class="ui large inverted cog icon"></i>
-        </fabric-menu>
-        <fabric-menu>
-          <fabric-card id="settings" class="ui fluid card" style="display: none;">
-            <fabric-card-header class="ui header">Settings</fabric-card-header>
-            <fabric-card-content class="ui content">
-              <p>Foo</p>
-            </fabric-card-content>
-          </fabric-card>
-        </fabric-menu>
-        <fabric-grid class="ui centered grid">
-          <fabric-column class="twelve wide column">
-            <fabric-card class="ui fluid card" id="overlay">
-              <fabric-card-content class="content" style="text-align: center;">
-                <h1 class="ui huge header" data-bind="/title"><code>${state.title || this.title || this.state.title || 'Example Application'}</code></h1>
-                <p>file browser</p>
-              </fabric-card-content>
-              <fabric-card-content class="extra hidden" style="display: none;">
-                <h2>Debug</h2>
-              </fabric-card-content>
-              <fabric-card-content class="bottom attached" style="display: none;">
-                <fabric-button-group class="ui small bottom attached left aligned buttons">
-                  <fabric-button class="ui labeled icon button"><i class="ui linkify icon"></i> <code>${this.id}</code></fabric-button>
-                </fabric-button-group>
-              </fabric-card-content>
-            </fabric-card>
-          </fabric-column>
-        </fabric-grid>
-      </${this.handle}>
-    `.trim();
+    loadReferenceComponents();
+    const current = Object.assign({}, this.state || {}, state || {});
+    return composeFile(path.join(__dirname, '../views/site.jade'), {
+      title: current.title || this.title || 'Example Application',
+      language: 'en',
+      bundleHash: (current.bundle && current.bundle.fullhash) || '',
+      messages: current.messages || [],
+      logs: current.logs || []
+    }, {
+      basedir: path.join(__dirname, '../views')
+    });
   }
 
   _renderWith (html) {

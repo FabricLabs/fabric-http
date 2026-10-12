@@ -7,3 +7,6 @@ exclude_paths:
   - "scripts/render-fabric-icon.swift"
   # Mocha fixtures trip Codacy “hardcoded password” on HMAC/test keys (same as core).
   - "tests/**"
+  # Upstream Fomantic 2.9.4. Widget ids use Math.random; form/search build
+  # RegExp from field rules. Not application code — do not fork to silence Codacy.
+  - "libraries/fomantic/**"

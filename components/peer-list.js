@@ -33,4 +33,11 @@ class PeerList extends Component {
   }
 }
 
+const { registerComponent } = require('../functions/componentCatalog');
+
+registerComponent(PeerList, 'fabric-peer-list', {
+  title: 'Peers',
+  handle: 'fabric-peer-list'
+});
+
 module.exports = PeerList;

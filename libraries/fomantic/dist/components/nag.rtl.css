@@ -1,10 +1,10 @@
 /*!
- * # Fomantic-UI 2.9.0 - Nag
- * http://github.com/fomantic/Fomantic-UI/
+ * # Fomantic-UI 2.9.4 - Nag
+ * https://github.com/fomantic/Fomantic-UI/
  *
  *
  * Released under the MIT license
- * http://opensource.org/licenses/MIT
+ * https://opensource.org/licenses/MIT
  *
  */
 
@@ -79,29 +79,25 @@ a.ui.nag {
 *******************************/
 
 
-/*--------------
-       Static
-  ---------------*/
-
+/* --------------
+         Static
+    --------------- */
 .ui.overlay.nags,
 .ui.overlay.nag {
   position: absolute;
-  display: block;
 }
 
-/*--------------
-     Fixed
----------------*/
-
+/* --------------
+         Fixed
+    --------------- */
 .ui.fixed.nags,
 .ui.fixed.nag {
   position: fixed;
 }
 
-/*--------------
-     Bottom
----------------*/
-
+/* --------------
+         Bottom
+    --------------- */
 .ui.bottom.nags,
 .ui.bottom.nag {
   border-radius: 0.28571429rem 0.28571429rem 0 0;
@@ -109,10 +105,9 @@ a.ui.nag {
   bottom: 0;
 }
 
-/*--------------
-     Inverted
----------------*/
-
+/* --------------
+         Inverted
+    --------------- */
 .ui.inverted.nags .nag,
 .ui.inverted.nag {
   background-color: #F3F4F5;
@@ -127,10 +122,9 @@ a.ui.nag {
   color: rgba(0, 0, 0, 0.6);
 }
 
-/*-------------------
-        Sizes
---------------------*/
-
+/* -------------------
+            Sizes
+    -------------------- */
 .ui.mini.nag,
 .ui.mini.nags .nag {
   font-size: 0.78571429rem;
@@ -162,10 +156,9 @@ a.ui.nag {
   line-height: 1;
 }
 
-/*--------------
+/* --------------
      Colors
 -------------- */
-
 .ui.primary.nag {
   background-color: #336699;
 }
@@ -263,8 +256,8 @@ a.ui.nag {
 
 
 /*******************************
-           Groups
-*******************************/
+               Groups
+    *******************************/
 
 .ui.nags {
   top: 0;

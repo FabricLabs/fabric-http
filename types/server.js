@@ -64,12 +64,14 @@ const payments = require('../middlewares/payments');
 // const Component = require('./component');
 // const Browser = require('./browser');
 const SPA = require('./spa');
+const { assertKnownComponents } = require('../functions/componentCatalog');
 
 // Dependencies
 const WebSocket = require('ws');
 const messageTransport = require('../functions/fabricMessageTransport');
 const jsonRpcTransport = require('../functions/fabricJsonRpcTransport');
 const webrtcInterop = require('../functions/fabricWebRtcInterop');
+const { resolveJsonBodyLimitForRequest } = require('../functions/jsonBodyLimit');
 const {
   buildApplicationResourceContract
 } = require('../functions/applicationResourceContract');
@@ -310,6 +312,15 @@ class FabricHTTPServer extends Service {
          */
         requireTransportAuth: true
       },
+      /**
+       * Large JSON body limit for JSON-RPC / CreateDocument paths (override with
+       * `FABRIC_HTTP_JSON_LIMIT`). Other routes use `jsonBodyLimitDefault` (100kb).
+       */
+      jsonBodyLimit: null,
+      /** Default JSON body limit for non-large paths (`FABRIC_HTTP_JSON_LIMIT_DEFAULT`). */
+      jsonBodyLimitDefault: null,
+      /** Extra POST paths that may use `jsonBodyLimit` (always includes `/services/rpc`). */
+      jsonBodyLargePaths: [],
       security: {
         resourceWriteAuthRequired: false
       }
@@ -594,6 +605,7 @@ class FabricHTTPServer extends Service {
    * @returns {Promise<FabricHTTPServer>}
    */
   async define (name, definition = {}) {
+    assertKnownComponents(definition);
     if (this.settings.verbosity >= 5) console.log('[HTTP:SERVER]', 'Defining:', name, definition);
     const server = this;
 
@@ -1679,6 +1691,17 @@ class FabricHTTPServer extends Service {
   }
 
   /**
+   * Resolve per-request JSON body-parser limit. Large bodies (Hub CreateDocument
+   * base64) are restricted to JSON-RPC paths and `settings.jsonBodyLargePaths`.
+   * @param {import('express').Request} req
+   * @returns {string}
+   * @private
+   */
+  _jsonBodyLimitForRequest (req) {
+    return resolveJsonBodyLimitForRequest(this.settings, req, process.env);
+  }
+
+  /**
    * Register POST JSON-RPC endpoints that delegate to `_handleCall` (same surface as WebSocket JSONCall).
    * @private
    */
@@ -1712,10 +1735,16 @@ class FabricHTTPServer extends Service {
 
         let result = null;
         try {
+          // Per-call auth only — never stash request context on the shared server
+          // instance across `await` (concurrent HTTP JSON-RPC would race).
+          const transportAuthorized = this._isJsonRpcTransportAuthorized(req) === true;
           result = await this._handleCall({
             method,
             params,
-            _fabricTransportAuthorized: this._isJsonRpcTransportAuthorized(req)
+            _fabricTransportAuthorized: transportAuthorized,
+            _fabricRemoteAddress: req && req.socket && req.socket.remoteAddress
+              ? String(req.socket.remoteAddress)
+              : ''
           });
         } catch (callErr) {
           if ((this.settings.verbosity || 0) >= 3) console.error('[HTTP:SERVER] RPC call error:', callErr);
@@ -2285,7 +2314,12 @@ class FabricHTTPServer extends Service {
     // Other Middlewares
     this.express.use(parsers.urlencoded({ extended: true }));
     // Fabric HTTP APIs expect JSON **objects** (or arrays where applicable), not bare primitives.
-    this.express.use(parsers.json());
+    // Keep the global JSON limit small; apply a larger limit only on known large-body paths
+    // (JSON-RPC / CreateDocument). Unauthenticated POSTs elsewhere must not parse 12mb.
+    this.express.use((req, res, next) => {
+      const limit = this._jsonBodyLimitForRequest(req);
+      return parsers.json({ limit })(req, res, next);
+    });
 
     for (let name in this.settings.middlewares) {
       const middleware = this.settings.middlewares[name];

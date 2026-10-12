@@ -249,3 +249,25 @@
 @invertedActionBorder: 1px solid rgba(34, 36, 38, 0.85);
 @invertedActionColor: @white;
 @invertedDimmerCloseColor: rgba(0,0,0,.85);
+
+
+/* Fomantic 2.9.4 variables absent from the Fabric theme */
+@closeOpacityDimmed: 0.1;
+
+@closeShadow:
+    -1px -1px 2px rgba(0, 0, 0, 0.3),
+    1px -1px 2px rgba(0, 0, 0, 0.3),
+    -1px 2px 2px rgba(0, 0, 0, 0.3),
+    1px 2px 2px rgba(0, 0, 0, 0.3);
+
+@buttonLeftDistance: @buttonCenteredDistance;
+
+@scrollingTop: 1em;
+
+@invertedCloseShadow:
+    -1px -1px 2px rgba(255, 255, 255, 0.3),
+    1px -1px 2px rgba(255, 255, 255, 0.3),
+    -1px 2px 2px rgba(255, 255, 255, 0.3),
+    1px 2px 2px rgba(255, 255, 255, 0.3);
+
+@resizableDirection: vertical;

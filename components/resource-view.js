@@ -21,4 +21,11 @@ class ResourceView extends Component {
   }
 }
 
+const { registerComponent } = require('../functions/componentCatalog');
+
+registerComponent(ResourceView, 'fabric-resource-view', {
+  handle: 'fabric-resource-view',
+  path: '/resources/:id'
+});
+
 module.exports = ResourceView;

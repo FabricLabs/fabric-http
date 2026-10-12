@@ -153,3 +153,17 @@
   )
 ;
 @tertiaryInvertedColor: @invertedMutedTextColor;
+
+
+/* Fomantic 2.9.4 variables absent from the Fabric theme */
+@invertedPiledBorder: @borderWidth solid @solidWhiteBorderColor;
+
+@stackedBorderColor: @borderColor;
+
+@invertedStackedBorderColor: rgba(225, 225, 225, 0.5);
+
+@loadingMinHeight: @loaderSize * 1.5;
+
+@invertedRaisedBoxShadow: @invertedFloatingShadow;
+
+@resizableDirection: vertical;

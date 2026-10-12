@@ -476,3 +476,33 @@
 /* Scrollhint */
 @invertedScrollhintStartColor: rgba(255, 255, 255, 0.75);
 @invertedScrollhintEndColor: rgba(255, 255, 255, 0);
+
+
+/* Fomantic 2.9.4 variables absent from the Fabric theme */
+@dropdownIconMultipleRight: -1.5em;
+
+@selectionIconFocusOpacity: 1;
+
+@multipleSearchMinWidth: 5.05em;
+
+@additionZIndex: @hoveredZIndex + 1;
+
+@upwardSelectionMenuBorderRadius: @borderRadius @borderRadius 0 0;
+
+@simpleUpwardMenuMargin: 1.5em;
+
+@simpleUpwardSelectionMenuMargin: 2.5em;
+
+@simpleUpwardItemMenuMargin: 2.8em;
+
+@pointingArrowBoxShadowSelection: -@menuBorderWidth -@menuBorderWidth 0 0 @selectionVisibleBorderColor;
+
+@pointingUpwardArrowBoxShadowSelection: @menuBorderWidth @menuBorderWidth 0 0 @selectionVisibleBorderColor;
+
+@invertedPointingUpwardArrowBoxShadow: @menuBorderWidth @menuBorderWidth 0 0 @invertedMenuBorderColor;
+
+@resizableDirection: vertical;
+
+@highlightMatchesBackground: @defaultHighlightMatchesBackground;
+
+@highlightMatchesColor: @defaultHighlightMatchesColor;

@@ -27,7 +27,11 @@ const Component = require('./component');
 // TODO: move component imports to components/ or scripts/
 const Introduction = require('../components/introduction');
 const ResourceList = require('../components/resource-list');
+const ResourceView = require('../components/resource-view');
 const Menu = require('../components/menu');
+
+const path = require('path');
+const { composeFile, fillContentSlot, loadReferenceComponents } = require('../functions/compose');
 
 function cloneState (value) {
   try {
@@ -68,6 +72,8 @@ class App extends Component {
       identities: {},
       resources: {},
       seeds: [
+        'hub.fabric.pub:7777',
+        'relay.goon.vc:7777',
         'hub.fabric.pub:9999',
         'chat.roleplaygateway.com:9999',
         'hub.roleplaygateway.com:9999'
@@ -133,7 +139,7 @@ class App extends Component {
     // properties
     this.identities = {};
     this.peers = {};
-    this.components = { ResourceList };
+    this.components = { ResourceList, ResourceView };
     this.resources = {};
     this.elements = {};
     this.routes = [];
@@ -431,49 +437,29 @@ class App extends Component {
   }
 
   _renderContent (html) {
-    // TODO: enable multi-view composition?
-    // NOTE: this means to iterate over all bound targets, instead of the first one...
-    if (!this.target) this.target = document.querySelector(BROWSER_TARGET);
-    if (!this.target) return console.log('COULD NOT ACQUIRE TARGET:', document);
+    if (typeof document !== 'undefined') {
+      const slot = fillContentSlot(document, html);
+      if (slot) {
+        this.target = slot;
+        return slot;
+      }
+    }
+    if (!this.target && typeof document !== 'undefined') this.target = document.querySelector(BROWSER_TARGET);
+    if (!this.target) return console.log('COULD NOT ACQUIRE TARGET:', typeof document === 'undefined' ? null : document);
     this.target.innerHTML = html;
     return this.target;
   }
 
-  // TODO: write Purity-based version, use in production
   _loadHTML (html) {
-    const blob = JSON.stringify(this.state, null, '  ');
-    const verification = crypto.createHash('sha256').update(blob).digest('hex');
-    let content = ``;
-
-    // Begin Content Body
-    content += `<fabric-application route="${this.route}" integrity="${this.integrity}" class="window">`;
-
-    if (this.settings.header) {
-      content += `<header>
-        <fabric-grid-row id="details" class="ui grid">
-          <div class="wide column">
-            <div class="ui inverted header">
-              <a href="/"><img src="/images/brand.png" class="ui small image" /></a>
-              <h1 class="content"><a href="/">${this.settings.name}</a></h1>
-              <p class="sub header">${this.settings.synopsis}</p>
-            </div>
-          </div>
-        </fabric-grid-row>
-      </header>`;
-    }
-
-    // Main Browser Viewport
-    content += `<fabric-grid-row id="browser">${this.browser.render()}</fabric-grid-row>`;
-
-    if (this.settings.footer) {
-      content += `<footer>
-        <fabric-debug></fabric-debug>
-      </footer>`;
-    }
-
-    content += `<div id="ephemeral-content"></div>
-    </fabric-application>`;
-    return content;
+    loadReferenceComponents();
+    const fragment = composeFile(path.join(__dirname, '../views/client.jade'), this.state || {}, {
+      basedir: path.join(__dirname, '../views')
+    });
+    if (!html) return fragment;
+    return fragment.replace(
+      '<div data-slot="content" id="browser-content"></div>',
+      '<div data-slot="content" id="browser-content">' + html + '</div>'
+    );
   }
 
   async _toggleFullscreen () {

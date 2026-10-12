@@ -1,10 +1,10 @@
 /*!
- * # Fomantic-UI 2.9.0 - Site
- * http://github.com/fomantic/Fomantic-UI/
+ * # Fomantic-UI 2.9.4 - Site
+ * https://github.com/fomantic/Fomantic-UI/
  *
  *
  * Released under the MIT license
- * http://opensource.org/licenses/MIT
+ * https://opensource.org/licenses/MIT
  *
  */
 
@@ -127,10 +127,9 @@ p:last-child {
   margin-bottom: 0;
 }
 
-/*-------------------
+/* -------------------
         Links
---------------------*/
-
+-------------------- */
 a {
   color: #4183C4;
   text-decoration: none;
@@ -145,47 +144,6 @@ a:hover {
          Scrollbars
 *******************************/
 
-
-
-/*******************************
-          Highlighting
-*******************************/
-
-
-/* Site */
-::-webkit-selection {
-  background-color: #CCE2FF;
-  color: rgba(0, 0, 0, 0.87);
-}
-::-moz-selection {
-  background-color: #CCE2FF;
-  color: rgba(0, 0, 0, 0.87);
-}
-::selection {
-  background-color: #CCE2FF;
-  color: rgba(0, 0, 0, 0.87);
-}
-
-/* Form */
-textarea::-webkit-selection,
-input::-webkit-selection {
-  background-color: rgba(100, 100, 100, 0.4);
-  color: rgba(0, 0, 0, 0.87);
-}
-textarea::-moz-selection,
-input::-moz-selection {
-  background-color: rgba(100, 100, 100, 0.4);
-  color: rgba(0, 0, 0, 0.87);
-}
-textarea::-moz-selection, input::-moz-selection {
-  background-color: rgba(100, 100, 100, 0.4);
-  color: rgba(0, 0, 0, 0.87);
-}
-textarea::selection,
-input::selection {
-  background-color: rgba(100, 100, 100, 0.4);
-  color: rgba(0, 0, 0, 0.87);
-}
 
 /* Force Simple Scrollbars */
 body ::-webkit-scrollbar {
@@ -210,6 +168,22 @@ body ::-webkit-scrollbar-thumb:window-inactive {
 body ::-webkit-scrollbar-thumb:hover {
   background: rgba(128, 135, 139, 0.8);
 }
+body .ui {
+  
+/* IE11 */
+  scrollbar-face-color: #bfbfbf;
+  scrollbar-shadow-color: #bfbfbf;
+  scrollbar-track-color: #e6e6e6;
+  scrollbar-arrow-color: #e6e6e6;
+}
+@supports (-moz-appearance: none) {
+  body .ui {
+    
+/* firefox: first color thumb, second track */
+    scrollbar-color: rgba(0, 0, 0, 0.25) rgba(0, 0, 0, 0.1);
+    scrollbar-width: thin;
+  }
+}
 
 /* Inverted UI */
 body .ui.inverted:not(.dimmer)::-webkit-scrollbar-track {
@@ -223,6 +197,48 @@ body .ui.inverted:not(.dimmer)::-webkit-scrollbar-thumb:window-inactive {
 }
 body .ui.inverted:not(.dimmer)::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.35);
+}
+body .ui.inverted:not(.dimmer) {
+  
+/* IE11 */
+  scrollbar-face-color: #656565;
+  scrollbar-shadow-color: #656565;
+  scrollbar-track-color: #323232;
+  scrollbar-arrow-color: #323232;
+}
+@supports (-moz-appearance: none) {
+  body .ui.inverted:not(.dimmer) {
+    
+/* firefox: first color thumb, second track */
+    scrollbar-color: rgba(255, 255, 255, 0.25) rgba(255, 255, 255, 0.1);
+  }
+}
+
+
+/*******************************
+          Highlighting
+*******************************/
+
+
+/* Site */
+::-moz-selection {
+  background-color: #CCE2FF;
+  color: rgba(0, 0, 0, 0.87);
+}
+::selection {
+  background-color: #CCE2FF;
+  color: rgba(0, 0, 0, 0.87);
+}
+
+/* Form */
+textarea::-moz-selection, input::-moz-selection {
+  background-color: rgba(100, 100, 100, 0.4);
+  color: rgba(0, 0, 0, 0.87);
+}
+textarea::selection,
+input::selection {
+  background-color: rgba(100, 100, 100, 0.4);
+  color: rgba(0, 0, 0, 0.87);
 }
 
 

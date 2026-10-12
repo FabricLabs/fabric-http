@@ -43,3 +43,9 @@
 
 /* Height */
 @height: 36px;
+
+
+/* Fomantic 2.9.4 variables absent from the Fabric theme */
+@blurredBackgroundColor: rgba(0, 0, 0, 0.6);
+
+@blurredEndFilter: e("blur(5px) grayscale(0.7)");
