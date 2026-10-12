@@ -20,6 +20,7 @@ const Service = require('@fabric/core/types/service');
 // Types
 const HTTPComponent = require('./component');
 const HTTPSite = require('./site');
+const { compose, composeFile } = require('../functions/compose');
 
 /**
  * Builder for {@link Fabric}-based applications.
@@ -108,11 +109,28 @@ class Compiler extends Service {
    * @returns {String} Rendered HTML document containing the compiled JavaScript application.
    */
   compile (state = this.state) {
+    const renderState = state || this.state;
+    if (typeof this.settings.template === 'string' && this.settings.template) {
+      const basedir = this.settings.basedir
+        ? path.resolve(this.settings.basedir)
+        : path.resolve(__dirname, '../views');
+      const candidate = path.resolve(this.settings.template);
+      const fromFile = fs.existsSync(candidate) && fs.statSync(candidate).isFile();
+      const html = fromFile
+        ? composeFile(candidate, renderState, { basedir: basedir })
+        : compose(this.settings.template, renderState, {
+          basedir: basedir,
+          filename: this.settings.templateFile || path.join(basedir, 'template.jade')
+        });
+      if (/<html[\s>]/i.test(html)) return html;
+      return this.site._renderWith(html);
+    }
     // Default case: no component provided, or not a Fabric Component
     if (!this.component || !this.component._getHTML) {
-      return this.site.render(state);
+      return this.site.render(renderState);
     } else {
-      const html = this.component._getHTML(state);
+      const html = this.component._getHTML(renderState);
+      if (/<html[\s>]/i.test(html)) return html;
       return this.site._renderWith(html);
     }
   }

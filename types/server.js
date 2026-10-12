@@ -64,6 +64,7 @@ const payments = require('../middlewares/payments');
 // const Component = require('./component');
 // const Browser = require('./browser');
 const SPA = require('./spa');
+const { assertKnownComponents } = require('../functions/componentCatalog');
 
 // Dependencies
 const WebSocket = require('ws');
@@ -604,6 +605,7 @@ class FabricHTTPServer extends Service {
    * @returns {Promise<FabricHTTPServer>}
    */
   async define (name, definition = {}) {
+    assertKnownComponents(definition);
     if (this.settings.verbosity >= 5) console.log('[HTTP:SERVER]', 'Defining:', name, definition);
     const server = this;
 

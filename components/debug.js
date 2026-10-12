@@ -58,4 +58,10 @@ class Debug extends Component {
   }
 }
 
+const { registerComponent } = require('../functions/componentCatalog');
+
+registerComponent(Debug, 'fabric-debug', {
+  handle: 'fabric-debug'
+});
+
 module.exports = Debug;

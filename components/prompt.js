@@ -9,7 +9,7 @@ class Prompt {
     this.settings = Object.assign({
       question: 'How can we help?',
       field: 'query',
-      handle: 'maki-prompt',
+      handle: 'fabric-message-composer',
       label: 'Your question',
       placeholder: 'Search documents, users, or ideas',
       content: null
@@ -70,5 +70,16 @@ class Prompt {
     return html;
   }
 }
+
+const { registerComponent } = require('../functions/componentCatalog');
+
+registerComponent(Prompt, 'fabric-message-composer', {
+  handle: 'fabric-message-composer',
+  question: 'How can we help?',
+  field: 'query',
+  label: 'Your question',
+  placeholder: 'Search documents, users, or ideas',
+  content: null
+});
 
 module.exports = Prompt;

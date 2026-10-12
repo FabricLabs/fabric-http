@@ -18,7 +18,6 @@
     "build:semantic": "node scripts/build-semantic.js",
     "make:fonts": "node scripts/download-fonts.js",
     "make:icons": "node scripts/render-fabric-icon.js",
-    "build:views": "jade --pretty -o assets/ views/site.jade",
     "ci": "npm test && npm run build:scripts",
     "compile": "npm run build:scripts",
     "coverage": "c8 npm test",
@@ -76,7 +75,8 @@
     "README.md",
     "LICENSE",
     "CHANGELOG.md",
-    "SECURITY.md"
+    "SECURITY.md",
+    "views/**/*.jade"
   ],
   "exports": {
     ".": "./types/web.js",
@@ -123,6 +123,7 @@
     "@fabric/core": "martindale/fabric#feature/rsi",
     "assert-browserify": "=2.0.0",
     "babel-loader": "=8.2.5",
+    "blessed": "0.1.81",
     "body-parser": "=1.20.6",
     "buffer": "=6.0.3",
     "compression": "=1.8.1",
@@ -147,6 +148,9 @@
     "path-browserify": "=1.0.1",
     "path-to-regexp": "=6.3.0",
     "pluralize": "=7.0.0",
+    "pug": "=3.0.3",
+    "pug-lexer": "=5.0.1",
+    "pug-parser": "=6.0.0",
     "puppeteer": "=24.37.5",
     "querystring-es3": "=0.2.1",
     "stoppable": "=1.1.0",

@@ -1,59 +1,104 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-  <meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Default Site</title>
   <link rel="icon" href="/favicon.ico" sizes="48x48">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <meta name="theme-color" content="#4C1D95">
-  <!-- <link rel="manifest" href="/manifest.json"> -->
-  <link rel="stylesheet" type="text/css" href="/semantic.min.css" />
-  <link rel="stylesheet" type="text/css" href="/styles/screen.css" />
+  <link rel="stylesheet" type="text/css" href="/semantic.min.css">
+  <link rel="stylesheet" type="text/css" href="/styles/screen.css">
   <script src="/scripts/jquery-3.4.1.js"></script>
   <script src="/semantic.min.js"></script>
 </head>
 <body>
-  <div data-hash="3e459605a1e07a8de8443f073cc35dc8992f9bd3f7f29877855593d5658765c4" id="application-target"><fabric-site class="ui container" id="site">
-      <fabric-bridge host="localhost" port="9999" secure="false"></fabric-bridge>
-      <fabric-console id="console" style="display: none;">
-        <fabric-card class="ui fluid card">
-          <fabric-card-content class="content">
-            <p>Console...</p>
-          </fabric-card-content>
-        </fabric-card>
-      </fabric-console>
-      <fabric-menu id="tray">
-        <i id="tray-settings" class="ui large inverted cog icon"></i>
-      </fabric-menu>
-      <fabric-menu>
-        <fabric-card id="settings" class="ui fluid card" style="display: none;">
-          <fabric-card-header class="ui header">Settings</fabric-card-header>
-          <fabric-card-content class="ui content">
-            <p>Foo</p>
-          </fabric-card-content>
-        </fabric-card>
-      </fabric-menu>
-      <fabric-grid class="ui centered grid">
-        <fabric-column class="twelve wide column">
-          <fabric-card class="ui fluid card" id="overlay">
-            <fabric-card-content class="content" style="text-align: center;">
-              <h1 class="ui huge header" data-bind="/title"><code>Default Site</code></h1>
-              <p>file browser</p>
-            </fabric-card-content>
-            <fabric-card-content class="extra hidden" style="display: none;">
-              <h2>Debug</h2>
-            </fabric-card-content>
-            <fabric-card-content class="bottom attached" style="display: none;">
-              <fabric-button-group class="ui small bottom attached left aligned buttons">
-                <fabric-button class="ui labeled icon button"><i class="ui linkify icon"></i> <code>d8d37169e8c752ee66ac06de89778bc74b9280bc84019df0a7874a689156f8e4</code></fabric-button>
-              </fabric-button-group>
-            </fabric-card-content>
-          </fabric-card>
-        </fabric-column>
-      </fabric-grid>
-    </fabric-site></div>
-  <script src="/bundles/browser.min.js"></script>
+  <div id="application-target"><fabric-application><fabric-grid><fabric-column><fabric-message-list>
+            <div class="ui segment">
+              <h2>History</h2>
+              <ul></ul>
+            </div>
+          </fabric-message-list>
+          <div data-slot="content" id="browser-content"></div><fabric-message-composer>
+            <form class="ui form" method="POST" data-action="_submitPrompt">
+              <div class="field">
+                <p>How can we help?</p>
+              </div>
+              <div class="field">
+                <label for="query">
+                  <h3>Your question</h3>
+                </label>
+                <input type="text" name="query" placeholder="Search documents, users, or ideas" />
+              </div>
+              <div class="right floated field">
+                <button type="submit" class="ui submit button" data-action="_submitPrompt">Create</button>
+              </div>
+            </form>
+          </fabric-message-composer>
+        </fabric-column><fabric-column><fabric-peer-list>
+            <div class="ui segment">
+              <h2>Peers</h2>
+              <maki-grid-view>
+                <maki-grid-row>
+                  <maki-grid-column>
+                    <fabric-peer-table></fabric-peer-table>
+                  </maki-grid-column>
+                </maki-grid-row>
+              </maki-grid-view>
+            </div>
+          </fabric-peer-list><fabric-log-list>
+            <div class="ui segment">
+              <h2>Logs</h2>
+              <ul></ul>
+            </div>
+          </fabric-log-list><fabric-menu>
+            <div>fake menu</div>
+          </fabric-menu><fabric-debug><fabric-grid-row class="ui inverted vertical footer segment">
+              <div class="ui container">
+                <h2>Debug Information</h2>
+                <fabric-grid-row>
+                  <fabric-channel></fabric-channel>
+                  <nav data-bind="controls">
+                    <button data-action="_generateIdentity" class="ui button">create new identity</button>
+                    <button data-action="_toggleFullscreen" class="ui button">fullscreen</button>
+                  </nav>
+                  <div>
+                    <p><code>Version:</code> <code>undefined</code></p>
+                    <p><code>Clock:</code> <code data-bind="/clock">undefined</code></p>
+                    <p><strong>Source:</strong> <a href="https://github.com/FabricLabs/web">fabric:github.com/FabricLabs/web</a>
+                  </div>
+                </fabric-grid-row>
+              </div>
+            </fabric-grid-row>
+            <!-- [0]: README [dot] md -->
+            <!--
+    # RPG `@fabric/rpg`
+    ## STOP HERE AND READ ME FIRST!
+    Before continuing, let us be the first to welcome you to THE SOURCE.  While it
+    might be confusing at first, there's a lot you can learn if you make the time.
+
+    Use this URI:
+    https://www.roleplaygateway.com/
+
+    From there, links like `hub.roleplaygateway.com` might "pop up" from time to
+    time.  With a bit of navigating around, you can earn credit for your progress.
+
+    - Continue: https://chat.roleplaygateway.com/
+    - Offline: https://www.roleplaygateway.com/medals/beta-tester
+
+    Remember: never be afraid to explore!  Curiosity might have killed the cat, but
+    that's why he had nine lives.
+
+    Good luck, have fun (`gl;hf o/`), and enjoy!
+
+                                             — the RPG team
+    --></fabric-debug></fabric-column></fabric-grid></fabric-application></div>
+  <script src="/bundles/browser.min.js" data-fullhash=""></script>
+  <script type="text/javascript">
+    if (customElements && !customElements.get('fabric-peer-list')) {
+      customElements.define('fabric-peer-list', FabricPeerList);
+    }
+  </script>
 </body>
 </html>

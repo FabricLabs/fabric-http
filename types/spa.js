@@ -22,6 +22,8 @@ const page = require('page');
 const pluralize = require('pluralize');
 
 // Requisite Types
+const { assertKnownComponents } = require('../functions/componentCatalog');
+const { fillContentSlot } = require('../functions/compose');
 const App = require('./app');
 const Bridge = require('./bridge');
 const Browser = require('./browser');
@@ -133,6 +135,7 @@ class SPA extends App {
   }
 
   define (name, definition) {
+    assertKnownComponents(definition);
     if (this.settings.verbosity >= 5) console.trace('[WEB:SPA]', 'Defining for SPA:', name, definition);
     // TODO: check for async compatibility in HTTP.App
     super.define(name, definition);
@@ -244,10 +247,15 @@ class SPA extends App {
   }
 
   _renderContent (html) {
-    // TODO: enable multi-view composition?
-    // NOTE: this means to iterate over all bound targets, instead of the first one...
-    if (!this.target) this.target = document.querySelector(BROWSER_TARGET);
-    if (!this.target) return console.log('COULD NOT ACQUIRE TARGET:', document);
+    if (typeof document !== 'undefined') {
+      const slot = fillContentSlot(document, html);
+      if (slot) {
+        this.target = slot;
+        return slot;
+      }
+    }
+    if (!this.target && typeof document !== 'undefined') this.target = document.querySelector(BROWSER_TARGET);
+    if (!this.target) return console.log('COULD NOT ACQUIRE TARGET:', typeof document === 'undefined' ? null : document);
     this.target.innerHTML = html;
     return this.target;
   }

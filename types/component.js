@@ -60,12 +60,14 @@ class FabricComponent extends Service {
 
   connectedCallback () {
     console.log('[MAKI:COMPONENT]', 'Component added to page:', this);
-    let html = this._getInnerHTML(this.state);
+    const html = String(this._getInnerHTML(this.state));
+    const hash = crypto.createHash('sha256').update(html).digest('hex');
 
-    this.setAttribute('data-integrity', Fabric.sha256(html));
-    this.setAttribute('data-fingerprint', this.fingerprint);
-    // this.innerHTML = html;
-    this.innerHTML = html + '';
+    if (typeof this.setAttribute === 'function') {
+      this.setAttribute('data-integrity', hash);
+      if (this.fingerprint) this.setAttribute('data-fingerprint', this.fingerprint);
+    }
+    this.innerHTML = html;
 
     /* let binding = this.getAttribute('data-bind');
 
@@ -145,7 +147,23 @@ class FabricComponent extends Service {
   }
 
   register () {
-    customElements.define(this.settings.handle, Component, { extends: 'div' });
+    if (typeof customElements === 'undefined' || typeof HTMLElement === 'undefined') return this;
+    const handle = this.settings && this.settings.handle;
+    if (!handle || customElements.get(handle)) return this;
+
+    const ComponentClass = this.constructor;
+    class FabricTag extends HTMLElement {
+      connectedCallback () {
+        const component = new ComponentClass();
+        const html = String(component._getInnerHTML ? component._getInnerHTML(component.state) : '');
+        const hash = crypto.createHash('sha256').update(html).digest('hex');
+        this.setAttribute('data-integrity', hash);
+        this.innerHTML = html;
+      }
+    }
+
+    customElements.define(handle, FabricTag);
+    return this;
   }
 
   render () {
