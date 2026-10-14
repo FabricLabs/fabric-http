@@ -77,9 +77,13 @@ layout's content slot. Server-side output is hash-only: Tree root, blob leaves
 (`blobHashHex`, `paymentHashHex`), publisher key, sizes, and ranked provider
 offers from the local `DocumentOfferBook`. Buying a blob goes through the
 existing 402 flow (`functions/fabricDocumentPayment402.js`,
-`documentOffer.blobHashHex`); names, URLs, and content appear only client-side
-after a blob key is held (`_setOpened({ manifest, blobs })`). The reference
-resource is `FabricDocument.resource`:
+`documentOffer.blobHashHex`): the component handles its own buy / load buttons
+(`data-blob-index`, `data-document-id`, falling back to the `/documents/<id>`
+route), addresses records by `documentId` or Tree root, and emits
+`paymentRequest` with the parsed request object for the wallet to settle.
+Names, URLs, and content appear only client-side after a blob key is held
+(`_setOpened({ manifest, blobs })`); a manifest URL becomes a link only when it
+is `http:` / `https:`. The reference resource is `FabricDocument.resource`:
 
 ```js
 const FabricDocument = require('@fabric/http/components/document');
