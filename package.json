@@ -123,7 +123,7 @@
     "Victor Wu"
   ],
   "dependencies": {
-    "@fabric/core": "martindale/fabric#feature/channels",
+    "@fabric/core": "FabricLabs/fabric#feature/channels",
     "assert-browserify": "=2.0.0",
     "babel-loader": "=8.2.5",
     "blessed": "0.1.81",
