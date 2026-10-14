@@ -87,6 +87,7 @@
     "./middlewares/payments": "./middlewares/payments.js",
     "./functions/fabricDocumentPayment402": "./functions/fabricDocumentPayment402.js",
     "./components/document": "./components/document.js",
+    "./functions/documentView": "./functions/documentView.js",
     "./components/resource-list": "./components/resource-list.js",
     "./components/resource-view": "./components/resource-view.js",
     "./functions/federationContractInvite": "./functions/federationContractInvite.js",

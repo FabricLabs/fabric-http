@@ -106,6 +106,19 @@ describe('fabric-document component', function () {
     assert.strictEqual(clean.blobs[0].blobHashHex, 'ff'.repeat(32));
   });
 
+  it('keeps the view logic browser-safe (no Service / Peer in its require graph)', function () {
+    const { execFileSync } = require('child_process');
+    const out = execFileSync(process.execPath, ['-e', `
+      require(${JSON.stringify(path.join(__dirname, '../functions/documentView'))});
+      const loaded = Object.keys(require.cache);
+      console.log(JSON.stringify(loaded.filter((f) => /types[\\\\/](service|peer|component)\\.js$|noise/.test(f))));
+    `]).toString().trim();
+    assert.deepStrictEqual(JSON.parse(out), []);
+    const view = require('../functions/documentView');
+    const record = Document.seal(Buffer.alloc(100, 1), { documentId: 'v' }).record();
+    assert.strictEqual(view.renderDocumentHTML({ document: record }), new FabricDocument({ document: record })._getInnerHTML());
+  });
+
   describe('client actions', function () {
     const realFetch = global.fetch;
     let calls;
