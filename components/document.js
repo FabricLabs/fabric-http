@@ -98,16 +98,22 @@ class FabricDocument extends Component {
   /**
    * Fetch the record + offers for `/documents/:id` (client-side). Loading a
    * different document clears opened state and replaces offers outright.
+   * Only the latest call may apply its response: an earlier request that
+   * resolves late (e.g. after a route change) is discarded and returns `null`.
    * @param {string} [id] defaults to the loaded record's id, then {@link FabricDocument#routeId}
    * @returns {Promise<Object|null>}
    */
   async _loadDocument (id) {
     const docId = id || FabricDocument.resourceId(this._view.document) || this.routeId();
     if (!docId || typeof fetch !== 'function') return null;
+    const token = (this._loadToken || 0) + 1;
+    this._loadToken = token;
     const base = String(this.settings.href || '/documents').replace(/\/$/, '');
     const res = await fetch(`${base}/${encodeURIComponent(docId)}`, { headers: { Accept: 'application/json' } });
+    if (token !== this._loadToken) return null;
     if (!res || !res.ok) return null;
     const body = await res.json();
+    if (token !== this._loadToken) return null;
     const payload = body && body.data ? body.data : body;
     const next = FabricDocument.sanitizeRecord(payload && (payload.document || payload));
     const prevId = FabricDocument.resourceId(this._view.document);

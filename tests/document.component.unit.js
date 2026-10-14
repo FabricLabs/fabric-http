@@ -167,6 +167,35 @@ describe('fabric-document component', function () {
       assert.deepStrictEqual(component._view.offers, []);
     });
 
+    it('discards a slower earlier load that resolves after a newer one', async function () {
+      const a = Document.seal(Buffer.alloc(100, 1), { documentId: 'a' }).record();
+      const b = Document.seal(Buffer.alloc(100, 2), { documentId: 'b' }).record();
+      const component = new FabricDocument({ id: 'a' });
+      const pending = {};
+      respond((url) => new Promise((resolve) => { pending[url] = resolve; }));
+      const reply = (doc) => ({ ok: true, json: async () => ({ document: doc, offers: [{ blobHashHex: doc.blobs[0].blobHashHex }] }) });
+
+      const first = component._loadDocument('a');
+      const second = component._loadDocument('b');
+      pending['/documents/b'](reply(b));
+      assert.strictEqual((await second).documentId, 'b');
+      pending['/documents/a'](reply(a));
+      assert.strictEqual(await first, null, 'stale response is dropped');
+      assert.strictEqual(component._view.document.documentId, 'b');
+      assert.strictEqual(component._view.offers[0].blobHashHex, b.blobs[0].blobHashHex);
+
+      // Superseded while parsing the body: the json() await is checked too.
+      let releaseJson;
+      respond(() => ({ ok: true, json: () => new Promise((resolve) => { releaseJson = () => resolve({ document: a }); }) }));
+      const slow = component._loadDocument('a');
+      await new Promise((resolve) => setImmediate(resolve));
+      respond(async () => reply(b));
+      await component._loadDocument('b');
+      releaseJson();
+      assert.strictEqual(await slow, null);
+      assert.strictEqual(component._view.document.documentId, 'b');
+    });
+
     it('buys by Tree root when the record has no id and emits the parsed payment request', async function () {
       const { encodeFabricPaymentRequestHeaderValue } = require('../functions/fabricDocumentPayment402');
       const record = Object.assign(Document.seal(Buffer.alloc(100, 3), { documentId: 'x' }).record(), { documentId: null });
