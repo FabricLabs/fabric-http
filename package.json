@@ -86,6 +86,10 @@
     "./middlewares/auth": "./middlewares/auth.js",
     "./middlewares/payments": "./middlewares/payments.js",
     "./functions/fabricDocumentPayment402": "./functions/fabricDocumentPayment402.js",
+    "./components/document": "./components/document.js",
+    "./functions/documentView": "./functions/documentView.js",
+    "./components/resource-list": "./components/resource-list.js",
+    "./components/resource-view": "./components/resource-view.js",
     "./functions/federationContractInvite": "./functions/federationContractInvite.js",
     "./functions/messageBodyJsonBridge": "./functions/messageBodyJsonBridge.js",
     "./functions/sendPaymentRequired402Response": "./functions/sendPaymentRequired402Response.js",
@@ -120,7 +124,7 @@
     "Victor Wu"
   ],
   "dependencies": {
-    "@fabric/core": "martindale/fabric#feature/rsi",
+    "@fabric/core": "FabricLabs/fabric#feature/channels",
     "assert-browserify": "=2.0.0",
     "babel-loader": "=8.2.5",
     "blessed": "0.1.81",

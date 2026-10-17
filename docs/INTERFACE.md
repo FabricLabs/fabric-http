@@ -67,6 +67,30 @@ These are rejected: unbuffered code (`-`), unescaped `!{ }` and `!=`, filters, `
 | `fabric-button` | `components/button.js` |
 | `fabric-resource-list` | `components/resource-list.js` |
 | `fabric-resource-view` | `components/resource-view.js` |
+| `fabric-document` | `components/document.js` |
+
+`fabric-document` is the presentation of a `@fabric/core` `Document` (sealed
+blob tree). Core `Document#compile([env, 'fabric-document'])` returns a page
+fragment (`extends env` / `block content` / `fabric-document(state=…,
+data-merkle-root=…, data-document-id=…)`) that `compose` renders into the
+layout's content slot. Server-side output is hash-only: Tree root, blob leaves
+(`blobHashHex`, `paymentHashHex`), publisher key, sizes, and ranked provider
+offers from the local `DocumentOfferBook`. Buying a blob goes through the
+existing 402 flow (`functions/fabricDocumentPayment402.js`,
+`documentOffer.blobHashHex`): the component handles its own buy / load buttons
+(`data-blob-index`, `data-document-id`, falling back to the `/documents/<id>`
+route), addresses records by `documentId` or Tree root, and emits
+`paymentRequest` with the parsed request object for the wallet to settle.
+Names, URLs, and content appear only client-side after a blob key is held
+(`_setOpened({ manifest, blobs })`); a manifest URL becomes a link only when it
+is `http:` / `https:`. The reference resource is `FabricDocument.resource`:
+
+```js
+const FabricDocument = require('@fabric/http/components/document');
+await server.define('Document', FabricDocument.resource);
+// routes: { list: '/documents', view: '/documents/:id' }
+// components: { list: 'fabric-resource-list', view: 'fabric-document' }
+```
 
 `fabric-application`, `fabric-grid`, and `fabric-column` are structural. They are not component classes.
 
