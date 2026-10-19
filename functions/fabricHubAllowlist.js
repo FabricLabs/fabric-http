@@ -16,6 +16,7 @@
 
 const DEFAULT_FABRIC_HUB_ORIGINS = [
   'https://hub.fabric.pub',
+  'https://hub.goon.vc',
   'https://relay.goon.vc',
   'https://goon.vc'
 ];
@@ -23,6 +24,7 @@ const DEFAULT_FABRIC_HUB_ORIGINS = [
 /** Cleartext production origins — opt-in only via FABRIC_HUB_ALLOWLIST / opts.extra. */
 const CLEARTEXT_PRODUCTION_HUB_ORIGINS = [
   'http://hub.fabric.pub',
+  'http://hub.goon.vc',
   'http://relay.goon.vc',
   'http://goon.vc'
 ];

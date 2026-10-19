@@ -10,8 +10,12 @@ const { isIP } = require('net');
 
 const DEFAULT_NETWORK_HUB_SEEDS = Object.freeze([
   'hub.fabric.pub:7777',
+  'hub.goon.vc:7777',
   'relay.goon.vc:7777'
 ]);
+
+/** DNS names of the network hubs (selective Fabric relays). */
+const NETWORK_HUB_HOSTS = Object.freeze(['hub.fabric.pub', 'hub.goon.vc', 'relay.goon.vc']);
 
 /** Default TCP peer cap (matches @fabric/core MAX_PEERS soft default for slot fill). */
 const DEFAULT_MAX_PEERS = 32;
@@ -308,7 +312,7 @@ const NETWORK_HUB_HOST_ALIASES = Object.freeze({
  */
 function canonicalNetworkHubHost (host) {
   const h = String(host || '').trim().toLowerCase();
-  if (h === 'hub.fabric.pub' || h === 'relay.goon.vc') return h;
+  if (NETWORK_HUB_HOSTS.includes(h)) return h;
   return NETWORK_HUB_HOST_ALIASES[h] || null;
 }
 
@@ -428,6 +432,7 @@ module.exports = {
   MAX_FABRIC_PEER_PORT,
   parseFabricPeerPort,
   splitFabricHostPort,
+  NETWORK_HUB_HOSTS,
   NETWORK_HUB_HOST_ALIASES,
   canonicalNetworkHubHost,
   isNetworkHubAddress,
