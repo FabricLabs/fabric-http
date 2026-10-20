@@ -192,6 +192,12 @@ function interfaceAddressEntries (opts = {}) {
   return out;
 }
 
+/**
+ * Record a DNS own-host result, evicting the oldest entries past the cap.
+ * @param {string} cacheKey
+ * @param {boolean} hit
+ * @private
+ */
 function _setDnsOwnHostCache (cacheKey, hit) {
   _dnsOwnHostCache.set(cacheKey, hit);
   while (_dnsOwnHostCache.size > DNS_OWN_HOST_CACHE_MAX) {
@@ -199,6 +205,14 @@ function _setDnsOwnHostCache (cacheKey, hit) {
   }
 }
 
+/**
+ * Resolve `key` in the background (once per `cacheKey`) and cache whether any
+ * address is one of `ownHosts`; lookup errors cache `false`.
+ * @param {string} key hostname
+ * @param {Set<string>} ownHosts lower-cased own addresses
+ * @param {string} cacheKey
+ * @private
+ */
 function _scheduleDnsOwnHostLookup (key, ownHosts, cacheKey) {
   if (_dnsOwnHostInflight.has(cacheKey) || _dnsOwnHostCache.has(cacheKey)) return;
   _dnsOwnHostInflight.add(cacheKey);

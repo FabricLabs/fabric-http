@@ -12,7 +12,9 @@ const {
   isExtensionOrigin,
   clientMayAccessDeviceLink,
   handleDeviceLinkCancel,
-  handleDeviceLinkGet
+  handleDeviceLinkGet,
+  resolveDeviceLinkHubBase,
+  deviceLinkProtocolUrl
 } = require('../functions/fabricDeviceLinkHttp');
 const { cancelDeviceLinkSession, deviceLinkHeaders } = require('../functions/fabricDeviceLinkClient');
 const {
@@ -42,6 +44,20 @@ describe('fabricDeviceLinkHttp identityFromXpub', function () {
 
   it('throws on invalid xpub', function () {
     assert.throws(() => identityFromXpub('not-an-xpub'), Error);
+  });
+});
+
+describe('fabricDeviceLinkHttp protocol URL', function () {
+  it('uses the rendezvous hub base, not the page origin', function () {
+    const hub = {
+      settings: { publicOrigin: 'https://hub.fabric.pub' },
+      http: { settings: { hostname: '127.0.0.1', port: 8080 } }
+    };
+    const req = { headers: { host: 'relay.goon.vc' }, socket: {} };
+    assert.strictEqual(resolveDeviceLinkHubBase(hub, req), 'https://hub.fabric.pub');
+    const url = deviceLinkProtocolUrl(hub, req, 'aa'.repeat(24), 'https://goon.vc');
+    assert.match(url, /hub=https%3A%2F%2Fhub\.fabric\.pub/);
+    assert.ok(!url.includes('goon.vc'));
   });
 });
 

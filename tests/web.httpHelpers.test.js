@@ -48,6 +48,16 @@ describe('types/web export shape', function () {
 });
 
 describe('webrtc interop helpers', function () {
+  it('maps wss/ws Hub addresses to https/http page origins (no https://wss fail-open)', function () {
+    const { expectedOriginFromHubAddress, isHubPageOriginMatch } = webrtcInterop;
+    assert.strictEqual(expectedOriginFromHubAddress('wss://hub.fabric.pub'), 'https://hub.fabric.pub');
+    assert.strictEqual(expectedOriginFromHubAddress('ws://127.0.0.1:8080'), 'http://127.0.0.1:8080');
+    assert.strictEqual(isHubPageOriginMatch('wss://hub.fabric.pub', 'https://hub.fabric.pub'), true);
+    assert.strictEqual(isHubPageOriginMatch('wss://hub.fabric.pub', 'https://wss'), false);
+    assert.strictEqual(isHubPageOriginMatch('wss://hub.fabric.pub', 'https://ws'), false);
+    assert.strictEqual(isHubPageOriginMatch('ws://127.0.0.1:8080', 'http://127.0.0.1:8080'), true);
+  });
+
   it('exports canonical mesh postMessage constants', function () {
     assert.strictEqual(webrtcInterop.FABRIC_HUB_POSTMESSAGE_SOURCE, 'fabric-hub');
     assert.strictEqual(webrtcInterop.FABRIC_HUB_REGISTER_MESH, 'FABRIC_HUB_REGISTER_MESH');

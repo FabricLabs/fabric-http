@@ -43,6 +43,11 @@ function normalizeHubOrigin (raw) {
   }
 }
 
+/**
+ * @param {string} origin
+ * @returns {boolean} true for localhost / 127.0.0.1 / ::1
+ * @private
+ */
 function isLoopbackHubOrigin (origin) {
   try {
     const host = new URL(origin).hostname.toLowerCase();

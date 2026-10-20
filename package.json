@@ -128,15 +128,15 @@
     "assert-browserify": "=2.0.0",
     "babel-loader": "=8.2.5",
     "blessed": "0.1.81",
-    "body-parser": "=1.20.6",
+    "body-parser": "=1.20.8",
     "buffer": "=6.0.3",
-    "compression": "=1.8.1",
+    "compression": "=1.8.2",
     "content-type": "2.0.0",
     "cross-fetch": "=4.1.0",
     "crypto-browserify": "=3.12.1",
     "d3": "=7.9.0",
     "d3-graphviz": "=5.6.0",
-    "express": "=4.22.2",
+    "express": "=4.22.3",
     "express-bearer-token": "=3.0.0",
     "express-flash": "=0.0.2",
     "express-session": "=1.19.0",
@@ -190,8 +190,8 @@
     "elliptic": "npm:@soatok/elliptic-to-noble@9999.0.0",
     "serialize-javascript": "=7.0.5",
     "yauzl": "=3.2.1",
-    "qs": "=6.15.3",
-    "body-parser": "=1.20.6",
+    "qs": "=6.16.1",
+    "body-parser": "=1.20.8",
     "ws": "=8.21.2",
     "@octokit/request": "=8.4.1",
     "@octokit/request-error": "=5.1.1",
@@ -200,7 +200,7 @@
       "uuid": "14.0.0"
     },
     "@actions/http-client": {
-      "undici": "6.28.0"
+      "undici": "6.28.1"
     },
     "@adobe/css-tools": "4.4.4"
   },

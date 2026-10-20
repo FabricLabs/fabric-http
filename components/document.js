@@ -106,14 +106,15 @@ class FabricDocument extends Component {
   async _loadDocument (id) {
     const docId = id || FabricDocument.resourceId(this._view.document) || this.routeId();
     if (!docId || typeof fetch !== 'function') return null;
-    const token = (this._loadToken || 0) + 1;
-    this._loadToken = token;
+    const seq = (this._loadSeq || 0) + 1;
+    this._loadSeq = seq;
+    const isStale = () => seq < this._loadSeq;
     const base = String(this.settings.href || '/documents').replace(/\/$/, '');
     const res = await fetch(`${base}/${encodeURIComponent(docId)}`, { headers: { Accept: 'application/json' } });
-    if (token !== this._loadToken) return null;
+    if (isStale()) return null;
     if (!res || !res.ok) return null;
     const body = await res.json();
-    if (token !== this._loadToken) return null;
+    if (isStale()) return null;
     const payload = body && body.data ? body.data : body;
     const next = FabricDocument.sanitizeRecord(payload && (payload.document || payload));
     const prevId = FabricDocument.resourceId(this._view.document);
