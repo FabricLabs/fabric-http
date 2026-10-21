@@ -1693,7 +1693,7 @@ class FabricHTTPServer extends Service {
   /**
    * Resolve per-request JSON body-parser limit. Large bodies (Hub CreateDocument
    * base64) are restricted to JSON-RPC paths and `settings.jsonBodyLargePaths`.
-   * @param {import('express').Request} req
+   * @param {Object} req Express request.
    * @returns {string}
    * @private
    */
