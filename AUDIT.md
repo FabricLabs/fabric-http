@@ -9,17 +9,16 @@ Living posture notes for `@fabric/http` **0.1.0-RC1**. Re-run **`npm audit`** af
 | npm `allow-git` | **`.npmrc` `allow-git=all`** — nested git-dep preparation resolves core to a commit SHA; `root` is refused (intentional — do not flip to `root`) |
 | WebSocket (`ws`) | **Mitigated** — direct **`8.22.0`** (GHSA-58qx-3vcg-4xpx / fragment DoS); no override. jayson keeps its own `ws@7.5.13` (`^7.5.10`, patched) |
 | Test tooling | **`mocha@12.0.3`** / **`c8@12.0.0`** (same as core / Hub) — mocha 12 resolves `serialize-javascript@^7.1.1` and `diff@^9`, so those overrides are gone |
-| Express / body-parser / qs | **Mitigated** — `express@4.22.3`, `body-parser@1.20.9`, override `qs@6.16.1` |
+| Express / body-parser / qs | **Mitigated** — `express@4.22.3` and direct `body-parser@1.20.9` both resolve `qs@6.16.1`; no override |
 | undici (fomantic → `@actions/http-client`) | **Mitigated** — override **`6.29.1`** |
 | Markdown (SLIP-0044 script) | **Mitigated** — replaced `showdown` (unfixed ReDoS GHSA-rmmh-p597-ppvv) with **`marked@15.0.12`** |
 | PeerJS / browser mesh | **Removed** — `types/swarm.js` is a no-op stub; Hub native WebRTC |
-| npm audit status | **0** (2026-10-24, `puppeteer@25.15.0`, `webpack@5.112.2`, `jsdom@30.1.3`) |
+| npm audit status | **0** (2026-10-24, `puppeteer@25.15.0`, `webpack@5.112.2`, `babel-loader@9.1.3`, `jsdom@30.1.3`) |
 
 ## Overrides for mitigated runtime findings
 
 | Override | Why |
 |----------|-----|
-| `body-parser@1.20.9`, `qs@6.16.1` | Express request parsing |
 | `undici@6.29.1` under `@actions/http-client` | Fomantic → GitHub Actions client |
 | `@octokit/request@8.4.1`, `request-error@5.1.1`, `plugin-paginate-rest@9.2.2` | Fomantic gulp/admin ReDoS advisories without downgrading fomantic |
 
