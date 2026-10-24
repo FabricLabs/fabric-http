@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Mutual device-link attestations (Passport ↔ Hub ↔ desktop peers).
+ * Mutual device-link attestations (wallet extension ↔ hub ↔ desktop peers).
  *
  * Challenge (both parties BIP340-sign the same UTF-8 string):
  *   fabric:device-link:2:<sessionId>:<64-hex nonce>:<initiatorId>:<responderId>:<label>
@@ -86,8 +86,8 @@ function offerKeyInUse (hub, key) {
 
 /**
  * Capacitor / local dashboard WebView origins (https://localhost, capacitor://).
- * Device-link create/poll from the Android app hits an allowlisted public hub
- * (relay.goon.vc) whose Origin header will not match the hub.
+ * Device-link create/poll from a mobile app hits an allowlisted public hub
+ * whose Origin header will not match the app.
  */
 function isCompanionWebViewOrigin (originLike) {
   const raw = String(originLike || '').trim();
@@ -102,7 +102,7 @@ function isCompanionWebViewOrigin (originLike) {
   }
 }
 
-/** Passport popup / content-script (`chrome-extension:` / `moz-extension:`). */
+/** Wallet extension popup / content-script (`chrome-extension:` / `moz-extension:`). */
 function isExtensionOrigin (originLike) {
   const raw = String(originLike || '').trim().toLowerCase();
   return raw.startsWith('chrome-extension:') || raw.startsWith('moz-extension:');
@@ -113,7 +113,7 @@ function isThinClientOrigin (originLike) {
 }
 
 /**
- * Site-login Origin gate, plus thin clients (Android WebView, Passport) talking
+ * Site-login Origin gate, plus thin clients (mobile WebView, wallet extension) talking
  * to an allowlisted hub. Pending/accepted GET still uses this gate so the
  * responder (QR `sessionId` only) can sign. Signed login redeem and device-link
  * cancel additionally require `pollSecret` from the create JSON.

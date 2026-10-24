@@ -10,20 +10,17 @@ Living posture notes for `@fabric/http` **0.1.0-RC1**. Re-run **`npm audit`** af
 | WebSocket (`ws`) | **Mitigated** — direct **`8.22.0`** (GHSA-58qx-3vcg-4xpx / fragment DoS); no override. jayson keeps its own `ws@7.5.13` (`^7.5.10`, patched) |
 | Test tooling | **`mocha@12.0.3`** / **`c8@12.0.0`** (same as core / Hub) — mocha 12 resolves `serialize-javascript@^7.1.1` and `diff@^9`, so those overrides are gone |
 | Express / body-parser / qs | **Mitigated** — `express@4.22.3` and direct `body-parser@1.20.9` both resolve `qs@6.16.1`; no override |
-| undici (fomantic → `@actions/http-client`) | **Mitigated** — override **`6.29.1`** |
+| Fomantic UI | **`fomantic-ui@2.10.0-beta.128`** (build-only devDependency) — its GitHub admin tooling (`@octokit/*`, `@actions/*`) is now Fomantic's own devDependency, so the `undici` / `@octokit` overrides are gone; it depends on the scoped `@fomantic/*` gulp plugins directly, so the npm aliases are gone too. Its flag and emoji CSS no longer loads Twemoji from jsDelivr: the SVGs are imported at build time from a SHA-256-pinned jdecked/twemoji `v17.0.3` release (`functions/twemoji.js`, not committed), and `build:semantic` fails on any remote `url()` |
 | Markdown (SLIP-0044 script) | **Mitigated** — replaced `showdown` (unfixed ReDoS GHSA-rmmh-p597-ppvv) with **`marked@15.0.12`** |
 | PeerJS / browser mesh | **Removed** — `types/swarm.js` is a no-op stub; Hub native WebRTC |
 | Browser `crypto` polyfill | **Removed** `crypto-browserify` (and with it `elliptic`, `asn1.js`, `browserify-sign`, `create-ecdh`) — the Compiler maps `crypto` to `functions/browserCrypto.js` (`@noble/hashes` + `@noble/ciphers@2.4.0`), so the `elliptic` override is gone |
-| npm audit status | **0** (2026-10-24, `puppeteer@25.15.0`, `webpack@5.112.2`, `babel-loader@9.1.3`, `jsdom@30.1.3`, `eslint@10.13.0`, `jsdoc@4.0.5`, no `crypto-browserify`) |
+| npm audit status | **0** (2026-10-24, `puppeteer@25.15.0`, `webpack@5.112.2`, `babel-loader@9.1.3`, `jsdom@30.1.3`, `eslint@10.13.0`, `jsdoc@4.0.5`, no `crypto-browserify`, `fomantic-ui@2.10.0-beta.128`) |
 
-## Overrides for mitigated runtime findings
+## Overrides
 
-| Override | Why |
-|----------|-----|
-| `undici@6.29.1` under `@actions/http-client` | Fomantic → GitHub Actions client |
-| `@octokit/request@8.4.1`, `request-error@5.1.1`, `plugin-paginate-rest@9.2.2` | Fomantic gulp/admin ReDoS advisories without downgrading fomantic |
+None. `package.json` has no `overrides` block; every finding above is fixed by a direct pin or an upgrade.
 
-Do **not** run `npm audit fix --force` casually — it has proposed downgrading `fomantic-ui`. Prefer explicit pins/overrides and a clean `npm audit`.
+Do **not** run `npm audit fix --force` casually — it has proposed downgrading `fomantic-ui`. Prefer explicit pins and a clean `npm audit`.
 
 ## Historical backlog (superseded)
 
@@ -73,7 +70,7 @@ ws  6.x / 8.18.x
 7. Follow-up (Hub / apps): core now ships Fabric BIP44 coin types **7777** (Bitcoin mainnet) / **7778** (otherwise). Align Hub account-derivation helpers that still hardcode `7778` for mainnet paths.
 8. Follow-up (larger): `messageBodyJsonBridge` RFC6902 sidechain JSON → typed fields still does not preserve a full multi-op patch sequence end-to-end; keep rejecting unsupported ops and prefer Hub typed carriers until that lands.
 9. Follow-up (auth polish): site-login GET looks up `_delegationRegistry` by opaque Bearer token with `timingSafeEqual` session binding + TTL/size prune. Path-as-token (`GET /sessions/:delegationToken`) also requires matching Bearer. Remaining Hub-side: ensure any dual-keyed legacy registries migrate.
-10. **PR #69 auth boundary** — Hub self-sign is **opt-in** (`allowHubSelfSign === true`) and **loopback-only**; LiveRelay omits unrecognized Bearer when `issueBearer` is absent; device-link origins are canonicalized for replay keys (`offerReplayKey` + create path); peer host parsing is IPv6-safe and rejects ports outside **1..65535**. Site-login / LiveRelay share `clientMayPollDesktopSession` for pending polls. Off-loopback signed-session redeem and device-link DELETE require `pollSecret` via `X-Fabric-Poll-Secret` only (`?pollSecret=` is ignored). Expired-session GET `/sessions/:delegationToken` requires a matching `Authorization: Bearer` (path is not a credential). `sessionId` is now **bound into the attested message** (`fabric:device-link:2` prefix, server-generated nonce, prepare/commit split; v1 still parses so clients can roll forward). Remaining: bump the remaining consumers (Passport / SCL) onto the v2 builders, and device-link GET `linked` stays Origin-gated for the QR responder. Own-host DNS uses `dns.promises.lookup` (cached).
+10. **PR #69 auth boundary** — Hub self-sign is **opt-in** (`allowHubSelfSign === true`) and **loopback-only**; standalone relays omit unrecognized Bearer when `issueBearer` is absent; device-link origins are canonicalized for replay keys (`offerReplayKey` + create path); peer host parsing is IPv6-safe and rejects ports outside **1..65535**. Site-login and standalone relays share `clientMayPollDesktopSession` for pending polls. Off-loopback signed-session redeem and device-link DELETE require `pollSecret` via `X-Fabric-Poll-Secret` only (`?pollSecret=` is ignored). Expired-session GET `/sessions/:delegationToken` requires a matching `Authorization: Bearer` (path is not a credential). `sessionId` is now **bound into the attested message** (`fabric:device-link:2` prefix, server-generated nonce, prepare/commit split; v1 still parses so clients can roll forward). Remaining: bump the remaining consumers (wallet extensions, desktop signers) onto the v2 builders, and device-link GET `linked` stays Origin-gated for the QR responder. Own-host DNS uses `dns.promises.lookup` (cached).
 11. **Follow-up (ops):** keep `package.json` on `FabricLabs/fabric#feature/channels` during development, but **re-pin releases** to the lockfile SHA (`1ba3b3cd` as of 2026-10-24). `npm run report:install` removes `package-lock.json` then `npm i --allow-git=all` — bump the tip with `npm install FabricLabs/fabric#feature/channels --allow-git=all` (or pin a SHA) when core moves.
 
 ### PR #69 review triage (`feature/rsi`)
@@ -86,16 +83,16 @@ Latest automation security review still flags Origin as insufficient — signed 
 | HTTPS-only default hub allowlist / `wss:` origin map | Fixed |
 | JSONCall unauthorized hash / watch-only `signWithKey` | Fixed — correlate from frame body; sign only when `_rootKey.private` |
 | `GET /sessions/:id` signed redeem via forgeable Origin | Fixed — `pollSecret` header only (`X-Fabric-Poll-Secret`; no query); pending GET stays Origin-gated |
-| LiveRelay Bearer redeem same poll gate | Fixed — same `getSession` check |
+| Relay Bearer redeem same poll gate | Fixed — same `getSession` check |
 | Device-link DELETE cancel via forgeable Origin | Fixed — `pollSecret` off-loopback |
 | Device-link GET attestation disclosure | Open — responder has QR `sessionId` only; pending/accepted/linked GET stay Origin-gated |
-| Device-link `sessionId` bind in attest message | Fixed here — `fabric:device-link:2` binds `sessionId` + server nonce (v1 still parses). Consumer bump (Passport / SCL) outstanding |
-| Shared Origin poll helper | Site-login / LiveRelay: `clientMayPollDesktopSession`. Device-link: that plus thin-client Origins on allowlisted hubs |
+| Device-link `sessionId` bind in attest message | Fixed here — `fabric:device-link:2` binds `sessionId` + server nonce (v1 still parses). Consumer bump (wallet extensions, desktop signers) outstanding |
+| Shared Origin poll helper | Site-login / relays: `clientMayPollDesktopSession`. Device-link: that plus thin-client Origins on allowlisted hubs |
 | `.npmrc` `allow-git=all` | Intentional — nested SHA fetches; do not flip to `root` |
 | Canonical disclosure contact | Fixed — `security@fabric.pub` in README + SECURITY + AUDIT |
 | Device-link replay-key origin canonicalize | Fixed — `normalizeHubOrigin` inside `offerReplayKey` |
 | Peer port range `1..65535` | Fixed — `parseFabricPeerPort` / `isFabricAddress` / `normalizeFabricAddress` |
-| Pin `@fabric/core` to SHA for releases | Ops — keep `#feature/rsi` in RSI; lockfile records `ff7c05c5` |
+| Pin `@fabric/core` to SHA for releases | Ops — keep `#feature/rsi` until the release tag; lockfile records `ff7c05c5` |
 | `extract-zip` via puppeteer | Residual — 4 high via production `puppeteer@24.37.5` (Sandbox / browser tests). `puppeteer@25.7.0` deferred. |
 
 ## Disclosure

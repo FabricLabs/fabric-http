@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Fabric peer address helpers shared by Hub, LiveRelay, and light peer hosts.
+ * Fabric peer address helpers shared by hubs, relays, and light peer hosts.
  * App-specific CONTRACT_MESSAGE catalogs stay injectable via
  * {@link createIsKnownAppRelayType}.
  */

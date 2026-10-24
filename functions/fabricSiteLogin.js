@@ -1,10 +1,10 @@
 'use strict';
 
 /**
- * Fabric site-login sessions for LiveRelay (D-011).
- * Hosts the same REST contract as Hub `POST|GET /sessions` so Passport and
- * desktop peers can sign in when this service is deployed alone
- * (e.g. relay.goon.vc). Client-signed completions only — no Hub-node self-sign.
+ * Fabric site-login sessions for standalone relays.
+ * Hosts the same REST contract as a hub's `POST|GET /sessions` so wallet extensions
+ * and desktop peers can sign in when this service is deployed alone.
+ * Client-signed completions only — no hub-node self-sign.
  */
 
 const crypto = require('crypto');
@@ -182,7 +182,7 @@ function getSession (req, sessionId, store) {
 
 /**
  * Complete with a client Schnorr signature. Optionally registers a Bearer
- * token on the LiveRelay instance for server-mode API auth.
+ * token on the relay instance for server-mode API auth.
  *
  * @param {import('http').IncomingMessage} req
  * @param {string} sessionId
@@ -275,7 +275,7 @@ function completeSession (req, sessionId, body, store, opts = {}) {
 /**
  * Try to handle `/sessions` routes. Returns true if the response was sent.
  *
- * @param {object} relay LiveRelay instance (`_siteLoginSessions`, `_sessions`)
+ * @param {object} relay Relay instance (`_siteLoginSessions`, `_sessions`)
  * @param {import('http').IncomingMessage} req
  * @param {import('http').ServerResponse} res
  * @param {string} pathname

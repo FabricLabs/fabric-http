@@ -28,8 +28,8 @@
 .ui.search > .prompt {
     margin: 0;
     outline: none;
-    -webkit-appearance: none;
-    -webkit-tap-highlight-color: rgba(255, 255, 255, 0);
+    appearance: none;
+    -webkit-tap-highlight-color: rgb(255 255 255 / 0);
     text-shadow: none;
     font-style: normal;
     font-weight: @normal;
@@ -289,7 +289,7 @@
         right: @clearableIconInputRight;
     }
     .ui.search input[type="search"]::-webkit-search-cancel-button {
-        -webkit-appearance: none;
+        appearance: none;
         cursor: pointer;
         transition: @clearableIconTransition;
         opacity: @clearableIconOpacity;
@@ -307,9 +307,6 @@
     }
     .ui.search > .icon.input > input:placeholder-shown ~ .remove.icon,
     .ui.search.loading > .icon.input > .remove.icon {
-        display: none;
-    }
-    .ui.search > .icon.input > input:-ms-input-placeholder ~ .remove.icon when (@supportIE) {
         display: none;
     }
 }
@@ -405,8 +402,7 @@
     .ui.scrolling.search > .results,
     .ui.search.long > .results,
     .ui.search.short > .results {
-        overflow-x: hidden;
-        overflow-y: auto;
+        overflow: hidden auto;
         overscroll-behavior: @overscrollBehavior;
         backface-visibility: hidden;
     }
@@ -600,5 +596,4 @@
     }
 }
 
-// stylelint-disable no-invalid-position-at-import-rule
 @import (multiple, optional) "../../overrides.less";

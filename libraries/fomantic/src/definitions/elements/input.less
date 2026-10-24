@@ -45,7 +45,7 @@
     max-width: 100%;
     flex: 1 1 auto;
     outline: none;
-    -webkit-tap-highlight-color: rgba(255, 255, 255, 0);
+    -webkit-tap-highlight-color: rgb(255 255 255 / 0);
     text-align: @textAlign;
     line-height: @lineHeight;
     font-family: @inputFont;
@@ -74,12 +74,7 @@
 
 .ui.input > input::placeholder {
     color: @placeholderColor;
-}
-.ui.input > input::-moz-placeholder {
     opacity: 1;
-}
-.ui.input > input:-ms-input-placeholder when (@supportIE) {
-    color: @placeholderColor;
 }
 
 /*******************************
@@ -166,12 +161,6 @@
 .ui.input > input:focus::placeholder {
     color: @placeholderFocusColor;
 }
-& when (@supportIE) {
-    .ui.input.focus > input:-ms-input-placeholder,
-    .ui.input > input:focus:-ms-input-placeholder {
-        color: @placeholderFocusColor;
-    }
-}
 
 & when not (@variationInputStates = false) {
     /* --------------------
@@ -193,28 +182,16 @@
                 color: @formStates[@@state][color];
                 box-shadow: @formStates[@@state][boxShadow];
             }
-            .ui.input > input:not(:-ms-input-placeholder):invalid when (@supportIE){
-                background-color: @formStates[@@state][background];
-                border-color: @formStates[@@state][borderColor];
-                color: @formStates[@@state][color];
-                box-shadow: @formStates[@@state][boxShadow];
-            }
         }
 
         /* Placeholder */
         .ui.input.@{state} > input::placeholder {
             color: @formStates[@@state][inputPlaceholderColor];
         }
-        .ui.input.@{state} > input:-ms-input-placeholder when (@supportIE) {
-            color: @formStates[@@state][inputPlaceholderColor] !important;
-        }
 
         /* Focused Placeholder */
         .ui.input.@{state} > input:focus::placeholder {
             color: @formStates[@@state][inputPlaceholderFocusColor];
-        }
-        .ui.input.@{state} > input:focus:-ms-input-placeholder when (@supportIE){
-            color: @formStates[@@state][inputPlaceholderFocusColor] !important;
         }
     });
 }
@@ -263,9 +240,6 @@
         }
 
         .ui.transparent.inverted.input > input::placeholder {
-            color: @transparentInvertedPlaceholderColor;
-        }
-        .ui.transparent.inverted.input > input:-ms-input-placeholder when (@supportIE) {
             color: @transparentInvertedPlaceholderColor;
         }
     }
@@ -477,7 +451,7 @@
         .ui.icon.input:not([class*="left icon"]) > .ui.dropdown > .dropdown.icon {
             padding-right: initial;
         }
-        .ui.icon.input:not([class*="left icon"]):not(:has(.ui.dropdown ~ input)) > .ui.dropdown > .dropdown.icon {
+        .ui.icon.input:not([class*="left icon"], :has(.ui.dropdown ~ input)) > .ui.dropdown > .dropdown.icon {
             padding-right: @labeledMargin;
         }
     }
@@ -531,9 +505,9 @@
             border-bottom: @borderWidth solid @borderColor;
         }
         .ui.form .field.@{state} > .ui[class*="left action"].input > .ui.button,
-        .ui.form .field.@{state} > .ui.labeled.input:not(.right):not([class*="corner labeled"]) > .ui.label,
+        .ui.form .field.@{state} > .ui.labeled.input:not(.right, [class*="corner labeled"]) > .ui.label,
         .ui[class*="left action"].input.@{state} > .ui.button,
-        .ui.labeled.input.@{state}:not(.right):not([class*="corner labeled"]) > .ui.label {
+        .ui.labeled.input.@{state}:not(.right, [class*="corner labeled"]) > .ui.label {
             border-left: @borderWidth solid @borderColor;
         }
         .ui.form .field.@{state} > .ui.action.input:not([class*="left action"]) > input + .ui.button,
@@ -675,33 +649,6 @@
             color: @fileButtonTextColor;
         }
     }
-    & when (@supportIE) {
-        .ui.action.file.input input[type="file"]::-ms-browse {
-            display: none;
-        }
-        .ui.form .field input[type="file"]::-ms-browse,
-        .ui.file.input input[type="file"]::-ms-browse {
-            border: none;
-            cursor: pointer;
-            padding: @padding;
-            margin: 0;
-            background: @fileButtonBackground;
-            font-weight: @fileButtonFontWeight;
-            color: @fileButtonTextColor;
-            &:hover {
-                background: @fileButtonBackgroundHover;
-                color: @fileButtonTextColor;
-            }
-        }
-
-        /* IE needs additional styling for input field :S */
-        @media all and (-ms-high-contrast: none) {
-            .ui.file.input > input[type="file"],
-            input[type="file"].ui.file.input {
-                padding: 0 !important;
-            }
-        }
-    }
 
     .ui.action.file.input input[type="file"]::file-selector-button {
         display: none;
@@ -776,16 +723,7 @@
                     background: @h;
                 }
             }
-            & when (@supportIE) {
-                input[type="file"].ui.@{color}.file.input::-ms-browse,
-                .ui.@{color}.file.input input[type="file"]::-ms-browse {
-                    background: @c;
-                    color: @white;
-                    &:hover {
-                        background: @h;
-                    }
-                }
-            }
+
             input[type="file"].ui.@{color}.file.input::file-selector-button,
             .ui.@{color}.file.input input[type="file"]::file-selector-button {
                 background: @c;
@@ -814,5 +752,4 @@
     });
 }
 
-// stylelint-disable no-invalid-position-at-import-rule
 @import (multiple, optional) "../../overrides.less";

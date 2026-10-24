@@ -16,8 +16,8 @@ const MAX_SESSIONS = 256;
 
 /**
  * True when the request body is a client-signed player login completion
- * (Passport / desktop peers / any wallet holding the user key). Empty body
- * keeps the legacy Hub-node self-sign path.
+ * (wallet extensions / desktop peers / any wallet holding the user key). Empty body
+ * keeps the legacy hub-node self-sign path.
  */
 function hasClientSignatureBody (body) {
   if (!body || typeof body !== 'object') return false;
@@ -147,7 +147,7 @@ function handleSessionCreate (hub, req, res) {
  * Complete a pending login session.
  *
  * **Client-signed (player login):** body `{ signature, pubkeyHex, identity: { id, xpub } }`
- * — BIP340 over the server-stored challenge. Used by Passport / desktop peers /
+ * — BIP340 over the server-stored challenge. Used by wallet extensions / desktop peers /
  * any wallet. Crypto verification is the authenticator (sessionId is
  * unguessable; message binds origin).
  *

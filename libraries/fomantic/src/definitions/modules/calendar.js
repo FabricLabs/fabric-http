@@ -19,64 +19,59 @@
         ? window
         : globalThis;
 
-    $.fn.calendar = function (parameters) {
-        var
-            $allModules    = $(this),
-            $document      = $(document),
+    $.fn.calendar = function (...args) {
+        const $allModules = $(this);
+        const $document = $(document);
 
-            time           = Date.now(),
-            performance    = [],
+        let time = Date.now();
+        let performance = [];
 
-            query          = arguments[0],
-            methodInvoked  = typeof query === 'string',
-            queryArguments = [].slice.call(arguments, 1),
-            returnedValue,
-            timeGapTable = {
-                5: { row: 4, column: 3 },
-                10: { row: 3, column: 2 },
-                15: { row: 2, column: 2 },
-                20: { row: 3, column: 1 },
-                30: { row: 2, column: 1 },
-            },
-            numberText = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight']
-        ;
+        const parameters = args[0];
+        const methodInvoked = typeof parameters === 'string';
+        const queryArguments = args.slice(1);
+        let returnedValue;
+        const timeGapTable = {
+            5: { row: 4, column: 3 },
+            10: { row: 3, column: 2 },
+            15: { row: 2, column: 2 },
+            20: { row: 3, column: 1 },
+            30: { row: 2, column: 1 },
+        };
+        const numberText = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
 
         $allModules.each(function () {
-            var
-                settings = $.isPlainObject(parameters)
-                    ? $.extend(true, {}, $.fn.calendar.settings, parameters)
-                    : $.extend({}, $.fn.calendar.settings),
+            const settings = $.isPlainObject(parameters)
+                ? $.extend(true, {}, $.fn.calendar.settings, parameters)
+                : $.extend({}, $.fn.calendar.settings);
 
-                className = settings.className,
-                namespace = settings.namespace,
-                selector = settings.selector,
-                formatter = settings.formatter,
-                parser = settings.parser,
-                metadata = settings.metadata,
-                timeGap = timeGapTable[settings.minTimeGap],
-                error = settings.error,
+            const className = settings.className;
+            const namespace = settings.namespace;
+            const selector = settings.selector;
+            const formatter = settings.formatter;
+            const parser = settings.parser;
+            const metadata = settings.metadata;
+            const timeGap = timeGapTable[settings.minTimeGap];
+            const error = settings.error;
 
-                eventNamespace = '.' + namespace,
-                moduleNamespace = 'module-' + namespace,
+            const eventNamespace = '.' + namespace;
+            const moduleNamespace = 'module-' + namespace;
 
-                $module = $(this),
-                $input = $module.find(selector.input),
-                $activator = $module.find(selector.activator),
+            const $module = $(this);
+            const $input = $module.find(selector.input);
+            let $activator = $module.find(selector.activator);
 
-                element = this,
-                instance = $module.data(moduleNamespace),
-                $container = instance && instance.popupId ? $document.find('#' + instance.popupId) : $module.find(selector.popup),
+            const element = this;
+            let instance = $module.data(moduleNamespace);
+            let $container = instance && instance.popupId ? $document.find('#' + instance.popupId) : $module.find(selector.popup);
 
-                isTouch,
-                isTouchDown = false,
-                isInverted = $module.hasClass(className.inverted),
-                focusDateUsedForRange = false,
-                selectionComplete = false,
-                classObserver,
-                module
-            ;
+            let isTouch;
+            let isTouchDown = false;
+            const isInverted = $module.hasClass(className.inverted);
+            let focusDateUsedForRange = false;
+            let selectionComplete = false;
+            let classObserver;
 
-            module = {
+            const module = {
 
                 initialize: function () {
                     module.debug('Initializing calendar for', element, $module);
@@ -149,11 +144,9 @@
                                 $container = $('<div/>', { id: module.popupId }).addClass(className.popup).appendTo($document.find(settings.context));
                             } else {
                                 // prepend the popup element to the activator's parent so that it has less chance of messing with
-                                // the styling (eg input action button needs to be the last child to have correct border radius)
-                                var
-                                    $activatorParent = $activator.parent(),
-                                    domPositionFunction = $activatorParent.closest(selector.append).length > 0 ? 'appendTo' : 'prependTo'
-                                ;
+                                // the styling (e.g., input action button needs to be the last child to have the correct border radius)
+                                const $activatorParent = $activator.parent();
+                                const domPositionFunction = $activatorParent.closest(selector.append).length > 0 ? 'appendTo' : 'prependTo';
                                 $container = $('<div/>').addClass(className.popup)[domPositionFunction]($activatorParent);
                             }
                         }
@@ -161,35 +154,35 @@
                         if (isInverted) {
                             $container.addClass(className.inverted);
                         }
-                        var onVisible = function () {
+                        let onVisible = function (...args) {
                             module.refreshTooltips();
 
-                            return settings.onVisible.apply($container, arguments);
+                            return settings.onVisible.apply($container, args);
                         };
-                        var onHidden = function () {
+                        const onHidden = function (...args) {
                             module.blur();
 
-                            return settings.onHidden.apply($container, arguments);
+                            return settings.onHidden.apply($container, args);
                         };
                         if ($input.length === 0) {
                             // no input, $container has to handle focus/blur
                             $container.attr('tabindex', '0');
-                            onVisible = function () {
+                            onVisible = function (...args) {
                                 module.refreshTooltips();
                                 module.focus();
 
-                                return settings.onVisible.apply($container, arguments);
+                                return settings.onVisible.apply($container, args);
                             };
                         }
-                        var onShow = function () {
+                        const onShow = function (...args) {
                             // reset the focus date onShow
                             module.set.focusDate(module.get.date());
                             module.set.mode(module.get.validatedMode(settings.startMode));
 
-                            return settings.onShow.apply($container, arguments);
+                            return settings.onShow.apply($container, args);
                         };
-                        var on = module.setting('on');
-                        var options = $.extend({}, settings.popupOptions, {
+                        const on = module.setting('on');
+                        const options = $.extend({}, settings.popupOptions, {
                             popup: $container,
                             movePopup: !settings.context,
                             on: on,
@@ -219,7 +212,7 @@
                         module.check.disabled();
                     },
                     date: function () {
-                        var date;
+                        let date;
                         if (settings.initialDate) {
                             date = parser.date(settings.initialDate, settings);
                         } else if ($module.data(metadata.date) !== undefined) {
@@ -234,71 +227,60 @@
 
                 trigger: {
                     change: function () {
-                        var
-                            inputElement = $input[0]
-                        ;
+                        const inputElement = $input[0];
                         if (inputElement) {
-                            var events = document.createEvent('HTMLEvents');
+                            const event = new Event('change', { bubbles: true });
                             module.verbose('Triggering native change event');
-                            events.initEvent('change', true, false);
-                            inputElement.dispatchEvent(events);
+                            inputElement.dispatchEvent(event);
                         }
                     },
                 },
 
                 create: {
                     calendar: function () {
-                        var
-                            i,
-                            r,
-                            c,
-                            p,
-                            row,
-                            cell,
-                            pageGrid
-                        ;
+                        let i;
+                        let r;
+                        let c;
+                        let p;
+                        let row;
+                        let cell;
+                        let pageGrid;
 
-                        var
-                            mode = module.get.mode(),
-                            today = new Date(),
-                            date = module.get.date(),
-                            focusDate = module.get.focusDate(),
-                            display = module.helper.dateInRange(focusDate || date || parser.date(settings.initialDate, settings) || today)
-                        ;
+                        const mode = module.get.mode();
+                        const today = new Date();
+                        const date = module.get.date();
+                        let focusDate = module.get.focusDate();
+                        const display = module.helper.dateInRange(focusDate || date || parser.date(settings.initialDate, settings) || today);
 
                         if (!focusDate) {
                             focusDate = display;
                             module.set.focusDate(focusDate, false, false);
                         }
 
-                        var
-                            isYear = mode === 'year',
-                            isMonth = mode === 'month',
-                            isDay = mode === 'day',
-                            isHour = mode === 'hour',
-                            isMinute = mode === 'minute',
-                            isTimeOnly = settings.type === 'time'
-                        ;
+                        const isYear = mode === 'year';
+                        const isMonth = mode === 'month';
+                        const isDay = mode === 'day';
+                        const isHour = mode === 'hour';
+                        const isMinute = mode === 'minute';
+                        const isTimeOnly = settings.type === 'time';
 
-                        var multiMonth = Math.max(settings.multiMonth, 1);
-                        var monthOffset = !isDay ? 0 : module.get.monthOffset();
+                        const multiMonth = Math.max(settings.multiMonth, 1);
+                        const monthOffset = !isDay ? 0 : module.get.monthOffset();
 
-                        var
-                            minute = display.getMinutes(),
-                            hour = display.getHours(),
-                            day = display.getDate(),
-                            startMonth = display.getMonth() + monthOffset,
-                            year = display.getFullYear()
-                        ;
+                        const minute = display.getMinutes();
+                        const hour = display.getHours();
+                        const day = display.getDate();
+                        const startMonth = display.getMonth() + monthOffset;
+                        const year = display.getFullYear();
 
-                        var columns = isDay
+                        const columns = isDay
                             ? (settings.showWeekNumbers ? 8 : 7)
                             : (isHour ? 4 : timeGap.column);
-                        var rows = isDay || isHour ? 6 : timeGap.row;
-                        var pages = isDay ? multiMonth : 1;
+                        let rows = isDay || isHour ? 6 : timeGap.row;
+                        const pages = isDay ? multiMonth : 1;
 
-                        var container = $container;
-                        var tooltipPosition = container.hasClass('left') ? 'right center' : 'left center';
+                        let container = $container;
+                        const tooltipPosition = container.hasClass('left') ? 'right center' : 'left center';
                         container.empty();
                         if (pages > 1) {
                             pageGrid = $('<div/>').addClass(className.grid).appendTo(container);
@@ -306,65 +288,63 @@
 
                         for (p = 0; p < pages; p++) {
                             if (pages > 1) {
-                                var pageColumn = $('<div/>').addClass(className.column).appendTo(pageGrid);
+                                const pageColumn = $('<div/>').addClass(className.column).appendTo(pageGrid);
                                 container = pageColumn;
                             }
 
-                            var month = startMonth + p;
-                            var firstMonthDayColumn = (new Date(year, month, 1).getDay() - (settings.firstDayOfWeek % 7) + 7) % 7;
+                            const month = startMonth + p;
+                            const firstMonthDayColumn = (new Date(year, month, 1).getDay() - (settings.firstDayOfWeek % 7) + 7) % 7;
                             if (!settings.constantHeight && isDay) {
-                                var requiredCells = new Date(year, month + 1, 0).getDate() + firstMonthDayColumn;
+                                const requiredCells = new Date(year, month + 1, 0).getDate() + firstMonthDayColumn;
                                 rows = Math.ceil(requiredCells / 7);
                             }
 
-                            var
-                                yearChange = isYear ? 10 : (isMonth ? 1 : 0),
-                                monthChange = isDay ? 1 : 0,
-                                dayChange = isHour || isMinute ? 1 : 0,
-                                prevNextDay = isHour || isMinute ? day : 1,
-                                prevDate = new Date(year - yearChange, month - monthChange, prevNextDay - dayChange, hour),
-                                nextDate = new Date(year + yearChange, month + monthChange, prevNextDay + dayChange, hour),
-                                prevLast = isYear
-                                    ? new Date(Math.ceil(year / 10) * 10 - 9, 0, 0)
-                                    : (isMonth
-                                        ? new Date(year, 0, 0)
-                                        : (isDay // eslint-disable-line unicorn/no-nested-ternary
-                                            ? new Date(year, month, 0)
-                                            : new Date(year, month, day, -1))),
-                                nextFirst = isYear
-                                    ? new Date(Math.ceil(year / 10) * 10 + 1, 0, 1)
-                                    : (isMonth
-                                        ? new Date(year + 1, 0, 1)
-                                        : (isDay // eslint-disable-line unicorn/no-nested-ternary
-                                            ? new Date(year, month + 1, 1)
-                                            : new Date(year, month, day + 1)))
-                            ;
+                            const yearChange = isYear ? 10 : (isMonth ? 1 : 0);
+                            const monthChange = isDay ? 1 : 0;
+                            const dayChange = isHour || isMinute ? 1 : 0;
+                            const prevNextDay = isHour || isMinute ? day : 1;
+                            const prevDate = new Date(year - yearChange, month - monthChange, prevNextDay - dayChange, hour);
+                            const nextDate = new Date(year + yearChange, month + monthChange, prevNextDay + dayChange, hour);
+                            const prevLast = isYear
+                                ? new Date(Math.ceil(year / 10) * 10 - 9, 0, 0)
+                                : (isMonth
+                                    ? new Date(year, 0, 0)
+                                    : (isDay // eslint-disable-line unicorn/no-nested-ternary
+                                        ? new Date(year, month, 0)
+                                        : new Date(year, month, day, -1)));
+                            const nextFirst = isYear
+                                ? new Date(Math.ceil(year / 10) * 10 + 1, 0, 1)
+                                : (isMonth
+                                    ? new Date(year + 1, 0, 1)
+                                    : (isDay // eslint-disable-line unicorn/no-nested-ternary
+                                        ? new Date(year, month + 1, 1)
+                                        : new Date(year, month, day + 1)));
 
-                            var tempMode = mode;
+                            let tempMode = mode;
                             if (isDay && settings.showWeekNumbers) {
                                 tempMode += ' andweek';
                             }
-                            var table = $('<table/>').addClass(className.table).addClass(tempMode).addClass(numberText[columns] + ' column')
+                            const table = $('<table/>').addClass(className.table).addClass(tempMode).addClass(numberText[columns] + ' column')
                                 .appendTo(container);
                             if (isInverted) {
                                 table.addClass(className.inverted);
                             }
-                            var textColumns = columns;
+                            let textColumns = columns;
                             // no header for time-only mode
                             if (!isTimeOnly) {
-                                var thead = $('<thead/>').appendTo(table);
+                                const thead = $('<thead/>').appendTo(table);
 
                                 row = $('<tr/>').appendTo(thead);
                                 cell = $('<th/>').attr('colspan', '' + columns).appendTo(row);
 
-                                var headerDate = isYear || isMonth
+                                const headerDate = isYear || isMonth
                                     ? new Date(year, 0, 1)
                                     : (isDay
                                         ? new Date(year, month, 1)
                                         : new Date(year, month, day, hour, minute));
-                                var headerText = $('<span/>').addClass(className.link).appendTo(cell);
+                                const headerText = $('<span/>').addClass(className.link).appendTo(cell);
                                 headerText.text(module.helper.dateFormat(formatter[mode + 'Header'], headerDate));
-                                var newMode = isMonth
+                                const newMode = isMonth
                                     ? (settings.disableYear ? 'day' : 'year')
                                     : (isDay
                                         ? (settings.disableMonth ? 'year' : 'month') // eslint-disable-line unicorn/no-nested-ternary
@@ -372,14 +352,14 @@
                                 headerText.data(metadata.mode, newMode);
 
                                 if (p === 0) {
-                                    var prev = $('<span/>').addClass(className.prev).appendTo(cell);
+                                    const prev = $('<span/>').addClass(className.prev).appendTo(cell);
                                     prev.data(metadata.focusDate, prevDate);
                                     prev.toggleClass(className.disabledCell, !module.helper.isDateInRange(prevLast, mode));
                                     $('<i/>').addClass(className.prevIcon).appendTo(prev);
                                 }
 
                                 if (p === pages - 1) {
-                                    var next = $('<span/>').addClass(className.next).appendTo(cell);
+                                    const next = $('<span/>').addClass(className.next).appendTo(cell);
                                     next.data(metadata.focusDate, nextDate);
                                     next.toggleClass(className.disabledCell, !module.helper.isDateInRange(nextFirst, mode));
                                     $('<i/>').addClass(className.nextIcon).appendTo(next);
@@ -399,7 +379,7 @@
                                 }
                             }
 
-                            var tbody = $('<tbody/>').appendTo(table);
+                            const tbody = $('<tbody/>').appendTo(table);
                             i = isYear
                                 ? Math.ceil(year / 10) * 10 - 9
                                 : (isDay ? 1 - firstMonthDayColumn : 0);
@@ -411,7 +391,7 @@
                                     cell.addClass(className.weekCell);
                                 }
                                 for (c = 0; c < textColumns; c++, i++) {
-                                    var cellDate = isYear
+                                    const cellDate = isYear
                                         ? new Date(i, month, 1, hour, minute)
                                         : (isMonth
                                             ? new Date(year, i, 1, hour, minute)
@@ -420,7 +400,7 @@
                                                 : (isHour
                                                     ? new Date(year, month, day, i)
                                                     : new Date(year, month, day, hour, i * settings.minTimeGap))));
-                                    var cellText = isYear
+                                    const cellText = isYear
                                         ? i
                                         : (isMonth
                                             ? settings.text.monthsShort[i]
@@ -430,11 +410,11 @@
                                     cell = $('<td/>').addClass(className.cell).appendTo(row);
                                     cell.text(cellText);
                                     cell.data(metadata.date, cellDate);
-                                    var adjacent = isDay && cellDate.getMonth() !== ((month + 12) % 12);
-                                    var disabled = (!settings.selectAdjacentDays && adjacent) || !module.helper.isDateInRange(cellDate, mode) || settings.isDisabled(cellDate, mode) || module.helper.isDisabled(cellDate, mode) || !module.helper.isEnabled(cellDate, mode);
-                                    var eventDate;
+                                    const adjacent = isDay && cellDate.getMonth() !== ((month + 12) % 12);
+                                    const disabled = (!settings.selectAdjacentDays && adjacent) || !module.helper.isDateInRange(cellDate, mode) || settings.isDisabled(cellDate, mode) || module.helper.isDisabled(cellDate, mode) || !module.helper.isEnabled(cellDate, mode);
+                                    let eventDate;
                                     if (disabled) {
-                                        var disabledDate = module.helper.findDayAsObject(cellDate, mode, settings.disabledDates);
+                                        const disabledDate = module.helper.findDayAsObject(cellDate, mode, settings.disabledDates);
                                         if (disabledDate !== null && disabledDate[metadata.message]) {
                                             cell.attr('data-tooltip', disabledDate[metadata.message]);
                                             cell.attr('data-position', disabledDate[metadata.position] || tooltipPosition);
@@ -446,7 +426,7 @@
                                             }
                                         }
                                         if (mode === 'hour') {
-                                            var disabledHour = module.helper.findHourAsObject(cellDate, mode, settings.disabledHours);
+                                            const disabledHour = module.helper.findHourAsObject(cellDate, mode, settings.disabledHours);
                                             if (disabledHour !== null && disabledHour[metadata.message]) {
                                                 cell.attr('data-tooltip', disabledHour[metadata.message]);
                                                 cell.attr('data-position', disabledHour[metadata.position] || tooltipPosition);
@@ -474,8 +454,8 @@
                                             }
                                         }
                                     }
-                                    var active = module.helper.dateEqual(cellDate, date, mode);
-                                    var isToday = module.helper.dateEqual(cellDate, today, mode);
+                                    const active = module.helper.dateEqual(cellDate, date, mode);
+                                    const isToday = module.helper.dateEqual(cellDate, today, mode);
                                     cell.toggleClass(className.adjacentCell, adjacent && !eventDate);
                                     cell.toggleClass(className.disabledCell, disabled);
                                     cell.toggleClass(className.activeCell, active && !(adjacent && disabled));
@@ -484,7 +464,7 @@
                                     }
 
                                     // Allow for external modifications of each cell
-                                    var cellOptions = {
+                                    const cellOptions = {
                                         mode: mode,
                                         adjacent: adjacent,
                                         disabled: disabled,
@@ -502,8 +482,8 @@
                             }
 
                             if (settings.today) {
-                                var todayRow = $('<tr/>').appendTo(tbody);
-                                var todayButton = $('<td/>').attr('colspan', '' + columns).addClass(className.today).appendTo(todayRow);
+                                const todayRow = $('<tr/>').appendTo(tbody);
+                                const todayButton = $('<td/>').attr('colspan', '' + columns).addClass(className.today).appendTo(todayRow);
                                 todayButton.text(formatter.today(settings));
                                 todayButton.data(metadata.date, today);
                             }
@@ -518,26 +498,25 @@
                 },
 
                 update: {
-                    focus: function (updateRange, container) {
-                        container = container || $container;
-                        var mode = module.get.mode();
-                        var date = module.get.date();
-                        var focusDate = module.get.focusDate();
-                        var startDate = module.get.startDate();
-                        var endDate = module.get.endDate();
-                        var rangeDate = (updateRange ? focusDate : null) || date || (!isTouch ? focusDate : null);
+                    focus: function (updateRange, container = $container) {
+                        const mode = module.get.mode();
+                        const date = module.get.date();
+                        const focusDate = module.get.focusDate();
+                        const startDate = module.get.startDate();
+                        const endDate = module.get.endDate();
+                        const rangeDate = (updateRange ? focusDate : null) || date || (!isTouch ? focusDate : null);
 
                         container.find('td').each(function () {
-                            var $cell = $(this);
-                            var cellDate = $cell.data(metadata.date);
+                            const $cell = $(this);
+                            const cellDate = $cell.data(metadata.date);
                             if (!cellDate) {
                                 return;
                             }
-                            var disabled = $cell.hasClass(className.disabledCell);
-                            var active = $cell.hasClass(className.activeCell);
-                            var adjacent = $cell.hasClass(className.adjacentCell);
-                            var focused = module.helper.dateEqual(cellDate, focusDate, mode);
-                            var inRange = !rangeDate
+                            const disabled = $cell.hasClass(className.disabledCell);
+                            const active = $cell.hasClass(className.activeCell);
+                            const adjacent = $cell.hasClass(className.adjacentCell);
+                            const focused = module.helper.dateEqual(cellDate, focusDate, mode);
+                            const inRange = !rangeDate
                                 ? false
                                 : (!!startDate && module.helper.isDateInRange(cellDate, mode, startDate, rangeDate))
                                     || (!!endDate && module.helper.isDateInRange(cellDate, mode, rangeDate, endDate));
@@ -556,14 +535,14 @@
                 },
 
                 refreshTooltips: function () {
-                    var winWidth = $(window).width();
+                    const winWidth = $(window).width();
                     $container.find('td[data-position]').each(function () {
-                        var $cell = $(this);
-                        var tooltipWidth = window.getComputedStyle($cell[0], '::after').width.replace(/[^\d.]/g, '');
-                        var tooltipPosition = $cell.attr('data-position');
+                        const $cell = $(this);
+                        const tooltipWidth = window.getComputedStyle($cell[0], '::after').width.replace(/[^\d.]/g, '');
+                        const tooltipPosition = $cell.attr('data-position');
                         // use a fallback width of 250 (calendar width) for IE/Edge (which return "auto")
-                        var calcPosition = (winWidth - $cell.width() - (parseInt(tooltipWidth, 10) || 250)) > $cell.offset().left ? 'right' : 'left';
-                        if (tooltipPosition.indexOf(calcPosition) === -1) {
+                        const calcPosition = (winWidth - $cell.width() - (Number.parseInt(tooltipWidth, 10) || 250)) > $cell.offset().left ? 'right' : 'left';
+                        if (!tooltipPosition.includes(calcPosition)) {
                             $cell.attr('data-position', tooltipPosition.replace(/(left|right)/, calcPosition));
                         }
                     });
@@ -600,9 +579,9 @@
 
                 event: {
                     mouseover: function (event) {
-                        var target = $(event.target);
-                        var date = target.data(metadata.date);
-                        var mousedown = event.buttons === 1;
+                        const target = $(event.target);
+                        const date = target.data(metadata.date);
+                        const mousedown = event.buttons === 1;
                         if (date) {
                             module.set.focusDate(date, false, true, mousedown);
                         }
@@ -612,9 +591,9 @@
                             // prevent the mousedown on the calendar causing the input to lose focus
                             event.preventDefault();
                         }
-                        isTouchDown = event.type.indexOf('touch') >= 0;
-                        var target = $(event.target);
-                        var date = target.data(metadata.date);
+                        isTouchDown = event.type.includes('touch');
+                        const target = $(event.target);
+                        const date = target.data(metadata.date);
                         if (date) {
                             module.set.focusDate(date, false, true, true);
                         }
@@ -625,20 +604,20 @@
                         event.preventDefault();
                         event.stopPropagation();
                         isTouchDown = false;
-                        var target = $(event.target);
+                        let target = $(event.target);
                         if (target.hasClass('disabled')) {
                             return;
                         }
-                        var parent = target.parent();
+                        const parent = target.parent();
                         if (parent.data(metadata.date) || parent.data(metadata.focusDate) || parent.data(metadata.mode)) {
-                            // clicked on a child element, switch to parent (used when clicking directly on prev/next <i> icon element)
+                            // clicked on a child element, switch to parent (used when clicking directly on the prev/next <i> icon element)
                             target = parent;
                         }
-                        var date = target.data(metadata.date);
-                        var focusDate = target.data(metadata.focusDate);
-                        var mode = target.data(metadata.mode);
+                        const date = target.data(metadata.date);
+                        const focusDate = target.data(metadata.focusDate);
+                        const mode = target.data(metadata.mode);
                         if (date && settings.onSelect.call(element, date, module.get.mode()) !== false) {
-                            var forceSet = target.hasClass(className.today);
+                            const forceSet = target.hasClass(className.today);
                             module.selectDate(date, forceSet);
                         } else if (focusDate) {
                             module.set.focusDate(focusDate);
@@ -647,38 +626,38 @@
                         }
                     },
                     keydown: function (event) {
-                        var keyCode = event.which;
+                        const keyCode = event.which;
                         if (keyCode === 9) {
                             // tab
                             module.popup('hide');
                         }
 
                         if (module.popup('is visible')) {
-                            var mode = module.get.mode();
+                            const mode = module.get.mode();
                             switch (keyCode) {
                                 // arrow keys
                                 case 37:
                                 case 38:
                                 case 39:
                                 case 40: {
-                                    var bigIncrement = mode === 'day'
+                                    const bigIncrement = mode === 'day'
                                         ? 7
                                         : (mode === 'hour'
                                             ? 4
                                             : (mode === 'minute' ? timeGap.column : 3)); // eslint-disable-line unicorn/no-nested-ternary
-                                    var increment = keyCode === 37
+                                    let increment = keyCode === 37
                                         ? -1
                                         : (keyCode === 38
                                             ? -bigIncrement
                                             : (keyCode === 39 ? 1 : bigIncrement)); // eslint-disable-line unicorn/no-nested-ternary
                                     increment *= mode === 'minute' ? settings.minTimeGap : 1;
-                                    var focusDate = module.get.focusDate() || module.get.date() || new Date();
-                                    var year = focusDate.getFullYear() + (mode === 'year' ? increment : 0);
-                                    var month = focusDate.getMonth() + (mode === 'month' ? increment : 0);
-                                    var day = focusDate.getDate() + (mode === 'day' ? increment : 0);
-                                    var hour = focusDate.getHours() + (mode === 'hour' ? increment : 0);
-                                    var minute = focusDate.getMinutes() + (mode === 'minute' ? increment : 0);
-                                    var newFocusDate = new Date(year, month, day, hour, minute);
+                                    const focusDate = module.get.focusDate() || module.get.date() || new Date();
+                                    const year = focusDate.getFullYear() + (mode === 'year' ? increment : 0);
+                                    const month = focusDate.getMonth() + (mode === 'month' ? increment : 0);
+                                    const day = focusDate.getDate() + (mode === 'day' ? increment : 0);
+                                    const hour = focusDate.getHours() + (mode === 'hour' ? increment : 0);
+                                    const minute = focusDate.getMinutes() + (mode === 'minute' ? increment : 0);
+                                    let newFocusDate = new Date(year, month, day, hour, minute);
                                     if (settings.type === 'time') {
                                         newFocusDate = module.helper.mergeDateTime(focusDate, newFocusDate);
                                     }
@@ -690,11 +669,9 @@
                                 }
                                 // enter key
                                 case 13: {
-                                    var date = module.get.focusDate();
-                                    if (date && !settings.isDisabled(date, mode) && !module.helper.isDisabled(date, mode) && module.helper.isEnabled(date, mode)) {
-                                        if (settings.onSelect.call(element, date, module.get.mode()) !== false) {
-                                            module.selectDate(date);
-                                        }
+                                    const date = module.get.focusDate();
+                                    if (date && !settings.isDisabled(date, mode) && !module.helper.isDisabled(date, mode) && module.helper.isEnabled(date, mode) && settings.onSelect.call(element, date, module.get.mode()) !== false) {
+                                        module.selectDate(date);
                                     }
                                     // disable form submission:
                                     event.preventDefault();
@@ -709,6 +686,7 @@
 
                                     break;
                                 }
+                                // no default
                             }
                         }
 
@@ -719,8 +697,8 @@
                         }
                     },
                     inputChange: function () {
-                        var val = $input.val();
-                        var date = parser.date(val, settings);
+                        const val = $input.val();
+                        const date = parser.date(val, settings);
                         module.set.date(date, false);
                     },
                     inputFocus: function () {
@@ -729,8 +707,8 @@
                     inputBlur: function () {
                         $container.removeClass(className.active);
                         if (settings.formatInput) {
-                            var date = module.get.date();
-                            var text = module.helper.dateFormat(formatter[settings.type], date);
+                            const date = module.get.date();
+                            const text = module.helper.dateFormat(formatter[settings.type], date);
                             $input.val(text);
                         }
                         if (selectionComplete) {
@@ -740,21 +718,19 @@
                     },
                     class: {
                         mutation: function (mutations) {
-                            mutations.forEach(function (mutation) {
+                            for (const mutation of mutations) {
                                 if (mutation.attributeName === 'class') {
                                     module.check.disabled();
                                 }
-                            });
+                            }
                         },
                     },
                 },
 
                 observeChanges: function () {
-                    if ('MutationObserver' in window) {
-                        classObserver = new MutationObserver(module.event.class.mutation);
-                        module.debug('Setting up mutation observer', classObserver);
-                        module.observe.class();
-                    }
+                    classObserver = new MutationObserver(module.event.class.mutation);
+                    module.debug('Setting up mutation observer', classObserver);
+                    module.observe.class();
                 },
 
                 disconnect: {
@@ -790,12 +766,11 @@
                 get: {
                     weekOfYear: function (weekYear, weekMonth, weekDay) {
                         // adapted from http://www.merlyn.demon.co.uk/weekcalc.htm
-                        var ms1d = 24 * 3600 * 1000,
-                            ms7d = 7 * ms1d,
-                            DC3 = Date.UTC(weekYear, weekMonth, weekDay + 3) / ms1d, // an absolute day number
-                            AWN = Math.floor(DC3 / 7), // an absolute week number
-                            Wyr = new Date(AWN * ms7d).getUTCFullYear()
-                        ;
+                        const ms1d = 24 * 3600 * 1000;
+                        const ms7d = 7 * ms1d;
+                        const DC3 = Date.UTC(weekYear, weekMonth, weekDay + 3) / ms1d; // an absolute day number
+                        const AWN = Math.floor(DC3 / 7); // an absolute week number
+                        const Wyr = new Date(AWN * ms7d).getUTCFullYear();
 
                         return AWN - Math.floor(Date.UTC(Wyr, 0, 7) / ms7d) + 1;
                     },
@@ -812,7 +787,7 @@
                         return module.helper.dateObjectOrFormatted(format, $module.data(metadata.focusDate));
                     },
                     startDate: function (format) {
-                        var startModule = module.get.calendarModule(settings.startCalendar);
+                        const startModule = module.get.calendarModule(settings.startCalendar);
 
                         if (startModule) {
                             return startModule.get.date(format);
@@ -821,7 +796,7 @@
                         return module.helper.dateObjectOrFormatted(format, $module.data(metadata.startDate));
                     },
                     endDate: function (format) {
-                        var endModule = module.get.calendarModule(settings.endCalendar);
+                        const endModule = module.get.calendarModule(settings.endCalendar);
 
                         if (endModule) {
                             return endModule.get.date(format);
@@ -840,13 +815,12 @@
                     },
                     mode: function () {
                         // only returns valid modes for the current settings
-                        var mode = $module.data(metadata.mode) || settings.startMode;
+                        const mode = $module.data(metadata.mode) || settings.startMode;
 
                         return module.get.validatedMode(mode);
                     },
                     validatedMode: function (mode) {
-                        var validModes = module.get.validModes();
-                        if ($.inArray(mode, validModes) >= 0) {
+                        if (module.get.validModes().includes(mode)) {
                             return mode;
                         }
 
@@ -860,7 +834,7 @@
                         return $module.data(metadata.type) || settings.type;
                     },
                     validModes: function () {
-                        var validModes = [];
+                        const validModes = [];
                         if (settings.type !== 'time') {
                             if (!settings.disableYear || settings.type === 'year') {
                                 validModes.push('year');
@@ -868,11 +842,11 @@
                             if (!(settings.disableMonth || settings.type === 'year') || settings.type === 'month') {
                                 validModes.push('month');
                             }
-                            if (settings.type.indexOf('date') >= 0) {
+                            if (settings.type.includes('date')) {
                                 validModes.push('day');
                             }
                         }
-                        if (settings.type.indexOf('time') >= 0) {
+                        if (settings.type.includes('time')) {
                             validModes.push('hour');
                             if (!settings.disableMinute) {
                                 validModes.push('minute');
@@ -886,7 +860,7 @@
                             document.createEvent('TouchEvent');
 
                             return true;
-                        } catch (e) {
+                        } catch {
                             return false;
                         }
                     },
@@ -910,8 +884,8 @@
                         date = module.helper.sanitiseDate(date);
                         date = module.helper.dateInRange(date);
 
-                        var mode = module.get.mode();
-                        var text = module.helper.dateFormat(formatter[settings.type], date);
+                        const mode = module.get.mode();
+                        const text = module.helper.dateFormat(formatter[settings.type], date);
 
                         if (fireChange && settings.onBeforeChange.call(element, date, text, mode) === false) {
                             return false;
@@ -923,7 +897,7 @@
                             return false;
                         }
 
-                        var endDate = module.get.endDate();
+                        const endDate = module.get.endDate();
                         if (!!endDate && !!date && date > endDate) {
                             // selected date is greater than end date in range, so clear end date
                             module.set.endDate();
@@ -940,7 +914,7 @@
                     },
                     startDate: function (date, refreshCalendar) {
                         date = module.helper.sanitiseDate(date);
-                        var startModule = module.get.calendarModule(settings.startCalendar);
+                        const startModule = module.get.calendarModule(settings.startCalendar);
                         if (startModule) {
                             startModule.set.date(date);
                         }
@@ -948,7 +922,7 @@
                     },
                     endDate: function (date, refreshCalendar) {
                         date = module.helper.sanitiseDate(date);
-                        var endModule = module.get.calendarModule(settings.endCalendar);
+                        const endModule = module.get.calendarModule(settings.endCalendar);
                         if (endModule) {
                             endModule.set.date(date);
                         }
@@ -957,17 +931,17 @@
                     focusDate: function (date, refreshCalendar, updateFocus, updateRange) {
                         date = module.helper.sanitiseDate(date);
                         date = module.helper.dateInRange(date);
-                        var isDay = module.get.mode() === 'day';
-                        var oldFocusDate = module.get.focusDate();
+                        const isDay = module.get.mode() === 'day';
+                        const oldFocusDate = module.get.focusDate();
                         if (isDay && date && oldFocusDate) {
-                            var yearDelta = date.getFullYear() - oldFocusDate.getFullYear();
-                            var monthDelta = yearDelta * 12 + date.getMonth() - oldFocusDate.getMonth();
+                            const yearDelta = date.getFullYear() - oldFocusDate.getFullYear();
+                            const monthDelta = yearDelta * 12 + date.getMonth() - oldFocusDate.getMonth();
                             if (monthDelta) {
-                                var monthOffset = module.get.monthOffset() - monthDelta;
+                                const monthOffset = module.get.monthOffset() - monthDelta;
                                 module.set.monthOffset(monthOffset, false);
                             }
                         }
-                        var changed = module.set.dataKeyValue(metadata.focusDate, date, !!date && refreshCalendar);
+                        const changed = module.set.dataKeyValue(metadata.focusDate, date, !!date && refreshCalendar);
                         updateFocus = (updateFocus !== false && changed && refreshCalendar === false) || focusDateUsedForRange != updateRange;
                         focusDateUsedForRange = updateRange;
                         if (updateFocus) {
@@ -993,7 +967,7 @@
                         }
                     },
                     monthOffset: function (monthOffset, refreshCalendar) {
-                        var multiMonth = Math.max(settings.multiMonth, 1);
+                        const multiMonth = Math.max(settings.multiMonth, 1);
                         monthOffset = Math.max(1 - multiMonth, Math.min(0, monthOffset));
                         module.set.dataKeyValue(metadata.monthOffset, monthOffset, refreshCalendar);
                     },
@@ -1001,8 +975,8 @@
                         module.set.dataKeyValue(metadata.mode, mode, refreshCalendar);
                     },
                     dataKeyValue: function (key, value, refreshCalendar) {
-                        var oldValue = $module.data(key);
-                        var equal = oldValue === value || (oldValue <= value && oldValue >= value); // equality test for dates and string objects
+                        const oldValue = $module.data(key);
+                        const equal = oldValue === value || (oldValue <= value && oldValue >= value); // equality test for dates and string objects
                         if (value) {
                             $module.data(key, value);
                         } else {
@@ -1019,20 +993,20 @@
 
                 selectDate: function (date, forceSet) {
                     module.verbose('New date selection', date);
-                    var mode = module.get.mode();
-                    var complete = forceSet || mode === 'minute'
+                    const mode = module.get.mode();
+                    const complete = forceSet || mode === 'minute'
                         || (settings.disableMinute && mode === 'hour')
                         || (settings.type === 'date' && mode === 'day')
                         || (settings.type === 'month' && mode === 'month')
                         || (settings.type === 'year' && mode === 'year');
                     if (complete) {
-                        var canceled = module.set.date(date) === false;
+                        const canceled = module.set.date(date) === false;
                         if (!canceled) {
                             selectionComplete = true;
                             if (settings.closable) {
                                 module.popup('hide');
                                 // if this is a range calendar, focus the container or input. This will open the popup from its event listeners.
-                                var endModule = module.get.calendarModule(settings.endCalendar);
+                                const endModule = module.get.calendarModule(settings.endCalendar);
                                 if (endModule) {
                                     endModule.refresh();
                                     if (endModule.setting('on') !== 'focus') {
@@ -1043,7 +1017,7 @@
                             }
                         }
                     } else {
-                        var newMode = mode === 'year'
+                        const newMode = mode === 'year'
                             ? (!settings.disableMonth ? 'month' : 'day')
                             : (mode === 'month'
                                 ? 'day'
@@ -1066,8 +1040,8 @@
                     module.set.date();
                 },
 
-                popup: function () {
-                    return $activator.popup.apply($activator, arguments);
+                popup: function (...args) {
+                    return $activator.popup(...args);
                 },
 
                 focus: function () {
@@ -1094,46 +1068,44 @@
                             return format.call(module, date, settings);
                         }
 
-                        var
-                            D = date.getDate(),
-                            M = date.getMonth(),
-                            Y = date.getFullYear(),
-                            d = date.getDay(),
-                            H = date.getHours(),
-                            m = date.getMinutes(),
-                            s = date.getSeconds(),
-                            w = module.get.weekOfYear(Y, M, D + 1 - settings.firstDayOfWeek),
-                            h = H % 12 || 12,
-                            a = H < 12 ? settings.text.am.toLowerCase() : settings.text.pm.toLowerCase(),
-                            tokens = {
-                                D: D,
-                                DD: ('0' + D).slice(-2),
-                                M: M + 1,
-                                MM: ('0' + (M + 1)).slice(-2),
-                                MMM: settings.text.monthsShort[M],
-                                MMMM: settings.text.months[M],
-                                Y: Y,
-                                YY: String(Y).slice(2),
-                                YYYY: Y,
-                                d: d,
-                                dd: settings.text.dayNamesShort[d].slice(0, 2),
-                                ddd: settings.text.dayNamesShort[d],
-                                dddd: settings.text.dayNames[d],
-                                h: h,
-                                hh: ('0' + h).slice(-2),
-                                H: H,
-                                HH: ('0' + H).slice(-2),
-                                m: m,
-                                mm: ('0' + m).slice(-2),
-                                s: s,
-                                ss: ('0' + s).slice(-2),
-                                a: a,
-                                A: a.toUpperCase(),
-                                S: ['th', 'st', 'nd', 'rd'][(D % 10) > 3 ? 0 : ((D % 100) - (D % 10) === 10 ? 0 : D % 10)],
-                                w: w,
-                                ww: ('0' + w).slice(-2),
-                            }
-                        ;
+                        const D = date.getDate();
+                        const M = date.getMonth();
+                        const Y = date.getFullYear();
+                        const d = date.getDay();
+                        const H = date.getHours();
+                        const m = date.getMinutes();
+                        const s = date.getSeconds();
+                        const w = module.get.weekOfYear(Y, M, D + 1 - settings.firstDayOfWeek);
+                        const h = H % 12 || 12;
+                        const a = H < 12 ? settings.text.am.toLowerCase() : settings.text.pm.toLowerCase();
+                        const tokens = {
+                            D: D,
+                            DD: ('0' + D).slice(-2),
+                            M: M + 1,
+                            MM: ('0' + (M + 1)).slice(-2),
+                            MMM: settings.text.monthsShort[M],
+                            MMMM: settings.text.months[M],
+                            Y: Y,
+                            YY: String(Y).slice(2),
+                            YYYY: Y,
+                            d: d,
+                            dd: settings.text.dayNamesShort[d].slice(0, 2),
+                            ddd: settings.text.dayNamesShort[d],
+                            dddd: settings.text.dayNames[d],
+                            h: h,
+                            hh: ('0' + h).slice(-2),
+                            H: H,
+                            HH: ('0' + H).slice(-2),
+                            m: m,
+                            mm: ('0' + m).slice(-2),
+                            s: s,
+                            ss: ('0' + s).slice(-2),
+                            a: a,
+                            A: a.toUpperCase(),
+                            S: ['th', 'st', 'nd', 'rd'][(D % 10) > 3 ? 0 : ((D % 100) - (D % 10) === 10 ? 0 : D % 10)],
+                            w: w,
+                            ww: ('0' + w).slice(-2),
+                        };
 
                         return format.replace(settings.regExp.token, function (match) {
                             if (match in tokens) {
@@ -1143,8 +1115,7 @@
                             return match.slice(1, -1);
                         });
                     },
-                    dateObjectOrFormatted: function (format, date) {
-                        format = format || '';
+                    dateObjectOrFormatted: function (format = '', date = null) {
                         date = module.helper.sanitiseDate(date) || null;
 
                         if (!date) {
@@ -1158,8 +1129,8 @@
                         return module.helper.dateFormat(format, date);
                     },
                     isDisabled: function (date, mode) {
-                        return (mode === 'day' || mode === 'month' || mode === 'year' || mode === 'hour') && (((mode === 'day' && settings.disabledDaysOfWeek.indexOf(date.getDay()) !== -1) || settings.disabledDates.some(function (d) {
-                            var blocked = false;
+                        return (mode === 'day' || mode === 'month' || mode === 'year' || mode === 'hour') && (((mode === 'day' && settings.disabledDaysOfWeek.includes(date.getDay())) || settings.disabledDates.some(function (d) {
+                            let blocked = false;
 
                             if (typeof d === 'string') {
                                 d = module.helper.sanitiseDate(d);
@@ -1171,15 +1142,15 @@
                                     if (typeof d[metadata.year] === 'number') {
                                         blocked = date.getFullYear() === d[metadata.year];
                                     } else if (Array.isArray(d[metadata.year])) {
-                                        blocked = d[metadata.year].indexOf(date.getFullYear()) > -1;
+                                        blocked = d[metadata.year].includes(date.getFullYear());
                                     }
                                 } else if (d[metadata.month]) {
                                     if (typeof d[metadata.month] === 'number') {
                                         blocked = date.getMonth() === d[metadata.month];
                                     } else if (Array.isArray(d[metadata.month])) {
-                                        blocked = d[metadata.month].indexOf(date.getMonth()) > -1;
+                                        blocked = d[metadata.month].includes(date.getMonth());
                                     } else if (d[metadata.month] instanceof Date) {
-                                        var sdate = module.helper.sanitiseDate(d[metadata.month]);
+                                        const sdate = module.helper.sanitiseDate(d[metadata.month]);
 
                                         blocked = (date.getMonth() === sdate.getMonth()) && (date.getFullYear() === sdate.getFullYear());
                                     }
@@ -1196,7 +1167,7 @@
 
                             return blocked;
                         })) || (mode === 'hour' && settings.disabledHours.some(function (d) {
-                            var blocked = false;
+                            let blocked = false;
 
                             if (typeof d === 'string') {
                                 d = module.helper.sanitiseDate(d);
@@ -1220,7 +1191,7 @@
                                     if (typeof d[metadata.days] === 'number') {
                                         blocked = date.getDay() === d[metadata.days];
                                     } else if (Array.isArray(d[metadata.days])) {
-                                        blocked = d[metadata.days].indexOf(date.getDay()) > -1;
+                                        blocked = d[metadata.days].includes(date.getDay());
                                     }
                                 }
 
@@ -1228,7 +1199,7 @@
                                     if (typeof d[metadata.hours] === 'number') {
                                         blocked = blocked && date.getHours() === d[metadata.hours];
                                     } else if (Array.isArray(d[metadata.hours])) {
-                                        blocked = blocked && d[metadata.hours].indexOf(date.getHours()) > -1;
+                                        blocked = blocked && d[metadata.hours].includes(date.getHours());
                                     }
                                 }
                             }
@@ -1239,7 +1210,7 @@
                     isEnabled: function (date, mode) {
                         if (mode === 'day') {
                             return settings.enabledDates.length === 0 || settings.enabledDates.some(function (d) {
-                                var enabled = false;
+                                let enabled = false;
 
                                 if (typeof d === 'string') {
                                     d = module.helper.sanitiseDate(d);
@@ -1258,14 +1229,12 @@
                     },
                     findDayAsObject: function (date, mode, dates) {
                         if (mode === 'day' || mode === 'month' || mode === 'year') {
-                            var d;
-                            for (var i = 0; i < dates.length; i++) {
-                                d = dates[i];
+                            for (let d of dates) {
                                 if (typeof d === 'string') {
                                     d = module.helper.sanitiseDate(d);
                                 }
                                 if (d instanceof Date && module.helper.dateEqual(date, d, mode)) {
-                                    var dateObject = {};
+                                    const dateObject = {};
                                     dateObject[metadata.date] = d;
 
                                     return dateObject;
@@ -1275,21 +1244,19 @@
                                         if (typeof d[metadata.year] === 'number' && date.getFullYear() === d[metadata.year]) {
                                             return d;
                                         }
-                                        if (Array.isArray(d[metadata.year])) {
-                                            if (d[metadata.year].indexOf(date.getFullYear()) > -1) {
-                                                return d;
-                                            }
+                                        if (Array.isArray(d[metadata.year]) && d[metadata.year].includes(date.getFullYear())) {
+                                            return d;
                                         }
                                     } else if (d[metadata.month]) {
                                         if (typeof d[metadata.month] === 'number' && date.getMonth() === d[metadata.month]) {
                                             return d;
                                         }
                                         if (Array.isArray(d[metadata.month])) {
-                                            if (d[metadata.month].indexOf(date.getMonth()) > -1) {
+                                            if (d[metadata.month].includes(date.getMonth())) {
                                                 return d;
                                             }
                                         } else if (d[metadata.month] instanceof Date) {
-                                            var sdate = module.helper.sanitiseDate(d[metadata.month]);
+                                            const sdate = module.helper.sanitiseDate(d[metadata.month]);
                                             if ((date.getMonth() === sdate.getMonth()) && (date.getFullYear() === sdate.getFullYear())) {
                                                 return d;
                                             }
@@ -1298,12 +1265,10 @@
                                         if (d[metadata.date] instanceof Date && module.helper.dateEqual(date, module.helper.sanitiseDate(d[metadata.date]), mode)) {
                                             return d;
                                         }
-                                        if (Array.isArray(d[metadata.date])) {
-                                            if (d[metadata.date].some(function (idate) {
-                                                return module.helper.dateEqual(date, idate, mode);
-                                            })) {
-                                                return d;
-                                            }
+                                        if (Array.isArray(d[metadata.date]) && d[metadata.date].some(function (idate) {
+                                            return module.helper.dateEqual(date, idate, mode);
+                                        })) {
+                                            return d;
                                         }
                                     }
                                 }
@@ -1314,21 +1279,17 @@
                     },
                     findHourAsObject: function (date, mode, hours) {
                         if (mode === 'hour') {
-                            var d;
-                            var hourCheck = function (date, d) {
+                            const hourCheck = function (date, d) {
                                 if (d[metadata.hours]) {
                                     if (typeof d[metadata.hours] === 'number' && date.getHours() === d[metadata.hours]) {
                                         return d;
                                     }
-                                    if (Array.isArray(d[metadata.hours])) {
-                                        if (d[metadata.hours].indexOf(date.getHours()) > -1) {
-                                            return d;
-                                        }
+                                    if (Array.isArray(d[metadata.hours]) && d[metadata.hours].includes(date.getHours())) {
+                                        return d;
                                     }
                                 }
                             };
-                            for (var i = 0; i < hours.length; i++) {
-                                d = hours[i];
+                            for (const d of hours) {
                                 if (typeof d === 'number' && date.getHours() === d) {
                                     return null;
                                 }
@@ -1337,21 +1298,17 @@
                                         if (typeof d[metadata.days] === 'number' && date.getDay() === d[metadata.days]) {
                                             return d;
                                         }
-                                        if (Array.isArray(d[metadata.days])) {
-                                            if (d[metadata.days].indexOf(date.getDay()) > -1) {
-                                                return d;
-                                            }
+                                        if (Array.isArray(d[metadata.days]) && d[metadata.days].includes(date.getDay())) {
+                                            return d;
                                         }
                                     } else if (d[metadata.date] && hourCheck(date, d)) {
                                         if (d[metadata.date] instanceof Date && module.helper.dateEqual(date, module.helper.sanitiseDate(d[metadata.date]))) {
                                             return d;
                                         }
-                                        if (Array.isArray(d[metadata.date])) {
-                                            if (d[metadata.date].some(function (idate) {
-                                                return module.helper.dateEqual(date, idate, mode);
-                                            })) {
-                                                return d;
-                                            }
+                                        if (Array.isArray(d[metadata.date]) && d[metadata.date].some(function (idate) {
+                                            return module.helper.dateEqual(date, idate, mode);
+                                        })) {
+                                            return d;
                                         }
                                     } else if (hourCheck(date, d)) {
                                         return d;
@@ -1366,7 +1323,7 @@
                         if (!(date instanceof Date)) {
                             date = parser.date('' + date, settings);
                         }
-                        if (!date || isNaN(date.getTime())) {
+                        if (!date || Number.isNaN(date.getTime())) {
                             return null;
                         }
 
@@ -1377,11 +1334,11 @@
                             mode = 'day';
                         }
 
-                        var isTimeOnly = settings.type === 'time';
-                        var isYear = mode === 'year';
-                        var isYearOrMonth = isYear || mode === 'month';
-                        var isMinute = mode === 'minute';
-                        var isHourOrMinute = isMinute || mode === 'hour';
+                        const isTimeOnly = settings.type === 'time';
+                        const isYear = mode === 'year';
+                        const isYearOrMonth = isYear || mode === 'month';
+                        const isMinute = mode === 'minute';
+                        const isHourOrMinute = isMinute || mode === 'hour';
                         // only care about a minute accuracy of settings.minTimeGap
                         date1 = new Date(
                             isTimeOnly ? 2000 : date1.getFullYear(),
@@ -1405,7 +1362,7 @@
                     },
                     isDateInRange: function (date, mode, minDate, maxDate) {
                         if (!minDate && !maxDate) {
-                            var startDate = module.get.startDate();
+                            const startDate = module.get.startDate();
                             minDate = startDate && settings.minDate ? new Date(Math.max(startDate, settings.minDate)) : startDate || settings.minDate;
                             maxDate = settings.maxDate;
                         }
@@ -1417,12 +1374,12 @@
                     },
                     dateInRange: function (date, minDate, maxDate) {
                         if (!minDate && !maxDate) {
-                            var startDate = module.get.startDate();
+                            const startDate = module.get.startDate();
                             minDate = startDate && settings.minDate ? new Date(Math.max(startDate, settings.minDate)) : startDate || settings.minDate;
                             maxDate = settings.maxDate;
                         }
                         minDate = minDate && new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate(), minDate.getHours(), settings.minTimeGap * Math.ceil(minDate.getMinutes() / settings.minTimeGap));
-                        var isTimeOnly = settings.type === 'time';
+                        const isTimeOnly = settings.type === 'time';
 
                         return !date
                             ? date
@@ -1465,39 +1422,37 @@
                         return module[name];
                     }
                 },
-                debug: function () {
+                debug: function (...args) {
                     if (!settings.silent && settings.debug) {
                         if (settings.performance) {
-                            module.performance.log(arguments);
+                            module.performance.log(args);
                         } else {
                             module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
-                            module.debug.apply(console, arguments);
+                            module.debug.apply(console, args);
                         }
                     }
                 },
-                verbose: function () {
+                verbose: function (...args) {
                     if (!settings.silent && settings.verbose && settings.debug) {
                         if (settings.performance) {
-                            module.performance.log(arguments);
+                            module.performance.log(args);
                         } else {
                             module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
-                            module.verbose.apply(console, arguments);
+                            module.verbose.apply(console, args);
                         }
                     }
                 },
-                error: function () {
+                error: function (...args) {
                     if (!settings.silent) {
                         module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
-                        module.error.apply(console, arguments);
+                        module.error.apply(console, args);
                     }
                 },
                 performance: {
                     log: function (message) {
-                        var
-                            currentTime,
-                            executionTime,
-                            previousTime
-                        ;
+                        let currentTime;
+                        let executionTime;
+                        let previousTime;
                         if (settings.performance) {
                             currentTime = Date.now();
                             previousTime = time || currentTime;
@@ -1505,7 +1460,7 @@
                             time = currentTime;
                             performance.push({
                                 Name: message[0],
-                                Arguments: [].slice.call(message, 1) || '',
+                                Arguments: message.slice(1),
                                 Element: element,
                                 'Execution Time': executionTime,
                             });
@@ -1516,10 +1471,8 @@
                         }, 500);
                     },
                     display: function () {
-                        var
-                            title = settings.name + ':',
-                            totalTime = 0
-                        ;
+                        let title = settings.name + ':';
+                        let totalTime = 0;
                         time = false;
                         clearTimeout(module.performance.timer);
                         $.each(performance, function (index, data) {
@@ -1528,35 +1481,24 @@
                         title += ' ' + totalTime + 'ms';
                         if (performance.length > 0) {
                             console.groupCollapsed(title);
-                            if (console.table) {
-                                console.table(performance);
-                            } else {
-                                $.each(performance, function (index, data) {
-                                    console.log(data.Name + ': ' + data['Execution Time'] + 'ms');
-                                });
-                            }
+                            console.table(performance);
                             console.groupEnd();
                         }
                         performance = [];
                     },
                 },
-                invoke: function (query, passedArguments, context) {
-                    var
-                        object = instance,
-                        maxDepth,
-                        found,
-                        response
-                    ;
-                    passedArguments = passedArguments || queryArguments;
-                    context = context || element;
+                invoke: function (query, passedArguments = queryArguments, context = element) {
+                    let object = instance;
+                    let maxDepth;
+                    let found;
+                    let response;
                     if (typeof query === 'string' && object !== undefined) {
                         query = query.split(/[ .]/);
                         maxDepth = query.length - 1;
                         $.each(query, function (depth, value) {
-                            var camelCaseValue = depth !== maxDepth
+                            const camelCaseValue = depth !== maxDepth
                                 ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
-                                : query
-                            ;
+                                : query;
                             if ($.isPlainObject(object[camelCaseValue]) && (depth !== maxDepth)) {
                                 object = object[camelCaseValue];
                             } else if (object[camelCaseValue] !== undefined) {
@@ -1597,7 +1539,7 @@
                 if (instance === undefined) {
                     module.initialize();
                 }
-                module.invoke(query);
+                module.invoke(parameters);
             } else {
                 if (instance !== undefined) {
                     instance.invoke('destroy');
@@ -1623,12 +1565,12 @@
 
         context: false,
 
-        type: 'datetime', // picker type, can be 'datetime', 'date', 'time', 'month', or 'year'
+        type: 'datetime', // picker type. can be 'datetime', 'date', 'time', 'month', or 'year'
         firstDayOfWeek: 0, // day for first day column (0 = Sunday)
         constantHeight: true, // add rows to shorter months to keep day calendar height consistent (6 rows)
         today: false, // show a 'today/now' button at the bottom of the calendar
         closable: true, // close the popup after selecting a date/time
-        monthFirst: true, // month before day when parsing date from text
+        monthFirst: false, // month before day when parsing date from a text
         touchReadonly: true, // set input to readonly on touch devices
         inline: false, // create the calendar inline instead of inside a popup
         on: null, // when to show the popup (defaults to 'focus' for input, 'click' for others)
@@ -1645,7 +1587,7 @@
         multiMonth: 1, // show multiple months when in 'day' mode
         monthOffset: 0, // position current month by offset when multimonth > 1
         minTimeGap: 5,
-        showWeekNumbers: false, // show Number of Week at the very first column of a dayView
+        showWeekNumbers: false, // show Number of Weeks at the very first column of a dayView
         disabledHours: [], // specific hour(s) which won't be selectable and contain additional information.
         disabledDates: [], // specific day(s) which won't be selectable and contain additional information.
         disabledDaysOfWeek: [], // day(s) which won't be selectable(s) (0 = Sunday)
@@ -1678,7 +1620,7 @@
 
         formatter: {
             yearHeader: function (date, settings) {
-                var decadeYear = Math.ceil(date.getFullYear() / 10) * 10;
+                const decadeYear = Math.ceil(date.getFullYear() / 10) * 10;
 
                 return (decadeYear - 9) + ' - ' + (decadeYear + 2);
             },
@@ -1719,58 +1661,49 @@
                 }
                 // Reverse date and month in some cases
                 text = settings.monthFirst || !/^\d{1,2}[./-]/.test(text) ? text : text.replace(/[./-]/g, '/').replace(/(\d+)\/(\d+)/, '$2/$1');
-                var textDate = new Date(text);
-                var numberOnly = text.match(/^\d+$/) !== null;
-                var isShortYear = text.match(/^(?:\d{1,2}[./-]){2}\d{1,2}$/) !== null;
-                if (!isShortYear && !numberOnly && !isNaN(textDate.getDate())) {
+                const textDate = new Date(text);
+                const numberOnly = text.match(/^\d+$/) !== null;
+                const isShortYear = text.match(/^(?:\d{1,2}[./-]){2}\d{1,2}$/) !== null;
+                if (!isShortYear && !numberOnly && !Number.isNaN(textDate.getDate())) {
                     return textDate;
                 }
                 text = text.toLowerCase();
 
-                var
-                    i,
-                    j,
-                    k
-                ;
-                var
-                    minute = -1,
-                    hour = -1,
-                    day = -1,
-                    month = -1,
-                    year = -1
-                ;
-                var isAm;
+                let i;
+                let j;
+                let k;
+                let minute = -1;
+                let hour = -1;
+                let day = -1;
+                let month = -1;
+                let year = -1;
+                let isAm;
 
-                var isTimeOnly = settings.type === 'time';
-                var isDateOnly = settings.type.indexOf('time') < 0;
+                const isTimeOnly = settings.type === 'time';
+                const isDateOnly = !settings.type.includes('time');
 
-                var
-                    words = text.split(settings.regExp.dateWords),
-                    word
-                ;
-                var
-                    numbers = text.split(settings.regExp.dateNumbers),
-                    number
-                ;
+                const words = text.split(settings.regExp.dateWords);
+                const numbers = text.split(settings.regExp.dateNumbers);
+                let number;
 
-                var parts;
-                var monthString;
+                let parts;
+                let monthString;
 
                 if (!isDateOnly) {
                     // am/pm
-                    isAm = $.inArray(settings.text.am.toLowerCase(), words) >= 0
+                    isAm = words.includes(settings.text.am.toLowerCase())
                         ? true
-                        : ($.inArray(settings.text.pm.toLowerCase(), words) >= 0 ? false : undefined);
+                        : (words.includes(settings.text.pm.toLowerCase()) ? false : undefined);
 
                     // time with ':'
                     for (i = 0; i < numbers.length; i++) {
                         number = numbers[i];
-                        if (number.indexOf(':') >= 0) {
+                        if (number.includes(':')) {
                             if (hour < 0 || minute < 0) {
                                 parts = number.split(':');
                                 for (k = 0; k < Math.min(2, parts.length); k++) {
-                                    j = parseInt(parts[k], 10);
-                                    if (isNaN(j)) {
+                                    j = Number.parseInt(parts[k], 10);
+                                    if (Number.isNaN(j)) {
                                         j = 0;
                                     }
                                     if (k === 0) {
@@ -1787,32 +1720,27 @@
 
                 if (!isTimeOnly) {
                     // textual month
-                    for (i = 0; i < words.length; i++) {
-                        word = words[i];
-                        if (word.length <= 0) {
-                            continue;
-                        }
-                        for (j = 0; j < settings.text.months.length; j++) {
-                            monthString = settings.text.months[j];
-                            monthString = monthString.slice(0, word.length).toLowerCase();
-                            if (monthString === word) {
-                                month = j + 1;
+                    for (const word of words) {
+                        if (word.length > 0) {
+                            for (j = 0; j < settings.text.months.length; j++) {
+                                monthString = settings.text.months[j];
+                                monthString = monthString.slice(0, word.length).toLowerCase();
+                                if (monthString === word) {
+                                    month = j + 1;
 
+                                    break;
+                                }
+                            }
+                            if (month >= 0) {
                                 break;
                             }
-                        }
-                        if (month >= 0) {
-                            break;
                         }
                     }
 
                     // year > settings.centuryBreak
                     for (i = 0; i < numbers.length; i++) {
-                        j = parseInt(numbers[i], 10);
-                        if (isNaN(j)) {
-                            continue;
-                        }
-                        if (j >= settings.centuryBreak && i === numbers.length - 1) {
+                        j = Number.parseInt(numbers[i], 10);
+                        if (!Number.isNaN(j) && j >= settings.centuryBreak && i === numbers.length - 1) {
                             if (j <= 99) {
                                 j += settings.currentCentury - 100;
                             }
@@ -1829,11 +1757,8 @@
                             k = i > 1 || settings.monthFirst
                                 ? i
                                 : (i === 1 ? 0 : 1);
-                            j = parseInt(numbers[k], 10);
-                            if (isNaN(j)) {
-                                continue;
-                            }
-                            if (j >= 1 && j <= 12) {
+                            j = Number.parseInt(numbers[k], 10);
+                            if (!Number.isNaN(j) && j >= 1 && j <= 12) {
                                 month = j;
                                 numbers.splice(k, 1);
 
@@ -1844,11 +1769,8 @@
 
                     // day
                     for (i = 0; i < numbers.length; i++) {
-                        j = parseInt(numbers[i], 10);
-                        if (isNaN(j)) {
-                            continue;
-                        }
-                        if (j >= 1 && j <= 31) {
+                        j = Number.parseInt(numbers[i], 10);
+                        if (!Number.isNaN(j) && j >= 1 && j <= 31) {
                             day = j;
                             numbers.splice(i, 1);
 
@@ -1859,17 +1781,16 @@
                     // year <= settings.centuryBreak
                     if (year < 0) {
                         for (i = numbers.length - 1; i >= 0; i--) {
-                            j = parseInt(numbers[i], 10);
-                            if (isNaN(j)) {
-                                continue;
-                            }
-                            if (j <= 99) {
-                                j += settings.currentCentury;
-                            }
-                            year = j;
-                            numbers.splice(i, 1);
+                            j = Number.parseInt(numbers[i], 10);
+                            if (!Number.isNaN(j)) {
+                                if (j <= 99) {
+                                    j += settings.currentCentury;
+                                }
+                                year = j;
+                                numbers.splice(i, 1);
 
-                            break;
+                                break;
+                            }
                         }
                     }
                 }
@@ -1878,11 +1799,8 @@
                     // hour
                     if (hour < 0) {
                         for (i = 0; i < numbers.length; i++) {
-                            j = parseInt(numbers[i], 10);
-                            if (isNaN(j)) {
-                                continue;
-                            }
-                            if (j >= 0 && j <= 23) {
+                            j = Number.parseInt(numbers[i], 10);
+                            if (!Number.isNaN(j) && j >= 0 && j <= 23) {
                                 hour = j;
                                 numbers.splice(i, 1);
 
@@ -1894,11 +1812,8 @@
                     // minute
                     if (minute < 0) {
                         for (i = 0; i < numbers.length; i++) {
-                            j = parseInt(numbers[i], 10);
-                            if (isNaN(j)) {
-                                continue;
-                            }
-                            if (j >= 0 && j <= 59) {
+                            j = Number.parseInt(numbers[i], 10);
+                            if (!Number.isNaN(j) && j >= 0 && j <= 59) {
                                 minute = j;
                                 numbers.splice(i, 1);
 
@@ -1938,13 +1853,13 @@
                     }
                 }
 
-                var date = new Date(year, month - 1, day, hour, minute);
+                let date = new Date(year, month - 1, day, hour, minute);
                 if (date.getMonth() !== month - 1 || date.getFullYear() !== year) {
-                    // month or year don't match up, switch to last day of the month
+                    // month or year don't match up, switch to the last day of the month
                     date = new Date(year, month, 0, hour, minute);
                 }
 
-                return isNaN(date.getTime()) ? null : date;
+                return Number.isNaN(date.getTime()) ? null : date;
             },
         },
 

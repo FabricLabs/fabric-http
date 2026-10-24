@@ -46,7 +46,7 @@ describe('fabricDeviceLinkHttp prepare/commit (v2)', function () {
     const key = new Key();
     const ident = new Identity(key);
     const fabric = ident.fabricKey;
-    const origin = 'https://relay.goon.vc';
+    const origin = 'https://relay.example.com';
     const res = mockRes();
     handleDeviceLinkCreate(hub, {
       body: {
@@ -76,11 +76,11 @@ describe('fabricDeviceLinkHttp prepare/commit (v2)', function () {
 
   it('protocolUrl uses rendezvous hub base, not page origin when they differ', function () {
     const hub = mockHub();
-    hub.settings = { publicOrigin: 'https://hub.fabric.pub' };
+    hub.settings = { publicOrigin: 'https://hub.example.com' };
     const key = new Key();
     const ident = new Identity(key);
     const fabric = ident.fabricKey;
-    const pageOrigin = 'https://goon.vc';
+    const pageOrigin = 'https://app.example.com';
     const res = mockRes();
     handleDeviceLinkCreate(hub, {
       body: {
@@ -88,13 +88,13 @@ describe('fabricDeviceLinkHttp prepare/commit (v2)', function () {
         label: 'phone',
         identity: { xpub: fabric.xpub, id: ident.id }
       },
-      headers: { origin: pageOrigin, host: 'hub.fabric.pub' },
+      headers: { origin: pageOrigin, host: 'hub.example.com' },
       socket: { remoteAddress: '127.0.0.1' }
     }, res);
     assert.strictEqual(res.out.statusCode, 200);
     assert.match(
       res.out.body.protocolUrl,
-      /hub=https%3A%2F%2Fhub\.fabric\.pub/
+      /hub=https%3A%2F%2Fhub\.example\.com/
     );
     assert.ok(!res.out.body.protocolUrl.includes(encodeURIComponent(pageOrigin)));
   });
@@ -106,12 +106,12 @@ describe('fabricDeviceLinkHttp prepare/commit (v2)', function () {
     const res = mockRes();
     handleDeviceLinkCreate(hub, {
       body: {
-        origin: 'https://relay.goon.vc',
+        origin: 'https://relay.example.com',
         label: 'phone',
         nonce: 'aa'.repeat(32),
         identity: { xpub: ident.fabricKey.xpub }
       },
-      headers: { origin: 'https://relay.goon.vc' },
+      headers: { origin: 'https://relay.example.com' },
       socket: { remoteAddress: '127.0.0.1' }
     }, res);
     assert.strictEqual(res.out.statusCode, 400);
@@ -124,7 +124,7 @@ describe('fabricDeviceLinkHttp prepare/commit (v2)', function () {
     const initiator = new Identity(initiatorKey);
     const responderKey = new Key();
     const responder = new Identity(responderKey);
-    const origin = 'https://relay.goon.vc';
+    const origin = 'https://relay.example.com';
     const sessionId = 'cc'.repeat(24);
     const nonce = 'dd'.repeat(32);
     const label = 'desk';

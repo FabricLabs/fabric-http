@@ -3,6 +3,10 @@
   <head>
     <meta charset="utf-8">
     <title>Source: types/site.js &middot; Docs</title>
+    <link rel="icon" href="/favicon.ico" sizes="48x48">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <meta name="theme-color" content="#4C1D95">
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
     <!--[if lt IE 9]>
@@ -24,7 +28,9 @@
             <pre class="prettyprint source linenums"><code> 'use strict';
 
 // Fabric Types
+const path = require('path');
 const Actor = require('@fabric/core/types/actor');
+const { composeFile, loadReferenceComponents } = require('../functions/compose');
 
 // Internal Types
 // const Bridge = require('../types/bridge');
@@ -48,7 +54,7 @@ class Site extends Actor {
       handle: 'fabric-site',
       authority: 'http://localhost:9332/services/fabric', // loopback service
       fabric: {
-        alias: '@sites/default'
+        alias: '@sites/fabric'
       },
       state: {
         title: 'Default Site'
@@ -76,6 +82,7 @@ class Site extends Actor {
 
   render (state = this.state) {
     const html = this._getHTML(state);
+    if (/&lt;html[\s>]/i.test(html)) return html;
     return this.spa._renderWith(html);
   }
 
@@ -84,53 +91,17 @@ class Site extends Actor {
   }
 
   _getHTML (state) {
-    // TODO: obvious modularization...
-    // - fabric-site
-    //   - fabric-bridge
-    //   - fabric-console
-    //   - fabric-menu
-    //   - fabric-grid
-    return `
-      &lt;${this.handle} class="ui container" id="site">
-        &lt;fabric-bridge host="localhost" port="9999" secure="false">&lt;/fabric-bridge>
-        &lt;fabric-console id="console" style="display: none;">
-          &lt;fabric-card class="ui fluid card">
-            &lt;fabric-card-content class="content">
-              &lt;p>Console...&lt;/p>
-            &lt;/fabric-card-content>
-          &lt;/fabric-card>
-        &lt;/fabric-console>
-        &lt;fabric-menu id="tray">
-          &lt;i id="tray-settings" class="ui large inverted cog icon">&lt;/i>
-        &lt;/fabric-menu>
-        &lt;fabric-menu>
-          &lt;fabric-card id="settings" class="ui fluid card" style="display: none;">
-            &lt;fabric-card-header class="ui header">Settings&lt;/fabric-card-header>
-            &lt;fabric-card-content class="ui content">
-              &lt;p>Foo&lt;/p>
-            &lt;/fabric-card-content>
-          &lt;/fabric-card>
-        &lt;/fabric-menu>
-        &lt;fabric-grid class="ui centered grid">
-          &lt;fabric-column class="twelve wide column">
-            &lt;fabric-card class="ui fluid card" id="overlay">
-              &lt;fabric-card-content class="content" style="text-align: center;">
-                &lt;h1 class="ui huge header" data-bind="/title">&lt;code>${state.title || this.title || this.state.title || 'Example Application'}&lt;/code>&lt;/h1>
-                &lt;p>file browser&lt;/p>
-              &lt;/fabric-card-content>
-              &lt;fabric-card-content class="extra hidden" style="display: none;">
-                &lt;h2>Debug&lt;/h2>
-              &lt;/fabric-card-content>
-              &lt;fabric-card-content class="bottom attached" style="display: none;">
-                &lt;fabric-button-group class="ui small bottom attached left aligned buttons">
-                  &lt;fabric-button class="ui labeled icon button">&lt;i class="ui linkify icon">&lt;/i> &lt;code>${this.id}&lt;/code>&lt;/fabric-button>
-                &lt;/fabric-button-group>
-              &lt;/fabric-card-content>
-            &lt;/fabric-card>
-          &lt;/fabric-column>
-        &lt;/fabric-grid>
-      &lt;/${this.handle}>
-    `.trim();
+    loadReferenceComponents();
+    const current = Object.assign({}, this.state || {}, state || {});
+    return composeFile(path.join(__dirname, '../views/site.jade'), {
+      title: current.title || this.title || 'Example Application',
+      language: 'en',
+      bundleHash: (current.bundle &amp;&amp; current.bundle.fullhash) || '',
+      messages: current.messages || [],
+      logs: current.logs || []
+    }, {
+      basedir: path.join(__dirname, '../views')
+    });
   }
 
   _renderWith (html) {
@@ -169,7 +140,7 @@ module.exports = Site;
 
 
     </div>
-    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Avatar.html">Avatar</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricDistributedExecutionHTTP.html">FabricDistributedExecutionHTTP</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul><h3>Global</h3><ul><li><a href="global.html#compression">compression</a></li><li><a href="global.html#cors">cors</a></li><li><a href="global.html#jsonRpc">jsonRpc</a></li><li><a href="global.html#merge">merge</a></li><li><a href="global.html#static">static</a></li></ul></nav>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Avatar.html">Avatar</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricDistributedExecutionHTTP.html">FabricDistributedExecutionHTTP</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul><h3>Global</h3><ul><li><a href="global.html#FABRIC_AMP_MAGIC">FABRIC_AMP_MAGIC</a></li><li><a href="global.html#Server">Server</a></li><li><a href="global.html#acceptFirstHtmlNavigation">acceptFirstHtmlNavigation</a></li><li><a href="global.html#compression">compression</a></li><li><a href="global.html#cors">cors</a></li><li><a href="global.html#fabricHttpStaticSetHeaders">fabricHttpStaticSetHeaders</a></li><li><a href="global.html#jsonBodyLargePaths">jsonBodyLargePaths</a></li><li><a href="global.html#jsonBodyLimit">jsonBodyLimit</a></li><li><a href="global.html#jsonBodyLimitDefault">jsonBodyLimitDefault</a></li><li><a href="global.html#jsonRpc">jsonRpc</a></li><li><a href="global.html#merge">merge</a></li><li><a href="global.html#mergeStaticSetHeaders">mergeStaticSetHeaders</a></li><li><a href="global.html#payments">payments</a></li><li><a href="global.html#resolveAppAssetsDir">resolveAppAssetsDir</a></li><li><a href="global.html#resolveFabricHttpPackageAssetsDir">resolveFabricHttpPackageAssetsDir</a></li><li><a href="global.html#resolvedPathUnderStaticRoot">resolvedPathUnderStaticRoot</a></li><li><a href="global.html#sitemap">sitemap</a></li><li><a href="global.html#static">static</a></li><li><a href="global.html#webrtc">webrtc</a></li></ul></nav>
     <br class="clear" />
     <footer>
         <a href="https://github.com/FabricLabs/web">git://</a> &middot; <a href="https://chat.fabric.pub/#/room/#web:fabric.pub">Community</a>

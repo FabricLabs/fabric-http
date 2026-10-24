@@ -2,6 +2,8 @@
 
 const assert = require('assert');
 const {
+  DEFAULT_FABRIC_HUB_ORIGINS,
+  CLEARTEXT_PRODUCTION_HUB_ORIGINS,
   isAllowedFabricHub,
   assertAllowedFabricHub,
   normalizeHubOrigin,
@@ -14,10 +16,12 @@ describe('fabricHubAllowlist', function () {
   const defaults = { env: {} };
 
   it('allows HTTPS network hubs and loopback, and rejects phishing', function () {
-    assert.strictEqual(isAllowedFabricHub('https://hub.fabric.pub', defaults), true);
-    assert.strictEqual(isAllowedFabricHub('https://hub.fabric.pub/sessions', defaults), true);
-    assert.strictEqual(isAllowedFabricHub('https://hub.goon.vc', defaults), true);
-    assert.strictEqual(isAllowedFabricHub('https://relay.goon.vc', defaults), true);
+    assert.ok(DEFAULT_FABRIC_HUB_ORIGINS.length > 0);
+    for (const origin of DEFAULT_FABRIC_HUB_ORIGINS) {
+      assert.ok(origin.startsWith('https://'), origin);
+      assert.strictEqual(isAllowedFabricHub(origin, defaults), true);
+    }
+    assert.strictEqual(isAllowedFabricHub(`${DEFAULT_FABRIC_HUB_ORIGINS[0]}/sessions`, defaults), true);
     assert.strictEqual(isAllowedFabricHub('http://127.0.0.1:3041', defaults), true);
     assert.strictEqual(isAllowedFabricHub('http://localhost:8080', defaults), true);
     assert.strictEqual(isAllowedFabricHub('https://evil.example', defaults), false);
@@ -27,12 +31,14 @@ describe('fabricHubAllowlist', function () {
   });
 
   it('rejects cleartext production hubs unless explicitly allowlisted', function () {
-    assert.strictEqual(isAllowedFabricHub('http://hub.fabric.pub', defaults), false);
-    assert.strictEqual(isAllowedFabricHub('http://relay.goon.vc', defaults), false);
-    assert.strictEqual(isAllowedFabricHub('http://hub.goon.vc', defaults), false);
+    assert.ok(CLEARTEXT_PRODUCTION_HUB_ORIGINS.length > 0);
+    for (const origin of CLEARTEXT_PRODUCTION_HUB_ORIGINS) {
+      assert.strictEqual(isAllowedFabricHub(origin, defaults), false);
+    }
+    const cleartext = CLEARTEXT_PRODUCTION_HUB_ORIGINS[0];
     assert.strictEqual(
-      isAllowedFabricHub('http://hub.fabric.pub', {
-        env: { FABRIC_HUB_ALLOWLIST: 'http://hub.fabric.pub' }
+      isAllowedFabricHub(cleartext, {
+        env: { FABRIC_HUB_ALLOWLIST: cleartext }
       }),
       true
     );
@@ -50,9 +56,10 @@ describe('fabricHubAllowlist', function () {
   });
 
   it('assertAllowedFabricHub normalizes to the origin; normalizeHubOrigin rejects non-http(s)', function () {
-    const ok = assertAllowedFabricHub('https://relay.goon.vc/path');
+    const hub = DEFAULT_FABRIC_HUB_ORIGINS[0];
+    const ok = assertAllowedFabricHub(`${hub}/path`);
     assert.strictEqual(ok.ok, true);
-    assert.strictEqual(ok.hubBase, 'https://relay.goon.vc');
+    assert.strictEqual(ok.hubBase, hub);
     assert.strictEqual(normalizeHubOrigin('ftp://x'), null);
   });
 

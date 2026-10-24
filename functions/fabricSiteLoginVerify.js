@@ -1,9 +1,9 @@
 'use strict';
 
 /**
- * Verify client-signed Fabric site-login completions (D-011).
- * Same challenge format as Hub `fabric:hub-login:1` so Passport and
- * desktop peers stay interchangeable against LiveRelay on relay.goon.vc.
+ * Verify client-signed Fabric site-login completions.
+ * Same challenge format as `fabric:hub-login:1` so wallet extensions and
+ * desktop peers stay interchangeable between hubs and standalone relays.
  */
 
 const crypto = require('crypto');

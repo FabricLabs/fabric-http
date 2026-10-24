@@ -16,7 +16,6 @@
 |---------|------|
 | **`@fabric/core`** | P2P, `Message`, `Key`, Bitcoin/Lightning services, contracts |
 | **`@fabric/http`** (this) | HTTP + WebSocket server/client for web and edge |
-| **hub.fabric.pub** | Full operator app + Bitcoin UX + document/payment flows |
 
 ## Release status
 

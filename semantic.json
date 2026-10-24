@@ -19,5 +19,5 @@
   "autoInstall": false,
   "rtl": "both",
   "components": ["reset", "site", "button", "container", "divider", "emoji", "flag", "header", "icon", "image", "input", "label", "list", "loader", "rail", "reveal", "segment", "step", "text", "breadcrumb", "form", "grid", "menu", "message", "table", "ad", "card", "comment", "feed", "item", "statistic", "accordion", "calendar", "checkbox", "dimmer", "dropdown", "embed", "flyout", "modal", "nag", "placeholder", "popup", "progress", "slider", "rating", "search", "shape", "sidebar", "sticky", "tab", "toast", "transition", "api", "form", "state", "visibility"],
-  "version": "2.9.4"
+  "version": "2.10.0-beta.128"
 }

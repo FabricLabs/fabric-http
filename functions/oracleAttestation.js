@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * OracleAttestation envelope helpers shared by Hub peering and LiveRelay discovery.
+ * OracleAttestation envelope helpers shared by hub peering and relay discovery.
  * Claim builders stay app-specific; this module only signs/verifies the envelope.
  */
 
