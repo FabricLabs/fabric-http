@@ -13,7 +13,8 @@ Living posture notes for `@fabric/http` **0.1.0-RC1**. Re-run **`npm audit`** af
 | undici (fomantic → `@actions/http-client`) | **Mitigated** — override **`6.29.1`** |
 | Markdown (SLIP-0044 script) | **Mitigated** — replaced `showdown` (unfixed ReDoS GHSA-rmmh-p597-ppvv) with **`marked@15.0.12`** |
 | PeerJS / browser mesh | **Removed** — `types/swarm.js` is a no-op stub; Hub native WebRTC |
-| npm audit status | **0** (2026-10-24, `puppeteer@25.15.0`, `webpack@5.112.2`, `babel-loader@9.1.3`, `jsdom@30.1.3`, `eslint@10.13.0`, `jsdoc@4.0.5`) |
+| Browser `crypto` polyfill | **Removed** `crypto-browserify` (and with it `elliptic`, `asn1.js`, `browserify-sign`, `create-ecdh`) — the Compiler maps `crypto` to `functions/browserCrypto.js` (`@noble/hashes` + `@noble/ciphers@2.4.0`), so the `elliptic` override is gone |
+| npm audit status | **0** (2026-10-24, `puppeteer@25.15.0`, `webpack@5.112.2`, `babel-loader@9.1.3`, `jsdom@30.1.3`, `eslint@10.13.0`, `jsdoc@4.0.5`, no `crypto-browserify`) |
 
 ## Overrides for mitigated runtime findings
 

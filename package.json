@@ -117,7 +117,8 @@
     "./functions/fabricChatNormalize": "./functions/fabricChatNormalize.js",
     "./functions/fabricMessageParent": "./functions/fabricMessageParent.js",
     "./functions/fabricPeeringHttp": "./functions/fabricPeeringHttp.js",
-    "./functions/fabricBrand": "./functions/fabricBrand.js"
+    "./functions/fabricBrand": "./functions/fabricBrand.js",
+    "./functions/browserCrypto": "./functions/browserCrypto.js"
   },
   "contributors": [
     "Eric Martindale",
@@ -125,6 +126,8 @@
   ],
   "dependencies": {
     "@fabric/core": "FabricLabs/fabric#feature/channels",
+    "@noble/ciphers": "=2.4.0",
+    "@noble/hashes": "=2.4.0",
     "assert-browserify": "=2.0.0",
     "babel-loader": "=9.1.3",
     "blessed": "0.1.81",
@@ -133,7 +136,6 @@
     "compression": "=1.8.2",
     "content-type": "2.0.0",
     "cross-fetch": "=4.1.0",
-    "crypto-browserify": "=3.12.1",
     "d3": "=7.9.0",
     "d3-graphviz": "=5.6.0",
     "express": "=4.22.3",
@@ -185,7 +187,6 @@
     "typescript": "=5.7.3"
   },
   "overrides": {
-    "elliptic": "npm:@soatok/elliptic-to-noble@9999.0.0",
     "@octokit/request": "=8.4.1",
     "@octokit/request-error": "=5.1.1",
     "@octokit/plugin-paginate-rest": "=9.2.2",
@@ -213,8 +214,6 @@
   },
   "allowScripts": {
     "@fabric/core": true,
-    "@soatok/elliptic-to-noble": true,
-    "@soatok/elliptic-to-noble@9999.0.0": true,
     "classic-level": true,
     "classic-level@3.0.0": true,
     "zeromq": true,
