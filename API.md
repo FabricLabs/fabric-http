@@ -114,6 +114,19 @@ Nothing outside this class needs to know about schema layout or pagination rules
 <td>Fabric item identity</td>
 </tr>
 </tbody></table>
+<h2 id="document-market-hooks">Document market hooks</h2>
+<p>Both are optional; without them the resource behaves as above.</p>
+<ul>
+<li><code>offers(record, req)</code> → provider offers for an item. The item GET then
+answers <code>{ document: record, offers }</code>.</li>
+<li><code>blobOffer(blobHashHex, req)</code> → payment settings for one blob
+(<code>documentOffer</code>, <code>amount</code>, …, merged over <code>settings.payments</code>), or nothing
+when that blob is not for sale. Blobs are content-addressed and may belong
+to many documents, so this mounts the canonical <code>GET /blobs/:hash</code>
+(<code>definition.routes.blob</code> to move it), which answers HTTP 402 with
+<code>X-Fabric-Payment-Request</code> while <code>settings.payments</code> is enabled (503
+otherwise). One resource per server may own that path.</li>
+</ul>
 </dd>
 <dt><a href="#Router">Router</a> : <code>Object</code></dt>
 <dd><p>Simple router.</p>
@@ -656,6 +669,7 @@ server.define('Message', {
 ```
 
 ## HTTP semantics
+
 | Verb    | List path            | Item path            |
 |---------|----------------------|----------------------|
 | GET     | Paginated list       | Single item          |
@@ -668,10 +682,22 @@ server.define('Message', {
 | OPTIONS | Full JSON-Schema     | Schema + Allow       |
 | META    | Collection stats     | Fabric item identity |
 
+## Document market hooks
+Both are optional; without them the resource behaves as above.
+- `offers(record, req)` → provider offers for an item. The item GET then
+  answers `{ document: record, offers }`.
+- `blobOffer(blobHashHex, req)` → payment settings for one blob
+  (`documentOffer`, `amount`, …, merged over `settings.payments`), or nothing
+  when that blob is not for sale. Blobs are content-addressed and may belong
+  to many documents, so this mounts the canonical `GET /blobs/:hash`
+  (`definition.routes.blob` to move it), which answers HTTP 402 with
+  `X-Fabric-Payment-Request` while `settings.payments` is enabled (503
+  otherwise). One resource per server may own that path.
+
 **Kind**: global class  
 
 * [Resource](#Resource)
-    * [new Resource(name, definition)](#new_Resource_new)
+    * [new Resource(name, [definition])](#new_Resource_new)
     * [.schema()](#Resource+schema) ⇒ <code>Object</code>
     * [.allowedMethods()](#Resource+allowedMethods) ⇒ <code>Array.&lt;String&gt;</code>
     * [.validate(body, [requireAll])](#Resource+validate) ⇒ <code>Object</code> \| <code>null</code>
@@ -680,12 +706,12 @@ server.define('Message', {
 
 <a name="new_Resource_new"></a>
 
-### new Resource(name, definition)
+### new Resource(name, [definition])
 
-| Param | Type | Description |
-| --- | --- | --- |
-| name | <code>String</code> | Singular PascalCase, e.g. `"Message"`. |
-| definition | <code>Object</code> | Resource descriptor (see class-level JSDoc). |
+| Param | Type | Default | Description |
+| --- | --- | --- | --- |
+| name | <code>String</code> |  | Singular PascalCase, e.g. `"Message"`. |
+| [definition] | <code>Object</code> | <code>{}</code> | Resource descriptor (see class-level JSDoc). |
 
 <a name="Resource+schema"></a>
 
@@ -767,7 +793,7 @@ Fabric Service for exposing an [Application](Application) to clients over HTTP.
 
 * [FabricHTTPServer](#FabricHTTPServer) ⇐ <code>Service</code>
     * [new FabricHTTPServer([settings])](#new_FabricHTTPServer_new)
-    * [.resources](#FabricHTTPServer+resources) : <code>Map.&lt;string, FabricResource&gt;</code>
+    * [.resources](#FabricHTTPServer+resources) : <code>Map.&lt;string, Resource&gt;</code>
     * [._optionsEnricher](#FabricHTTPServer+_optionsEnricher) : <code>null</code> \| <code>function</code>
     * [.webrtcPeerSecrets](#FabricHTTPServer+webrtcPeerSecrets) : <code>Map.&lt;string, string&gt;</code>
     * [.webrtcPeerList](#FabricHTTPServer+webrtcPeerList) ⇒ <code>Array</code>
@@ -803,7 +829,7 @@ Create an instance of the HTTP server.
 
 <a name="FabricHTTPServer+resources"></a>
 
-### fabricHTTPServer.resources : <code>Map.&lt;string, FabricResource&gt;</code>
+### fabricHTTPServer.resources : <code>Map.&lt;string, Resource&gt;</code>
 **Kind**: instance property of [<code>FabricHTTPServer</code>](#FabricHTTPServer)  
 <a name="FabricHTTPServer+_optionsEnricher"></a>
 
@@ -826,7 +852,7 @@ Get a list of WebRTC peers registered with this server (see Hub `RegisterWebRTCP
 <a name="FabricHTTPServer+define"></a>
 
 ### fabricHTTPServer.define(name, [definition]) ⇒ [<code>Promise.&lt;FabricHTTPServer&gt;</code>](#FabricHTTPServer)
-Define a Resource on this server.  A single call produces a [FabricResource](FabricResource) instance
+Define a Resource on this server.  A single call produces a [Resource](#Resource) instance
 that owns its store, schema, and all HTTP verb handlers.
 
 **Kind**: instance method of [<code>FabricHTTPServer</code>](#FabricHTTPServer)  
@@ -834,7 +860,7 @@ that owns its store, schema, and all HTTP verb handlers.
 | Param | Type | Description |
 | --- | --- | --- |
 | name | <code>String</code> | Singular PascalCase name, e.g. `"Message"`. |
-| [definition] | <code>Object</code> | See [FabricResource](FabricResource) for full descriptor shape. |
+| [definition] | <code>Object</code> | See [Resource](#Resource) for full descriptor shape. |
 
 <a name="FabricHTTPServer+_isJsonRpcTransportAuthorized"></a>
 

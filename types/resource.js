@@ -2,9 +2,13 @@
 
 const crypto = require('crypto');
 const pluralize = require('pluralize');
+const { match } = require('path-to-regexp');
 const Fabric = require('@fabric/core');
 const Collection = require('@fabric/core/types/collection');
 const Entity = require('@fabric/core/types/entity');
+
+const { isPaymentsEnabled } = require('../middlewares/payments');
+const { sendPaymentRequired402Response } = require('../functions/sendPaymentRequired402Response');
 
 /**
  * A Fabric HTTP Resource.
@@ -30,6 +34,7 @@ const Entity = require('@fabric/core/types/entity');
  * ```
  *
  * ## HTTP semantics
+ *
  * | Verb    | List path            | Item path            |
  * |---------|----------------------|----------------------|
  * | GET     | Paginated list       | Single item          |
@@ -41,11 +46,23 @@ const Entity = require('@fabric/core/types/entity');
  * | SEARCH  | Body-driven filter   | —                    |
  * | OPTIONS | Full JSON-Schema     | Schema + Allow       |
  * | META    | Collection stats     | Fabric item identity |
+ *
+ * ## Document market hooks
+ * Both are optional; without them the resource behaves as above.
+ * - `offers(record, req)` → provider offers for an item. The item GET then
+ *   answers `{ document: record, offers }`.
+ * - `blobOffer(blobHashHex, req)` → payment settings for one blob
+ *   (`documentOffer`, `amount`, …, merged over `settings.payments`), or nothing
+ *   when that blob is not for sale. Blobs are content-addressed and may belong
+ *   to many documents, so this mounts the canonical `GET /blobs/:hash`
+ *   (`definition.routes.blob` to move it), which answers HTTP 402 with
+ *   `X-Fabric-Payment-Request` while `settings.payments` is enabled (503
+ *   otherwise). One resource per server may own that path.
  */
 class Resource extends Fabric.Resource {
   /**
    * @param {String} name       Singular PascalCase, e.g. `"Message"`.
-   * @param {Object} definition Resource descriptor (see class-level JSDoc).
+   * @param {Object} [definition={}] Resource descriptor (see class-level JSDoc).
    */
   constructor (name, definition = {}) {
     super(definition);
@@ -56,10 +73,15 @@ class Resource extends Fabric.Resource {
     this.description = definition.description || '';
 
     // Route templates.
+    const { blob: blobRoute, ...routes } = definition.routes || {};
     this.routes = Object.assign({
       list: `/${this.plural}`,
       view: `/${this.plural}/:id`
-    }, definition.routes || {});
+    }, routes);
+
+    // Blob purchase path, only when the definition prices blobs.
+    this.blobRoute = (typeof definition.blobOffer === 'function') ? (blobRoute || '/blobs/:hash') : null;
+    this._matchBlob = this.blobRoute ? match(this.blobRoute) : null;
 
     // Schema.
     this.properties = definition.properties || {};
@@ -261,12 +283,22 @@ class Resource extends Fabric.Resource {
   // Each handler receives (req, res, server) where server is the FabricHTTPServer.
 
   async GET (req, res, server) {
+    const blob = this._matchBlob ? this._matchBlob(req.path) : false;
+    if (blob) return this._getBlob(req, res, server, blob.params.hash);
+
     const isView = this._isView(req.path);
 
     if (isView) {
       const result = await server._GET(req.path);
       if (!result) return res.status(404).json({ status: 'error', message: `${this.name} not found` });
-      return res.json(result);
+      if (typeof this.definition.offers !== 'function') return res.json(result);
+      let offers = [];
+      try {
+        offers = await this.definition.offers(result, req);
+      } catch (error) {
+        console.warn('[HTTP:RESOURCE]', `[${this.name}] offers hook failed:`, error && error.message);
+      }
+      return res.json({ document: result, offers: Array.isArray(offers) ? offers : [] });
     }
 
     // List.
@@ -418,6 +450,44 @@ class Resource extends Fabric.Resource {
   }
 
   // ─── Internal ──────────────────────────────────────────────────────────────
+
+  /**
+   * `GET /blobs/:hash`: HTTP 402 payment request for one blob, priced by
+   * `definition.blobOffer`.
+   * @param {String} rawHash `:hash` path segment (sha256 hex)
+   * @private
+   */
+  async _getBlob (req, res, server, rawHash) {
+    if (!/^[0-9a-fA-F]{64}$/.test(String(rawHash || ''))) {
+      return res.status(400).json({ status: 'error', message: 'Blob hash must be 64 hex characters' });
+    }
+    const blobHashHex = String(rawHash).toLowerCase();
+
+    if (!isPaymentsEnabled(server.settings && server.settings.payments)) {
+      return res.status(503).json({
+        type: 'https://fabric.pub/problems/payments-disabled',
+        title: 'Payments disabled',
+        status: 503,
+        detail: 'This server does not take payments.'
+      });
+    }
+
+    let offer;
+    try {
+      offer = await this.definition.blobOffer(blobHashHex, req);
+    } catch (error) {
+      console.error('[HTTP:RESOURCE]', `[${this.name}] blobOffer hook failed:`, error);
+      return res.status(500).json({ status: 'error', message: 'Could not price this blob' });
+    }
+    if (!offer || typeof offer !== 'object') {
+      return res.status(404).json({ status: 'error', message: 'Blob not offered' });
+    }
+
+    const documentOffer = Object.assign({}, offer.documentOffer || {}, { blobHashHex });
+    return sendPaymentRequired402Response(server, req, res, {
+      paymentSettings: Object.assign({}, offer, { documentOffer })
+    });
+  }
 
   _isView (path) {
     // A view path has a segment after the plural base.

@@ -1,26 +1,26 @@
 # Fabric HTTP Security Audit
 Living posture notes for `@fabric/http` **0.1.0-RC1**. Re-run **`npm audit`** after dependency changes; keep this file aligned with the current lockfile.
 
-## Status (2026-08-14)
+## Status (2026-10-24)
 
 | Area | Posture |
 |------|---------|
-| `@fabric/core` | Git pin `FabricLabs/fabric#feature/rsi` (lockfile SHA `ff7c05c52c38c39e552c6f4a4bc62442425bdd0e`; Node **26.12.1**) |
+| `@fabric/core` | Git pin `FabricLabs/fabric#feature/channels` (lockfile SHA `1ba3b3cd0376858824c94ae17929eb2e77111a91`; Node **26.12.1**) |
 | npm `allow-git` | **`.npmrc` `allow-git=all`** — nested git-dep preparation resolves core to a commit SHA; `root` is refused (intentional — do not flip to `root`) |
 | WebSocket (`ws`) | **Mitigated** — direct **`8.22.0`** (GHSA-58qx-3vcg-4xpx / fragment DoS); no override. jayson keeps its own `ws@7.5.13` (`^7.5.10`, patched) |
 | Test tooling | **`mocha@12.0.3`** / **`c8@12.0.0`** (same as core / Hub) — mocha 12 resolves `serialize-javascript@^7.1.1` and `diff@^9`, so those overrides are gone |
-| Express / body-parser / qs | **Mitigated** — `express@4.22.2`, `body-parser@1.20.6`, override `qs@6.15.3` |
-| undici (fomantic → `@actions/http-client`) | **Mitigated** — override **`6.28.0`** |
+| Express / body-parser / qs | **Mitigated** — `express@4.22.3`, `body-parser@1.20.9`, override `qs@6.16.1` |
+| undici (fomantic → `@actions/http-client`) | **Mitigated** — override **`6.29.1`** |
 | Markdown (SLIP-0044 script) | **Mitigated** — replaced `showdown` (unfixed ReDoS GHSA-rmmh-p597-ppvv) with **`marked@15.0.12`** |
 | PeerJS / browser mesh | **Removed** — `types/swarm.js` is a no-op stub; Hub native WebRTC |
-| npm audit status | **0** (2026-10-24, `puppeteer@25.15.0`) |
+| npm audit status | **0** (2026-10-24, `puppeteer@25.15.0`, `webpack@5.112.2`, `jsdom@30.1.3`) |
 
 ## Overrides for mitigated runtime findings
 
 | Override | Why |
 |----------|-----|
-| `body-parser@1.20.6`, `qs@6.15.3` | Express request parsing |
-| `undici@6.28.0` under `@actions/http-client` | Fomantic → GitHub Actions client |
+| `body-parser@1.20.9`, `qs@6.16.1` | Express request parsing |
+| `undici@6.29.1` under `@actions/http-client` | Fomantic → GitHub Actions client |
 | `@octokit/request@8.4.1`, `request-error@5.1.1`, `plugin-paginate-rest@9.2.2` | Fomantic gulp/admin ReDoS advisories without downgrading fomantic |
 
 Do **not** run `npm audit fix --force` casually — it has proposed downgrading `fomantic-ui`. Prefer explicit pins/overrides and a clean `npm audit`.
@@ -64,17 +64,17 @@ ws  6.x / 8.18.x
 
 ## Recommendations
 
-1. After dependency edits: **`npm ci`** then **`npm audit`** and **`npm test`** against the checked-in lockfile. Use **`npm run report:install`** only when intentionally refreshing git pins (`#feature/rsi`); it wipes `node_modules` **and** `package-lock.json`, then `npm i --allow-git=all`. Diff the new lockfile before committing — do not treat the wiped lockfile as a release artifact until that review.
+1. After dependency edits: **`npm ci`** then **`npm audit`** and **`npm test`** against the checked-in lockfile. Use **`npm run report:install`** only when intentionally refreshing git pins (`#feature/channels`); it wipes `node_modules` **and** `package-lock.json`, then `npm i --allow-git=all`. Diff the new lockfile before committing — do not treat the wiped lockfile as a release artifact until that review.
 2. Keep **`engines.node`** at **26.12.1** with Hub / `@fabric/core`.
 3. Do not reintroduce **peerjs** or **showdown**.
 4. Treat Fomantic gulp as **build-only**; never expose its admin GitHub tooling on production HTTP paths.
-5. Coordinate `@fabric/core` bumps with Hub (`npm run link:fabric` / git pin) so Message/Peer/opcode behavior stays aligned. Install from `FabricLabs/fabric#feature/rsi` when refreshing, then **re-pin** `package.json` to the lockfile’s resolved SHA — do not leave a moving branch tip in releases.
+5. Coordinate `@fabric/core` bumps with Hub (`npm run link:fabric` / git pin) so Message/Peer/opcode behavior stays aligned. Install from `FabricLabs/fabric#feature/channels` when refreshing, then **re-pin** `package.json` to the lockfile’s resolved SHA — do not leave a moving branch tip in releases.
 6. Before RC: finish GenericMessage AMP-verify / named-type migration with Hub (unauthenticated GenericMessage is already dropped locally; SLIP-0044 fetch is commit-pinned + validated; see [SECURITY.md](SECURITY.md)).
 7. Follow-up (Hub / apps): core now ships Fabric BIP44 coin types **7777** (Bitcoin mainnet) / **7778** (otherwise). Align Hub account-derivation helpers that still hardcode `7778` for mainnet paths.
 8. Follow-up (larger): `messageBodyJsonBridge` RFC6902 sidechain JSON → typed fields still does not preserve a full multi-op patch sequence end-to-end; keep rejecting unsupported ops and prefer Hub typed carriers until that lands.
 9. Follow-up (auth polish): site-login GET looks up `_delegationRegistry` by opaque Bearer token with `timingSafeEqual` session binding + TTL/size prune. Path-as-token (`GET /sessions/:delegationToken`) also requires matching Bearer. Remaining Hub-side: ensure any dual-keyed legacy registries migrate.
 10. **PR #69 auth boundary** — Hub self-sign is **opt-in** (`allowHubSelfSign === true`) and **loopback-only**; LiveRelay omits unrecognized Bearer when `issueBearer` is absent; device-link origins are canonicalized for replay keys (`offerReplayKey` + create path); peer host parsing is IPv6-safe and rejects ports outside **1..65535**. Site-login / LiveRelay share `clientMayPollDesktopSession` for pending polls. Off-loopback signed-session redeem and device-link DELETE require `pollSecret` via `X-Fabric-Poll-Secret` only (`?pollSecret=` is ignored). Expired-session GET `/sessions/:delegationToken` requires a matching `Authorization: Bearer` (path is not a credential). `sessionId` is now **bound into the attested message** (`fabric:device-link:2` prefix, server-generated nonce, prepare/commit split; v1 still parses so clients can roll forward). Remaining: bump the remaining consumers (Passport / SCL) onto the v2 builders, and device-link GET `linked` stays Origin-gated for the QR responder. Own-host DNS uses `dns.promises.lookup` (cached).
-11. **Follow-up (ops):** keep `package.json` on `FabricLabs/fabric#feature/rsi` during RSI development, but **re-pin releases** to the lockfile SHA (`ff7c05c5` as of 2026-08-25). `npm run report:install` removes `package-lock.json` then `npm i --allow-git=all` — bump the tip with `npm install FabricLabs/fabric#feature/rsi --allow-git=all` (or pin a SHA) when core moves.
+11. **Follow-up (ops):** keep `package.json` on `FabricLabs/fabric#feature/channels` during development, but **re-pin releases** to the lockfile SHA (`1ba3b3cd` as of 2026-10-24). `npm run report:install` removes `package-lock.json` then `npm i --allow-git=all` — bump the tip with `npm install FabricLabs/fabric#feature/channels --allow-git=all` (or pin a SHA) when core moves.
 
 ### PR #69 review triage (`feature/rsi`)
 

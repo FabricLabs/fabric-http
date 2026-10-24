@@ -23,6 +23,7 @@ class FabricDocument extends Component {
   /**
    * @param {Object} [settings]
    * @param {string} [settings.href='/documents'] Resource list path.
+   * @param {string} [settings.blobsHref='/blobs'] Canonical blob path (`<blobsHref>/<blobHashHex>`).
    * @param {Object} [settings.document] Hash-only record (`Document#record()`).
    * @param {Object[]} [settings.offers] Rows from `DocumentOfferBook#listOffers`.
    * @param {Object} [settings.opened] `{ manifest, blobs: { [index]: true } }` — client-side only.
@@ -31,6 +32,7 @@ class FabricDocument extends Component {
     super(settings);
     this.settings = Object.assign({
       href: '/documents',
+      blobsHref: '/blobs',
       handle: 'fabric-document',
       path: '/documents/:id',
       document: null,
@@ -126,8 +128,8 @@ class FabricDocument extends Component {
   }
 
   /**
-   * Buy one blob: `GET` the blob path and expect the existing 402 payment
-   * request (`X-Fabric-Payment-Request` with `documentOffer.blobHashHex`).
+   * Buy one blob: `GET /blobs/<blobHashHex>` and expect the existing 402
+   * payment request (`X-Fabric-Payment-Request` with `documentOffer.blobHashHex`).
    * Settlement itself is the caller's (wallet) job; this surfaces the offer.
    * @param {number|string} index blob index (button `data-blob-index`)
    * @returns {Promise<Object|null>} parsed payment request object or null
@@ -135,10 +137,9 @@ class FabricDocument extends Component {
   async _buyBlob (index) {
     const doc = this._view.document;
     const leaf = doc && doc.blobs.find((b) => b.index === Number(index));
-    const docId = FabricDocument.resourceId(doc);
-    if (!leaf || !docId || typeof fetch !== 'function') return null;
-    const base = String(this.settings.href || '/documents').replace(/\/$/, '');
-    const res = await fetch(`${base}/${encodeURIComponent(docId)}/blobs/${leaf.index}`, {
+    if (!leaf || !leaf.blobHashHex || typeof fetch !== 'function') return null;
+    const base = String(this.settings.blobsHref || '/blobs').replace(/\/$/, '');
+    const res = await fetch(`${base}/${leaf.blobHashHex}`, {
       headers: { Accept: 'application/octet-stream' }
     });
     if (!res || res.status !== 402) return null;
@@ -215,6 +216,8 @@ class FabricDocument extends Component {
 /**
  * Reference `Document` resource for `Server.define('Document', FabricDocument.resource)`:
  * `/documents` lists hash-only records, `/documents/:id` renders this handle.
+ * Spread it with `offers` / `blobOffer` hooks (see `types/resource.js`) to list
+ * providers and answer `/blobs/:hash` with HTTP 402.
  */
 FabricDocument.resource = Object.freeze({
   routes: Object.freeze({ list: '/documents', view: '/documents/:id' }),

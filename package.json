@@ -144,7 +144,7 @@
     "isomorphic-ws": "=4.0.1",
     "jquery": "=3.7.1",
     "js-beautify": "=2.0.3",
-    "jsdom": "=29.0.1",
+    "jsdom": "=30.1.3",
     "json-pointer": "=0.6.2",
     "lodash.merge": "=4.6.2",
     "node-util": "=0.0.1",
@@ -160,7 +160,7 @@
     "stoppable": "=1.1.0",
     "stream-browserify": "=3.0.0",
     "url": "=0.11.4",
-    "webpack": "=5.109.2",
+    "webpack": "=5.112.2",
     "ws": "=8.22.0"
   },
   "devDependencies": {

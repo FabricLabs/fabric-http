@@ -92,6 +92,35 @@ await server.define('Document', FabricDocument.resource);
 // components: { list: 'fabric-resource-list', view: 'fabric-document' }
 ```
 
+The server knows nothing about markets on its own, so the app that holds the
+`DocumentOfferBook` supplies two optional hooks:
+
+```js
+await server.define('Document', {
+  ...FabricDocument.resource,
+  // GET /documents/:id answers { document, offers }
+  offers: async (record, req) => book.listOffers({ documentId: record.documentId }),
+  // GET /blobs/:hash answers 402 + X-Fabric-Payment-Request;
+  // return nothing when the blob is not for sale (404)
+  blobOffer: async (blobHashHex, req) => {
+    const [best] = book.providersForBlob(blobHashHex);
+    if (!best) return null;
+    return {
+      amount: best.purchasePriceSats / 1e8,
+      documentOffer: { documentId: best.documentId, blobIndex: best.blobIndex, purchasePriceSats: best.purchasePriceSats }
+    };
+  }
+});
+```
+
+Blobs are content-addressed and can belong to many documents, so they live at
+the canonical `/blobs/<blobHashHex>` rather than under a document. `blobOffer`
+returns payment settings merged over `settings.payments`;
+`documentOffer.blobHashHex` is always the requested hash. The blob route needs
+`settings.payments.enabled` and an invoice backend (`server.bitcoin`), answers
+503 otherwise, and accepts only `GET`. One resource per server may price blobs
+(`routes.blob` moves the path).
+
 `fabric-application`, `fabric-grid`, and `fabric-column` are structural. They are not component classes.
 
 The terminal file maps `box#history` to history, `form` / `textbox` / `button#submit` to the composer, `box#peers` to the peer list, `box#logs` to the log list, and `box#controls` to the menu.

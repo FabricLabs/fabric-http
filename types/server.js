@@ -335,7 +335,7 @@ class FabricHTTPServer extends Service {
     this.methods = {};
     this.stores = {};
     /** Resource instances keyed by name. */
-    /** @type {Map<string, FabricResource>} */
+    /** @type {Map<string, Resource>} */
     this.resources = new Map();
     this.subscriptions = new Map(); // Track subscriptions by path
     /**
@@ -597,11 +597,11 @@ class FabricHTTPServer extends Service {
    * @returns {Promise<FabricHTTPServer>}
    */
   /**
-   * Define a Resource on this server.  A single call produces a {@link FabricResource} instance
+   * Define a Resource on this server.  A single call produces a {@link Resource} instance
    * that owns its store, schema, and all HTTP verb handlers.
    *
    * @param {String} name          Singular PascalCase name, e.g. `"Message"`.
-   * @param {Object} [definition]  See {@link FabricResource} for full descriptor shape.
+   * @param {Object} [definition]  See {@link Resource} for full descriptor shape.
    * @returns {Promise<FabricHTTPServer>}
    */
   async define (name, definition = {}) {
@@ -610,6 +610,8 @@ class FabricHTTPServer extends Service {
     const server = this;
 
     const resource = new FabricResource(name, definition);
+    const blobOwner = resource.blobRoute && this.routes.find((r) => r.isBlob && r.path === resource.blobRoute && r.resource !== name);
+    if (blobOwner) throw new Error(`[HTTP:SERVER] ${name} cannot mount ${resource.blobRoute}: ${blobOwner.resource} already prices blobs there`);
     this.resources.set(name, resource);
 
     // Back-compat: keep definitions/stores/collections in sync for existing code paths.
@@ -651,6 +653,9 @@ class FabricHTTPServer extends Service {
     // Register list and view paths in the route-match table.
     this.routes.push({ path: resource.routes.view, route: pathToRegexp(resource.routes.view), resource: name, isView: true });
     this.routes.push({ path: resource.routes.list, route: pathToRegexp(resource.routes.list), resource: name, isView: false });
+    if (resource.blobRoute) {
+      this.routes.push({ path: resource.blobRoute, route: pathToRegexp(resource.blobRoute), resource: name, isView: true, isBlob: true });
+    }
 
     // Mirror to SPA router; seed local store.
     await this.app.define(name, definition);
@@ -1985,6 +1990,12 @@ class FabricHTTPServer extends Service {
     const needsAuth = (fabricResource && fabricResource.requiresAuth(method)) || (globalWriteAuth && mutating);
     if (needsAuth && req.authenticated !== true) {
       return res.status(401).json({ status: 'error', message: 'Unauthorized: bearer token required' });
+    }
+
+    // Blob paths only quote a price; never let the generic writers store there.
+    if (route && route.isBlob && method !== 'GET') {
+      res.set('Allow', 'GET');
+      return res.status(405).json({ status: 'error', message: 'Method not allowed' });
     }
 
     // ── Resource delegation ────────────────────────────────────────────────

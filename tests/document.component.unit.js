@@ -196,7 +196,7 @@ describe('fabric-document component', function () {
       assert.strictEqual(component._view.document.documentId, 'b');
     });
 
-    it('buys by Tree root when the record has no id and emits the parsed payment request', async function () {
+    it('buys at the canonical blob path, even when the record has no id, and emits the parsed payment request', async function () {
       const { encodeFabricPaymentRequestHeaderValue } = require('../functions/fabricDocumentPayment402');
       const record = Object.assign(Document.seal(Buffer.alloc(100, 3), { documentId: 'x' }).record(), { documentId: null });
       const component = new FabricDocument({ document: record });
@@ -206,13 +206,143 @@ describe('fabric-document component', function () {
       const seen = [];
       component.on('paymentRequest', (e) => seen.push(e));
       const request = await component._buyBlob('0');
-      assert.strictEqual(calls[0].url, `/documents/${record.merkleRootHex}/blobs/0`);
+      assert.strictEqual(calls[0].url, `/blobs/${record.blobs[0].blobHashHex}`);
       assert.deepStrictEqual(request, offer);
       assert.deepStrictEqual(seen[0], { blobIndex: 0, request: offer });
 
       respond(async () => ({ status: 402, headers: { get: () => encodeFabricPaymentRequestHeaderValue('not json') } }));
       assert.strictEqual(await component._buyBlob(0), null);
       assert.strictEqual(seen.length, 1);
+    });
+  });
+
+  describe('server market hooks', function () {
+    const os = require('os');
+    const net = require('net');
+    const HTTPServer = require('../types/server');
+    const { decodeFabricPaymentRequestHeaderValue } = require('../functions/fabricDocumentPayment402');
+
+    let server;
+    let base;
+    let record;
+
+    before(async function () {
+      this.timeout(20000);
+      record = Document.seal(Buffer.alloc(5000, 9), { chunkBytes: 2048, documentId: 'market' }).record();
+      const port = await new Promise((resolve, reject) => {
+        const s = net.createServer();
+        s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)); });
+        s.on('error', reject);
+      });
+      server = new HTTPServer({
+        port,
+        host: '127.0.0.1',
+        interface: '127.0.0.1',
+        hostname: '127.0.0.1',
+        listen: true,
+        accessLog: require('path').join(os.tmpdir(), `fabric-http-market-${port}.log`),
+        payments: { enabled: true, amount: 0.01, currency: 'BTC', exposePaymentTestRoute: false },
+        resources: {
+          Document: Object.assign({}, FabricDocument.resource, {
+            offers: async (doc) => [{ sellerId: 'p', sellerPubkey: 'ab'.repeat(33), blobHashHex: doc.blobs[0].blobHashHex, rateSats: 4 }],
+            blobOffer: async (hash) => {
+              const leaf = record.blobs.find((b) => b.blobHashHex === hash);
+              if (!leaf || leaf.index === 2) return null;
+              // The path's hash must win over whatever the hook claims.
+              return { amount: 0.0002, documentOffer: { documentId: 'market', blobIndex: leaf.index, blobHashHex: 'ff'.repeat(32) } };
+            }
+          })
+        }
+      });
+      await server.start();
+      server.bitcoin = { createInvoice: async ({ amount }) => ({ id: 'inv-1', amount, currency: 'BTC' }) };
+      await server._PUT('/documents/market', record);
+      base = `http://127.0.0.1:${port}`;
+    });
+
+    after(async function () {
+      if (server) await server.stop();
+    });
+
+    it('answers the item GET with the record and its offers', async function () {
+      const res = await fetch(`${base}/documents/market`, { headers: { Accept: 'application/json' } });
+      assert.strictEqual(res.status, 200);
+      const body = await res.json();
+      assert.strictEqual(body.document.documentId, 'market');
+      assert.strictEqual(body.offers.length, 1);
+      assert.strictEqual(body.offers[0].rateSats, 4);
+    });
+
+    it('lets the component buy a blob through the canonical 402 route', async function () {
+      const component = new FabricDocument({ href: `${base}/documents`, blobsHref: `${base}/blobs` });
+      await component._loadDocument('market');
+      assert.strictEqual(component._view.offers.length, 1);
+      const seen = [];
+      component.on('paymentRequest', (e) => seen.push(e));
+      const request = await component._buyBlob(1);
+      assert.ok(request, 'payment request parsed');
+      assert.strictEqual(request.path, `/blobs/${record.blobs[1].blobHashHex}`);
+      assert.strictEqual(request.invoice.amount, 0.0002);
+      assert.strictEqual(request.documentOffer.documentId, 'market');
+      assert.strictEqual(request.documentOffer.blobIndex, 1);
+      assert.strictEqual(request.documentOffer.blobHashHex, record.blobs[1].blobHashHex);
+      assert.strictEqual(seen[0].blobIndex, 1);
+    });
+
+    it('refuses bad, unknown, and unpriced blobs without asking for payment', async function () {
+      const bad = await fetch(`${base}/blobs/xyz`);
+      assert.strictEqual(bad.status, 400);
+      const unknown = await fetch(`${base}/blobs/${'00'.repeat(32)}`);
+      assert.strictEqual(unknown.status, 404);
+      const unpriced = await fetch(`${base}/blobs/${record.blobs[2].blobHashHex}`);
+      assert.strictEqual(unpriced.status, 404);
+      assert.strictEqual(unpriced.headers.get('X-Fabric-Payment-Request'), null);
+    });
+
+    it('does not serve blobs under a document', async function () {
+      const res = await fetch(`${base}/documents/market/blobs/0`);
+      assert.notStrictEqual(res.status, 402);
+      assert.strictEqual(res.headers.get('X-Fabric-Payment-Request'), null);
+    });
+
+    it('only accepts GET on the blob path', async function () {
+      const hash = record.blobs[0].blobHashHex;
+      const res = await fetch(`${base}/blobs/${hash}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planted: true })
+      });
+      assert.strictEqual(res.status, 405);
+      assert.strictEqual(res.headers.get('Allow'), 'GET');
+      assert.ok(!await server._GET(`/blobs/${hash}`));
+    });
+
+    it('reports 503 while payments are disabled', async function () {
+      server.settings.payments.enabled = false;
+      try {
+        const res = await fetch(`${base}/blobs/${record.blobs[0].blobHashHex}`);
+        assert.strictEqual(res.status, 503);
+        assert.strictEqual(res.headers.get('X-Fabric-Payment-Request'), null);
+      } finally {
+        server.settings.payments.enabled = true;
+      }
+    });
+
+    it('quotes the requested hash, case-insensitively', async function () {
+      const hash = record.blobs[0].blobHashHex;
+      const res = await fetch(`${base}/blobs/${hash.toUpperCase()}`);
+      assert.strictEqual(res.status, 402);
+      const decoded = JSON.parse(decodeFabricPaymentRequestHeaderValue(res.headers.get('X-Fabric-Payment-Request')));
+      assert.strictEqual(decoded.documentOffer.blobHashHex, hash);
+      assert.strictEqual(decoded.documentOffer.blobIndex, 0);
+      assert.strictEqual(decoded.invoice.id, 'inv-1');
+    });
+
+    it('lets only one resource price blobs', async function () {
+      await assert.rejects(
+        server.define('Archive', { blobOffer: async () => null }),
+        /cannot mount \/blobs\/:hash: Document already prices blobs/
+      );
     });
   });
 });
