@@ -4,6 +4,8 @@ const crypto = require('crypto');
 const {
   DESKTOP_LOGIN_PREFIX,
   buildLoginMessage,
+  completeSessionWithFabricResponse,
+  fabricUriFromBody,
   verifyFabricDesktopLoginSignedPayload,
   originsMatchForDesktopSession,
   isLocalRequest,
@@ -172,6 +174,17 @@ function handleDesktopSign (hub, req, res) {
       return;
     }
 
+    const fabricUri = fabricUriFromBody(req && req.body);
+    if (fabricUri) {
+      const done = completeSessionWithFabricResponse(session, fabricUri);
+      if (!done.ok) {
+        sendJson(res, done.status, { ok: false, error: done.error });
+        return;
+      }
+      sendJson(res, 200, { ...done.json, sessionId });
+      return;
+    }
+
     const body = (req && req.body && typeof req.body === 'object') ? req.body : {};
 
     if (hasClientSignatureBody(body)) {
@@ -219,7 +232,7 @@ function handleDesktopSign (hub, req, res) {
     if (hub.allowHubSelfSign !== true) {
       sendJson(res, 400, {
         ok: false,
-        error: 'client signature required: { signature, pubkeyHex, identity: { id, xpub } }'
+        error: 'client signature required: { signature, pubkeyHex, identity: { id, xpub } } or { fabric: "fabric:…" }'
       });
       return;
     }
@@ -386,6 +399,10 @@ function handleSessionGet (hub, req, res) {
         pubkeyHex: session.pubkeyHex,
         message: session.message
       };
+      if (session.fabric) {
+        payload.fabric = session.fabric;
+        payload.signerLabel = session.signerLabel;
+      }
       hub._desktopAuthSessions.delete(sessionId);
       sendJson(res, 200, payload);
       return;

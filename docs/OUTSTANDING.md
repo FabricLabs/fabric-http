@@ -50,7 +50,7 @@ downstream lockfiles when this lands** so those shims delete themselves.
 ## Next slices
 - [ ] Hub heap OOM is **not** the http Internal-log cut (production host scan **2026-08-16T22:06Z**: **306** PM2 restarts, ~3.6 min mean, ~2.9 GiB). Live http pin is still `1b162e35`; local/PR HEAD is `fbf9e63`. Remaining retainers are Hub `Filesystem.publish` + unbounded `STATE` (core + Hub deploy). Do not raise `--max-old-space-size`.
 - [ ] Prefer named AMP / `JSONCall` on public WebSocket paths; `websocket.requireClientToken` on shared hosts.
-- [x] Originate AMP `parent` on Hub Bridge durable frames (`@fabric/http/functions/fabricMessageParent` re-export; Hub Wave 4 consumes — tracked closed on Hub OUTSTANDING).
+- [x] Originate AMP `parent` on Hub Bridge durable frames (`Message.setMessageParent` from `@fabric/core/types/message`; Hub Wave 4 consumes — tracked closed on Hub OUTSTANDING).
 - [ ] Optional: bump `puppeteer` to **25.7.0** to drop the `extract-zip@2.0.1` advisory (Sandbox / browser tests).
 - [x] **C7 possession-proof write path** — signed login redeem + device-link DELETE require `pollSecret`; device-link v2 prepare+commit in tree. **Do not** close Blockers #2/#3 (Origin-GET) until the QR responder carries a secret.
 - [ ] After `@fabric/core` [#187](https://github.com/FabricLabs/fabric/pull/187) lands (contractPublishAuthority + SIDECHAIN fail-closed + Beacon federation accumulate), refresh this package lockfile tip and Hub pins together.

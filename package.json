@@ -107,6 +107,7 @@
     "./functions/fabricDesktopLoginVerify": "./functions/fabricDesktopLoginVerify.js",
     "./functions/fabricSiteLogin": "./functions/fabricSiteLogin.js",
     "./functions/fabricSiteLoginHttp": "./functions/fabricSiteLoginHttp.js",
+    "./functions/fabricLocalSigner": "./functions/fabricLocalSigner.js",
     "./functions/fabricDeviceLinkMessages": "./functions/fabricDeviceLinkMessages.js",
     "./functions/fabricDeviceLinkClient": "./functions/fabricDeviceLinkClient.js",
     "./functions/fabricDeviceLinkHttp": "./functions/fabricDeviceLinkHttp.js",
@@ -116,7 +117,6 @@
     "./functions/fabricPeerHost": "./functions/fabricPeerHost.js",
     "./functions/fabricPubkey": "./functions/fabricPubkey.js",
     "./functions/fabricChatNormalize": "./functions/fabricChatNormalize.js",
-    "./functions/fabricMessageParent": "./functions/fabricMessageParent.js",
     "./functions/fabricPeeringHttp": "./functions/fabricPeeringHttp.js",
     "./functions/fabricBrand": "./functions/fabricBrand.js",
     "./functions/browserCrypto": "./functions/browserCrypto.js"
@@ -126,7 +126,7 @@
     "Victor Wu"
   ],
   "dependencies": {
-    "@fabric/core": "FabricLabs/fabric#feature/markets",
+    "@fabric/core": "FabricLabs/fabric#features/security",
     "@noble/ciphers": "=2.4.0",
     "@noble/hashes": "=2.4.0",
     "assert-browserify": "=2.0.0",

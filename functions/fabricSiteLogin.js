@@ -10,6 +10,8 @@
 const crypto = require('crypto');
 const {
   buildLoginMessage,
+  completeSessionWithFabricResponse,
+  fabricUriFromBody,
   verifyFabricDesktopLoginSignedPayload,
   isLoopbackHostname,
   isLocalRequest,
@@ -173,6 +175,10 @@ function getSession (req, sessionId, store) {
       pubkeyHex: session.pubkeyHex,
       message: session.message
     };
+    if (session.fabric) {
+      payload.fabric = session.fabric;
+      payload.signerLabel = session.signerLabel;
+    }
     store.delete(id);
     return { status: 200, json: payload };
   }
@@ -203,12 +209,29 @@ function completeSession (req, sessionId, body, store, opts = {}) {
     return { status: 404, json: { ok: false, error: 'unknown or expired session' } };
   }
 
+  const fabricUri = fabricUriFromBody(body);
+  if (fabricUri) {
+    const done = completeSessionWithFabricResponse(session, fabricUri);
+    if (!done.ok) return { status: done.status, json: { ok: false, error: done.error } };
+    const json = { ...done.json, sessionId: id };
+    if (typeof opts.issueBearer === 'function') {
+      let token = null;
+      try {
+        token = opts.issueBearer(session.pubkeyHex);
+      } catch (_) {}
+      if (!token) return { status: 500, json: { ok: false, error: 'failed to issue bearer token' } };
+      session.delegationToken = token;
+      json.delegationToken = token;
+    }
+    return { status: 200, json };
+  }
+
   if (!hasClientSignatureBody(body)) {
     return {
       status: 400,
       json: {
         ok: false,
-        error: 'client signature required: { signature, pubkeyHex, identity: { id, xpub } }'
+        error: 'client signature required: { signature, pubkeyHex, identity: { id, xpub } } or { fabric: "fabric:…" }'
       }
     };
   }
