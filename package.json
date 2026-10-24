@@ -169,7 +169,7 @@
     "ajv": "=8.20.0",
     "better-console": "npm:@fomantic/better-console@^1.0.2",
     "c8": "=12.0.0",
-    "eslint": "=9.30.1",
+    "eslint": "=10.13.0",
     "fomantic-ui": "=2.9.4",
     "gulp": "=5.0.0",
     "gulp-concat-css": "npm:@fomantic/gulp-concat-css@^3.3.0",
@@ -178,10 +178,10 @@
     "gulp-git": "npm:@fomantic/gulp-git@^2.11.1",
     "gulp-header": "npm:@fomantic/gulp-header@^2.1.1",
     "gulp-plumber": "npm:@fomantic/gulp-plumber@^1.2.2",
-    "jsdoc": "=4.0.4",
+    "jsdoc": "=4.0.5",
     "marked": "=15.0.12",
     "mocha": "=12.0.3",
-    "neostandard": "=0.12.1",
+    "neostandard": "=0.14.1",
     "typescript": "=5.7.3"
   },
   "overrides": {

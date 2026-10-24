@@ -123,9 +123,13 @@ answers <code>{ document: record, offers }</code>.</li>
 (<code>documentOffer</code>, <code>amount</code>, …, merged over <code>settings.payments</code>), or nothing
 when that blob is not for sale. Blobs are content-addressed and may belong
 to many documents, so this mounts the canonical <code>GET /blobs/:hash</code>
-(<code>definition.routes.blob</code> to move it), which answers HTTP 402 with
-<code>X-Fabric-Payment-Request</code> while <code>settings.payments</code> is enabled (503
-otherwise). One resource per server may own that path.</li>
+(<code>definition.routes.blob</code> to move it; it must keep a <code>:hash</code> parameter).
+That route answers HTTP 402 with <code>X-Fabric-Payment-Request</code>, or 404 when
+<code>blobOffer</code> returns nothing, 500 when the hook throws or returns an
+<code>amount</code> that is not a positive number, 503 when <code>settings.payments</code> is
+off or <code>server.bitcoin.createInvoice</code> is missing, and 502 when invoice
+creation fails or returns no usable invoice. A server mounts it only when
+no other route overlaps it.</li>
 </ul>
 </dd>
 <dt><a href="#Router">Router</a> : <code>Object</code></dt>
@@ -690,9 +694,13 @@ Both are optional; without them the resource behaves as above.
   (`documentOffer`, `amount`, …, merged over `settings.payments`), or nothing
   when that blob is not for sale. Blobs are content-addressed and may belong
   to many documents, so this mounts the canonical `GET /blobs/:hash`
-  (`definition.routes.blob` to move it), which answers HTTP 402 with
-  `X-Fabric-Payment-Request` while `settings.payments` is enabled (503
-  otherwise). One resource per server may own that path.
+  (`definition.routes.blob` to move it; it must keep a `:hash` parameter).
+  That route answers HTTP 402 with `X-Fabric-Payment-Request`, or 404 when
+  `blobOffer` returns nothing, 500 when the hook throws or returns an
+  `amount` that is not a positive number, 503 when `settings.payments` is
+  off or `server.bitcoin.createInvoice` is missing, and 502 when invoice
+  creation fails or returns no usable invoice. A server mounts it only when
+  no other route overlaps it.
 
 **Kind**: global class  
 

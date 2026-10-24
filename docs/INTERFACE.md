@@ -116,10 +116,13 @@ await server.define('Document', {
 Blobs are content-addressed and can belong to many documents, so they live at
 the canonical `/blobs/<blobHashHex>` rather than under a document. `blobOffer`
 returns payment settings merged over `settings.payments`;
-`documentOffer.blobHashHex` is always the requested hash. The blob route needs
-`settings.payments.enabled` and an invoice backend (`server.bitcoin`), answers
-503 otherwise, and accepts only `GET`. One resource per server may price blobs
-(`routes.blob` moves the path).
+`documentOffer.blobHashHex` is always the requested hash. An explicit `amount`
+must be a positive number (500 otherwise); leave it out to use the configured
+price. The blob route needs `settings.payments.enabled` and an invoice backend
+(`server.bitcoin`), answers 503 otherwise and 502 when invoice creation fails,
+and accepts only `GET`. `routes.blob` moves the path but must keep `:hash`.
+`define` refuses a blob route that overlaps any other resource's route (another
+blob route included), in either order, so only one resource answers there.
 
 `fabric-application`, `fabric-grid`, and `fabric-column` are structural. They are not component classes.
 

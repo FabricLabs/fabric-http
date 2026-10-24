@@ -2,7 +2,7 @@
 
 const crypto = require('crypto');
 const pluralize = require('pluralize');
-const { match } = require('path-to-regexp');
+const { match, parse } = require('path-to-regexp');
 const Fabric = require('@fabric/core');
 const Collection = require('@fabric/core/types/collection');
 const Entity = require('@fabric/core/types/entity');
@@ -55,9 +55,13 @@ const { sendPaymentRequired402Response } = require('../functions/sendPaymentRequ
  *   (`documentOffer`, `amount`, …, merged over `settings.payments`), or nothing
  *   when that blob is not for sale. Blobs are content-addressed and may belong
  *   to many documents, so this mounts the canonical `GET /blobs/:hash`
- *   (`definition.routes.blob` to move it), which answers HTTP 402 with
- *   `X-Fabric-Payment-Request` while `settings.payments` is enabled (503
- *   otherwise). One resource per server may own that path.
+ *   (`definition.routes.blob` to move it; it must keep a `:hash` parameter).
+ *   That route answers HTTP 402 with `X-Fabric-Payment-Request`, or 404 when
+ *   `blobOffer` returns nothing, 500 when the hook throws or returns an
+ *   `amount` that is not a positive number, 503 when `settings.payments` is
+ *   off or `server.bitcoin.createInvoice` is missing, and 502 when invoice
+ *   creation fails or returns no usable invoice. A server mounts it only when
+ *   no other route overlaps it.
  */
 class Resource extends Fabric.Resource {
   /**
@@ -81,6 +85,9 @@ class Resource extends Fabric.Resource {
 
     // Blob purchase path, only when the definition prices blobs.
     this.blobRoute = (typeof definition.blobOffer === 'function') ? (blobRoute || '/blobs/:hash') : null;
+    if (this.blobRoute && !parse(this.blobRoute).some((token) => typeof token === 'object' && token.name === 'hash')) {
+      throw new Error(`[HTTP:RESOURCE] ${name} blob route ${this.blobRoute} must include a :hash parameter`);
+    }
     this._matchBlob = this.blobRoute ? match(this.blobRoute) : null;
 
     // Schema.
@@ -481,6 +488,10 @@ class Resource extends Fabric.Resource {
     }
     if (!offer || typeof offer !== 'object') {
       return res.status(404).json({ status: 'error', message: 'Blob not offered' });
+    }
+    if (offer.amount != null && !(Number.isFinite(Number(offer.amount)) && Number(offer.amount) > 0)) {
+      console.error('[HTTP:RESOURCE]', `[${this.name}] blobOffer returned an invalid amount for ${blobHashHex}:`, offer.amount);
+      return res.status(500).json({ status: 'error', message: 'Could not price this blob' });
     }
 
     const documentOffer = Object.assign({}, offer.documentOffer || {}, { blobHashHex });
