@@ -15,11 +15,13 @@ const {
 describe('@fabric/http fabricPeerHost', function () {
   it('exposes default network hub seeds', function () {
     assert.ok(DEFAULT_NETWORK_HUB_SEEDS.includes('hub.fabric.pub:7777'));
+    assert.ok(DEFAULT_NETWORK_HUB_SEEDS.includes('hub.goon.vc:7777'));
     assert.ok(DEFAULT_NETWORK_HUB_SEEDS.includes('relay.goon.vc:7777'));
   });
 
   it('classifies hub / loopback / fabric addresses', function () {
     assert.strictEqual(isNetworkHubAddress('hub.fabric.pub:7777'), true);
+    assert.strictEqual(isNetworkHubAddress('hub.goon.vc:7777'), true);
     assert.strictEqual(isNetworkHubAddress('65.21.231.166:7777'), true);
     assert.strictEqual(isNetworkHubAddress('65.21.231.149:7778'), true);
     assert.strictEqual(isLoopbackFabricAddress('127.0.0.1:7777'), true);

@@ -124,4 +124,30 @@ describe('@fabric/http messageBodyJsonBridge', function () {
     assert.strictEqual(view.format, 'fields');
     assert.deepStrictEqual(view.rfc6902.patches, patches);
   });
+
+  it('fabricMessageParent re-export matches core and supports parent vectors', function () {
+    const Key = require('@fabric/core/types/key');
+    const httpParent = require('../functions/fabricMessageParent');
+    const coreParent = require('@fabric/core/functions/fabricMessageParent');
+    assert.strictEqual(httpParent.ZERO_PARENT, coreParent.ZERO_PARENT);
+    assert.strictEqual(httpParent.frameIdOf, coreParent.frameIdOf);
+
+    const key = new Key();
+    const genesis = Message.fromVector(['P2P_CHAT_MESSAGE', 'hub-genesis']).signWithKey(key);
+    const child = Message.fromVector(['P2P_CHAT_MESSAGE', 'hub-child', genesis]).signWithKey(key);
+    const vec = child.toVector();
+    assert.strictEqual(vec.length, 3);
+    assert.strictEqual(Message.fromVector(vec).parent, genesis.id);
+  });
+
+  it('first-class AMP inventory frames keep the wire name when JSON type is 98', function () {
+    const wire = Message.fromVector(['P2P_INVENTORY_RESPONSE', JSON.stringify({
+      type: 98,
+      host: '203.0.113.99',
+      port: 7777
+    })]);
+    assert.strictEqual(wire.type, 'P2P_INVENTORY_RESPONSE');
+    assert.notStrictEqual(wire.type, 'P2P_PEERING_OFFER');
+    assert.strictEqual(JSON.parse(String(wire.body)).type, 98);
+  });
 });

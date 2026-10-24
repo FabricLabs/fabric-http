@@ -36,7 +36,7 @@ const stoppable = require('stoppable');
 // const graphql = require('graphql-http/lib/use/http').createHandler;
 
 // Pathing
-const pathToRegexp = require('path-to-regexp').pathToRegexp;
+const { pathToRegexp, parse: parsePath, compile: compilePath } = require('path-to-regexp');
 
 // Fabric Core constants (AMP wire)
 const { MAGIC_BYTES, HEADER_SIZE } = require('@fabric/core/constants');
@@ -112,6 +112,35 @@ function safeFileComponent (input, fallback) {
   if (!candidate) return fallback;
   if (!/^[a-zA-Z0-9._-]{1,128}$/.test(candidate)) return fallback;
   return candidate;
+}
+
+/**
+ * A concrete path for `template`, with every parameter set to a sample
+ * sha256 hex (blob routes only answer 64-hex hashes).
+ * @private
+ */
+function sampleRoutePath (template) {
+  const sample = '0123456789abcdef'.repeat(4);
+  const params = {};
+  for (const token of parsePath(template)) {
+    if (typeof token !== 'object') continue;
+    params[token.name] = (token.modifier === '+' || token.modifier === '*') ? [sample] : sample;
+  }
+  try {
+    return compilePath(template, { validate: false })(params);
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * True when some request path could match both route templates.
+ * @private
+ */
+function routeTemplatesOverlap (a, b) {
+  const probeB = sampleRoutePath(b);
+  const probeA = sampleRoutePath(a);
+  return Boolean((probeB && pathToRegexp(a).test(probeB)) || (probeA && pathToRegexp(b).test(probeA)));
 }
 
 function xmlEscape (value) {
@@ -335,7 +364,7 @@ class FabricHTTPServer extends Service {
     this.methods = {};
     this.stores = {};
     /** Resource instances keyed by name. */
-    /** @type {Map<string, FabricResource>} */
+    /** @type {Map<string, Resource>} */
     this.resources = new Map();
     this.subscriptions = new Map(); // Track subscriptions by path
     /**
@@ -597,11 +626,11 @@ class FabricHTTPServer extends Service {
    * @returns {Promise<FabricHTTPServer>}
    */
   /**
-   * Define a Resource on this server.  A single call produces a {@link FabricResource} instance
+   * Define a Resource on this server.  A single call produces a {@link Resource} instance
    * that owns its store, schema, and all HTTP verb handlers.
    *
    * @param {String} name          Singular PascalCase name, e.g. `"Message"`.
-   * @param {Object} [definition]  See {@link FabricResource} for full descriptor shape.
+   * @param {Object} [definition]  See {@link Resource} for full descriptor shape.
    * @returns {Promise<FabricHTTPServer>}
    */
   async define (name, definition = {}) {
@@ -610,6 +639,17 @@ class FabricHTTPServer extends Service {
     const server = this;
 
     const resource = new FabricResource(name, definition);
+    // Routes match first-come, so a blob route must not share paths with any other resource's route.
+    const blobOwner = resource.blobRoute && this.routes.find((r) => r.isBlob && r.resource !== name && routeTemplatesOverlap(r.path, resource.blobRoute));
+    if (blobOwner) throw new Error(`[HTTP:SERVER] ${name} cannot mount ${resource.blobRoute}: ${blobOwner.resource} already prices blobs at ${blobOwner.path}`);
+    const ownPaths = [resource.routes.view, resource.routes.list];
+    const conflict = this.routes.map((r) => {
+      if (r.resource === name) return null;
+      if (resource.blobRoute && routeTemplatesOverlap(r.path, resource.blobRoute)) return { path: resource.blobRoute, other: r };
+      const own = r.isBlob && ownPaths.find((p) => routeTemplatesOverlap(r.path, p));
+      return own ? { path: own, other: r } : null;
+    }).find(Boolean);
+    if (conflict) throw new Error(`[HTTP:SERVER] ${name} cannot mount ${conflict.path}: it overlaps ${conflict.other.resource}'s ${conflict.other.path}`);
     this.resources.set(name, resource);
 
     // Back-compat: keep definitions/stores/collections in sync for existing code paths.
@@ -651,6 +691,9 @@ class FabricHTTPServer extends Service {
     // Register list and view paths in the route-match table.
     this.routes.push({ path: resource.routes.view, route: pathToRegexp(resource.routes.view), resource: name, isView: true });
     this.routes.push({ path: resource.routes.list, route: pathToRegexp(resource.routes.list), resource: name, isView: false });
+    if (resource.blobRoute) {
+      this.routes.push({ path: resource.blobRoute, route: pathToRegexp(resource.blobRoute), resource: name, isView: true, isBlob: true });
+    }
 
     // Mirror to SPA router; seed local store.
     await this.app.define(name, definition);
@@ -1693,7 +1736,7 @@ class FabricHTTPServer extends Service {
   /**
    * Resolve per-request JSON body-parser limit. Large bodies (Hub CreateDocument
    * base64) are restricted to JSON-RPC paths and `settings.jsonBodyLargePaths`.
-   * @param {import('express').Request} req
+   * @param {Object} req Express request.
    * @returns {string}
    * @private
    */
@@ -1985,6 +2028,12 @@ class FabricHTTPServer extends Service {
     const needsAuth = (fabricResource && fabricResource.requiresAuth(method)) || (globalWriteAuth && mutating);
     if (needsAuth && req.authenticated !== true) {
       return res.status(401).json({ status: 'error', message: 'Unauthorized: bearer token required' });
+    }
+
+    // Blob paths only quote a price; never let the generic writers store there.
+    if (route && route.isBlob && method !== 'GET') {
+      res.set('Allow', 'GET');
+      return res.status(405).json({ status: 'error', message: 'Method not allowed' });
     }
 
     // ── Resource delegation ────────────────────────────────────────────────

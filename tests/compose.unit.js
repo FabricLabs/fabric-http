@@ -13,6 +13,16 @@ const { compose, composeFile, fillContentSlot, loadReferenceComponents } = requi
 const VIEWS = path.join(__dirname, '../views');
 
 describe('compose', function () {
+  // Template compiles and the first JSDOM document can pass mocha's 2 s default
+  // on CI runners under coverage.
+  this.timeout(10000);
+
+  before(function () {
+    // The first load requires every reference component (and @fabric/core); slow under coverage.
+    this.timeout(30000);
+    loadReferenceComponents();
+  });
+
   it('escapes interpolated text', function () {
     const html = compose('h1 #{title}', { title: '<b>Hi</b>' }, {
       basedir: VIEWS,

@@ -67,6 +67,62 @@ These are rejected: unbuffered code (`-`), unescaped `!{ }` and `!=`, filters, `
 | `fabric-button` | `components/button.js` |
 | `fabric-resource-list` | `components/resource-list.js` |
 | `fabric-resource-view` | `components/resource-view.js` |
+| `fabric-document` | `components/document.js` |
+
+`fabric-document` is the presentation of a `@fabric/core` `Document` (sealed
+blob tree). Core `Document#compile([env, 'fabric-document'])` returns a page
+fragment (`extends env` / `block content` / `fabric-document(state=…,
+data-merkle-root=…, data-document-id=…)`) that `compose` renders into the
+layout's content slot. Server-side output is hash-only: Tree root, blob leaves
+(`blobHashHex`, `paymentHashHex`), publisher key, sizes, and ranked provider
+offers from the local `DocumentOfferBook`. Buying a blob goes through the
+existing 402 flow (`functions/fabricDocumentPayment402.js`,
+`documentOffer.blobHashHex`): the component handles its own buy / load buttons
+(`data-blob-index`, `data-document-id`, falling back to the `/documents/<id>`
+route), addresses records by `documentId` or Tree root, and emits
+`paymentRequest` with the parsed request object for the wallet to settle.
+Names, URLs, and content appear only client-side after a blob key is held
+(`_setOpened({ manifest, blobs })`); a manifest URL becomes a link only when it
+is `http:` / `https:`. The reference resource is `FabricDocument.resource`:
+
+```js
+const FabricDocument = require('@fabric/http/components/document');
+await server.define('Document', FabricDocument.resource);
+// routes: { list: '/documents', view: '/documents/:id' }
+// components: { list: 'fabric-resource-list', view: 'fabric-document' }
+```
+
+The server knows nothing about markets on its own, so the app that holds the
+`DocumentOfferBook` supplies two optional hooks:
+
+```js
+await server.define('Document', {
+  ...FabricDocument.resource,
+  // GET /documents/:id answers { document, offers }
+  offers: async (record, req) => book.listOffers({ documentId: record.documentId }),
+  // GET /blobs/:hash answers 402 + X-Fabric-Payment-Request;
+  // return nothing when the blob is not for sale (404)
+  blobOffer: async (blobHashHex, req) => {
+    const [best] = book.providersForBlob(blobHashHex);
+    if (!best) return null;
+    return {
+      amount: best.purchasePriceSats / 1e8,
+      documentOffer: { documentId: best.documentId, blobIndex: best.blobIndex, purchasePriceSats: best.purchasePriceSats }
+    };
+  }
+});
+```
+
+Blobs are content-addressed and can belong to many documents, so they live at
+the canonical `/blobs/<blobHashHex>` rather than under a document. `blobOffer`
+returns payment settings merged over `settings.payments`;
+`documentOffer.blobHashHex` is always the requested hash. An explicit `amount`
+must be a positive number (500 otherwise); leave it out to use the configured
+price. The blob route needs `settings.payments.enabled` and an invoice backend
+(`server.bitcoin`), answers 503 otherwise and 502 when invoice creation fails,
+and accepts only `GET`. `routes.blob` moves the path but must keep `:hash`.
+`define` refuses a blob route that overlaps any other resource's route (another
+blob route included), in either order, so only one resource answers there.
 
 `fabric-application`, `fabric-grid`, and `fabric-column` are structural. They are not component classes.
 

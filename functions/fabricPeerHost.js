@@ -10,8 +10,12 @@ const { isIP } = require('net');
 
 const DEFAULT_NETWORK_HUB_SEEDS = Object.freeze([
   'hub.fabric.pub:7777',
+  'hub.goon.vc:7777',
   'relay.goon.vc:7777'
 ]);
+
+/** DNS names of the network hubs (selective Fabric relays). */
+const NETWORK_HUB_HOSTS = Object.freeze(['hub.fabric.pub', 'hub.goon.vc', 'relay.goon.vc']);
 
 /** Default TCP peer cap (matches @fabric/core MAX_PEERS soft default for slot fill). */
 const DEFAULT_MAX_PEERS = 32;
@@ -188,6 +192,12 @@ function interfaceAddressEntries (opts = {}) {
   return out;
 }
 
+/**
+ * Record a DNS own-host result, evicting the oldest entries past the cap.
+ * @param {string} cacheKey
+ * @param {boolean} hit
+ * @private
+ */
 function _setDnsOwnHostCache (cacheKey, hit) {
   _dnsOwnHostCache.set(cacheKey, hit);
   while (_dnsOwnHostCache.size > DNS_OWN_HOST_CACHE_MAX) {
@@ -195,6 +205,14 @@ function _setDnsOwnHostCache (cacheKey, hit) {
   }
 }
 
+/**
+ * Resolve `key` in the background (once per `cacheKey`) and cache whether any
+ * address is one of `ownHosts`; lookup errors cache `false`.
+ * @param {string} key hostname
+ * @param {Set<string>} ownHosts lower-cased own addresses
+ * @param {string} cacheKey
+ * @private
+ */
 function _scheduleDnsOwnHostLookup (key, ownHosts, cacheKey) {
   if (_dnsOwnHostInflight.has(cacheKey) || _dnsOwnHostCache.has(cacheKey)) return;
   _dnsOwnHostInflight.add(cacheKey);
@@ -308,7 +326,7 @@ const NETWORK_HUB_HOST_ALIASES = Object.freeze({
  */
 function canonicalNetworkHubHost (host) {
   const h = String(host || '').trim().toLowerCase();
-  if (h === 'hub.fabric.pub' || h === 'relay.goon.vc') return h;
+  if (NETWORK_HUB_HOSTS.includes(h)) return h;
   return NETWORK_HUB_HOST_ALIASES[h] || null;
 }
 
@@ -428,6 +446,7 @@ module.exports = {
   MAX_FABRIC_PEER_PORT,
   parseFabricPeerPort,
   splitFabricHostPort,
+  NETWORK_HUB_HOSTS,
   NETWORK_HUB_HOST_ALIASES,
   canonicalNetworkHubHost,
   isNetworkHubAddress,

@@ -8,6 +8,11 @@ const Key = require('@fabric/core/types/key');
 const Message = require('@fabric/core/types/message');
 const HTTPServer = require('../types/server');
 const authMiddleware = require('../middlewares/auth');
+const {
+  isHttpSharedModeEnabled,
+  resolveHttpListenHost,
+  applySharedModeWebsocketGate
+} = require('../functions/httpSharedMode');
 const { httpRequest } = require('./helpers/httpRequest');
 
 const WS_TEST_TOKEN = 'fabric-http-test-ws-token';
@@ -283,5 +288,75 @@ describe('@fabric/http security hardening', function () {
     } finally {
       await server.stop().catch(() => {});
     }
+  });
+});
+
+describe('@fabric/http httpSharedMode', function () {
+  it('treats common truthy persisted shapes as shared', function () {
+    assert.strictEqual(isHttpSharedModeEnabled(true), true);
+    assert.strictEqual(isHttpSharedModeEnabled(1), true);
+    assert.strictEqual(isHttpSharedModeEnabled('true'), true);
+    assert.strictEqual(isHttpSharedModeEnabled('1'), true);
+    assert.strictEqual(isHttpSharedModeEnabled(' YES '), true);
+  });
+
+  it('treats falsey and unknown as not shared', function () {
+    assert.strictEqual(isHttpSharedModeEnabled(false), false);
+    assert.strictEqual(isHttpSharedModeEnabled(0), false);
+    assert.strictEqual(isHttpSharedModeEnabled('false'), false);
+    assert.strictEqual(isHttpSharedModeEnabled(undefined), false);
+    assert.strictEqual(isHttpSharedModeEnabled(null), false);
+  });
+
+  it('resolveHttpListenHost defaults and overrides', function () {
+    assert.strictEqual(resolveHttpListenHost({ mode: 'relay', env: {} }), '127.0.0.1');
+    assert.strictEqual(resolveHttpListenHost({ mode: 'relay', httpSharedMode: true, env: {} }), '0.0.0.0');
+    assert.strictEqual(resolveHttpListenHost({ mode: 'server', env: {} }), '0.0.0.0');
+    assert.strictEqual(resolveHttpListenHost({
+      mode: 'relay',
+      httpSharedMode: false,
+      env: { FABRIC_HUB_INTERFACE: '192.168.1.10' }
+    }), '192.168.1.10');
+    assert.strictEqual(resolveHttpListenHost({
+      mode: 'relay',
+      env: { FABRIC_HUB_INTERFACE: '65.21.231.149', FABRIC_HTTP_INTERFACE: '192.168.1.10' }
+    }), '65.21.231.149');
+    assert.strictEqual(resolveHttpListenHost({
+      mode: 'server',
+      host: '127.0.0.1',
+      env: {}
+    }), '127.0.0.1');
+    assert.strictEqual(resolveHttpListenHost({
+      mode: 'relay',
+      host: '127.0.0.1',
+      env: { FABRIC_HUB_INTERFACE: '0.0.0.0' }
+    }), '127.0.0.1');
+  });
+
+  it('applySharedModeWebsocketGate requires token when shared + env token', function () {
+    const gated = applySharedModeWebsocketGate({}, {
+      bindAll: true,
+      env: { FABRIC_WS_CLIENT_TOKEN: 'ws-token-fixture' }
+    });
+    assert.strictEqual(gated.websocket.requireClientToken, true);
+    assert.strictEqual(gated.websocket.clientToken, 'ws-token-fixture');
+
+    const untouched = applySharedModeWebsocketGate({ websocket: { requireClientToken: false } }, {
+      bindAll: true,
+      env: { FABRIC_WS_CLIENT_TOKEN: 'ws-token-fixture' }
+    });
+    assert.strictEqual(untouched.websocket.requireClientToken, false);
+
+    const loopback = applySharedModeWebsocketGate({}, {
+      bindAll: false,
+      env: { FABRIC_WS_CLIENT_TOKEN: 'ws-token-fixture' }
+    });
+    assert.ok(!loopback.websocket);
+  });
+
+  it('applySharedModeWebsocketGate fail-closes shared bind without env token', function () {
+    const gated = applySharedModeWebsocketGate({}, { bindAll: true, env: {} });
+    assert.strictEqual(gated.websocket.requireClientToken, true);
+    assert.ok(!gated.websocket.clientToken);
   });
 });
