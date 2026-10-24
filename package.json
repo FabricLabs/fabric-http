@@ -126,7 +126,7 @@
     "Victor Wu"
   ],
   "dependencies": {
-    "@fabric/core": "FabricLabs/fabric#feature/channels",
+    "@fabric/core": "FabricLabs/fabric#feature/markets",
     "@noble/ciphers": "=2.4.0",
     "@noble/hashes": "=2.4.0",
     "assert-browserify": "=2.0.0",

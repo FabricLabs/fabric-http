@@ -2,7 +2,7 @@ $ npm i --allow-git=all
 npm warn deprecated clone-buffer@1.0.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
 npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
 
-added 1077 packages, and audited 1078 packages in 32s
+added 1077 packages, and audited 1078 packages in 24s
 
 182 packages are looking for funding
   run `npm fund` for details
