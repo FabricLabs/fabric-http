@@ -7,18 +7,18 @@ Living posture notes for `@fabric/http` **0.1.0-RC1**. Re-run **`npm audit`** af
 |------|---------|
 | `@fabric/core` | Git pin `FabricLabs/fabric#feature/rsi` (lockfile SHA `ff7c05c52c38c39e552c6f4a4bc62442425bdd0e`; Node **26.12.1**) |
 | npm `allow-git` | **`.npmrc` `allow-git=all`** — nested git-dep preparation resolves core to a commit SHA; `root` is refused (intentional — do not flip to `root`) |
-| WebSocket (`ws`) | **Mitigated** — direct + override **`8.21.2`** (GHSA-58qx-3vcg-4xpx / fragment DoS) |
+| WebSocket (`ws`) | **Mitigated** — direct **`8.22.0`** (GHSA-58qx-3vcg-4xpx / fragment DoS); no override. jayson keeps its own `ws@7.5.13` (`^7.5.10`, patched) |
+| Test tooling | **`mocha@12.0.3`** / **`c8@12.0.0`** (same as core / Hub) — mocha 12 resolves `serialize-javascript@^7.1.1` and `diff@^9`, so those overrides are gone |
 | Express / body-parser / qs | **Mitigated** — `express@4.22.2`, `body-parser@1.20.6`, override `qs@6.15.3` |
 | undici (fomantic → `@actions/http-client`) | **Mitigated** — override **`6.28.0`** |
 | Markdown (SLIP-0044 script) | **Mitigated** — replaced `showdown` (unfixed ReDoS GHSA-rmmh-p597-ppvv) with **`marked@15.0.12`** |
 | PeerJS / browser mesh | **Removed** — `types/swarm.js` is a no-op stub; Hub native WebRTC |
-| npm audit status | **4 high** residual — `extract-zip@2.0.1` chain via production pin `puppeteer@24.37.5` / `@puppeteer/browsers` (Sandbox / `tests/sandbox.js`; Hub `scripts/node.js` does not import it). `puppeteer@25.7.0` is a deferred bump. Runtime `ws` / Express / undici overrides remain clean. |
+| npm audit status | **0** (2026-10-24, `puppeteer@25.15.0`) |
 
 ## Overrides for mitigated runtime findings
 
 | Override | Why |
 |----------|-----|
-| `ws@8.21.2` | Direct + transitive (incl. jayson) |
 | `body-parser@1.20.6`, `qs@6.15.3` | Express request parsing |
 | `undici@6.28.0` under `@actions/http-client` | Fomantic → GitHub Actions client |
 | `@octokit/request@8.4.1`, `request-error@5.1.1`, `plugin-paginate-rest@9.2.2` | Fomantic gulp/admin ReDoS advisories without downgrading fomantic |
