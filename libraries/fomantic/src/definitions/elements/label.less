@@ -182,7 +182,7 @@ a.ui.label {
 .ui.segment@{notBasic} > .ui.right.attached.label {
     margin-right: @attachedOffset;
 }
-.ui.segment@{notBasic} > .ui.attached.label:not(.left):not(.right) {
+.ui.segment@{notBasic} > .ui.attached.label:not(.left, .right) {
     width: @attachedWidthOffset;
 }
 
@@ -471,6 +471,7 @@ a.ui.label {
     .ui.card .image > .ribbon.label {
         position: absolute;
         top: @ribbonImageTopDistance;
+        z-index: 1;
     }
     .ui.card .image > .ui.ribbon.label,
     .ui.image > .ui.ribbon.label {
@@ -537,10 +538,7 @@ a.ui.label {
         border-radius: 0 @attachedBorderRadius 0 @attachedCornerBorderRadius;
     }
     .ui[class*="bottom right attached"].label {
-        top: auto;
-        bottom: 0;
-        left: auto;
-        right: 0;
+        inset: auto 0 0 auto;
         width: auto;
         border-radius: @attachedBorderRadius 0 @attachedCornerBorderRadius 0;
     }
@@ -944,10 +942,7 @@ a.ui.active.label:hover::before {
     .ui[class*="left pointing"].label::before {
         border-width: 0 0 @borderWidth @borderWidth;
         transform: translateX(-50%) translateY(-50%) rotate(45deg);
-        bottom: auto;
-        right: auto;
-        top: 50%;
-        left: 0;
+        inset: 50% auto auto 0;
     }
 
     /* --- Right --- */
@@ -958,10 +953,7 @@ a.ui.active.label:hover::before {
     .ui[class*="right pointing"].label::before {
         border-width: @borderWidth @borderWidth 0 0;
         transform: translateX(50%) translateY(-50%) rotate(45deg);
-        top: 50%;
-        right: 0;
-        bottom: auto;
-        left: auto;
+        inset: 50% 0 auto auto;
     }
     & when (@variationLabelBasic) {
         /* Basic Pointing */
@@ -1042,5 +1034,4 @@ a.ui.active.label:hover::before {
     });
 }
 
-// stylelint-disable no-invalid-position-at-import-rule
 @import (multiple, optional) "../../overrides.less";

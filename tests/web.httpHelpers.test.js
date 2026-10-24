@@ -50,11 +50,11 @@ describe('types/web export shape', function () {
 describe('webrtc interop helpers', function () {
   it('maps wss/ws Hub addresses to https/http page origins (no https://wss fail-open)', function () {
     const { expectedOriginFromHubAddress, isHubPageOriginMatch } = webrtcInterop;
-    assert.strictEqual(expectedOriginFromHubAddress('wss://hub.fabric.pub'), 'https://hub.fabric.pub');
+    assert.strictEqual(expectedOriginFromHubAddress('wss://hub.example.com'), 'https://hub.example.com');
     assert.strictEqual(expectedOriginFromHubAddress('ws://127.0.0.1:8080'), 'http://127.0.0.1:8080');
-    assert.strictEqual(isHubPageOriginMatch('wss://hub.fabric.pub', 'https://hub.fabric.pub'), true);
-    assert.strictEqual(isHubPageOriginMatch('wss://hub.fabric.pub', 'https://wss'), false);
-    assert.strictEqual(isHubPageOriginMatch('wss://hub.fabric.pub', 'https://ws'), false);
+    assert.strictEqual(isHubPageOriginMatch('wss://hub.example.com', 'https://hub.example.com'), true);
+    assert.strictEqual(isHubPageOriginMatch('wss://hub.example.com', 'https://wss'), false);
+    assert.strictEqual(isHubPageOriginMatch('wss://hub.example.com', 'https://ws'), false);
     assert.strictEqual(isHubPageOriginMatch('ws://127.0.0.1:8080', 'http://127.0.0.1:8080'), true);
   });
 
@@ -79,32 +79,32 @@ describe('webrtc interop helpers', function () {
   });
 
   it('normalizes Hub HTTP(S) addresses to signaling WebSocket URLs', function () {
-    const parsed = webrtcInterop.parseFabricHubAddress('https://hub.fabric.pub');
+    const parsed = webrtcInterop.parseFabricHubAddress('https://hub.example.com');
     assert.deepStrictEqual(parsed, {
-      host: 'hub.fabric.pub',
+      host: 'hub.example.com',
       port: 443,
       secure: true,
-      wsOrigin: 'wss://hub.fabric.pub:443',
-      raw: 'https://hub.fabric.pub'
+      wsOrigin: 'wss://hub.example.com:443',
+      raw: 'https://hub.example.com'
     });
     assert.strictEqual(webrtcInterop.fabricSignalingWebSocketUrl('http://127.0.0.1:8080', '/'), 'ws://127.0.0.1:8080/');
-    assert.strictEqual(webrtcInterop.fabricSignalingWebSocketUrl('hub.fabric.pub', '/services/ws'), 'wss://hub.fabric.pub:443/services/ws');
+    assert.strictEqual(webrtcInterop.fabricSignalingWebSocketUrl('hub.example.com', '/services/ws'), 'wss://hub.example.com:443/services/ws');
     assert.strictEqual(webrtcInterop.parseFabricHubAddress(''), null);
-    assert.strictEqual(webrtcInterop.expectedOriginFromHubAddress('hub.fabric.pub'), 'https://hub.fabric.pub');
+    assert.strictEqual(webrtcInterop.expectedOriginFromHubAddress('hub.example.com'), 'https://hub.example.com');
     assert.strictEqual(webrtcInterop.expectedOriginFromHubAddress('http://127.0.0.1:8080'), 'http://127.0.0.1:8080');
-    assert.strictEqual(webrtcInterop.expectedOriginFromHubAddress('wss://hub.fabric.pub'), 'https://hub.fabric.pub');
+    assert.strictEqual(webrtcInterop.expectedOriginFromHubAddress('wss://hub.example.com'), 'https://hub.example.com');
     assert.strictEqual(webrtcInterop.expectedOriginFromHubAddress('ws://127.0.0.1:8080'), 'http://127.0.0.1:8080');
     assert.strictEqual(webrtcInterop.expectedOriginFromHubAddress(''), null);
-    assert.strictEqual(webrtcInterop.isHubPageOriginMatch('https://hub.fabric.pub/', 'https://hub.fabric.pub'), true);
-    assert.strictEqual(webrtcInterop.isHubPageOriginMatch('wss://hub.fabric.pub', 'https://hub.fabric.pub'), true);
-    assert.strictEqual(webrtcInterop.isHubPageOriginMatch('https://hub.fabric.pub/', 'https://evil.example'), false);
+    assert.strictEqual(webrtcInterop.isHubPageOriginMatch('https://hub.example.com/', 'https://hub.example.com'), true);
+    assert.strictEqual(webrtcInterop.isHubPageOriginMatch('wss://hub.example.com', 'https://hub.example.com'), true);
+    assert.strictEqual(webrtcInterop.isHubPageOriginMatch('https://hub.example.com/', 'https://evil.example'), false);
   });
 
   it('builds canonical register/unregister messages and signal metadata', function () {
-    assert.deepStrictEqual(webrtcInterop.buildFabricHubRegisterMeshMessage('https://hub.fabric.pub/'), {
+    assert.deepStrictEqual(webrtcInterop.buildFabricHubRegisterMeshMessage('https://hub.example.com/'), {
       source: 'fabric-hub',
       type: 'FABRIC_HUB_REGISTER_MESH',
-      hubAddress: 'https://hub.fabric.pub/'
+      hubAddress: 'https://hub.example.com/'
     });
     assert.deepStrictEqual(webrtcInterop.buildFabricHubUnregisterMeshMessage(), {
       source: 'fabric-hub',

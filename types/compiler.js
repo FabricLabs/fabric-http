@@ -53,7 +53,7 @@ class Compiler extends Service {
         },
         resolve: {
           fallback: {
-            crypto: require.resolve('crypto-browserify'),
+            crypto: require.resolve('../functions/browserCrypto'),
             stream: require.resolve('stream-browserify'),
             querystring: require.resolve('querystring-es3'),
             path: require.resolve('path-browserify'),

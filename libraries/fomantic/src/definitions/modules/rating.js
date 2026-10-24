@@ -19,45 +19,40 @@
         ? window
         : globalThis;
 
-    $.fn.rating = function (parameters) {
-        var
-            $allModules     = $(this),
+    $.fn.rating = function (...args) {
+        const $allModules = $(this);
 
-            time            = Date.now(),
-            performance     = [],
+        let time = Date.now();
+        let performance = [];
 
-            query           = arguments[0],
-            methodInvoked   = typeof query === 'string',
-            queryArguments  = [].slice.call(arguments, 1),
-            returnedValue
-        ;
+        const parameters = args[0];
+        const methodInvoked = typeof parameters === 'string';
+        const queryArguments = args.slice(1);
+        let returnedValue;
         $allModules.each(function () {
-            var
-                settings        = $.isPlainObject(parameters)
-                    ? $.extend(true, {}, $.fn.rating.settings, parameters)
-                    : $.extend({}, $.fn.rating.settings),
+            const settings = $.isPlainObject(parameters)
+                ? $.extend(true, {}, $.fn.rating.settings, parameters)
+                : $.extend({}, $.fn.rating.settings);
 
-                namespace       = settings.namespace,
-                className       = settings.className,
-                error           = settings.error,
-                metadata        = settings.metadata,
-                selector        = settings.selector,
-                cssVars         = settings.cssVars,
+            const namespace = settings.namespace;
+            const className = settings.className;
+            const error = settings.error;
+            const metadata = settings.metadata;
+            const selector = settings.selector;
+            const cssVars = settings.cssVars;
 
-                eventNamespace  = '.' + namespace,
-                moduleNamespace = 'module-' + namespace,
+            const eventNamespace = '.' + namespace;
+            const moduleNamespace = 'module-' + namespace;
 
-                element         = this,
-                instance        = $(this).data(moduleNamespace),
+            const element = this;
+            let instance = $(this).data(moduleNamespace);
 
-                $module         = $(this),
-                $icon           = $module.find(selector.icon),
+            const $module = $(this);
+            let $icon = $module.find(selector.icon);
 
-                initialLoad,
-                module
-            ;
+            let initialLoad;
 
-            module = {
+            const module = {
 
                 initialize: function () {
                     module.verbose('Initializing rating module', settings);
@@ -81,16 +76,14 @@
                     module.verbose('Instantiating module', settings);
                     instance = module;
                     $module
-                        .data(moduleNamespace, module)
-                    ;
+                        .data(moduleNamespace, module);
                 },
 
                 destroy: function () {
                     module.verbose('Destroying previous instance', instance);
                     module.remove.events();
                     $module
-                        .removeData(moduleNamespace)
-                    ;
+                        .removeData(moduleNamespace);
                 },
 
                 refresh: function () {
@@ -99,54 +92,42 @@
 
                 setup: {
                     layout: function () {
-                        var
-                            maxRating = module.get.maxRating(),
-                            icon      = module.get.icon(),
-                            html      = $.fn.rating.settings.templates.icon(maxRating, icon)
-                        ;
+                        const maxRating = module.get.maxRating();
+                        const icon = module.get.icon();
+                        const html = $.fn.rating.settings.templates.icon(maxRating, icon);
                         module.debug('Generating icon html dynamically');
                         $module
-                            .html(html)
-                        ;
+                            .html(html);
                         module.refresh();
                     },
                 },
 
                 event: {
                     mouseenter: function () {
-                        var
-                            $activeIcon = $(this)
-                        ;
+                        const $activeIcon = $(this);
                         $activeIcon
                             .nextAll()
-                            .removeClass(className.selected)
-                        ;
+                            .removeClass(className.selected);
                         $module
-                            .addClass(className.selected)
-                        ;
+                            .addClass(className.selected);
                         $activeIcon
                             .addClass(className.selected)
                             .prevAll()
-                            .addClass(className.selected)
-                        ;
+                            .addClass(className.selected);
                     },
                     mouseleave: function () {
                         $module
-                            .removeClass(className.selected)
-                        ;
+                            .removeClass(className.selected);
                         $icon
-                            .removeClass(className.selected)
-                        ;
+                            .removeClass(className.selected);
                     },
                     click: function () {
-                        var
-                            $activeIcon   = $(this),
-                            currentRating = module.get.rating(),
-                            rating        = $icon.index($activeIcon) + 1,
-                            canClear      = settings.clearable === 'auto'
-                                ? $icon.length === 1
-                                : settings.clearable
-                        ;
+                        const $activeIcon = $(this);
+                        const currentRating = module.get.rating();
+                        const rating = $icon.index($activeIcon) + 1;
+                        const canClear = settings.clearable === 'auto'
+                            ? $icon.length === 1
+                            : settings.clearable;
                         if (canClear && currentRating === rating) {
                             module.clearRating();
                         } else {
@@ -166,8 +147,7 @@
                         $module
                             .on('mouseenter' + eventNamespace, selector.icon, module.event.mouseenter)
                             .on('mouseleave' + eventNamespace, selector.icon, module.event.mouseleave)
-                            .on('click' + eventNamespace, selector.icon, module.event.click)
-                        ;
+                            .on('click' + eventNamespace, selector.icon, module.event.click);
                     },
                 },
 
@@ -175,8 +155,7 @@
                     events: function () {
                         module.verbose('Removing events');
                         $module
-                            .off(eventNamespace)
-                        ;
+                            .off(eventNamespace);
                     },
                     initialLoad: function () {
                         initialLoad = false;
@@ -187,16 +166,14 @@
                     module.debug('Setting rating to interactive mode');
                     module.bind.events();
                     $module
-                        .removeClass(className.disabled)
-                    ;
+                        .removeClass(className.disabled);
                 },
 
                 disable: function () {
                     module.debug('Setting rating to read-only mode');
                     module.remove.events();
                     $module
-                        .addClass(className.disabled)
-                    ;
+                        .addClass(className.disabled);
                 },
 
                 is: {
@@ -210,7 +187,7 @@
 
                 get: {
                     icon: function () {
-                        var icon = $module.data(metadata.icon);
+                        const icon = $module.data(metadata.icon);
                         if (icon) {
                             $module.removeData(metadata.icon);
                         }
@@ -236,9 +213,7 @@
                         return settings.maxRating;
                     },
                     rating: function () {
-                        var
-                            currentRating = $icon.filter('.' + className.active).length
-                        ;
+                        const currentRating = $icon.filter('.' + className.active).length;
                         module.verbose('Current rating retrieved', currentRating);
 
                         return currentRating;
@@ -247,46 +222,36 @@
 
                 set: {
                     rating: function (rating) {
-                        var
-                            ratingIndex = Math.floor(
-                                rating - 1 >= 0
-                                    ? rating - 1
-                                    : 0
-                            ),
-                            $activeIcon = $icon.eq(ratingIndex),
-                            $partialActiveIcon = rating <= 1
-                                ? $activeIcon
-                                : $activeIcon.next(),
-                            filledPercentage = (rating % 1) * 100
-                        ;
+                        const ratingIndex = Math.floor(
+                            Math.max(rating - 1, 0)
+                        );
+                        const $activeIcon = $icon.eq(ratingIndex);
+                        const $partialActiveIcon = rating <= 1
+                            ? $activeIcon
+                            : $activeIcon.next();
+                        const filledPercentage = (rating % 1) * 100;
                         $module
-                            .removeClass(className.selected)
-                        ;
+                            .removeClass(className.selected);
                         $icon
                             .removeClass(className.selected)
                             .removeClass(className.active)
-                            .removeClass(className.partiallyActive)
-                        ;
+                            .removeClass(className.partiallyActive);
                         if (rating > 0) {
                             module.verbose('Setting current rating to', rating);
                             $activeIcon
                                 .prevAll()
                                 .addBack()
-                                .addClass(className.active)
-                            ;
+                                .addClass(className.active);
                             if ($activeIcon.next() && rating % 1 !== 0) {
                                 $partialActiveIcon
                                     .addClass(className.partiallyActive)
-                                    .addClass(className.active)
-                                ;
+                                    .addClass(className.active);
                                 $partialActiveIcon
-                                    .css(cssVars.filledCustomPropName, filledPercentage + '%')
-                                ;
+                                    .css(cssVars.filledCustomPropName, filledPercentage + '%');
                                 if ($partialActiveIcon.css('backgroundColor') === 'transparent') {
                                     $partialActiveIcon
                                         .removeClass(className.partiallyActive)
-                                        .removeClass(className.active)
-                                    ;
+                                        .removeClass(className.active);
                                 }
                             }
                         }
@@ -322,39 +287,37 @@
                         return module[name];
                     }
                 },
-                debug: function () {
+                debug: function (...args) {
                     if (!settings.silent && settings.debug) {
                         if (settings.performance) {
-                            module.performance.log(arguments);
+                            module.performance.log(args);
                         } else {
                             module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
-                            module.debug.apply(console, arguments);
+                            module.debug.apply(console, args);
                         }
                     }
                 },
-                verbose: function () {
+                verbose: function (...args) {
                     if (!settings.silent && settings.verbose && settings.debug) {
                         if (settings.performance) {
-                            module.performance.log(arguments);
+                            module.performance.log(args);
                         } else {
                             module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
-                            module.verbose.apply(console, arguments);
+                            module.verbose.apply(console, args);
                         }
                     }
                 },
-                error: function () {
+                error: function (...args) {
                     if (!settings.silent) {
                         module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
-                        module.error.apply(console, arguments);
+                        module.error.apply(console, args);
                     }
                 },
                 performance: {
                     log: function (message) {
-                        var
-                            currentTime,
-                            executionTime,
-                            previousTime
-                        ;
+                        let currentTime;
+                        let executionTime;
+                        let previousTime;
                         if (settings.performance) {
                             currentTime = Date.now();
                             previousTime = time || currentTime;
@@ -362,7 +325,7 @@
                             time = currentTime;
                             performance.push({
                                 Name: message[0],
-                                Arguments: [].slice.call(message, 1) || '',
+                                Arguments: message.slice(1),
                                 Element: element,
                                 'Execution Time': executionTime,
                             });
@@ -373,10 +336,8 @@
                         }, 500);
                     },
                     display: function () {
-                        var
-                            title = settings.name + ':',
-                            totalTime = 0
-                        ;
+                        let title = settings.name + ':';
+                        let totalTime = 0;
                         time = false;
                         clearTimeout(module.performance.timer);
                         $.each(performance, function (index, data) {
@@ -388,35 +349,24 @@
                         }
                         if (performance.length > 0) {
                             console.groupCollapsed(title);
-                            if (console.table) {
-                                console.table(performance);
-                            } else {
-                                $.each(performance, function (index, data) {
-                                    console.log(data.Name + ': ' + data['Execution Time'] + 'ms');
-                                });
-                            }
+                            console.table(performance);
                             console.groupEnd();
                         }
                         performance = [];
                     },
                 },
-                invoke: function (query, passedArguments, context) {
-                    var
-                        object = instance,
-                        maxDepth,
-                        found,
-                        response
-                    ;
-                    passedArguments = passedArguments || queryArguments;
-                    context = context || element;
+                invoke: function (query, passedArguments = queryArguments, context = element) {
+                    let object = instance;
+                    let maxDepth;
+                    let found;
+                    let response;
                     if (typeof query === 'string' && object !== undefined) {
                         query = query.split(/[ .]/);
                         maxDepth = query.length - 1;
                         $.each(query, function (depth, value) {
-                            var camelCaseValue = depth !== maxDepth
+                            const camelCaseValue = depth !== maxDepth
                                 ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
-                                : query
-                            ;
+                                : query;
                             if ($.isPlainObject(object[camelCaseValue]) && (depth !== maxDepth)) {
                                 object = object[camelCaseValue];
                             } else if (object[camelCaseValue] !== undefined) {
@@ -456,7 +406,7 @@
                 if (instance === undefined) {
                     module.initialize();
                 }
-                module.invoke(query);
+                module.invoke(parameters);
             } else {
                 if (instance !== undefined) {
                     instance.invoke('destroy');
@@ -518,17 +468,23 @@
         },
 
         templates: {
-            deQuote: function (string, encode) {
-                return String(string).replace(/"/g, encode ? '&quot;' : '');
+            escape: function (string) {
+                const escapeMap = {
+                    '"': '&quot;',
+                    '&': '&amp;',
+                    "'": '&apos;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                };
+
+                return String(string).replace(/["&'<>]/g, (chr) => escapeMap[chr]);
             },
             icon: function (maxRating, iconClass) {
-                var
-                    icon = 1,
-                    html = '',
-                    deQuote = $.fn.rating.settings.templates.deQuote
-                ;
+                let icon = 1;
+                let html = '';
+                const escape = $.fn.rating.settings.templates.escape;
                 while (icon <= maxRating) {
-                    html += '<i class="' + deQuote(iconClass) + ' icon"></i>';
+                    html += '<i class="' + escape(iconClass) + ' icon"></i>';
                     icon++;
                 }
 

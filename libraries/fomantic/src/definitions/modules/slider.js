@@ -19,76 +19,71 @@
         ? window
         : globalThis;
 
-    $.fn.slider = function (parameters) {
-        var
-            $allModules    = $(this),
-            $document      = $(document),
-            $window        = $(window),
+    $.fn.slider = function (...args) {
+        const $allModules = $(this);
+        const $document = $(document);
+        const $window = $(window);
 
-            time           = Date.now(),
-            performance    = [],
+        let time = Date.now();
+        let performance = [];
 
-            query          = arguments[0],
-            methodInvoked  = typeof query === 'string',
-            queryArguments = [].slice.call(arguments, 1),
+        const parameters = args[0];
+        const methodInvoked = typeof parameters === 'string';
+        const queryArguments = args.slice(1);
 
-            SINGLE_STEP     = 1,
-            BIG_STEP        = 2,
-            NO_STEP         = 0,
-            SINGLE_BACKSTEP = -1,
-            BIG_BACKSTEP    = -2,
+        const SINGLE_STEP = 1;
+        const BIG_STEP = 2;
+        const NO_STEP = 0;
+        const SINGLE_BACKSTEP = -1;
+        const BIG_BACKSTEP = -2;
 
-            // Used to manage document bound events.
-            // Use this so that we can distinguish between which document events are bound to which range.
-            currentRange    = 0,
+        // Used to manage document bound events.
+        // Use this so that we can distinguish between which document events are bound to which range.
+        let currentRange = 0;
 
-            returnedValue
-        ;
+        let returnedValue;
 
         $allModules.each(function () {
-            var
-                settings        = $.isPlainObject(parameters)
-                    ? $.extend(true, {}, $.fn.slider.settings, parameters)
-                    : $.extend({}, $.fn.slider.settings),
+            const settings = $.isPlainObject(parameters)
+                ? $.extend(true, {}, $.fn.slider.settings, parameters)
+                : $.extend({}, $.fn.slider.settings);
 
-                className       = settings.className,
-                metadata        = settings.metadata,
-                namespace       = settings.namespace,
-                error           = settings.error,
-                keys            = settings.keys,
-                interpretLabel  = settings.interpretLabel,
+            const className = settings.className;
+            const metadata = settings.metadata;
+            const namespace = settings.namespace;
+            const error = settings.error;
+            const keys = settings.keys;
+            const interpretLabel = settings.interpretLabel;
 
-                isHover         = false,
-                eventNamespace  = '.' + namespace,
-                moduleNamespace = 'module-' + namespace,
+            let isHover = false;
+            const eventNamespace = '.' + namespace;
+            const moduleNamespace = 'module-' + namespace;
 
-                $module         = $(this),
-                $currThumb,
-                touchIdentifier,
-                $thumb,
-                $secondThumb,
-                $track,
-                $trackFill,
-                $labels,
+            const $module = $(this);
+            let $currThumb;
+            let touchIdentifier;
+            let $thumb;
+            let $secondThumb;
+            let $track;
+            let $trackFill;
+            let $labels;
 
-                element         = this,
-                instance        = $module.data(moduleNamespace),
+            const element = this;
+            let instance = $module.data(moduleNamespace);
 
-                documentEventID,
+            let documentEventID;
 
-                value,
-                position,
-                secondPos,
-                offset,
-                gapRatio = 1,
-                previousValue,
+            let value;
+            let position;
+            let secondPos;
+            let offset;
+            let gapRatio = 1;
+            let previousValue;
 
-                initialPosition,
-                initialLoad,
-                module
-            ;
+            let initialPosition;
+            let initialLoad;
 
-            module = {
+            const module = {
 
                 initialize: function () {
                     module.debug('Initializing slider', settings);
@@ -113,8 +108,7 @@
                     module.verbose('Storing instance of slider', module);
                     instance = module;
                     $module
-                        .data(moduleNamespace, module)
-                    ;
+                        .data(moduleNamespace, module);
                 },
 
                 destroy: function () {
@@ -144,8 +138,7 @@
                         if (settings.showThumbTooltip) {
                             $thumb
                                 .attr('data-position', settings.tooltipConfig.position)
-                                .attr('data-variation', settings.tooltipConfig.variation)
-                            ;
+                                .attr('data-variation', settings.tooltipConfig.variation);
                         }
                         $currThumb = $thumb;
                         if (module.is.range()) {
@@ -156,8 +149,7 @@
                             if (settings.showThumbTooltip) {
                                 $secondThumb
                                     .attr('data-position', settings.tooltipConfig.position)
-                                    .attr('data-variation', settings.tooltipConfig.variation)
-                                ;
+                                    .attr('data-variation', settings.tooltipConfig.variation);
                             }
                         }
                         $track = $module.find('.track');
@@ -185,22 +177,18 @@
                         }
                     },
                     customLabel: function () {
-                        var
-                            $children   = $labels.find('.label'),
-                            numChildren = $children.length,
-                            min         = module.get.min(),
-                            max         = module.get.max(),
-                            ratio
-                        ;
+                        const $children = $labels.find('.label');
+                        const numChildren = $children.length;
+                        const min = module.get.min();
+                        const max = module.get.max();
+                        let ratio;
                         $children.each(function (index) {
-                            var
-                                $child = $(this),
-                                attrValue = $child.attr('data-value')
-                            ;
+                            const $child = $(this);
+                            let attrValue = $child.attr('data-value');
                             if (attrValue) {
                                 attrValue = attrValue > max
                                     ? max
-                                    : (attrValue < min ? min : attrValue);
+                                    : Math.max(attrValue, min);
                                 ratio = (attrValue - min) / (max - min);
                             } else {
                                 ratio = (index + 1) / (numChildren + 1);
@@ -215,23 +203,20 @@
                         } else {
                             $labels = $module.append('<ul class="auto labels"></ul>').find('.labels');
                         }
-                        var step = module.get.step(),
-                            precision = module.get.precision(),
-                            len = module.get.numLabels(),
-                            ignoreLabels = len - (settings.autoAdjustLabels !== 'fixed' ? 0 : module.get.max().toString().length + 4)
-                        ;
-                        for (var i = 0; i <= len; i++) {
-                            var
-                                stepValue =  Math.round(((i * (step === 0 ? 1 : step)) + module.get.min()) * precision) / precision,
-                                labelText = module.get.label(i, stepValue),
-                                showLabel = settings.restrictedLabels.length === 0 || settings.restrictedLabels.indexOf(labelText) >= 0,
-                                $label = labelText !== '' && (showLabel || settings.showLabelTicks === 'always')
-                                    ? ((!(i % module.get.gapRatio()) && i < ignoreLabels) || i === len
-                                        ? $('<li/>', { class: className.label, 'data-value': stepValue, html: showLabel ? labelText : '' })
-                                        : $('<li/>', { class: 'halftick label', 'data-value': stepValue }))
-                                    : null,
-                                ratio  = i / len
-                            ;
+                        const step = module.get.step();
+                        const precision = module.get.precision();
+                        const len = module.get.numLabels();
+                        const ignoreLabels = len - (settings.autoAdjustLabels !== 'fixed' ? 0 : module.get.max().toString().length + 4);
+                        for (let i = 0; i <= len; i++) {
+                            const stepValue = Math.round(((i * (step === 0 ? 1 : step)) + module.get.min()) * precision) / precision;
+                            const labelText = module.get.label(i, stepValue);
+                            const showLabel = settings.restrictedLabels.length === 0 || settings.restrictedLabels.includes(labelText);
+                            const $label = labelText !== '' && (showLabel || settings.showLabelTicks === 'always')
+                                ? ((!(i % module.get.gapRatio()) && i < ignoreLabels) || i === len
+                                    ? $('<li/>', { class: className.label, 'data-value': stepValue, html: showLabel ? labelText : '' })
+                                    : $('<li/>', { class: 'halftick label', 'data-value': stepValue }))
+                                : null;
+                            const ratio = i / len;
                             if ($label) {
                                 module.update.labelPosition(ratio, $label);
                                 $labels.append($label);
@@ -271,17 +256,16 @@
                             isHover = false;
                         });
                         // All touch events are invoked on the element where the touch *started*. Thus, we can bind them all
-                        // on the thumb(s) and don't need to worry about interference with other components, i.e. no dynamic binding
+                        // on the thumb(s) and don't need to worry about interference with other components, i.e., no dynamic binding
                         // and unbinding required.
                         $module.find('.thumb')
                             .on('touchstart' + eventNamespace, module.event.touchDown)
                             .on('touchmove' + eventNamespace, module.event.move)
                             .on('touchend' + eventNamespace, module.event.up)
-                            .on('touchcancel' + eventNamespace, module.event.touchCancel)
-                        ;
+                            .on('touchcancel' + eventNamespace, module.event.touchCancel);
                     },
                     slidingEvents: function () {
-                        // these don't need the identifier because we only ever want one of them to be registered with document
+                        // these don't need the identifier because we only ever want one of them to be registered with the document
                         module.verbose('Binding page wide events while handle is being draged');
                         $document.on('mousemove' + eventNamespace, module.event.move);
                         $document.on('mouseup' + eventNamespace, module.event.up);
@@ -301,8 +285,7 @@
                             .off('touchstart' + eventNamespace)
                             .off('touchmove' + eventNamespace)
                             .off('touchend' + eventNamespace)
-                            .off('touchcancel' + eventNamespace)
-                        ;
+                            .off('touchcancel' + eventNamespace);
                         $module.off('keydown' + eventNamespace);
                         $module.off('focusout' + eventNamespace);
                         $document.off('keydown' + eventNamespace + documentEventID, module.event.activateFocus);
@@ -318,10 +301,8 @@
                     down: function (event) {
                         event.preventDefault();
                         if (module.is.range()) {
-                            var
-                                eventPos = module.determine.eventPos(event),
-                                newPos = module.determine.pos(eventPos)
-                            ;
+                            const eventPos = module.determine.eventPos(event);
+                            const newPos = module.determine.pos(eventPos);
                             // Special handling if range mode and both thumbs have the same value
                             if (settings.preventCrossover && module.is.range() && module.thumbVal === module.secondThumbVal) {
                                 initialPosition = newPos;
@@ -349,7 +330,7 @@
                             return;
                         }
                         $currThumb = $(event.target);
-                        var touchEvent = event.touches ? event : event.originalEvent;
+                        const touchEvent = event.touches ? event : event.originalEvent;
                         touchIdentifier = touchEvent.targetTouches[0].identifier;
                         if (previousValue === undefined) {
                             previousValue = module.get.currentThumbValue();
@@ -363,18 +344,15 @@
                             // touch events are always bound, so we need to prevent touch-sliding on disabled sliders here
                             return;
                         }
-                        var value = module.determine.valueFromEvent(event);
+                        let value = module.determine.valueFromEvent(event);
                         if (event.type === 'mousemove' && $currThumb === undefined) {
-                            var
-                                eventPos = module.determine.eventPos(event),
-                                newPos = module.determine.pos(eventPos)
-                            ;
+                            const eventPos = module.determine.eventPos(event);
+                            const newPos = module.determine.pos(eventPos);
                             $currThumb = initialPosition > newPos ? $thumb : $secondThumb;
                         }
                         if (module.is.range() && (settings.minRange || settings.maxRange)) {
-                            var currentRangeDiff = module.get.currentRangeDiff(value),
-                                isSecondThumb = $currThumb.hasClass('second')
-                            ;
+                            const currentRangeDiff = module.get.currentRangeDiff(value);
+                            const isSecondThumb = $currThumb.hasClass('second');
                             if ((settings.minRange && currentRangeDiff < settings.minRange)
                                 || (settings.maxRange && currentRangeDiff > settings.maxRange)
                                 || (settings.preventCrossover && !isSecondThumb && value > module.secondThumbVal)
@@ -384,11 +362,9 @@
                             }
                         }
                         if (module.get.step() === 0 || module.is.smooth()) {
-                            var
-                                thumbVal = module.thumbVal,
-                                secondThumbVal = module.secondThumbVal,
-                                thumbSmoothVal = module.determine.smoothValueFromEvent(event)
-                            ;
+                            let thumbVal = module.thumbVal;
+                            let secondThumbVal = module.secondThumbVal;
+                            let thumbSmoothVal = module.determine.smoothValueFromEvent(event);
                             if (!$currThumb.hasClass('second')) {
                                 if (settings.preventCrossover && module.is.range()) {
                                     value = Math.min(secondThumbVal, value);
@@ -417,12 +393,12 @@
                             // touch events are always bound, so we need to prevent touch-sliding on disabled sliders here
                             return;
                         }
-                        var value = module.determine.valueFromEvent(event);
+                        let value = module.determine.valueFromEvent(event);
                         if (module.is.range() && (settings.minRange || settings.maxRange)) {
                             if ($currThumb === undefined) {
                                 $currThumb = value <= module.get.currentThumbValue() ? $thumb : $secondThumb;
                             }
-                            var currentRangeDiff = module.get.currentRangeDiff(value);
+                            const currentRangeDiff = module.get.currentRangeDiff(value);
                             if (settings.minRange && currentRangeDiff < settings.minRange) {
                                 value = module.get.edgeValue(value, settings.minRange);
                             } else if (settings.maxRange && currentRangeDiff > settings.maxRange) {
@@ -455,7 +431,7 @@
                             $document.trigger(event);
                         }
                         if (first || module.is.focused()) {
-                            var step = module.determine.keyMovement(event);
+                            const step = module.determine.keyMovement(event);
                             if (step !== NO_STEP) {
                                 event.preventDefault();
                                 switch (step) {
@@ -479,6 +455,7 @@
 
                                         break;
                                     }
+                                    // no default
                                 }
                             }
                         }
@@ -506,7 +483,7 @@
                 },
 
                 resync: function () {
-                    module.verbose('Resyncing thumb position based on value');
+                    module.verbose('Re-syncing thumb position based on value');
                     module.setup.labels();
                     if (module.is.range()) {
                         module.update.position(module.secondThumbVal, $secondThumb);
@@ -517,18 +494,14 @@
                     if (!multiplier) {
                         multiplier = 1;
                     }
-                    var
-                        step = module.get.step(),
-                        currValue = module.get.currentThumbValue()
-                    ;
+                    const step = module.get.step();
+                    const currValue = module.get.currentThumbValue();
                     module.verbose('Taking a step');
                     if (step > 0) {
                         module.set.value(currValue + step * multiplier);
                     } else if (step === 0) {
-                        var
-                            precision = module.get.precision(),
-                            newValue = currValue + (multiplier / precision)
-                        ;
+                        const precision = module.get.precision();
+                        const newValue = currValue + (multiplier / precision);
                         module.set.value(Math.round(newValue * precision) / precision);
                     }
                 },
@@ -537,18 +510,14 @@
                     if (!multiplier) {
                         multiplier = 1;
                     }
-                    var
-                        step = module.get.step(),
-                        currValue = module.get.currentThumbValue()
-                    ;
+                    const step = module.get.step();
+                    const currValue = module.get.currentThumbValue();
                     module.verbose('Going back a step');
                     if (step > 0) {
                         module.set.value(currValue - step * multiplier);
                     } else if (step === 0) {
-                        var
-                            precision = module.get.precision(),
-                            newValue = currValue - (multiplier / precision)
-                        ;
+                        const precision = module.get.precision();
+                        const newValue = currValue - (multiplier / precision);
                         module.set.value(Math.round(newValue * precision) / precision);
                     }
                 },
@@ -556,8 +525,8 @@
                 is: {
                     prime: function (n) {
                         if (module.cache['prime' + n] === undefined) {
-                            var p = true;
-                            for (var i = 2, s = Math.sqrt(n); i <= s; i++) {
+                            let p = true;
+                            for (let i = 2, s = Math.sqrt(n); i <= s; i++) {
                                 if (n % i === 0) {
                                     p = false;
 
@@ -574,7 +543,7 @@
                         return module.cache['prime' + n];
                     },
                     range: function () {
-                        var isRange = $module.hasClass(className.range);
+                        let isRange = $module.hasClass(className.range);
                         if (!isRange && (settings.minRange || settings.maxRange)) {
                             $module.addClass(className.range);
                             isRange = true;
@@ -592,7 +561,7 @@
                         return $module.hasClass(className.disabled);
                     },
                     labeled: function () {
-                        var isLabeled = $module.hasClass(className.labeled);
+                        let isLabeled = $module.hasClass(className.labeled);
                         if (!isLabeled && (settings.restrictedLabels.length > 0 || settings.showLabelTicks !== false)) {
                             $module.addClass(className.labeled);
                             isLabeled = true;
@@ -613,7 +582,7 @@
 
                 get: {
                     currentRangeDiff: function (value) {
-                        var currentRangeDiff;
+                        let currentRangeDiff;
                         if ($currThumb.hasClass('second')) {
                             currentRangeDiff = module.thumbVal < value
                                 ? value - module.thumbVal
@@ -667,7 +636,7 @@
                         return module.is.reversed() ? module.get.trackLeft() : module.get.trackLeft() + module.get.trackLength();
                     },
                     trackStartMargin: function () {
-                        var margin;
+                        let margin;
                         if (module.is.vertical()) {
                             margin = module.is.reversed() ? $module.css('padding-bottom') : $module.css('padding-top');
                         } else {
@@ -677,7 +646,7 @@
                         return margin || '0px';
                     },
                     trackEndMargin: function () {
-                        var margin;
+                        let margin;
                         if (module.is.vertical()) {
                             margin = module.is.reversed() ? $module.css('padding-top') : $module.css('padding-bottom');
                         } else {
@@ -688,17 +657,15 @@
                     },
                     precision: function () {
                         if (module.cache.precision === undefined) {
-                            var
-                                decimalPlaces,
-                                step = module.get.step()
-                            ;
+                            let decimalPlaces;
+                            const step = module.get.step();
                             if (step !== 0) {
-                                var split = String(step).split('.');
+                                const split = String(step).split('.');
                                 decimalPlaces = split.length === 2 ? split[1].length : 0;
                             } else {
                                 decimalPlaces = settings.decimalPlaces;
                             }
-                            var precision = Math.pow(10, decimalPlaces);
+                            const precision = 10 ** decimalPlaces;
                             module.debug('Precision determined', precision);
                             module.cache.precision = precision;
                         }
@@ -710,13 +677,11 @@
                     },
                     max: function () {
                         if (module.cache.max === undefined) {
-                            var
-                                step = module.get.step(),
-                                min = module.get.min(),
-                                precision = module.get.precision(),
-                                quotient = step === 0 ? 0 : Math.floor(Math.round(((settings.max - min) / step) * precision) / precision),
-                                remainder = step === 0 ? 0 : (settings.max - min) % step
-                            ;
+                            const step = module.get.step();
+                            const min = module.get.min();
+                            const precision = module.get.precision();
+                            const quotient = step === 0 ? 0 : Math.floor(Math.round(((settings.max - min) / step) * precision) / precision);
+                            const remainder = step === 0 ? 0 : (settings.max - min) % step;
                             if (remainder > 0) {
                                 module.debug('Max value not divisible by given step. Increasing max value.', settings.max, step);
                             }
@@ -730,9 +695,9 @@
                     },
                     numLabels: function () {
                         if (module.cache.numLabels === undefined) {
-                            var step = module.get.step(),
-                                precision = module.get.precision(),
-                                value = Math.round(((module.get.max() - module.get.min()) / (step === 0 ? 1 : step)) * precision) / precision;
+                            const step = module.get.step();
+                            const precision = module.get.precision();
+                            const value = Math.round(((module.get.max() - module.get.min()) / (step === 0 ? 1 : step)) * precision) / precision;
                             module.debug('Determined that there should be ' + value + ' labels');
                             module.cache.numLabels = value;
                         }
@@ -757,10 +722,9 @@
 
                                     return value;
                                 }
-                                var letterLabel = '',
-                                    letters = Array.isArray(settings.letters) ? settings.letters : String(settings.letters).split(''),
-                                    lettersLen = letters.length
-                                ;
+                                let letterLabel = '';
+                                const letters = Array.isArray(settings.letters) ? settings.letters : [...String(settings.letters)];
+                                const lettersLen = letters.length;
 
                                 while (stepValue >= 0) {
                                     letterLabel = letters[stepValue % lettersLen] + letterLabel;
@@ -819,15 +783,13 @@
                         }
                     },
                     gapRatio: function () {
-                        var gapRatio = 1;
+                        let gapRatio = 1;
 
                         if (settings.autoAdjustLabels) {
-                            var
-                                numLabels = module.get.numLabels(),
-                                primePlus = module.is.prime(numLabels) ? 1 : 0,
-                                trackLength = module.get.trackLength(),
-                                gapCounter = 1
-                            ;
+                            const numLabels = module.get.numLabels();
+                            const primePlus = module.is.prime(numLabels) ? 1 : 0;
+                            const trackLength = module.get.trackLength();
+                            let gapCounter = 1;
 
                             // While the distance between two labels is too short,
                             // we divide the number of labels at each iteration
@@ -853,12 +815,10 @@
                             : pagePos - module.get.trackOffset() - module.get.trackStartPos();
                     },
                     closestThumb: function (eventPos) {
-                        var
-                            thumbPos = parseFloat(module.determine.thumbPos($thumb)),
-                            thumbDelta = Math.abs(eventPos - thumbPos),
-                            secondThumbPos = parseFloat(module.determine.thumbPos($secondThumb)),
-                            secondThumbDelta = Math.abs(eventPos - secondThumbPos)
-                        ;
+                        const thumbPos = Number.parseFloat(module.determine.thumbPos($thumb));
+                        const thumbDelta = Math.abs(eventPos - thumbPos);
+                        const secondThumbPos = Number.parseFloat(module.determine.thumbPos($secondThumb));
+                        const secondThumbDelta = Math.abs(eventPos - secondThumbPos);
                         if (thumbDelta === secondThumbDelta && module.get.thumbValue() === module.get.min()) {
                             return $secondThumb;
                         }
@@ -866,53 +826,44 @@
                         return thumbDelta <= secondThumbDelta ? $thumb : $secondThumb;
                     },
                     closestThumbPos: function (eventPos) {
-                        var
-                            thumbPos = parseFloat(module.determine.thumbPos($thumb)),
-                            thumbDelta = Math.abs(eventPos - thumbPos),
-                            secondThumbPos = parseFloat(module.determine.thumbPos($secondThumb)),
-                            secondThumbDelta = Math.abs(eventPos - secondThumbPos)
-                        ;
+                        const thumbPos = Number.parseFloat(module.determine.thumbPos($thumb));
+                        const thumbDelta = Math.abs(eventPos - thumbPos);
+                        const secondThumbPos = Number.parseFloat(module.determine.thumbPos($secondThumb));
+                        const secondThumbDelta = Math.abs(eventPos - secondThumbPos);
 
                         return thumbDelta <= secondThumbDelta ? thumbPos : secondThumbPos;
                     },
                     thumbPos: function ($element) {
                         return module.is.vertical()
                             ? (module.is.reversed() ? $element.css('bottom') : $element.css('top'))
-                            : (module.is.reversed() ? $element.css('right') : $element.css('left'))
-                        ;
+                            : (module.is.reversed() ? $element.css('right') : $element.css('left'));
                     },
                     positionFromValue: function (val) {
-                        var
-                            min = module.get.min(),
-                            max = module.get.max(),
-                            value = val > max
-                                ? max
-                                : (val < min ? min : val),
-                            trackLength = module.get.trackLength(),
-                            ratio = (value - min) / (max - min),
-                            position = Math.round(ratio * trackLength)
-                        ;
+                        const min = module.get.min();
+                        const max = module.get.max();
+                        const value = val > max
+                            ? max
+                            : Math.max(val, min);
+                        const trackLength = module.get.trackLength();
+                        const ratio = (value - min) / (max - min);
+                        const position = Math.round(ratio * trackLength);
                         module.verbose('Determined position: ' + position + ' from value: ' + value);
 
                         return position;
                     },
                     positionFromRatio: function (ratio) {
-                        var
-                            trackLength = module.get.trackLength(),
-                            step = module.get.step(),
-                            position = Math.round(ratio * trackLength),
-                            adjustedPos = step === 0 ? position : Math.round(position / step) * step
-                        ;
+                        const trackLength = module.get.trackLength();
+                        const step = module.get.step();
+                        const position = Math.round(ratio * trackLength);
+                        const adjustedPos = step === 0 ? position : Math.round(position / step) * step;
                         module.verbose('Determined position: ' + position + ' from ratio: ' + ratio);
 
                         return adjustedPos;
                     },
                     valueFromEvent: function (event) {
-                        var
-                            eventPos = module.determine.eventPos(event),
-                            newPos = module.determine.pos(eventPos),
-                            value
-                        ;
+                        const eventPos = module.determine.eventPos(event);
+                        const newPos = module.determine.pos(eventPos);
+                        let value;
                         if (eventPos < module.get.trackOffset()) {
                             value = module.is.reversed() ? module.get.max() : module.get.min();
                         } else if (eventPos > module.get.trackOffset() + module.get.trackLength()) {
@@ -924,89 +875,76 @@
                         return value;
                     },
                     smoothValueFromEvent: function (event) {
-                        var
-                            min = module.get.min(),
-                            max = module.get.max(),
-                            trackLength = module.get.trackLength(),
-                            eventPos = module.determine.eventPos(event),
-                            newPos = eventPos - module.get.trackOffset(),
-                            ratio,
-                            value
-                        ;
+                        const min = module.get.min();
+                        const max = module.get.max();
+                        const trackLength = module.get.trackLength();
+                        const eventPos = module.determine.eventPos(event);
+                        let newPos = eventPos - module.get.trackOffset();
+                        let ratio;
                         newPos = newPos < 0
                             ? 0
-                            : (newPos > trackLength ? trackLength : newPos);
+                            : Math.min(newPos, trackLength);
                         ratio = newPos / trackLength;
                         if (module.is.reversed()) {
                             ratio = 1 - ratio;
                         }
-                        value = ratio * (max - min) + min;
 
-                        return value;
+                        return ratio * (max - min) + min;
                     },
                     eventPos: function (event) {
                         if (event.type === 'touchmove' || event.type === 'touchend') {
-                            var
-                                touchEvent = event.touches ? event : event.originalEvent,
-                                touch = touchEvent.changedTouches[0]; // fall back to first touch if correct touch not found
-                            for (var i = 0; i < touchEvent.touches.length; i++) {
-                                if (touchEvent.touches[i].identifier === touchIdentifier) {
-                                    touch = touchEvent.touches[i];
+                            const touchEvent = event.touches ? event : event.originalEvent;
+                            let touch = touchEvent.changedTouches[0]; // fall back to first touch if correct touch not found
+                            for (const t of touchEvent.touches) {
+                                if (t.identifier === touchIdentifier) {
+                                    touch = t;
 
                                     break;
                                 }
                             }
-                            var
-                                touchY = touch.pageY,
-                                touchX = touch.pageX
-                            ;
+                            const touchY = touch.pageY;
+                            const touchX = touch.pageX;
 
                             return module.is.vertical() ? touchY : touchX;
                         }
-                        var
-                            clickY = event.pageY || event.originalEvent.pageY,
-                            clickX = event.pageX || event.originalEvent.pageX
-                        ;
+                        const clickY = event.pageY || event.originalEvent.pageY;
+                        const clickX = event.pageX || event.originalEvent.pageX;
 
                         return module.is.vertical() ? clickY : clickX;
                     },
                     value: function (position) {
-                        var
-                            precision = module.get.precision(),
-                            startPos = module.is.reversed() ? module.get.trackEndPos() : module.get.trackStartPos(),
-                            endPos = module.is.reversed() ? module.get.trackStartPos() : module.get.trackEndPos(),
-                            ratio = (position - startPos) / (endPos - startPos),
-                            range = module.get.max() - module.get.min(),
-                            step = module.get.step(),
-                            value = ratio * range,
-                            difference = step === 0 ? value : Math.round(value / step) * step
-                        ;
+                        const precision = module.get.precision();
+                        const startPos = module.is.reversed() ? module.get.trackEndPos() : module.get.trackStartPos();
+                        const endPos = module.is.reversed() ? module.get.trackStartPos() : module.get.trackEndPos();
+                        const ratio = (position - startPos) / (endPos - startPos);
+                        const range = module.get.max() - module.get.min();
+                        const step = module.get.step();
+                        const value = ratio * range;
+                        const difference = step === 0 ? value : Math.round(value / step) * step;
                         module.verbose('Determined value based upon position: ' + position + ' as: ' + value);
                         if (value !== difference) {
                             module.verbose('Rounding value to closest step: ' + difference);
                         }
-                        // Use precision to avoid ugly Javascript floating point rounding issues
+                        // Use precision to avoid ugly JavaScript floating point rounding issues
                         // (like 35 * .01 = 0.35000000000000003)
                         module.verbose('Cutting off additional decimal places');
 
                         return Math.round((difference + module.get.min()) * precision) / precision;
                     },
                     keyMovement: function (event) {
-                        var
-                            key = event.which,
-                            downArrow = module.is.vertical()
-                                ? (module.is.reversed() ? keys.downArrow : keys.upArrow)
-                                : keys.downArrow,
-                            upArrow = module.is.vertical()
-                                ? (module.is.reversed() ? keys.upArrow : keys.downArrow)
-                                : keys.upArrow,
-                            leftArrow = !module.is.vertical()
-                                ? (module.is.reversed() ? keys.rightArrow : keys.leftArrow)
-                                : keys.leftArrow,
-                            rightArrow = !module.is.vertical()
-                                ? (module.is.reversed() ? keys.leftArrow : keys.rightArrow)
-                                : keys.rightArrow
-                        ;
+                        const key = event.which;
+                        const downArrow = module.is.vertical()
+                            ? (module.is.reversed() ? keys.downArrow : keys.upArrow)
+                            : keys.downArrow;
+                        const upArrow = module.is.vertical()
+                            ? (module.is.reversed() ? keys.upArrow : keys.downArrow)
+                            : keys.upArrow;
+                        const leftArrow = !module.is.vertical()
+                            ? (module.is.reversed() ? keys.rightArrow : keys.leftArrow)
+                            : keys.leftArrow;
+                        const rightArrow = !module.is.vertical()
+                            ? (module.is.reversed() ? keys.leftArrow : keys.rightArrow)
+                            : keys.rightArrow;
                         if (key === downArrow || key === leftArrow) {
                             return SINGLE_BACKSTEP;
                         }
@@ -1025,37 +963,31 @@
                 },
 
                 handleNewValuePosition: function (val) {
-                    var
-                        min = module.get.min(),
-                        max = module.get.max(),
-                        newPos
-                    ;
+                    const min = module.get.min();
+                    const max = module.get.max();
                     if (val <= min) {
                         val = min;
                     } else if (val >= max) {
                         val = max;
                     }
-                    newPos = module.determine.positionFromValue(val);
 
-                    return newPos;
+                    return module.determine.positionFromValue(val);
                 },
 
                 set: {
                     active: function (thumbVal, secondThumbVal) {
                         if (settings.highlightRange) {
                             if (secondThumbVal < thumbVal) {
-                                var tempVal = secondThumbVal;
+                                const tempVal = secondThumbVal;
                                 secondThumbVal = thumbVal;
                                 thumbVal = tempVal;
                             }
-                            var $children = $labels.find('.label');
+                            const $children = $labels.find('.label');
                             $children.each(function (index) {
-                                var
-                                    $child = $(this),
-                                    attrValue = $child.attr('data-value')
-                                ;
+                                const $child = $(this);
+                                let attrValue = $child.attr('data-value');
                                 if (attrValue) {
-                                    attrValue = parseInt(attrValue, 10);
+                                    attrValue = Number.parseInt(attrValue, 10);
                                     if (attrValue >= thumbVal && attrValue <= secondThumbVal) {
                                         $child.addClass(className.active);
                                     } else {
@@ -1067,7 +999,7 @@
                     },
                     value: function (newValue, fireChange) {
                         fireChange = fireChange !== false;
-                        var toReset = previousValue === undefined;
+                        const toReset = previousValue === undefined;
                         previousValue = previousValue === undefined ? module.get.value() : previousValue;
                         module.update.value(newValue, function (value, thumbVal, secondThumbVal) {
                             if ((!initialLoad || settings.fireOnInit) && fireChange) {
@@ -1084,11 +1016,9 @@
                     rangeValue: function (first, second, fireChange) {
                         fireChange = fireChange !== false;
                         if (module.is.range()) {
-                            var
-                                min = module.get.min(),
-                                max = module.get.max(),
-                                toReset = previousValue === undefined
-                            ;
+                            const min = module.get.min();
+                            const max = module.get.max();
+                            const toReset = previousValue === undefined;
                             previousValue = previousValue === undefined ? module.get.value() : previousValue;
                             if (first <= min) {
                                 first = min;
@@ -1119,7 +1049,7 @@
                         }
                     },
                     position: function (position, which) {
-                        var thumbVal = module.determine.value(position);
+                        const thumbVal = module.determine.value(position);
                         if (which === 'second') {
                             module.secondThumbVal = thumbVal;
                             module.update.position(thumbVal, $secondThumb);
@@ -1134,10 +1064,8 @@
 
                 update: {
                     value: function (newValue, callback) {
-                        var
-                            min = module.get.min(),
-                            max = module.get.max()
-                        ;
+                        const min = module.get.min();
+                        const max = module.get.max();
                         if (newValue <= min) {
                             newValue = min;
                         } else if (newValue >= max) {
@@ -1170,14 +1098,12 @@
                         }
                     },
                     position: function (newValue, $element) {
-                        var
-                            newPos = module.handleNewValuePosition(newValue),
-                            $targetThumb = $element || $currThumb,
-                            thumbVal = module.thumbVal || module.get.min(),
-                            secondThumbVal = module.secondThumbVal || module.get.min()
-                        ;
+                        const newPos = module.handleNewValuePosition(newValue);
+                        const $targetThumb = $element || $currThumb;
+                        let thumbVal = module.thumbVal || module.get.min();
+                        let secondThumbVal = module.secondThumbVal || module.get.min();
                         if (settings.showThumbTooltip) {
-                            var precision = module.get.precision();
+                            const precision = module.get.precision();
                             $targetThumb.attr('data-tooltip', Math.round(newValue * precision) / precision);
                         }
                         if (module.is.range()) {
@@ -1193,15 +1119,13 @@
                             thumbVal = newValue;
                         }
                         module.set.active(thumbVal, secondThumbVal);
-                        var
-                            trackPosValue,
-                            thumbPosValue,
-                            min = module.get.min(),
-                            max = module.get.max(),
-                            thumbPosPercent = 100 * ((newValue - min) / (max - min)),
-                            trackStartPosPercent = 100 * ((Math.min(thumbVal, secondThumbVal) - min) / (max - min)),
-                            trackEndPosPercent = 100 * (1 - (Math.max(thumbVal, secondThumbVal) - min) / (max - min))
-                        ;
+                        let trackPosValue;
+                        let thumbPosValue;
+                        const min = module.get.min();
+                        const max = module.get.max();
+                        const thumbPosPercent = 100 * ((newValue - min) / (max - min));
+                        const trackStartPosPercent = 100 * ((Math.min(thumbVal, secondThumbVal) - min) / (max - min));
+                        const trackEndPosPercent = 100 * (1 - (Math.max(thumbVal, secondThumbVal) - min) / (max - min));
                         if (module.is.vertical()) {
                             if (module.is.reversed()) {
                                 thumbPosValue = { bottom: 'calc(' + thumbPosPercent + '% - ' + offset + 'px)', top: 'auto' };
@@ -1210,31 +1134,27 @@
                                 thumbPosValue = { top: 'calc(' + thumbPosPercent + '% - ' + offset + 'px)', bottom: 'auto' };
                                 trackPosValue = { top: trackStartPosPercent + '%', bottom: trackEndPosPercent + '%' };
                             }
+                        } else if (module.is.reversed()) {
+                            thumbPosValue = { right: 'calc(' + thumbPosPercent + '% - ' + offset + 'px)', left: 'auto' };
+                            trackPosValue = { right: trackStartPosPercent + '%', left: trackEndPosPercent + '%' };
                         } else {
-                            if (module.is.reversed()) {
-                                thumbPosValue = { right: 'calc(' + thumbPosPercent + '% - ' + offset + 'px)', left: 'auto' };
-                                trackPosValue = { right: trackStartPosPercent + '%', left: trackEndPosPercent + '%' };
-                            } else {
-                                thumbPosValue = { left: 'calc(' + thumbPosPercent + '% - ' + offset + 'px)', right: 'auto' };
-                                trackPosValue = { left: trackStartPosPercent + '%', right: trackEndPosPercent + '%' };
-                            }
+                            thumbPosValue = { left: 'calc(' + thumbPosPercent + '% - ' + offset + 'px)', right: 'auto' };
+                            trackPosValue = { left: trackStartPosPercent + '%', right: trackEndPosPercent + '%' };
                         }
                         $targetThumb.css(thumbPosValue);
                         $trackFill.css(trackPosValue);
                         module.debug('Setting slider position to ' + newPos);
                     },
                     labelPosition: function (ratio, $label) {
-                        var
-                            startMargin = module.get.trackStartMargin(),
-                            endMargin   = module.get.trackEndMargin(),
-                            posDir = module.is.vertical()
-                                ? (module.is.reversed() ? 'bottom' : 'top')
-                                : (module.is.reversed() ? 'right' : 'left'),
-                            startMarginMod = module.is.reversed() && !module.is.vertical()
-                                ? ' - '
-                                : ' + '
-                        ;
-                        var position = '(100% - ' + startMargin + ' - ' + endMargin + ') * ' + ratio;
+                        const startMargin = module.get.trackStartMargin();
+                        const endMargin = module.get.trackEndMargin();
+                        const posDir = module.is.vertical()
+                            ? (module.is.reversed() ? 'bottom' : 'top')
+                            : (module.is.reversed() ? 'right' : 'left');
+                        const startMarginMod = module.is.reversed() && !module.is.vertical()
+                            ? ' - '
+                            : ' + ';
+                        const position = '(100% - ' + startMargin + ' - ' + endMargin + ') * ' + ratio;
                         $label.css(posDir, 'calc(' + position + startMarginMod + startMargin + ')');
                     },
                 },
@@ -1250,12 +1170,10 @@
 
                 read: {
                     metadata: function () {
-                        var
-                            data = {
-                                thumbVal: $module.data(metadata.thumbVal),
-                                secondThumbVal: $module.data(metadata.secondThumbVal),
-                            }
-                        ;
+                        const data = {
+                            thumbVal: $module.data(metadata.thumbVal),
+                            secondThumbVal: $module.data(metadata.secondThumbVal),
+                        };
                         if (data.thumbVal) {
                             if (module.is.range() && data.secondThumbVal) {
                                 module.debug('Current value set from metadata', data.thumbVal, data.secondThumbVal);
@@ -1269,7 +1187,7 @@
                     settings: function () {
                         if (settings.start !== false) {
                             if (module.is.range()) {
-                                var rangeDiff = settings.end - settings.start;
+                                const rangeDiff = settings.end - settings.start;
                                 if (rangeDiff < 0
                                     || (settings.minRange && rangeDiff < settings.minRange)
                                     || (settings.maxRange && rangeDiff > settings.maxRange)
@@ -1311,40 +1229,38 @@
                         return module[name];
                     }
                 },
-                debug: function () {
+                debug: function (...args) {
                     if (!settings.silent && settings.debug) {
                         if (settings.performance) {
-                            module.performance.log(arguments);
+                            module.performance.log(args);
                         } else {
                             module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
-                            module.debug.apply(console, arguments);
+                            module.debug.apply(console, args);
                         }
                     }
                 },
-                verbose: function () {
+                verbose: function (...args) {
                     if (!settings.silent && settings.verbose && settings.debug) {
                         if (settings.performance) {
-                            module.performance.log(arguments);
+                            module.performance.log(args);
                         } else {
                             module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
-                            module.verbose.apply(console, arguments);
+                            module.verbose.apply(console, args);
                         }
                     }
                 },
-                error: function () {
+                error: function (...args) {
                     if (!settings.silent) {
                         module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
-                        module.error.apply(console, arguments);
+                        module.error.apply(console, args);
                     }
                 },
 
                 performance: {
                     log: function (message) {
-                        var
-                            currentTime,
-                            executionTime,
-                            previousTime
-                        ;
+                        let currentTime;
+                        let executionTime;
+                        let previousTime;
                         if (settings.performance) {
                             currentTime = Date.now();
                             previousTime = time || currentTime;
@@ -1352,7 +1268,7 @@
                             time = currentTime;
                             performance.push({
                                 Name: message[0],
-                                Arguments: [].slice.call(message, 1) || '',
+                                Arguments: message.slice(1),
                                 Element: element,
                                 'Execution Time': executionTime,
                             });
@@ -1363,10 +1279,8 @@
                         }, 500);
                     },
                     display: function () {
-                        var
-                            title = settings.name + ':',
-                            totalTime = 0
-                        ;
+                        let title = settings.name + ':';
+                        let totalTime = 0;
                         time = false;
                         clearTimeout(module.performance.timer);
                         $.each(performance, function (index, data) {
@@ -1375,36 +1289,25 @@
                         title += ' ' + totalTime + 'ms';
                         if (performance.length > 0) {
                             console.groupCollapsed(title);
-                            if (console.table) {
-                                console.table(performance);
-                            } else {
-                                $.each(performance, function (index, data) {
-                                    console.log(data.Name + ': ' + data['Execution Time'] + 'ms');
-                                });
-                            }
+                            console.table(performance);
                             console.groupEnd();
                         }
                         performance = [];
                     },
                 },
 
-                invoke: function (query, passedArguments, context) {
-                    var
-                        object = instance,
-                        maxDepth,
-                        found,
-                        response
-                    ;
-                    passedArguments = passedArguments || queryArguments;
-                    context = context || element;
+                invoke: function (query, passedArguments = queryArguments, context = element) {
+                    let object = instance;
+                    let maxDepth;
+                    let found;
+                    let response;
                     if (typeof query === 'string' && object !== undefined) {
                         query = query.split(/[ .]/);
                         maxDepth = query.length - 1;
                         $.each(query, function (depth, value) {
-                            var camelCaseValue = depth !== maxDepth
+                            const camelCaseValue = depth !== maxDepth
                                 ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
-                                : query
-                            ;
+                                : query;
                             if ($.isPlainObject(object[camelCaseValue]) && (depth !== maxDepth)) {
                                 object = object[camelCaseValue];
                             } else if (object[camelCaseValue] !== undefined) {
@@ -1445,7 +1348,7 @@
                 if (instance === undefined) {
                     module.initialize();
                 }
-                module.invoke(query);
+                module.invoke(parameters);
             } else {
                 if (instance !== undefined) {
                     instance.invoke('destroy');

@@ -4,7 +4,7 @@
  * @fileoverview `fabric-document` — the user-facing presentation of a core
  * `Document` (sealed blob tree). Renders the **hash-only record** (Tree root,
  * blob leaves, publisher key) plus ranked provider offers from a local
- * `DocumentOfferBook`, a buy action per blob (existing HTTP 402 flow:
+ * `DocumentBook`, a buy action per blob (existing HTTP 402 flow:
  * `functions/fabricDocumentPayment402.js` carries `blobHashHex`), and — only
  * client-side, once keys are held — the opened manifest / content.
  *
@@ -25,7 +25,7 @@ class FabricDocument extends Component {
    * @param {string} [settings.href='/documents'] Resource list path.
    * @param {string} [settings.blobsHref='/blobs'] Canonical blob path (`<blobsHref>/<blobHashHex>`).
    * @param {Object} [settings.document] Hash-only record (`Document#record()`).
-   * @param {Object[]} [settings.offers] Rows from `DocumentOfferBook#listOffers`.
+   * @param {Object[]} [settings.offers] Rows from `DocumentBook#listOffers`.
    * @param {Object} [settings.opened] `{ manifest, blobs: { [index]: true } }` — client-side only.
    */
   constructor (settings = {}) {

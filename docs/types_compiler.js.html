@@ -3,6 +3,10 @@
   <head>
     <meta charset="utf-8">
     <title>Source: types/compiler.js &middot; Docs</title>
+    <link rel="icon" href="/favicon.ico" sizes="48x48">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <meta name="theme-color" content="#4C1D95">
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
     <!--[if lt IE 9]>
@@ -43,6 +47,7 @@ const Service = require('@fabric/core/types/service');
 // Types
 const HTTPComponent = require('./component');
 const HTTPSite = require('./site');
+const { compose, composeFile } = require('../functions/compose');
 
 /**
  * Builder for {@link Fabric}-based applications.
@@ -75,7 +80,7 @@ class Compiler extends Service {
         },
         resolve: {
           fallback: {
-            crypto: require.resolve('crypto-browserify'),
+            crypto: require.resolve('../functions/browserCrypto'),
             stream: require.resolve('stream-browserify'),
             querystring: require.resolve('querystring-es3'),
             path: require.resolve('path-browserify'),
@@ -131,11 +136,28 @@ class Compiler extends Service {
    * @returns {String} Rendered HTML document containing the compiled JavaScript application.
    */
   compile (state = this.state) {
+    const renderState = state || this.state;
+    if (typeof this.settings.template === 'string' &amp;&amp; this.settings.template) {
+      const basedir = this.settings.basedir
+        ? path.resolve(this.settings.basedir)
+        : path.resolve(__dirname, '../views');
+      const candidate = path.resolve(this.settings.template);
+      const fromFile = fs.existsSync(candidate) &amp;&amp; fs.statSync(candidate).isFile();
+      const html = fromFile
+        ? composeFile(candidate, renderState, { basedir: basedir })
+        : compose(this.settings.template, renderState, {
+          basedir: basedir,
+          filename: this.settings.templateFile || path.join(basedir, 'template.jade')
+        });
+      if (/&lt;html[\s>]/i.test(html)) return html;
+      return this.site._renderWith(html);
+    }
     // Default case: no component provided, or not a Fabric Component
     if (!this.component || !this.component._getHTML) {
-      return this.site.render(state);
+      return this.site.render(renderState);
     } else {
-      const html = this.component._getHTML(state);
+      const html = this.component._getHTML(renderState);
+      if (/&lt;html[\s>]/i.test(html)) return html;
       return this.site._renderWith(html);
     }
   }
@@ -217,7 +239,7 @@ module.exports = Compiler;
 
 
     </div>
-    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Avatar.html">Avatar</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricDistributedExecutionHTTP.html">FabricDistributedExecutionHTTP</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul><h3>Global</h3><ul><li><a href="global.html#compression">compression</a></li><li><a href="global.html#cors">cors</a></li><li><a href="global.html#jsonRpc">jsonRpc</a></li><li><a href="global.html#merge">merge</a></li><li><a href="global.html#static">static</a></li></ul></nav>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Avatar.html">Avatar</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricDistributedExecutionHTTP.html">FabricDistributedExecutionHTTP</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul><h3>Global</h3><ul><li><a href="global.html#FABRIC_AMP_MAGIC">FABRIC_AMP_MAGIC</a></li><li><a href="global.html#Server">Server</a></li><li><a href="global.html#acceptFirstHtmlNavigation">acceptFirstHtmlNavigation</a></li><li><a href="global.html#compression">compression</a></li><li><a href="global.html#cors">cors</a></li><li><a href="global.html#fabricHttpStaticSetHeaders">fabricHttpStaticSetHeaders</a></li><li><a href="global.html#jsonBodyLargePaths">jsonBodyLargePaths</a></li><li><a href="global.html#jsonBodyLimit">jsonBodyLimit</a></li><li><a href="global.html#jsonBodyLimitDefault">jsonBodyLimitDefault</a></li><li><a href="global.html#jsonRpc">jsonRpc</a></li><li><a href="global.html#merge">merge</a></li><li><a href="global.html#mergeStaticSetHeaders">mergeStaticSetHeaders</a></li><li><a href="global.html#payments">payments</a></li><li><a href="global.html#resolveAppAssetsDir">resolveAppAssetsDir</a></li><li><a href="global.html#resolveFabricHttpPackageAssetsDir">resolveFabricHttpPackageAssetsDir</a></li><li><a href="global.html#resolvedPathUnderStaticRoot">resolvedPathUnderStaticRoot</a></li><li><a href="global.html#sitemap">sitemap</a></li><li><a href="global.html#static">static</a></li><li><a href="global.html#webrtc">webrtc</a></li></ul></nav>
     <br class="clear" />
     <footer>
         <a href="https://github.com/FabricLabs/web">git://</a> &middot; <a href="https://chat.fabric.pub/#/room/#web:fabric.pub">Community</a>

@@ -32,7 +32,7 @@ const WEBSOCKET_KEEPALIVE = 600000; // 10 minutes
 const BROWSER_TARGET = '#browser-content';
 
 // Local dev: `scripts/sample-hub-http-server.js` (not a Fabric `HTTPServer` product type — tooling only).
-// Hub and scripts probe `OPTIONS /` to avoid port clashes with a real @fabric/hub.
+// Hubs and scripts probe `OPTIONS /` to avoid port clashes with a full hub.
 const SAMPLE_HUB_HTTP_SERVER_NAME = 'fabric-http-hub-local-stub';
 const DEFAULT_SAMPLE_HUB_HTTP_PORT = 8099;
 

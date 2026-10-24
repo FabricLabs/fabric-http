@@ -19,6 +19,9 @@ const {
 } = require('../functions/fabricSiteLoginHttp');
 const { getSession } = require('../functions/fabricSiteLogin');
 const { parseFabricDeviceLinkUrl } = require('../functions/fabricDeviceLinkProtocol');
+const { DEFAULT_FABRIC_HUB_ORIGINS } = require('../functions/fabricHubAllowlist');
+
+const ALLOWLISTED_HUB = DEFAULT_FABRIC_HUB_ORIGINS[0];
 const {
   buildDeviceLinkMessage,
   parseDeviceLinkMessage
@@ -26,18 +29,18 @@ const {
 
 describe('@fabric/http identity HTTP', function () {
   it('builds and parses site-login challenges', function () {
-    const msg = buildLoginMessage('ab'.repeat(24), 'https://relay.goon.vc', 'cd'.repeat(32));
+    const msg = buildLoginMessage('ab'.repeat(24), 'https://relay.example.com', 'cd'.repeat(32));
     assert.ok(msg.startsWith(DESKTOP_LOGIN_PREFIX + ':'));
     const parsed = parseDesktopLoginMessage(msg);
     assert.strictEqual(parsed.sessionId, 'ab'.repeat(24));
-    assert.strictEqual(parsed.origin, 'https://relay.goon.vc');
+    assert.strictEqual(parsed.origin, 'https://relay.example.com');
   });
 
   it('verifies a client-signed login payload', function () {
     const key = new Key();
     const ident = new Identity(key);
     const sessionId = 'ab'.repeat(24);
-    const origin = 'https://relay.goon.vc';
+    const origin = 'https://relay.example.com';
     const nonce = 'cd'.repeat(32);
     const message = buildLoginMessage(sessionId, origin, nonce);
     const payload = buildFabricIdentitySignedPayload(ident, message);
@@ -55,7 +58,7 @@ describe('@fabric/http identity HTTP', function () {
     const key = new Key();
     const ident = new Identity(key);
     const sessionId = 'ab'.repeat(24);
-    const origin = 'https://relay.goon.vc';
+    const origin = 'https://relay.example.com';
     const message = buildLoginMessage(sessionId, origin, 'cd'.repeat(32));
     const payload = buildFabricIdentitySignedPayload(ident, message);
     const onlySid = verifyFabricDesktopLoginSignedPayload({ ...payload, message }, { sessionId });
@@ -67,7 +70,7 @@ describe('@fabric/http identity HTTP', function () {
   it('signs from HD Key and from { mnemonic } bag', function () {
     const key = new Key();
     const ident = new Identity(key);
-    const message = buildLoginMessage('11'.repeat(24), 'https://hub.fabric.pub', '22'.repeat(32));
+    const message = buildLoginMessage('11'.repeat(24), 'https://hub.example.com', '22'.repeat(32));
     const fromKey = buildFabricIdentitySignedPayload(key, message);
     const fromBag = buildFabricIdentitySignedPayload({ mnemonic: key.mnemonic }, message);
     assert.strictEqual(fromKey.pubkeyHex, ident.fabricKey.pubkey);
@@ -75,14 +78,14 @@ describe('@fabric/http identity HTTP', function () {
     assert.strictEqual(fromKey.identity.id, fromBag.identity.id);
   });
 
-  it('signs Passport-style leaf private + fabric-path xpub', function () {
+  it('signs wallet-extension-style leaf private + fabric-path xpub', function () {
     const master = new Key();
     const ident = new Identity(master);
     const fabric = ident.fabricKey;
     const priv = Buffer.isBuffer(fabric.private)
       ? fabric.private.toString('hex')
       : String(fabric.private);
-    const message = buildLoginMessage('33'.repeat(24), 'https://relay.goon.vc', '44'.repeat(32));
+    const message = buildLoginMessage('33'.repeat(24), 'https://relay.example.com', '44'.repeat(32));
     const payload = buildFabricIdentitySignedPayload({
       privateKeyHex: priv,
       xpub: fabric.xpub
@@ -92,17 +95,17 @@ describe('@fabric/http identity HTTP', function () {
     const verified = verifyFabricDesktopLoginSignedPayload({
       ...payload,
       message
-    }, { sessionId: '33'.repeat(24), origin: 'https://relay.goon.vc' });
+    }, { sessionId: '33'.repeat(24), origin: 'https://relay.example.com' });
     assert.strictEqual(verified.ok, true);
   });
 
   it('parses fabric://login and fabric://link with allowlist', function () {
     const sid = 'ab'.repeat(24);
-    const login = parseFabricLoginUrl(`fabric://login?sessionId=${sid}&hub=${encodeURIComponent('https://hub.fabric.pub')}`);
+    const login = parseFabricLoginUrl(`fabric://login?sessionId=${sid}&hub=${encodeURIComponent(ALLOWLISTED_HUB)}`);
     assert.strictEqual(login.ok, true);
     const bad = parseFabricLoginUrl(`fabric://login?sessionId=${sid}&hub=${encodeURIComponent('https://evil.example')}`);
     assert.strictEqual(bad.ok, false);
-    const link = parseFabricDeviceLinkUrl(`fabric://link?sessionId=${sid}&hub=${encodeURIComponent('https://relay.goon.vc')}`);
+    const link = parseFabricDeviceLinkUrl(`fabric://link?sessionId=${sid}&hub=${encodeURIComponent(ALLOWLISTED_HUB)}`);
     assert.strictEqual(link.ok, true);
     assert.strictEqual(link.kind, 'link');
   });
@@ -153,7 +156,7 @@ describe('@fabric/http site-login sessions', function () {
       allowHubSelfSign: true,
       _desktopAuthSessions: new Map([[sessionId, {
         status: 'pending',
-        origin: 'https://hub.fabric.pub',
+        origin: 'https://hub.example.com',
         message: 'login',
         nonce: 'nn',
         createdAt: Date.now()
@@ -165,7 +168,7 @@ describe('@fabric/http site-login sessions', function () {
       params: { sessionId },
       body: {},
       socket: { remoteAddress: '203.0.113.9' },
-      headers: { origin: 'https://hub.fabric.pub' }
+      headers: { origin: 'https://hub.example.com' }
     }, res);
     assert.strictEqual(res.out.statusCode, 403);
     const body = typeof res.out.body === 'string' ? JSON.parse(res.out.body) : res.out.body;
@@ -199,8 +202,8 @@ describe('@fabric/http site-login sessions', function () {
     const hub = { _desktopAuthSessions: new Map() };
     const created = mockRes();
     handleSessionCreate(hub, {
-      body: { origin: 'https://hub.fabric.pub' },
-      headers: { origin: 'https://hub.fabric.pub' },
+      body: { origin: 'https://hub.example.com' },
+      headers: { origin: 'https://hub.example.com' },
       socket: { remoteAddress: '203.0.113.9' }
     }, created);
     const createBody = JSON.parse(created.out.body);
@@ -211,7 +214,7 @@ describe('@fabric/http site-login sessions', function () {
     const pending = mockRes();
     handleSessionGet(hub, {
       params: { sessionId: createBody.sessionId },
-      headers: { origin: 'https://hub.fabric.pub', accept: 'application/json' },
+      headers: { origin: 'https://hub.example.com', accept: 'application/json' },
       socket: { remoteAddress: '203.0.113.9' }
     }, pending);
     const pendingBody = JSON.parse(pending.out.body);
@@ -226,7 +229,7 @@ describe('@fabric/http site-login sessions', function () {
     const hub = {
       _desktopAuthSessions: new Map([[sessionId, {
         status: 'signed',
-        origin: 'https://hub.fabric.pub',
+        origin: 'https://hub.example.com',
         pollSecret,
         identity: { id: 'id1', xpub: 'xpub1' },
         signer: 'client',
@@ -239,7 +242,7 @@ describe('@fabric/http site-login sessions', function () {
     const denied = mockRes();
     handleSessionGet(hub, {
       params: { sessionId },
-      headers: { origin: 'https://hub.fabric.pub', accept: 'application/json' },
+      headers: { origin: 'https://hub.example.com', accept: 'application/json' },
       socket: { remoteAddress: '203.0.113.9' }
     }, denied);
     assert.strictEqual(denied.out.statusCode, 403);
@@ -250,7 +253,7 @@ describe('@fabric/http site-login sessions', function () {
     handleSessionGet(hub, {
       params: { sessionId },
       headers: {
-        origin: 'https://hub.fabric.pub',
+        origin: 'https://hub.example.com',
         accept: 'application/json',
         'x-fabric-poll-secret': pollSecret
       },
@@ -269,7 +272,7 @@ describe('@fabric/http site-login sessions', function () {
     const hub = {
       _desktopAuthSessions: new Map([[sessionId, {
         status: 'signed',
-        origin: 'https://hub.fabric.pub',
+        origin: 'https://hub.example.com',
         pollSecret,
         identity: { id: 'id1', xpub: 'xpub1' },
         signer: 'client',
@@ -281,7 +284,7 @@ describe('@fabric/http site-login sessions', function () {
       params: { sessionId },
       url: '/sessions/' + sessionId + '?pollSecret=' + pollSecret,
       query: { pollSecret },
-      headers: { origin: 'https://hub.fabric.pub', accept: 'application/json' },
+      headers: { origin: 'https://hub.example.com', accept: 'application/json' },
       socket: { remoteAddress: '203.0.113.9' }
     }, denied);
     assert.strictEqual(denied.out.statusCode, 403);
@@ -295,7 +298,7 @@ describe('@fabric/http site-login sessions', function () {
     const hub = {
       _desktopAuthSessions: new Map([[sessionId, {
         status: 'signed',
-        origin: 'https://hub.fabric.pub',
+        origin: 'https://hub.example.com',
         pollSecret,
         identity: { id: 'id1', xpub: 'xpub1' },
         signer: 'client',
@@ -306,7 +309,7 @@ describe('@fabric/http site-login sessions', function () {
     handleSessionGet(hub, {
       params: { sessionId },
       headers: {
-        origin: 'https://hub.fabric.pub',
+        origin: 'https://hub.example.com',
         accept: 'application/json',
         'x-fabric-poll-secret': wrong
       },
@@ -338,12 +341,12 @@ describe('@fabric/http site-login sessions', function () {
     assert.strictEqual(JSON.parse(res.out.body).status, 'signed');
   });
 
-  it('LiveRelay getSession redeem requires pollSecret off-loopback', function () {
+  it('relay getSession redeem requires pollSecret off-loopback', function () {
     const sessionId = '33'.repeat(24);
     const pollSecret = '44'.repeat(32);
     const store = new Map([[sessionId, {
       status: 'signed',
-      origin: 'https://relay.goon.vc',
+      origin: 'https://relay.example.com',
       pollSecret,
       identity: { id: 'id1', xpub: 'xpub1' },
       delegationToken: 'tok',
@@ -351,14 +354,14 @@ describe('@fabric/http site-login sessions', function () {
       createdAt: Date.now()
     }]]);
     const denied = getSession({
-      headers: { origin: 'https://relay.goon.vc' },
+      headers: { origin: 'https://relay.example.com' },
       socket: { remoteAddress: '203.0.113.9' }
     }, sessionId, store);
     assert.strictEqual(denied.status, 403);
     assert.strictEqual(store.has(sessionId), true);
     const ok = getSession({
       headers: {
-        origin: 'https://relay.goon.vc',
+        origin: 'https://relay.example.com',
         'x-fabric-poll-secret': pollSecret
       },
       socket: { remoteAddress: '203.0.113.9' }
@@ -371,7 +374,7 @@ describe('@fabric/http site-login sessions', function () {
   it('fabricLoginRequestHeaders attaches pollSecret without putting it on fabric://', function () {
     const pollSecret = '55'.repeat(32);
     const sessionId = 'aa'.repeat(24);
-    const hub = 'https://hub.fabric.pub';
+    const hub = ALLOWLISTED_HUB;
     const headers = fabricLoginRequestHeaders(hub, { pollSecret });
     assert.strictEqual(headers['X-Fabric-Poll-Secret'], pollSecret);
     const parsed = parseFabricLoginUrl(`fabric://login?sessionId=${sessionId}&hub=${encodeURIComponent(hub)}`);

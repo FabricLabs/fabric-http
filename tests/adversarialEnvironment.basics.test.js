@@ -6,6 +6,7 @@
 
 const assert = require('assert');
 const {
+  DEFAULT_FABRIC_HUB_ORIGINS,
   isAllowedFabricHub,
   assertAllowedFabricHub,
   normalizeHubOrigin
@@ -29,7 +30,7 @@ describe('adversarialEnvironment.basics (@fabric/http)', function () {
   });
 
   it('allows known network hubs and loopback only by default', function () {
-    assert.strictEqual(isAllowedFabricHub('https://hub.fabric.pub'), true);
+    assert.strictEqual(isAllowedFabricHub(DEFAULT_FABRIC_HUB_ORIGINS[0]), true);
     assert.strictEqual(isAllowedFabricHub('http://127.0.0.1:8080'), true);
     assert.strictEqual(normalizeHubOrigin('ftp://not-http'), null);
   });
@@ -77,14 +78,14 @@ describe('adversarialEnvironment.basics (@fabric/http)', function () {
       socket: { remoteAddress: '203.0.113.9' },
       headers: { origin: 'https://localhost' }
     };
-    const passport = {
+    const extension = {
       socket: { remoteAddress: '203.0.113.9' },
       headers: { origin: 'chrome-extension://abcdefghijklmnop' }
     };
-    assert.strictEqual(clientMayAccessDeviceLink(android, 'https://relay.goon.vc'), true);
-    assert.strictEqual(clientMayAccessDeviceLink(passport, 'https://hub.fabric.pub'), true);
+    assert.strictEqual(clientMayAccessDeviceLink(android, DEFAULT_FABRIC_HUB_ORIGINS[0]), true);
+    assert.strictEqual(clientMayAccessDeviceLink(extension, DEFAULT_FABRIC_HUB_ORIGINS[0]), true);
     assert.strictEqual(clientMayAccessDeviceLink(android, 'https://phish.example'), false);
-    assert.strictEqual(clientMayPollDesktopSession(android, 'https://relay.goon.vc'), false);
+    assert.strictEqual(clientMayPollDesktopSession(android, DEFAULT_FABRIC_HUB_ORIGINS[0]), false);
   });
 
   it('does not treat path sessionId as a delegation-registry credential', function () {
@@ -95,7 +96,7 @@ describe('adversarialEnvironment.basics (@fabric/http)', function () {
       _desktopAuthSessions: new Map(),
       _delegationRegistry: new Map([
         [token, {
-          origin: 'https://hub.fabric.pub',
+          origin: 'https://hub.example.com',
           linkedAt: Date.now(),
           label: 'browser',
           identityId: 'id1example',

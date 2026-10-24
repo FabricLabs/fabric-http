@@ -19,44 +19,39 @@
         ? window
         : globalThis;
 
-    $.fn.accordion = function (parameters) {
-        var
-            $allModules     = $(this),
+    $.fn.accordion = function (...args) {
+        const $allModules = $(this);
 
-            time            = Date.now(),
-            performance     = [],
+        let time = Date.now();
+        let performance = [];
 
-            query           = arguments[0],
-            methodInvoked   = typeof query === 'string',
-            queryArguments  = [].slice.call(arguments, 1),
+        const parameters = args[0];
+        const methodInvoked = typeof parameters === 'string';
+        const queryArguments = args.slice(1);
 
-            returnedValue
-        ;
+        let returnedValue;
         $allModules.each(function () {
-            var
-                settings        = $.isPlainObject(parameters)
-                    ? $.extend(true, {}, $.fn.accordion.settings, parameters)
-                    : $.extend({}, $.fn.accordion.settings),
+            const settings = $.isPlainObject(parameters)
+                ? $.extend(true, {}, $.fn.accordion.settings, parameters)
+                : $.extend({}, $.fn.accordion.settings);
 
-                className       = settings.className,
-                namespace       = settings.namespace,
-                selector        = settings.selector,
-                error           = settings.error,
+            const className = settings.className;
+            const namespace = settings.namespace;
+            const selector = settings.selector;
+            const error = settings.error;
 
-                eventNamespace  = '.' + namespace,
-                moduleNamespace = 'module-' + namespace,
+            const eventNamespace = '.' + namespace;
+            const moduleNamespace = 'module-' + namespace;
 
-                $module  = $(this),
-                $title   = $module.find(selector.title),
-                $content = $module.find(selector.content),
+            const $module = $(this);
+            let $title = $module.find(selector.title);
+            let $content = $module.find(selector.content);
 
-                element  = this,
-                instance = $module.data(moduleNamespace),
-                observer,
-                module
-            ;
+            const element = this;
+            let instance = $module.data(moduleNamespace);
+            let observer;
 
-            module = {
+            const module = {
 
                 initialize: function () {
                     module.debug('Initializing', $module);
@@ -70,16 +65,14 @@
                 instantiate: function () {
                     instance = module;
                     $module
-                        .data(moduleNamespace, module)
-                    ;
+                        .data(moduleNamespace, module);
                 },
 
                 destroy: function () {
                     module.debug('Destroying previous instance', $module);
                     $module
                         .off(eventNamespace)
-                        .removeData(moduleNamespace)
-                    ;
+                        .removeData(moduleNamespace);
                 },
 
                 refresh: function () {
@@ -88,25 +81,22 @@
                 },
 
                 observeChanges: function () {
-                    if ('MutationObserver' in window) {
-                        observer = new MutationObserver(function (mutations) {
-                            module.debug('DOM tree modified, updating selector cache');
-                            module.refresh();
-                        });
-                        observer.observe(element, {
-                            childList: true,
-                            subtree: true,
-                        });
-                        module.debug('Setting up mutation observer', observer);
-                    }
+                    observer = new MutationObserver(function (mutations) {
+                        module.debug('DOM tree modified, updating selector cache');
+                        module.refresh();
+                    });
+                    observer.observe(element, {
+                        childList: true,
+                        subtree: true,
+                    });
+                    module.debug('Setting up mutation observer', observer);
                 },
 
                 bind: {
                     events: function () {
                         module.debug('Binding delegated events');
                         $module
-                            .on(settings.on + eventNamespace, selector.trigger, module.event.click)
-                        ;
+                            .on(settings.on + eventNamespace, selector.trigger, module.event.click);
                     },
                 },
 
@@ -119,18 +109,16 @@
                 },
 
                 toggle: function (query) {
-                    var
-                        $activeTitle = query !== undefined
-                            ? (typeof query === 'number'
-                                ? $title.eq(query)
-                                : $(query).closest(selector.title))
-                            : $(this).closest(selector.title),
-                        $activeContent = $activeTitle.next($content),
-                        isAnimating = $activeContent.hasClass(className.animating),
-                        isActive    = $activeContent.hasClass(className.active),
-                        isOpen      = isActive && !isAnimating,
-                        isOpening   = !isActive && isAnimating
-                    ;
+                    const $activeTitle = query !== undefined
+                        ? (typeof query === 'number'
+                            ? $title.eq(query)
+                            : $(query).closest(selector.title))
+                        : $(this).closest(selector.title);
+                    const $activeContent = $activeTitle.next($content);
+                    const isAnimating = $activeContent.hasClass(className.animating);
+                    const isActive = $activeContent.hasClass(className.active);
+                    const isOpen = isActive && !isAnimating;
+                    const isOpening = !isActive && isAnimating;
                     module.debug('Toggling visibility of content', $activeTitle);
                     if (isOpen || isOpening) {
                         if (settings.collapsible) {
@@ -144,17 +132,15 @@
                 },
 
                 open: function (query) {
-                    var
-                        $activeTitle = query !== undefined
-                            ? (typeof query === 'number'
-                                ? $title.eq(query)
-                                : $(query).closest(selector.title))
-                            : $(this).closest(selector.title),
-                        $activeContent = $activeTitle.next($content),
-                        isAnimating = $activeContent.hasClass(className.animating),
-                        isActive    = $activeContent.hasClass(className.active),
-                        isOpen      = isActive || isAnimating
-                    ;
+                    const $activeTitle = query !== undefined
+                        ? (typeof query === 'number'
+                            ? $title.eq(query)
+                            : $(query).closest(selector.title))
+                        : $(this).closest(selector.title);
+                    const $activeContent = $activeTitle.next($content);
+                    const isAnimating = $activeContent.hasClass(className.animating);
+                    const isActive = $activeContent.hasClass(className.active);
+                    const isOpen = isActive || isAnimating;
                     if (isOpen) {
                         module.debug('Accordion already open, skipping', $activeContent);
 
@@ -167,12 +153,10 @@
                         module.closeOthers.call($activeTitle);
                     }
                     $activeTitle
-                        .addClass(className.active)
-                    ;
+                        .addClass(className.active);
                     $activeContent
                         .stop(true, true)
-                        .addClass(className.animating)
-                    ;
+                        .addClass(className.animating);
                     if (settings.animateChildren) {
                         if ($.fn.transition !== undefined) {
                             $activeContent
@@ -189,8 +173,7 @@
                                     onComplete: function () {
                                         $activeContent.children().removeClass(className.transition);
                                     },
-                                })
-                            ;
+                                });
                         } else {
                             $activeContent
                                 .children()
@@ -204,39 +187,33 @@
                         .slideDown(settings.duration, settings.easing, function () {
                             $activeContent
                                 .removeClass(className.animating)
-                                .addClass(className.active)
-                            ;
+                                .addClass(className.active);
                             module.reset.display.call(this);
                             settings.onOpen.call(this);
                             settings.onChange.call(this);
-                        })
-                    ;
+                        });
                 },
 
                 close: function (query) {
-                    var
-                        $activeTitle = query !== undefined
-                            ? (typeof query === 'number'
-                                ? $title.eq(query)
-                                : $(query).closest(selector.title))
-                            : $(this).closest(selector.title),
-                        $activeContent = $activeTitle.next($content),
-                        isAnimating    = $activeContent.hasClass(className.animating),
-                        isActive       = $activeContent.hasClass(className.active),
-                        isOpening      = !isActive && isAnimating,
-                        isClosing      = isActive && isAnimating
-                    ;
+                    const $activeTitle = query !== undefined
+                        ? (typeof query === 'number'
+                            ? $title.eq(query)
+                            : $(query).closest(selector.title))
+                        : $(this).closest(selector.title);
+                    const $activeContent = $activeTitle.next($content);
+                    const isAnimating = $activeContent.hasClass(className.animating);
+                    const isActive = $activeContent.hasClass(className.active);
+                    const isOpening = !isActive && isAnimating;
+                    const isClosing = isActive && isAnimating;
                     if ((isActive || isOpening) && !isClosing) {
                         module.debug('Closing accordion content', $activeContent);
                         settings.onClosing.call($activeContent);
                         settings.onChanging.call($activeContent);
                         $activeTitle
-                            .removeClass(className.active)
-                        ;
+                            .removeClass(className.active);
                         $activeContent
                             .stop(true, true)
-                            .addClass(className.animating)
-                        ;
+                            .addClass(className.animating);
                         if (settings.animateChildren) {
                             if ($.fn.transition !== undefined) {
                                 $activeContent
@@ -250,8 +227,7 @@
                                         silent: settings.silent,
                                         duration: settings.duration,
                                         skipInlineHidden: true,
-                                    })
-                                ;
+                                    });
                             } else {
                                 $activeContent
                                     .children()
@@ -265,29 +241,25 @@
                             .slideUp(settings.duration, settings.easing, function () {
                                 $activeContent
                                     .removeClass(className.animating)
-                                    .removeClass(className.active)
-                                ;
+                                    .removeClass(className.active);
                                 module.reset.display.call(this);
                                 settings.onClose.call(this);
                                 settings.onChange.call(this);
-                            })
-                        ;
+                            });
                     }
                 },
 
                 closeOthers: function (index) {
-                    var
-                        $activeTitle = index !== undefined
-                            ? $title.eq(index)
-                            : $(this).closest(selector.title),
-                        $parentTitles    = $activeTitle.parents(selector.content).prev(selector.title),
-                        $activeAccordion = $activeTitle.closest(selector.accordion),
-                        activeSelector   = selector.title + '.' + className.active + ':visible',
-                        activeContent    = selector.content + '.' + className.active + ':visible',
-                        $openTitles,
-                        $nestedTitles,
-                        $openContents
-                    ;
+                    const $activeTitle = index !== undefined
+                        ? $title.eq(index)
+                        : $(this).closest(selector.title);
+                    const $parentTitles = $activeTitle.parents(selector.content).prev(selector.title);
+                    const $activeAccordion = $activeTitle.closest(selector.accordion);
+                    const activeSelector = selector.title + '.' + className.active + ':visible';
+                    const activeContent = selector.content + '.' + className.active + ':visible';
+                    let $openTitles;
+                    let $nestedTitles;
+                    let $openContents;
                     if (settings.closeNested) {
                         $openTitles = $activeAccordion.find(activeSelector).not($parentTitles);
                         $openContents = $openTitles.next($content);
@@ -300,12 +272,10 @@
                     if ($openTitles.length > 0) {
                         module.debug('Exclusive enabled, closing other content', $openTitles);
                         $openTitles
-                            .removeClass(className.active)
-                        ;
+                            .removeClass(className.active);
                         $openContents
                             .removeClass(className.animating)
-                            .stop(true, true)
-                        ;
+                            .stop(true, true);
                         if (settings.animateChildren) {
                             if ($.fn.transition !== undefined) {
                                 $openContents
@@ -318,8 +288,7 @@
                                         silent: settings.silent,
                                         duration: settings.duration,
                                         skipInlineHidden: true,
-                                    })
-                                ;
+                                    });
                             } else {
                                 $openContents
                                     .children()
@@ -333,8 +302,7 @@
                             .slideUp(settings.duration, settings.easing, function () {
                                 $(this).removeClass(className.active);
                                 module.reset.display.call(this);
-                            })
-                        ;
+                            });
                     }
                 },
 
@@ -342,25 +310,23 @@
 
                     display: function () {
                         module.verbose('Removing inline display from element', this);
-                        var $element = $(this);
+                        const $element = $(this);
                         $element.css('display', '');
                         if ($element.attr('style') === '') {
                             $element
                                 .attr('style', '')
-                                .removeAttr('style')
-                            ;
+                                .removeAttr('style');
                         }
                     },
 
                     opacity: function () {
                         module.verbose('Removing inline opacity from element', this);
-                        var $element = $(this);
+                        const $element = $(this);
                         $element.css('opacity', '');
                         if ($element.attr('style') === '') {
                             $element
                                 .attr('style', '')
-                                .removeAttr('style')
-                            ;
+                                .removeAttr('style');
                         }
                     },
 
@@ -392,39 +358,37 @@
                         return module[name];
                     }
                 },
-                debug: function () {
+                debug: function (...args) {
                     if (!settings.silent && settings.debug) {
                         if (settings.performance) {
-                            module.performance.log(arguments);
+                            module.performance.log(args);
                         } else {
                             module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
-                            module.debug.apply(console, arguments);
+                            module.debug.apply(console, args);
                         }
                     }
                 },
-                verbose: function () {
+                verbose: function (...args) {
                     if (!settings.silent && settings.verbose && settings.debug) {
                         if (settings.performance) {
-                            module.performance.log(arguments);
+                            module.performance.log(args);
                         } else {
                             module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
-                            module.verbose.apply(console, arguments);
+                            module.verbose.apply(console, args);
                         }
                     }
                 },
-                error: function () {
+                error: function (...args) {
                     if (!settings.silent) {
                         module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
-                        module.error.apply(console, arguments);
+                        module.error.apply(console, args);
                     }
                 },
                 performance: {
                     log: function (message) {
-                        var
-                            currentTime,
-                            executionTime,
-                            previousTime
-                        ;
+                        let currentTime;
+                        let executionTime;
+                        let previousTime;
                         if (settings.performance) {
                             currentTime = Date.now();
                             previousTime = time || currentTime;
@@ -432,7 +396,7 @@
                             time = currentTime;
                             performance.push({
                                 Name: message[0],
-                                Arguments: [].slice.call(message, 1) || '',
+                                Arguments: message.slice(1),
                                 Element: element,
                                 'Execution Time': executionTime,
                             });
@@ -443,10 +407,8 @@
                         }, 500);
                     },
                     display: function () {
-                        var
-                            title = settings.name + ':',
-                            totalTime = 0
-                        ;
+                        let title = settings.name + ':';
+                        let totalTime = 0;
                         time = false;
                         clearTimeout(module.performance.timer);
                         $.each(performance, function (index, data) {
@@ -455,32 +417,22 @@
                         title += ' ' + totalTime + 'ms';
                         if (performance.length > 0) {
                             console.groupCollapsed(title);
-                            if (console.table) {
-                                console.table(performance);
-                            } else {
-                                $.each(performance, function (index, data) {
-                                    console.log(data.Name + ': ' + data['Execution Time'] + 'ms');
-                                });
-                            }
+                            console.table(performance);
                             console.groupEnd();
                         }
                         performance = [];
                     },
                 },
-                invoke: function (query, passedArguments, context) {
-                    var
-                        object = instance,
-                        maxDepth,
-                        found,
-                        response
-                    ;
-                    passedArguments = passedArguments || queryArguments;
-                    context = context || element;
+                invoke: function (query, passedArguments = queryArguments, context = element) {
+                    let object = instance;
+                    let maxDepth;
+                    let found;
+                    let response;
                     if (typeof query === 'string' && object !== undefined) {
                         query = query.split(/[ .]/);
                         maxDepth = query.length - 1;
                         $.each(query, function (depth, value) {
-                            var camelCaseValue = depth !== maxDepth
+                            const camelCaseValue = depth !== maxDepth
                                 ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
                                 : query;
                             if ($.isPlainObject(object[camelCaseValue]) && (depth !== maxDepth)) {
@@ -522,7 +474,7 @@
                 if (instance === undefined) {
                     module.initialize();
                 }
-                module.invoke(query);
+                module.invoke(parameters);
             } else {
                 if (instance !== undefined) {
                     instance.invoke('destroy');

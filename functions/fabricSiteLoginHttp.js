@@ -4,6 +4,8 @@ const crypto = require('crypto');
 const {
   DESKTOP_LOGIN_PREFIX,
   buildLoginMessage,
+  completeSessionWithFabricResponse,
+  fabricUriFromBody,
   verifyFabricDesktopLoginSignedPayload,
   originsMatchForDesktopSession,
   isLocalRequest,
@@ -16,8 +18,8 @@ const MAX_SESSIONS = 256;
 
 /**
  * True when the request body is a client-signed player login completion
- * (Passport / desktop peers / any wallet holding the user key). Empty body
- * keeps the legacy Hub-node self-sign path.
+ * (wallet extensions / desktop peers / any wallet holding the user key). Empty body
+ * keeps the legacy hub-node self-sign path.
  */
 function hasClientSignatureBody (body) {
   if (!body || typeof body !== 'object') return false;
@@ -147,7 +149,7 @@ function handleSessionCreate (hub, req, res) {
  * Complete a pending login session.
  *
  * **Client-signed (player login):** body `{ signature, pubkeyHex, identity: { id, xpub } }`
- * — BIP340 over the server-stored challenge. Used by Passport / desktop peers /
+ * — BIP340 over the server-stored challenge. Used by wallet extensions / desktop peers /
  * any wallet. Crypto verification is the authenticator (sessionId is
  * unguessable; message binds origin).
  *
@@ -169,6 +171,17 @@ function handleDesktopSign (hub, req, res) {
     const session = hub._desktopAuthSessions.get(sessionId);
     if (!session || session.status !== 'pending') {
       sendJson(res, 404, { ok: false, error: 'unknown or expired session' });
+      return;
+    }
+
+    const fabricUri = fabricUriFromBody(req && req.body);
+    if (fabricUri) {
+      const done = completeSessionWithFabricResponse(session, fabricUri);
+      if (!done.ok) {
+        sendJson(res, done.status, { ok: false, error: done.error });
+        return;
+      }
+      sendJson(res, 200, { ...done.json, sessionId });
       return;
     }
 
@@ -219,7 +232,7 @@ function handleDesktopSign (hub, req, res) {
     if (hub.allowHubSelfSign !== true) {
       sendJson(res, 400, {
         ok: false,
-        error: 'client signature required: { signature, pubkeyHex, identity: { id, xpub } }'
+        error: 'client signature required: { signature, pubkeyHex, identity: { id, xpub } } or { fabric: "fabric:…" }'
       });
       return;
     }
@@ -386,6 +399,10 @@ function handleSessionGet (hub, req, res) {
         pubkeyHex: session.pubkeyHex,
         message: session.message
       };
+      if (session.fabric) {
+        payload.fabric = session.fabric;
+        payload.signerLabel = session.signerLabel;
+      }
       hub._desktopAuthSessions.delete(sessionId);
       sendJson(res, 200, payload);
       return;

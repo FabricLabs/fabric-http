@@ -3,7 +3,7 @@
 /**
  * Legacy browser mesh helper previously backed by PeerJS.
  * PeerJS and the Express `peer` signaling server are removed from the stack;
- * Hub uses native RTCPeerConnection + WebSocket signaling ({@link ../hub.fabric.pub/components/Bridge.js}).
+ * Apps use native RTCPeerConnection + WebSocket signaling instead.
  *
  * This class remains as a **no-op stub** so older `components/application.js` loads without the `peerjs`
  * package. Do not use for new work — use Hub Bridge patterns instead.

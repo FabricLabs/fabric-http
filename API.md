@@ -226,7 +226,7 @@ Binds routes on a <a href="#FabricHTTPServer">FabricHTTPServer</a> via <code>_ad
 </dd>
 <dt><a href="#fabricHttpStaticSetHeaders">fabricHttpStaticSetHeaders(res, filePath)</a></dt>
 <dd><p><code>express.send</code> can label theme fonts as <code>application/octet-stream</code>. With <code>X-Content-Type-Options: nosniff</code>
-(set by @fabric/hub) Chromium/Electron may refuse to load @font-face resources; set explicit font MIME
+(set by many apps) Chromium/Electron may refuse to load @font-face resources; set explicit font MIME
 types for common Fomantic (Semantic) theme files under /themes/…/assets/fonts/</p>
 </dd>
 <dt><a href="#mergeStaticSetHeaders">mergeStaticSetHeaders(res, filePath, [user])</a></dt>
@@ -1304,7 +1304,7 @@ Resolve `relativeCandidate` under `staticRoot` and reject `..` / absolute escape
 
 ## fabricHttpStaticSetHeaders(res, filePath)
 `express.send` can label theme fonts as `application/octet-stream`. With `X-Content-Type-Options: nosniff`
-(set by @fabric/hub) Chromium/Electron may refuse to load @font-face resources; set explicit font MIME
+(set by many apps) Chromium/Electron may refuse to load @font-face resources; set explicit font MIME
 types for common Fomantic (Semantic) theme files under /themes/…/assets/fonts/
 
 **Kind**: global function  

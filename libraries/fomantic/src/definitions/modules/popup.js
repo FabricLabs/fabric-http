@@ -19,77 +19,72 @@
         ? window
         : globalThis;
 
-    $.fn.popup = function (parameters) {
-        var
-            $allModules    = $(this),
-            $document      = $(document),
-            $window        = $(window),
-            $body          = $('body'),
+    $.fn.popup = function (...args) {
+        const $allModules = $(this);
+        const $document = $(document);
+        const $window = $(window);
+        const $body = $('body');
 
-            clickEvent      = 'ontouchstart' in document.documentElement
-                ? 'touchstart'
-                : 'click',
+        const clickEvent = 'ontouchstart' in document.documentElement
+            ? 'touchstart'
+            : 'click';
 
-            time           = Date.now(),
-            performance    = [],
+        let time = Date.now();
+        let performance = [];
 
-            query          = arguments[0],
-            methodInvoked  = typeof query === 'string',
-            queryArguments = [].slice.call(arguments, 1),
-            contextCheck   = function (context, win) {
-                var $context;
-                if ([window, document].indexOf(context) >= 0) {
-                    $context = $(context);
-                } else {
-                    $context = $(win.document).find(context);
-                    if ($context.length === 0) {
-                        $context = win.frameElement ? contextCheck(context, win.parent) : $body;
-                    }
+        const parameters = args[0];
+        const methodInvoked = typeof parameters === 'string';
+        const queryArguments = args.slice(1);
+        const contextCheck = function (context, win) {
+            let $context;
+            if ([window, document].includes(context)) {
+                $context = $(context);
+            } else {
+                $context = $(win.document).find(context);
+                if ($context.length === 0) {
+                    $context = win.frameElement ? contextCheck(context, win.parent) : $body;
                 }
+            }
 
-                return $context;
-            },
+            return $context;
+        };
 
-            returnedValue
-        ;
+        let returnedValue;
         $allModules.each(function () {
-            var
-                settings        = $.isPlainObject(parameters)
-                    ? $.extend(true, {}, $.fn.popup.settings, parameters)
-                    : $.extend({}, $.fn.popup.settings),
+            const settings = $.isPlainObject(parameters)
+                ? $.extend(true, {}, $.fn.popup.settings, parameters)
+                : $.extend({}, $.fn.popup.settings);
 
-                selector           = settings.selector,
-                className          = settings.className,
-                error              = settings.error,
-                metadata           = settings.metadata,
-                namespace          = settings.namespace,
+            const selector = settings.selector;
+            const className = settings.className;
+            const error = settings.error;
+            const metadata = settings.metadata;
+            const namespace = settings.namespace;
 
-                eventNamespace     = '.' + settings.namespace,
-                moduleNamespace    = 'module-' + namespace,
+            const eventNamespace = '.' + settings.namespace;
+            const moduleNamespace = 'module-' + namespace;
 
-                $module            = $(this),
-                $context           = contextCheck(settings.context, window),
-                $scrollContext     = contextCheck(settings.scrollContext, window),
-                $boundary          = contextCheck(settings.boundary, window),
-                $target            = settings.target ? contextCheck(settings.target, window) : $module,
+            const $module = $(this);
+            const $context = contextCheck(settings.context, window);
+            const $scrollContext = contextCheck(settings.scrollContext, window);
+            const $boundary = contextCheck(settings.boundary, window);
+            const $target = settings.target ? contextCheck(settings.target, window) : $module;
 
-                $popup,
-                $offsetParent,
+            let $popup;
+            let $offsetParent;
 
-                searchDepth        = 0,
-                triedPositions     = false,
-                openedWithTouch    = false,
+            let searchDepth = 0;
+            let triedPositions = false;
+            let openedWithTouch = false;
 
-                element            = this,
-                instance           = $module.data(moduleNamespace),
+            const element = this;
+            let instance = $module.data(moduleNamespace);
 
-                documentObserver,
-                elementNamespace,
-                id,
-                module
-            ;
+            let documentObserver;
+            let elementNamespace;
+            let id;
 
-            module = {
+            const module = {
 
                 // binds events
                 initialize: function () {
@@ -109,29 +104,24 @@
                     module.verbose('Storing instance', module);
                     instance = module;
                     $module
-                        .data(moduleNamespace, instance)
-                    ;
+                        .data(moduleNamespace, instance);
                 },
 
                 observeChanges: function () {
-                    if ('MutationObserver' in window) {
-                        documentObserver = new MutationObserver(module.event.documentChanged);
-                        documentObserver.observe(document, {
-                            childList: true,
-                            subtree: true,
-                        });
-                        module.debug('Setting up mutation observer', documentObserver);
-                    }
+                    documentObserver = new MutationObserver(module.event.documentChanged);
+                    documentObserver.observe(document, {
+                        childList: true,
+                        subtree: true,
+                    });
+                    module.debug('Setting up mutation observer', documentObserver);
                 },
 
                 refresh: function () {
                     if (settings.popup) {
                         $popup = $document.find(settings.popup).eq(0);
-                    } else {
-                        if (settings.inline) {
-                            $popup = $target.nextAll(selector.popup).eq(0);
-                            settings.popup = $popup;
-                        }
+                    } else if (settings.inline) {
+                        $popup = $target.nextAll(selector.popup).eq(0);
+                        settings.popup = $popup;
                     }
                     if (settings.popup) {
                         module.set.invisible();
@@ -141,8 +131,7 @@
                             module.debug('Moving popup to the same offset parent as target');
                             $popup
                                 .detach()
-                                .appendTo($offsetParent)
-                            ;
+                                .appendTo($offsetParent);
                         }
                     } else {
                         $offsetParent = settings.inline
@@ -170,7 +159,7 @@
                     if (documentObserver) {
                         documentObserver.disconnect();
                     }
-                    // remove element only if was created dynamically
+                    // remove the element only if was created dynamically
                     if ($popup && !settings.preserve) {
                         module.removePopup();
                     }
@@ -181,17 +170,14 @@
                     module.unbind.close();
                     module.unbind.events();
                     $module
-                        .removeData(moduleNamespace)
-                    ;
+                        .removeData(moduleNamespace);
                 },
 
                 event: {
                     start: function (event) {
-                        var
-                            delay = $.isPlainObject(settings.delay)
-                                ? settings.delay.show
-                                : settings.delay
-                        ;
+                        const delay = $.isPlainObject(settings.delay)
+                            ? settings.delay.show
+                            : settings.delay;
                         clearTimeout(module.hideTimer);
                         if (!openedWithTouch || (openedWithTouch && settings.addTouchEvents)) {
                             module.showTimer = setTimeout(function () {
@@ -200,11 +186,9 @@
                         }
                     },
                     end: function () {
-                        var
-                            delay = $.isPlainObject(settings.delay)
-                                ? settings.delay.hide
-                                : settings.delay
-                        ;
+                        const delay = $.isPlainObject(settings.delay)
+                            ? settings.delay.hide
+                            : settings.delay;
                         clearTimeout(module.showTimer);
                         module.hideTimer = setTimeout(function () {
                             module.hide();
@@ -222,23 +206,19 @@
                         }
                     },
                     documentChanged: function (mutations) {
-                        [].forEach.call(mutations, function (mutation) {
-                            if (mutation.removedNodes) {
-                                [].forEach.call(mutation.removedNodes, function (node) {
-                                    if (node === element || $(node).find(element).length > 0) {
-                                        module.debug('Element removed from DOM, tearing down events');
-                                        module.destroy();
-                                    }
-                                });
+                        for (const mutation of mutations) {
+                            for (const node of mutation.removedNodes) {
+                                if (node === element || $(node).find(element).length > 0) {
+                                    module.debug('Element removed from DOM, tearing down events');
+                                    module.destroy();
+                                }
                             }
-                        });
+                        }
                     },
                     hideGracefully: function (event) {
-                        var
-                            $target = $(event.target),
-                            isInDOM = $.contains(document.documentElement, event.target),
-                            inPopup = $target.closest(selector.popup).length > 0
-                        ;
+                        const $target = $(event.target);
+                        const isInDOM = document.documentElement.contains(event.target);
+                        const inPopup = $target.closest(selector.popup).length > 0;
                         // don't close on clicks inside popup
                         if (event && !inPopup && isInDOM) {
                             module.debug('Click occurred outside popup hiding popup');
@@ -251,13 +231,11 @@
 
                 // generates popup html from metadata
                 create: function () {
-                    var
-                        targetSibling = $target.next(selector.popup),
-                        contentFallback = !settings.popup && targetSibling.length === 0 ? $module.attr('title') : false,
-                        html      = module.get.html(),
-                        title     = module.get.title(),
-                        content   = module.get.content(contentFallback)
-                    ;
+                    const targetSibling = $target.next(selector.popup);
+                    const contentFallback = !settings.popup && targetSibling.length === 0 ? $module.attr('title') : false;
+                    let html = module.get.html();
+                    const title = module.get.title();
+                    const content = module.get.content(contentFallback);
 
                     if (html || content || title) {
                         module.debug('Creating pop-up html');
@@ -270,18 +248,15 @@
                         $popup = $('<div/>')
                             .addClass(className.popup)
                             .data(metadata.activator, $module)
-                            .html(html)
-                        ;
+                            .html(html);
                         if (settings.inline) {
                             module.verbose('Inserting popup element inline', $popup);
                             $popup
-                                .insertAfter($module)
-                            ;
+                                .insertAfter($module);
                         } else {
                             module.verbose('Appending popup element to body', $popup);
                             $popup
-                                .appendTo($context)
-                            ;
+                                .appendTo($context);
                         }
                         module.refresh();
                         module.set.variation();
@@ -329,8 +304,7 @@
                     }
                 },
 
-                show: function (callback) {
-                    callback = callback || function () {};
+                show: function (callback = function () {}) {
                     module.debug('Showing pop-up', settings.transition);
                     if (module.is.hidden() && !(module.is.active() && module.is.dropdown())) {
                         if (!module.exists()) {
@@ -354,8 +328,7 @@
                     }
                 },
 
-                hide: function (callback) {
-                    callback = callback || function () {};
+                hide: function (callback = function () {}) {
                     if (module.is.visible() || module.is.animating()) {
                         if (settings.onHide.call($popup, element) === false) {
                             module.debug('onHide callback returned false, cancelling popup animation');
@@ -375,10 +348,8 @@
                         .each(function () {
                             $(this)
                                 .data(metadata.activator)
-                                .popup('hide')
-                            ;
-                        })
-                    ;
+                                .popup('hide');
+                        });
                 },
                 exists: function () {
                     if (!$popup) {
@@ -444,8 +415,7 @@
                                         callback.call($popup, element);
                                         settings.onVisible.call($popup, element);
                                     },
-                                })
-                            ;
+                                });
                         }
                     },
                     hide: function (callback) {
@@ -465,8 +435,7 @@
                                         callback.call($popup, element);
                                         settings.onHidden.call($popup, element);
                                     },
-                                })
-                            ;
+                                });
                         } else {
                             module.error(error.noTransition);
                         }
@@ -507,24 +476,20 @@
                         return $popup.offset();
                     },
                     calculations: function () {
-                        var
-                            $popupOffsetParent = module.get.offsetParent($popup),
-                            targetElement      = $target[0],
-                            isWindowEl         = $boundary[0] === window,
-                            targetOffset       = $target.offset(),
-                            parentOffset       = settings.inline || (settings.popup && settings.movePopup)
-                                ? $target.offsetParent().offset()
-                                : { top: 0, left: 0 },
-                            screenPosition = isWindowEl
-                                ? { top: 0, left: 0 }
-                                : $boundary.offset(),
-                            calculations   = {},
-                            scroll = isWindowEl
-                                ? { top: $window.scrollTop(), left: $window.scrollLeft() }
-                                : { top: 0, left: 0 },
-                            screen
-                        ;
-                        calculations = {
+                        const $popupOffsetParent = module.get.offsetParent($popup);
+                        const targetElement = $target[0];
+                        const isWindowEl = $boundary[0] === window;
+                        const targetOffset = $target.offset();
+                        const parentOffset = settings.inline || (settings.popup && settings.movePopup)
+                            ? $target.offsetParent().offset()
+                            : { top: 0, left: 0 };
+                        const screenPosition = isWindowEl
+                            ? { top: 0, left: 0 }
+                            : $boundary.offset();
+                        const scroll = isWindowEl
+                            ? { top: $window.scrollTop(), left: $window.scrollLeft() }
+                            : { top: 0, left: 0 };
+                        const calculations = {
                             // element which is launching popup
                             target: {
                                 element: $target[0],
@@ -557,11 +522,9 @@
                             },
                         };
 
-                        // if popup offset context is not same as target, then adjust calculations
+                        // if popup offset context is different from target, then adjust calculations
                         if ($popupOffsetParent[0] !== $offsetParent[0]) {
-                            var
-                                popupOffset        = $popupOffsetParent.offset()
-                            ;
+                            const popupOffset = $popupOffsetParent.offset();
                             calculations.target.top -= popupOffset.top;
                             calculations.target.left -= popupOffset.left;
                             calculations.parent.width = $popupOffsetParent.outerWidth();
@@ -578,15 +541,15 @@
 
                         // add in margins if inline
                         calculations.target.margin.top = settings.inline
-                            ? parseInt(window.getComputedStyle(targetElement).getPropertyValue('margin-top'), 10)
+                            ? Number.parseInt(window.getComputedStyle(targetElement).getPropertyValue('margin-top'), 10)
                             : 0;
                         calculations.target.margin.left = settings.inline
                             ? (module.is.rtl()
-                                ? parseInt(window.getComputedStyle(targetElement).getPropertyValue('margin-right'), 10)
-                                : parseInt(window.getComputedStyle(targetElement).getPropertyValue('margin-left'), 10))
+                                ? Number.parseInt(window.getComputedStyle(targetElement).getPropertyValue('margin-right'), 10)
+                                : Number.parseInt(window.getComputedStyle(targetElement).getPropertyValue('margin-left'), 10))
                             : 0;
                         // calculate screen boundaries
-                        screen = calculations.screen;
+                        const screen = calculations.screen;
                         calculations.boundary = {
                             top: screen.top + screen.scroll.top,
                             bottom: screen.top + screen.scroll.top + screen.height,
@@ -622,17 +585,12 @@
 
                         return false;
                     },
-                    distanceFromBoundary: function (offset, calculations) {
-                        var
-                            distanceFromBoundary = {},
-                            popup,
-                            boundary
-                        ;
-                        calculations = calculations || module.get.calculations();
+                    distanceFromBoundary: function (offset, calculations = module.get.calculations()) {
+                        let distanceFromBoundary = {};
 
                         // shorthand
-                        popup = calculations.popup;
-                        boundary = calculations.boundary;
+                        const popup = calculations.popup;
+                        const boundary = calculations.boundary;
 
                         if (offset) {
                             distanceFromBoundary = {
@@ -647,19 +605,15 @@
                         return distanceFromBoundary;
                     },
                     offsetParent: function ($element) {
-                        var
-                            element = $element !== undefined
-                                ? $element[0]
-                                : $target[0],
-                            parentNode = element.parentNode,
-                            $node    = $(parentNode)
-                        ;
+                        const element = $element !== undefined
+                            ? $element[0]
+                            : $target[0];
+                        let parentNode = element.parentNode;
+                        let $node = $(parentNode);
                         if (parentNode) {
-                            var
-                                is2D     = $node.css('transform') === 'none',
-                                isStatic = $node.css('position') === 'static',
-                                isBody   = $node.is('body')
-                            ;
+                            let is2D = $node.css('transform') === 'none';
+                            let isStatic = $node.css('position') === 'static';
+                            let isBody = $node.is('body');
                             while (parentNode && !isBody && isStatic && is2D) {
                                 parentNode = parentNode.parentNode;
                                 $node = $(parentNode);
@@ -686,36 +640,34 @@
                         };
                     },
                     nextPosition: function (position) {
-                        var
-                            positions          = position.split(' '),
-                            verticalPosition   = positions[0],
-                            horizontalPosition = positions[1],
-                            opposite = {
-                                top: 'bottom',
-                                bottom: 'top',
-                                left: 'right',
-                                right: 'left',
-                            },
-                            adjacent = {
-                                left: 'center',
-                                center: 'right',
-                                right: 'left',
-                            },
-                            backup = {
-                                'top left': 'top center',
-                                'top center': 'top right',
-                                'top right': 'right center',
-                                'right center': 'bottom right',
-                                'bottom right': 'bottom center',
-                                'bottom center': 'bottom left',
-                                'bottom left': 'left center',
-                                'left center': 'top left',
-                            },
-                            adjacentsAvailable = verticalPosition === 'top' || verticalPosition === 'bottom',
-                            oppositeTried = false,
-                            adjacentTried = false,
-                            nextPosition  = false
-                        ;
+                        const positions = position.split(' ');
+                        const verticalPosition = positions[0];
+                        const horizontalPosition = positions[1];
+                        const opposite = {
+                            top: 'bottom',
+                            bottom: 'top',
+                            left: 'right',
+                            right: 'left',
+                        };
+                        const adjacent = {
+                            left: 'center',
+                            center: 'right',
+                            right: 'left',
+                        };
+                        const backup = {
+                            'top left': 'top center',
+                            'top center': 'top right',
+                            'top right': 'right center',
+                            'right center': 'bottom right',
+                            'bottom right': 'bottom center',
+                            'bottom center': 'bottom left',
+                            'bottom left': 'left center',
+                            'left center': 'top left',
+                        };
+                        const adjacentsAvailable = verticalPosition === 'top' || verticalPosition === 'bottom';
+                        let oppositeTried = false;
+                        let adjacentTried = false;
+                        let nextPosition = false;
                         if (!triedPositions) {
                             module.verbose('All available positions available');
                             triedPositions = module.get.positions();
@@ -746,34 +698,24 @@
                 },
 
                 set: {
-                    position: function (position, calculations) {
+                    position: function (position = $module.data(metadata.position) || settings.position, calculations = module.get.calculations()) {
                         // exit conditions
                         if ($target.length === 0 || $popup.length === 0) {
                             module.error(error.notFound);
 
                             return;
                         }
-                        var
-                            offset,
-                            distanceAway,
-                            target,
-                            popup,
-                            parent,
-                            positioning,
-                            popupOffset,
-                            distanceFromBoundary
-                        ;
-
-                        calculations = calculations || module.get.calculations();
-                        position = position || $module.data(metadata.position) || settings.position;
+                        let offset;
+                        let distanceAway;
+                        let positioning;
 
                         offset = $module.data(metadata.offset) || settings.offset;
                         distanceAway = settings.distanceAway;
 
                         // shorthand
-                        target = calculations.target;
-                        popup = calculations.popup;
-                        parent = calculations.parent;
+                        const target = calculations.target;
+                        const popup = calculations.popup;
+                        const parent = calculations.parent;
 
                         if (module.should.centerArrow(calculations)) {
                             module.verbose('Adjusting offset to center arrow on small target element');
@@ -818,7 +760,7 @@
                             module.debug('RTL: Popup position updated', position);
                         }
 
-                        // if last attempt use specified last resort position
+                        // if last attempt, use specified last resort position
                         if (searchDepth === settings.maxSearchDepth && typeof settings.lastResort === 'string') {
                             position = settings.lastResort;
                         }
@@ -904,6 +846,7 @@
 
                                 break;
                             }
+                            // no default
                         }
                         if (positioning === undefined) {
                             module.error(error.invalidPosition, position);
@@ -915,14 +858,13 @@
                         $popup
                             .css(positioning)
                             .removeClass(className.position)
-                            .addClass(position)
-                        ;
+                            .addClass(position);
                         module.set.invisible();
 
-                        popupOffset = module.get.popupOffset();
+                        const popupOffset = module.get.popupOffset();
 
                         // see if any boundaries are surpassed with this tentative position
-                        distanceFromBoundary = module.get.distanceFromBoundary(popupOffset, calculations);
+                        const distanceFromBoundary = module.get.distanceFromBoundary(popupOffset, calculations);
 
                         if (!settings.forcePosition && module.is.offstage(distanceFromBoundary, position)) {
                             module.debug('Position is outside viewport', position);
@@ -958,8 +900,7 @@
                         return true;
                     },
 
-                    fluidWidth: function (calculations) {
-                        calculations = calculations || module.get.calculations();
+                    fluidWidth: function (calculations = module.get.calculations()) {
                         module.debug('Automatically setting element width to parent width', calculations.parent.width);
                         $popup.css('width', calculations.container.width);
                     },
@@ -972,8 +913,7 @@
                         $popup.addClass(className.invisible);
                     },
 
-                    variation: function (variation) {
-                        variation = variation || module.get.variation();
+                    variation: function (variation = module.get.variation()) {
                         if (variation && module.has.popup()) {
                             module.verbose('Adding variation to popup', variation);
                             $popup.addClass(variation);
@@ -992,8 +932,7 @@
                     invisible: function () {
                         $popup.removeClass(className.invisible);
                     },
-                    variation: function (variation) {
-                        variation = variation || module.get.variation();
+                    variation: function (variation = module.get.variation()) {
                         if (variation) {
                             module.verbose('Removing variation', variation);
                             $popup.removeClass(variation);
@@ -1014,19 +953,16 @@
                         module.debug('Binding popup events to module');
                         if (settings.on === 'click') {
                             $module
-                                .on(clickEvent + eventNamespace, module.toggle)
-                            ;
+                                .on(clickEvent + eventNamespace, module.toggle);
                         }
                         if (settings.on === 'hover') {
                             $module
-                                .on('touchstart' + eventNamespace, module.event.touchstart)
-                            ;
+                                .on('touchstart' + eventNamespace, module.event.touchstart);
                         }
                         if (module.get.startEvent()) {
                             $module
                                 .on(module.get.startEvent() + eventNamespace, module.event.start)
-                                .on(module.get.endEvent() + eventNamespace, module.event.end)
-                            ;
+                                .on(module.get.endEvent() + eventNamespace, module.event.end);
                         }
                         if (settings.target) {
                             module.debug('Target set to element', $target);
@@ -1038,8 +974,7 @@
                         if ($popup && module.has.popup()) {
                             $popup
                                 .on('mouseenter' + eventNamespace, module.event.start)
-                                .on('mouseleave' + eventNamespace, module.event.end)
-                            ;
+                                .on('mouseleave' + eventNamespace, module.event.end);
                         }
                     },
                     close: function () {
@@ -1055,8 +990,7 @@
                     closeOnScroll: function () {
                         module.verbose('Binding scroll close event to document');
                         $scrollContext
-                            .one(module.get.scrollEvent() + elementNamespace, module.event.hideGracefully)
-                        ;
+                            .one(module.get.scrollEvent() + elementNamespace, module.event.hideGracefully);
                     },
                     touchClose: function () {
                         module.verbose('Binding popup touchclose event to document');
@@ -1064,8 +998,7 @@
                             .on('touchstart' + elementNamespace, function (event) {
                                 module.verbose('Touched away from popup');
                                 module.event.hideGracefully.call(element, event);
-                            })
-                        ;
+                            });
                     },
                     clickaway: function () {
                         module.verbose('Binding popup close event to document');
@@ -1073,27 +1006,22 @@
                             .on(clickEvent + elementNamespace, function (event) {
                                 module.verbose('Clicked away from popup');
                                 module.event.hideGracefully.call(element, event);
-                            })
-                        ;
+                            });
                     },
                 },
 
                 unbind: {
                     events: function () {
                         $window
-                            .off(elementNamespace)
-                        ;
+                            .off(elementNamespace);
                         $module
-                            .off(eventNamespace)
-                        ;
+                            .off(eventNamespace);
                     },
                     close: function () {
                         $document
-                            .off(elementNamespace)
-                        ;
+                            .off(elementNamespace);
                         $scrollContext
-                            .off(elementNamespace)
-                        ;
+                            .off(elementNamespace);
                     },
                 },
 
@@ -1129,9 +1057,7 @@
                         return settings.closable;
                     },
                     offstage: function (distanceFromBoundary, position) {
-                        var
-                            offstage = []
-                        ;
+                        const offstage = [];
                         // return boundaries that have been surpassed
                         $.each(distanceFromBoundary, function (direction, distance) {
                             if (distance < -settings.jitter) {
@@ -1176,8 +1102,7 @@
                     if (settings.preserve) {
                         if ($.fn.transition !== undefined) {
                             $popup
-                                .transition('remove transition')
-                            ;
+                                .transition('remove transition');
                         }
                     } else {
                         module.removePopup();
@@ -1202,39 +1127,37 @@
                         return module[name];
                     }
                 },
-                debug: function () {
+                debug: function (...args) {
                     if (!settings.silent && settings.debug) {
                         if (settings.performance) {
-                            module.performance.log(arguments);
+                            module.performance.log(args);
                         } else {
                             module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
-                            module.debug.apply(console, arguments);
+                            module.debug.apply(console, args);
                         }
                     }
                 },
-                verbose: function () {
+                verbose: function (...args) {
                     if (!settings.silent && settings.verbose && settings.debug) {
                         if (settings.performance) {
-                            module.performance.log(arguments);
+                            module.performance.log(args);
                         } else {
                             module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
-                            module.verbose.apply(console, arguments);
+                            module.verbose.apply(console, args);
                         }
                     }
                 },
-                error: function () {
+                error: function (...args) {
                     if (!settings.silent) {
                         module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
-                        module.error.apply(console, arguments);
+                        module.error.apply(console, args);
                     }
                 },
                 performance: {
                     log: function (message) {
-                        var
-                            currentTime,
-                            executionTime,
-                            previousTime
-                        ;
+                        let currentTime;
+                        let executionTime;
+                        let previousTime;
                         if (settings.performance) {
                             currentTime = Date.now();
                             previousTime = time || currentTime;
@@ -1242,7 +1165,7 @@
                             time = currentTime;
                             performance.push({
                                 Name: message[0],
-                                Arguments: [].slice.call(message, 1) || '',
+                                Arguments: message.slice(1),
                                 Element: element,
                                 'Execution Time': executionTime,
                             });
@@ -1253,10 +1176,8 @@
                         }, 500);
                     },
                     display: function () {
-                        var
-                            title = settings.name + ':',
-                            totalTime = 0
-                        ;
+                        let title = settings.name + ':';
+                        let totalTime = 0;
                         time = false;
                         clearTimeout(module.performance.timer);
                         $.each(performance, function (index, data) {
@@ -1265,35 +1186,24 @@
                         title += ' ' + totalTime + 'ms';
                         if (performance.length > 0) {
                             console.groupCollapsed(title);
-                            if (console.table) {
-                                console.table(performance);
-                            } else {
-                                $.each(performance, function (index, data) {
-                                    console.log(data.Name + ': ' + data['Execution Time'] + 'ms');
-                                });
-                            }
+                            console.table(performance);
                             console.groupEnd();
                         }
                         performance = [];
                     },
                 },
-                invoke: function (query, passedArguments, context) {
-                    var
-                        object = instance,
-                        maxDepth,
-                        found,
-                        response
-                    ;
-                    passedArguments = passedArguments || queryArguments;
-                    context = context || element;
+                invoke: function (query, passedArguments = queryArguments, context = element) {
+                    let object = instance;
+                    let maxDepth;
+                    let found;
+                    let response;
                     if (typeof query === 'string' && object !== undefined) {
                         query = query.split(/[ .]/);
                         maxDepth = query.length - 1;
                         $.each(query, function (depth, value) {
-                            var camelCaseValue = depth !== maxDepth
+                            const camelCaseValue = depth !== maxDepth
                                 ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
-                                : query
-                            ;
+                                : query;
                             if ($.isPlainObject(object[camelCaseValue]) && (depth !== maxDepth)) {
                                 object = object[camelCaseValue];
                             } else if (object[camelCaseValue] !== undefined) {
@@ -1334,7 +1244,7 @@
                 if (instance === undefined) {
                     module.initialize();
                 }
-                module.invoke(query);
+                module.invoke(parameters);
             } else {
                 if (instance !== undefined) {
                     instance.invoke('destroy');
@@ -1362,7 +1272,7 @@
         // whether it should use dom mutation observers
         observeChanges: true,
 
-        // callback only when element added to dom
+        // callback only when the element was added to dom
         onCreate: function () {},
 
         // callback before element removed from dom
@@ -1407,7 +1317,7 @@
         // element which popup should be relative to
         target: false,
 
-        // jq selector or element that should be used as popup
+        // jQuery selector or element that should be used as a popup
         popup: false,
 
         // popup should remain inline next to activator
@@ -1422,7 +1332,7 @@
         // explicitly set content
         content: false,
 
-        // explicitly set html
+        // explicitly set HTML
         html: false,
 
         // explicitly set title
@@ -1465,7 +1375,7 @@
         duration: 200,
         transition: 'scale',
 
-        // distance away from activating element in px
+        // distance away from the activating element in px
         distanceAway: 0,
 
         // number of pixels an element is allowed to be "offstage" for a position to be chosen (allows for rounding)
@@ -1515,33 +1425,19 @@
 
         templates: {
             escape: function (string) {
-                var
-                    badChars     = /["'<>`]/g,
-                    shouldEscape = /["&'<>`]/,
-                    escape       = {
-                        '<': '&lt;',
-                        '>': '&gt;',
-                        '"': '&quot;',
-                        "'": '&#x27;',
-                        '`': '&#x60;',
-                    },
-                    escapedChar  = function (chr) {
-                        return escape[chr];
-                    }
-                ;
-                if (shouldEscape.test(string)) {
-                    string = string.replace(/&(?![\d#a-z]{1,12};)/gi, '&amp;');
+                const escapeMap = {
+                    '"': '&quot;',
+                    '&': '&amp;',
+                    "'": '&apos;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                };
 
-                    return string.replace(badChars, escapedChar);
-                }
-
-                return string;
+                return String(string).replace(/["&'<>]/g, (chr) => escapeMap[chr]);
             },
             popup: function (text) {
-                var
-                    html   = '',
-                    escape = $.fn.popup.settings.templates.escape
-                ;
+                let html = '';
+                const escape = $.fn.popup.settings.templates.escape;
                 if (text !== undefined) {
                     if (text.title) {
                         text.title = escape(text.title);

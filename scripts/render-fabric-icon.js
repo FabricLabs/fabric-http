@@ -1,18 +1,15 @@
 'use strict';
 
 /**
- * Render the canonical Fabric lettermark (serif lowercase f) and copy it into
- * package `assets/` plus sibling app trees (Hub, goon.vc, Passport extension).
- * Application digraph lettermarks are owned by their own repos.
+ * Render the canonical Fabric lettermark (serif lowercase f) into package `assets/`.
+ * Writes nothing outside this package; apps copy the files from `assets/` themselves.
  *
  * Requires macOS (`swift`, `sips`, `iconutil`).
  *
  *   node scripts/render-fabric-icon.js
- *   node scripts/render-fabric-icon.js --no-sync
  */
 
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
@@ -27,6 +24,7 @@ const FONT = path.join(ROOT, 'assets', 'themes', 'fabric', 'assets', 'fonts', 'a
 const SWIFT = path.join(__dirname, 'render-fabric-icon.swift');
 const ASSETS = path.join(ROOT, 'assets');
 const ICONS = path.join(ASSETS, 'icons');
+const SCRATCH = path.join(ROOT, '.cache');
 const MASTER = 1024;
 
 const PNG_SIZES = [16, 24, 32, 48, 64, 128, 180, 192, 256, 512, 1024];
@@ -72,7 +70,8 @@ function copyFile (src, dest) {
 }
 
 function buildIcns (pngBySize, dest) {
-  const iconset = fs.mkdtempSync(path.join(os.tmpdir(), 'fabric-iconset-'));
+  fs.mkdirSync(SCRATCH, { recursive: true });
+  const iconset = fs.mkdtempSync(path.join(SCRATCH, 'fabric-iconset-'));
   const map = [
     ['icon_16x16.png', 16],
     ['icon_16x16@2x.png', 32],
@@ -97,75 +96,10 @@ function buildIcns (pngBySize, dest) {
   }
 }
 
-function syncDownstream (files) {
-  const parent = path.join(ROOT, '..');
-  const jobs = [
-    {
-      root: path.join(parent, 'hub.fabric.pub'),
-      copies: [
-        ['favicon.ico', 'assets/favicon.ico'],
-        ['favicon.svg', 'assets/favicon.svg'],
-        ['apple-touch-icon.png', 'assets/apple-touch-icon.png'],
-        ['icons/icon.png', 'assets/icons/icon.png'],
-        ['icons/icon-16.png', 'assets/icons/icon-16.png'],
-        ['icons/icon-32.png', 'assets/icons/icon-32.png'],
-        ['icons/icon-48.png', 'assets/icons/icon-48.png'],
-        ['icons/icon-128.png', 'assets/icons/icon-128.png'],
-        ['icons/icon-180.png', 'assets/icons/icon-180.png'],
-        ['icons/icon-192.png', 'assets/icons/icon-192.png'],
-        ['icons/icon-256.png', 'assets/icons/icon-256.png'],
-        ['icons/icon-512.png', 'assets/icons/icon-512.png'],
-        ['icons/icon-1024.png', 'assets/icons/icon-1024.png'],
-        ['icons/icon-1024.png', 'build/icon.png'],
-        ['favicon.ico', 'build/icon.ico'],
-        ['icon.icns', 'build/icon.icns']
-      ]
-    },
-    {
-      root: path.join(parent, 'goon.vc'),
-      copies: [
-        ['favicon.ico', 'assets/favicon.ico'],
-        ['favicon.svg', 'assets/favicon.svg'],
-        ['apple-touch-icon.png', 'assets/apple-touch-icon.png']
-      ]
-    },
-    {
-      root: path.join(parent, 'fabric-browser-extension'),
-      copies: [
-        ['icons/icon-16.png', 'assets/icons/icon16.png'],
-        ['icons/icon-24.png', 'assets/icons/icon24.png'],
-        ['icons/icon-32.png', 'assets/icons/icon32.png'],
-        ['icons/icon-48.png', 'assets/icons/icon48.png'],
-        ['icons/icon-128.png', 'assets/icons/icon128.png'],
-        ['icons/icon-192.png', 'assets/icons/icon192.png'],
-        ['icons/icon-128.png', 'assets/icons/logo.png'],
-        ['icons/icon-128.png', 'assets/icons/chrome-store-icon-128.png'],
-        ['icons/icon-128.png', 'store/icons/icon-128.png'],
-        ['icons/icon-512.png', 'store/icons/icon-512.png']
-      ]
-    }
-  ];
-
-  for (const job of jobs) {
-    if (!fs.existsSync(job.root)) {
-      console.log('[fabric-icon] skip missing', job.root);
-      continue;
-    }
-    for (const [fromRel, toRel] of job.copies) {
-      if (!files[fromRel]) {
-        throw new Error('missing icon source ' + fromRel);
-      }
-      copyFile(files[fromRel], path.join(job.root, toRel));
-    }
-    console.log('[fabric-icon] synced', path.basename(job.root));
-  }
-}
-
 function main () {
   if (process.platform !== 'darwin') {
     throw new Error('npm run make:icons requires macOS (swift, sips, iconutil)');
   }
-  const noSync = process.argv.includes('--no-sync');
   if (!fs.existsSync(FONT)) {
     throw new Error('Arvo Bold TTF missing: ' + FONT);
   }
@@ -214,26 +148,6 @@ function main () {
   const icnsPath = path.join(ICONS, 'icon.icns');
   buildIcns(pngBySize, icnsPath);
 
-  const files = {
-    'favicon.ico': icoPath,
-    'favicon.svg': svgOut,
-    'apple-touch-icon.png': path.join(ASSETS, 'apple-touch-icon.png'),
-    'icon.icns': icnsPath,
-    'icons/icon.png': path.join(ICONS, 'icon.png'),
-    'icons/icon-16.png': pngBySize[16],
-    'icons/icon-24.png': pngBySize[24],
-    'icons/icon-32.png': pngBySize[32],
-    'icons/icon-48.png': pngBySize[48],
-    'icons/icon-128.png': pngBySize[128],
-    'icons/icon-180.png': pngBySize[180],
-    'icons/icon-192.png': pngBySize[192],
-    'icons/icon-256.png': pngBySize[256],
-    'icons/icon-512.png': pngBySize[512],
-    'icons/icon-1024.png': pngBySize[1024],
-    'icon-letter-32.png': letter32,
-    'icon-letter-64.png': letter64
-  };
-
   const readme = [
     '# Fabric lettermark',
     '',
@@ -245,7 +159,6 @@ function main () {
   ].join('\n');
   fs.writeFileSync(path.join(ICONS, 'README.md'), readme);
 
-  if (!noSync) syncDownstream(files);
   console.log('[fabric-icon] wrote', path.relative(ROOT, svgOut), 'and', PNG_SIZES.length, 'png sizes');
 }
 
