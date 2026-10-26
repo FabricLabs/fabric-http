@@ -3,21 +3,8 @@
 const assert = require('assert');
 const Key = require('@fabric/core/types/key');
 const Identity = require('@fabric/core/types/identity');
-const {
-  DESKTOP_LOGIN_PREFIX,
-  buildLoginMessage,
-  parseDesktopLoginMessage,
-  verifyFabricDesktopLoginSignedPayload,
-  buildFabricIdentitySignedPayload,
-  originsMatchForDesktopSession
-} = require('../functions/fabricSiteLoginVerify');
-const { parseFabricLoginUrl, fabricLoginRequestHeaders } = require('../functions/fabricProtocolLogin');
-const {
-  handleDesktopSign,
-  handleSessionGet,
-  handleSessionCreate
-} = require('../functions/fabricSiteLoginHttp');
-const { getSession } = require('../functions/fabricSiteLogin');
+const { buildFabricIdentitySignedPayload } = require('../functions/fabricIdentitySchnorr');
+const { originsMatch } = require('../functions/httpRequestTrust');
 const { parseFabricDeviceLinkUrl } = require('../functions/fabricDeviceLinkProtocol');
 const { DEFAULT_FABRIC_HUB_ORIGINS } = require('../functions/fabricHubAllowlist');
 
@@ -31,40 +18,6 @@ const {
 } = require('../functions/fabricDeviceLinkMessages');
 
 describe('@fabric/http identity HTTP', function () {
-  it('builds and parses site-login challenges', function () {
-    const msg = buildLoginMessage('ab'.repeat(24), 'https://relay.example.com', 'cd'.repeat(32));
-    assert.ok(msg.startsWith(DESKTOP_LOGIN_PREFIX + ':'));
-    const parsed = parseDesktopLoginMessage(msg);
-    assert.strictEqual(parsed.sessionId, 'ab'.repeat(24));
-    assert.strictEqual(parsed.origin, 'https://relay.example.com');
-  });
-
-  it('verifies a fabric: SiteLoginResponse against the session challenge', function () {
-    const { signSiteLoginResponse } = require('@fabric/core/functions/fabricSiteLogin');
-    const ident = new Identity(new Key());
-    const sessionId = 'ab'.repeat(24);
-    const origin = 'https://relay.example.com';
-    const nonce = 'cd'.repeat(32);
-    const message = buildLoginMessage(sessionId, origin, nonce);
-    const signed = signSiteLoginResponse({ origin, nonce, signer: 'passport', xpub: ident.fabricKey.xpub }, ident.fabricKey);
-    const verified = verifyFabricDesktopLoginSignedPayload({ fabric: signed.uri, message }, { sessionId, origin });
-    assert.strictEqual(verified.ok, true);
-    const other = verifyFabricDesktopLoginSignedPayload({ fabric: signed.uri, message }, { sessionId, origin: 'https://evil.example' });
-    assert.strictEqual(other.ok, false);
-    const onlySid = verifyFabricDesktopLoginSignedPayload({ fabric: signed.uri, message }, { sessionId });
-    assert.strictEqual(onlySid.ok, false);
-  });
-
-  it('refuses raw Schnorr login payloads', function () {
-    const ident = new Identity(new Key());
-    const sessionId = 'ab'.repeat(24);
-    const origin = 'https://relay.example.com';
-    const message = buildLoginMessage(sessionId, origin, 'cd'.repeat(32));
-    const payload = buildFabricIdentitySignedPayload(ident, message, 'Fabric/Sign');
-    const verified = verifyFabricDesktopLoginSignedPayload({ ...payload, message }, { sessionId, origin });
-    assert.strictEqual(verified.ok, false);
-  });
-
   it('signs from HD Key and from { mnemonic } bag', function () {
     const key = new Key();
     const ident = new Identity(key);
@@ -96,15 +49,13 @@ describe('@fabric/http identity HTTP', function () {
     assert.strictEqual(verifyIdentitySchnorr(message, payload.signature, payload.pubkeyHex, payload.identity, 'Fabric/Other').ok, false);
   });
 
-  it('parses fabric://login and fabric://link with allowlist', function () {
+  it('parses fabric://link with allowlist', function () {
     const sid = 'ab'.repeat(24);
-    const login = parseFabricLoginUrl(`fabric://login?sessionId=${sid}&hub=${encodeURIComponent(ALLOWLISTED_HUB)}`);
-    assert.strictEqual(login.ok, true);
-    const bad = parseFabricLoginUrl(`fabric://login?sessionId=${sid}&hub=${encodeURIComponent('https://evil.example')}`);
-    assert.strictEqual(bad.ok, false);
     const link = parseFabricDeviceLinkUrl(`fabric://link?sessionId=${sid}&hub=${encodeURIComponent(ALLOWLISTED_HUB)}`);
     assert.strictEqual(link.ok, true);
     assert.strictEqual(link.kind, 'link');
+    const bad = parseFabricDeviceLinkUrl(`fabric://link?sessionId=${sid}&hub=${encodeURIComponent('https://evil.example')}`);
+    assert.strictEqual(bad.ok, false);
   });
 
   it('builds and parses v3 device-link offers and links bound to session and origin', function () {
@@ -145,330 +96,9 @@ describe('@fabric/http identity HTTP', function () {
 
   it('matches loopback origins across localhost/127.0.0.1', function () {
     assert.strictEqual(
-      originsMatchForDesktopSession('http://127.0.0.1:8080', 'http://localhost:8080'),
+      originsMatch('http://127.0.0.1:8080', 'http://localhost:8080'),
       true
     );
-  });
-});
-
-describe('@fabric/http site-login sessions', function () {
-  function mockRes () {
-    const out = { statusCode: 0, body: null };
-    return {
-      out,
-      setHeader () {},
-      status (code) { out.statusCode = code; return this; },
-      send (body) { out.body = body; return this; }
-    };
-  }
-
-  it('refuses Hub self-sign from a remote socket even when allowHubSelfSign is on', function () {
-    const sessionId = 'cc'.repeat(24);
-    const hub = {
-      allowHubSelfSign: true,
-      _desktopAuthSessions: new Map([[sessionId, {
-        status: 'pending',
-        origin: 'https://hub.example.com',
-        message: 'login',
-        nonce: 'nn',
-        createdAt: Date.now()
-      }]]),
-      _rootKey: { private: true, signSchnorr () { return Buffer.alloc(64); }, pubkey: 'aa'.repeat(33), xpub: 'xpub' }
-    };
-    const res = mockRes();
-    handleDesktopSign(hub, {
-      params: { sessionId },
-      body: {},
-      socket: { remoteAddress: '203.0.113.9' },
-      headers: { origin: 'https://hub.example.com' }
-    }, res);
-    assert.strictEqual(res.out.statusCode, 403);
-    const body = typeof res.out.body === 'string' ? JSON.parse(res.out.body) : res.out.body;
-    assert.match(String(body && body.error), /loopback/i);
-  });
-
-  it('refuses Hub self-sign when allowHubSelfSign is off (client signature required)', function () {
-    const sessionId = 'dd'.repeat(24);
-    const hub = {
-      allowHubSelfSign: false,
-      _desktopAuthSessions: new Map([[sessionId, {
-        status: 'pending',
-        origin: 'http://127.0.0.1:8080',
-        message: 'login',
-        nonce: 'nn',
-        createdAt: Date.now()
-      }]]),
-      _rootKey: { private: true }
-    };
-    const res = mockRes();
-    handleDesktopSign(hub, {
-      params: { sessionId },
-      body: {},
-      socket: { remoteAddress: '127.0.0.1' },
-      headers: {}
-    }, res);
-    assert.strictEqual(res.out.statusCode, 400);
-  });
-
-  it('loopback Hub self-sign completes the session with a Hub-signed SiteLoginResponse', function () {
-    const { verifySiteLoginResponse } = require('@fabric/core/functions/fabricSiteLogin');
-    const sessionId = 'ee'.repeat(24);
-    const nonce = 'ff'.repeat(32);
-    const origin = 'http://127.0.0.1:8080';
-    const rootKey = new Identity(new Key()).fabricKey;
-    const hub = {
-      allowHubSelfSign: true,
-      _desktopAuthSessions: new Map([[sessionId, {
-        status: 'pending',
-        origin,
-        message: buildLoginMessage(sessionId, origin, nonce),
-        nonce,
-        createdAt: Date.now()
-      }]]),
-      _rootKey: rootKey
-    };
-    const res = mockRes();
-    handleDesktopSign(hub, {
-      params: { sessionId },
-      body: {},
-      socket: { remoteAddress: '127.0.0.1' },
-      headers: {}
-    }, res);
-    assert.strictEqual(res.out.statusCode, 200);
-    const body = JSON.parse(res.out.body);
-    assert.strictEqual(body.signer, 'hub');
-    const verified = verifySiteLoginResponse(body.fabric, { origin, nonce });
-    assert.strictEqual(verified.ok, true);
-    assert.strictEqual(verified.signer, 'hub');
-    assert.strictEqual(verified.identity.pubkey, rootKey.pubkey.toLowerCase());
-  });
-
-  it('refuses a raw { signature, pubkeyHex, identity } completion', function () {
-    const sessionId = '12'.repeat(24);
-    const nonce = '34'.repeat(32);
-    const origin = 'https://hub.example.com';
-    const ident = new Identity(new Key());
-    const message = buildLoginMessage(sessionId, origin, nonce);
-    const hub = {
-      allowHubSelfSign: false,
-      _desktopAuthSessions: new Map([[sessionId, { status: 'pending', origin, message, nonce, createdAt: Date.now() }]])
-    };
-    const res = mockRes();
-    handleDesktopSign(hub, {
-      params: { sessionId },
-      body: buildFabricIdentitySignedPayload(ident, message, 'Fabric/Sign'),
-      socket: { remoteAddress: '203.0.113.9' },
-      headers: { origin }
-    }, res);
-    assert.strictEqual(res.out.statusCode, 400);
-    assert.strictEqual(hub._desktopAuthSessions.get(sessionId).status, 'pending');
-  });
-
-  it('does not fall back to Hub self-sign when a loopback body carries a raw signature', function () {
-    const sessionId = '56'.repeat(24);
-    const nonce = '78'.repeat(32);
-    const origin = 'http://127.0.0.1:8080';
-    const ident = new Identity(new Key());
-    const message = buildLoginMessage(sessionId, origin, nonce);
-    const hub = {
-      allowHubSelfSign: true,
-      _desktopAuthSessions: new Map([[sessionId, { status: 'pending', origin, message, nonce, createdAt: Date.now() }]]),
-      _rootKey: new Identity(new Key()).fabricKey
-    };
-    const res = mockRes();
-    handleDesktopSign(hub, {
-      params: { sessionId },
-      body: buildFabricIdentitySignedPayload(ident, message, 'Fabric/Sign'),
-      socket: { remoteAddress: '127.0.0.1' },
-      headers: {}
-    }, res);
-    assert.strictEqual(res.out.statusCode, 400);
-    assert.strictEqual(hub._desktopAuthSessions.get(sessionId).status, 'pending');
-  });
-
-  it('create returns pollSecret and omits it from fabric:// and pending GET', function () {
-    const hub = { _desktopAuthSessions: new Map() };
-    const created = mockRes();
-    handleSessionCreate(hub, {
-      body: { origin: 'https://hub.example.com' },
-      headers: { origin: 'https://hub.example.com' },
-      socket: { remoteAddress: '203.0.113.9' }
-    }, created);
-    const createBody = JSON.parse(created.out.body);
-    assert.strictEqual(created.out.statusCode, 200);
-    assert.match(createBody.pollSecret, /^[a-f0-9]{64}$/);
-    assert.ok(!String(createBody.protocolUrl).includes(createBody.pollSecret));
-    assert.ok(!String(createBody.protocolUrl).includes('pollSecret'));
-    const pending = mockRes();
-    handleSessionGet(hub, {
-      params: { sessionId: createBody.sessionId },
-      headers: { origin: 'https://hub.example.com', accept: 'application/json' },
-      socket: { remoteAddress: '203.0.113.9' }
-    }, pending);
-    const pendingBody = JSON.parse(pending.out.body);
-    assert.strictEqual(pending.out.statusCode, 200);
-    assert.strictEqual(pendingBody.status, 'pending');
-    assert.strictEqual(pendingBody.pollSecret, undefined);
-  });
-
-  it('remote GET of a signed session without pollSecret is 403 (token stays)', function () {
-    const sessionId = 'aa'.repeat(24);
-    const pollSecret = 'bb'.repeat(32);
-    const hub = {
-      _desktopAuthSessions: new Map([[sessionId, {
-        status: 'signed',
-        origin: 'https://hub.example.com',
-        pollSecret,
-        identity: { id: 'id1', xpub: 'xpub1' },
-        signer: 'client',
-        signature: 'cc'.repeat(64),
-        pubkeyHex: '02' + 'dd'.repeat(32),
-        message: 'login',
-        createdAt: Date.now()
-      }]])
-    };
-    const denied = mockRes();
-    handleSessionGet(hub, {
-      params: { sessionId },
-      headers: { origin: 'https://hub.example.com', accept: 'application/json' },
-      socket: { remoteAddress: '203.0.113.9' }
-    }, denied);
-    assert.strictEqual(denied.out.statusCode, 403);
-    assert.match(JSON.parse(denied.out.body).error, /poll secret/i);
-    assert.strictEqual(hub._desktopAuthSessions.has(sessionId), true);
-
-    const redeemed = mockRes();
-    handleSessionGet(hub, {
-      params: { sessionId },
-      headers: {
-        origin: 'https://hub.example.com',
-        accept: 'application/json',
-        'x-fabric-poll-secret': pollSecret
-      },
-      socket: { remoteAddress: '203.0.113.9' }
-    }, redeemed);
-    const body = JSON.parse(redeemed.out.body);
-    assert.strictEqual(redeemed.out.statusCode, 200);
-    assert.strictEqual(body.status, 'signed');
-    assert.ok(body.delegationToken);
-    assert.strictEqual(hub._desktopAuthSessions.has(sessionId), false);
-  });
-
-  it('remote GET of a signed session ignores ?pollSecret=', function () {
-    const sessionId = '66'.repeat(24);
-    const pollSecret = '77'.repeat(32);
-    const hub = {
-      _desktopAuthSessions: new Map([[sessionId, {
-        status: 'signed',
-        origin: 'https://hub.example.com',
-        pollSecret,
-        identity: { id: 'id1', xpub: 'xpub1' },
-        signer: 'client',
-        createdAt: Date.now()
-      }]])
-    };
-    const denied = mockRes();
-    handleSessionGet(hub, {
-      params: { sessionId },
-      url: '/sessions/' + sessionId + '?pollSecret=' + pollSecret,
-      query: { pollSecret },
-      headers: { origin: 'https://hub.example.com', accept: 'application/json' },
-      socket: { remoteAddress: '203.0.113.9' }
-    }, denied);
-    assert.strictEqual(denied.out.statusCode, 403);
-    assert.strictEqual(hub._desktopAuthSessions.has(sessionId), true);
-  });
-
-  it('remote GET of a signed session with the wrong pollSecret is 403 (token stays)', function () {
-    const sessionId = '88'.repeat(24);
-    const pollSecret = '99'.repeat(32);
-    const wrong = 'aa'.repeat(32);
-    const hub = {
-      _desktopAuthSessions: new Map([[sessionId, {
-        status: 'signed',
-        origin: 'https://hub.example.com',
-        pollSecret,
-        identity: { id: 'id1', xpub: 'xpub1' },
-        signer: 'client',
-        createdAt: Date.now()
-      }]])
-    };
-    const denied = mockRes();
-    handleSessionGet(hub, {
-      params: { sessionId },
-      headers: {
-        origin: 'https://hub.example.com',
-        accept: 'application/json',
-        'x-fabric-poll-secret': wrong
-      },
-      socket: { remoteAddress: '203.0.113.9' }
-    }, denied);
-    assert.strictEqual(denied.out.statusCode, 403);
-    assert.strictEqual(hub._desktopAuthSessions.has(sessionId), true);
-  });
-
-  it('loopback GET of a signed session does not need pollSecret', function () {
-    const sessionId = '11'.repeat(24);
-    const hub = {
-      _desktopAuthSessions: new Map([[sessionId, {
-        status: 'signed',
-        origin: 'http://127.0.0.1:8080',
-        pollSecret: '22'.repeat(32),
-        identity: { id: 'id1', xpub: 'xpub1' },
-        signer: 'hub',
-        createdAt: Date.now()
-      }]])
-    };
-    const res = mockRes();
-    handleSessionGet(hub, {
-      params: { sessionId },
-      headers: { accept: 'application/json' },
-      socket: { remoteAddress: '127.0.0.1' }
-    }, res);
-    assert.strictEqual(res.out.statusCode, 200);
-    assert.strictEqual(JSON.parse(res.out.body).status, 'signed');
-  });
-
-  it('relay getSession redeem requires pollSecret off-loopback', function () {
-    const sessionId = '33'.repeat(24);
-    const pollSecret = '44'.repeat(32);
-    const store = new Map([[sessionId, {
-      status: 'signed',
-      origin: 'https://relay.example.com',
-      pollSecret,
-      identity: { id: 'id1', xpub: 'xpub1' },
-      delegationToken: 'tok',
-      signer: 'client',
-      createdAt: Date.now()
-    }]]);
-    const denied = getSession({
-      headers: { origin: 'https://relay.example.com' },
-      socket: { remoteAddress: '203.0.113.9' }
-    }, sessionId, store);
-    assert.strictEqual(denied.status, 403);
-    assert.strictEqual(store.has(sessionId), true);
-    const ok = getSession({
-      headers: {
-        origin: 'https://relay.example.com',
-        'x-fabric-poll-secret': pollSecret
-      },
-      socket: { remoteAddress: '203.0.113.9' }
-    }, sessionId, store);
-    assert.strictEqual(ok.status, 200);
-    assert.strictEqual(ok.json.delegationToken, 'tok');
-    assert.strictEqual(store.has(sessionId), false);
-  });
-
-  it('fabricLoginRequestHeaders attaches pollSecret without putting it on fabric://', function () {
-    const pollSecret = '55'.repeat(32);
-    const sessionId = 'aa'.repeat(24);
-    const hub = ALLOWLISTED_HUB;
-    const headers = fabricLoginRequestHeaders(hub, { pollSecret });
-    assert.strictEqual(headers['X-Fabric-Poll-Secret'], pollSecret);
-    const parsed = parseFabricLoginUrl(`fabric://login?sessionId=${sessionId}&hub=${encodeURIComponent(hub)}`);
-    assert.strictEqual(parsed.ok, true);
-    assert.ok(!String(parsed.hubBase).includes(pollSecret));
-    assert.strictEqual(parsed.sessionId, sessionId);
   });
 });
 
@@ -482,7 +112,7 @@ describe('@fabric/http IdentityCrossSign re-exports', function () {
     assert.strictEqual(typeof httpXs.buildCrossSignMessage, 'function');
   });
 
-  it('re-exports Schnorr helpers used by site-login / device-link', function () {
+  it('re-exports Schnorr helpers used by device-link', function () {
     const schnorr = require('../functions/fabricIdentitySchnorr');
     const core = require('@fabric/core/functions/fabricIdentitySchnorr');
     assert.strictEqual(
@@ -500,15 +130,6 @@ describe('@fabric/http IdentityCrossSign re-exports', function () {
     const coreXv = require('@fabric/core/functions/identityCrossSignVerify');
     assert.strictEqual(typeof httpXv.signCrossSign, 'function');
     assert.strictEqual(httpXv.verifyCrossSignObject, coreXv.verifyCrossSignObject);
-  });
-
-  it('exposes resolveFabricSigningIdentity from site-login verify', function () {
-    const site = require('../functions/fabricSiteLoginVerify');
-    const schnorr = require('../functions/fabricIdentitySchnorr');
-    assert.strictEqual(
-      site.resolveFabricSigningIdentity,
-      schnorr.resolveFabricSigningIdentity
-    );
   });
 
   it('signs a raw HD Key with fabricKey pubkey via the core pin', function () {

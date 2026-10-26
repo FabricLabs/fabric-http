@@ -16,7 +16,7 @@ const {
   buildDeviceLinkMessage,
   parseDeviceLinkMessage
 } = require('./fabricDeviceLinkMessages');
-const { applyPollSecretHeader } = require('./fabricSiteLoginVerify');
+const { applyPollSecretHeader } = require('./httpRequestTrust');
 const { verifyIdentitySchnorr } = require('./fabricIdentitySchnorr');
 
 function isBrowserFetchGlobal () {

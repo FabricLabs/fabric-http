@@ -1,33 +1,34 @@
 'use strict';
 
 /**
- * Local `fabric:` signer for desktop apps (Hub, GoonCitizen).
+ * @fileoverview Local Passport signer for desktop apps (Hub, GoonCitizen).
  *
- * `GET /services/fabric/identity` names the desktop identity (pubkey + id).
- * `POST /services/fabric/sign` takes a `fabric:` `FabricSignRequest` from a
- * linked device (Passport) and, once the desktop user approves, returns a
- * `fabric:` `SiteLoginResponse` signed by the desktop key for the site that
- * asked.
+ * - `GET /services/fabric/identity` names the desktop identity. With
+ *   `?pubkey=` it says whether that device is linked, to Passport only.
+ * - `POST /services/fabric/sign` takes a `fabric:` `PASSPORT_SIGN_REQUEST`
+ *   from a linked Passport device and, once the desktop user approves,
+ *   returns a `PASSPORT_ASSERTION` signed by the desktop's own account on the
+ *   challenge's network.
+ * - `POST /services/fabric/link { sessionId }` (when the app passes
+ *   `linkBase`) accepts a pending `/device-links` offer on this app as the
+ *   responder, after the user matches the six-digit pairing code.
  *
- * `POST /services/fabric/link` (when the app passes `linkBase`) accepts a
- * pending `/device-links` session on this app as the responder, after the
- * desktop user approves, so a Passport can link to the desktop identity.
- *
- * Every route answers only direct loopback callers that name a loopback Host
- * (DNS-rebinding guard) and carry no web page Origin; browser extensions and
- * native clients pass. The signature on the request is the authenticator:
- * its author must be a device in this app's identity cluster
- * (`isLinkedDevice`), and each request nonce is spent once.
+ * Callers: a direct loopback socket naming a loopback Host (DNS-rebinding
+ * guard) whose `Origin` is Passport: one of `extensionIds` as
+ * `chrome-extension://<id>`, or any `moz-extension://` origin (Firefox ids
+ * are random per install). Sign requests must be signed by a device in this
+ * app's identity cluster, and each nonce is spent once.
  */
 
+const { pairingCode, readSignRequest, signAssertion } = require('@fabric/core/functions/passport');
 const {
   isLoopbackHostname,
   isLocalRequest,
   requestHasProxyForwardHeaders,
-  fabricUriFromBody,
-  buildFabricIdentitySignedPayload,
-  fabricIdentityIdFromPubkeyHex
-} = require('./fabricSiteLoginVerify');
+  fabricUriFromBody
+} = require('./httpRequestTrust');
+const { PASSPORT_OUTDATED, passportOutdated } = require('./passportHttp');
+const { buildFabricIdentitySignedPayload, fabricIdentityIdFromPubkeyHex } = require('./fabricIdentitySchnorr');
 const { fetchDeviceLinkSession, postDeviceLinkSignature, verifyDeviceLinkOffer } = require('./fabricDeviceLinkClient');
 const { buildDeviceLinkMessage, isSessionIdHex, DEVICE_LINK_TAG } = require('./fabricDeviceLinkMessages');
 
@@ -35,21 +36,13 @@ const FABRIC_IDENTITY_PATH = '/services/fabric/identity';
 const FABRIC_SIGN_PATH = '/services/fabric/sign';
 const FABRIC_LINK_PATH = '/services/fabric/link';
 const LINK_APPROVAL_MS = 2 * 60 * 1000;
+/** Least time between two link prompts. */
+const LINK_PROMPT_INTERVAL_MS = 30 * 1000;
+/** Spent nonces are kept this long past their request's expiry. */
+const NONCE_GRACE_MS = 30 * 1000;
 const MAX_BODY_BYTES = 96 * 1024;
 const MAX_SPENT_NONCES = 4096;
-const EXTENSION_ORIGIN = /^(chrome|moz|safari-web)-extension:\/\/[^/]+$/i;
-
-/**
- * @private
- * @returns {object|null}
- */
-function loadCoreSiteLogin () {
-  try {
-    return require('@fabric/core/functions/fabricSiteLogin');
-  } catch (_) {
-    return null;
-  }
-}
+const CHROME_EXTENSION_ID = /^[a-p]{32}$/;
 
 /**
  * Hostname of a Host header (`127.0.0.1:8080`, `[::1]:3041`, `localhost`).
@@ -68,12 +61,29 @@ function hostnameOf (host) {
 }
 
 /**
- * Who may reach the local signer: direct loopback, loopback Host, and either
- * no Origin or a browser-extension Origin.
- * @param {import('http').IncomingMessage} req
- * @returns {{ ok: true }|{ ok: false, status: number, error: string }}
+ * Whether `origin` is a Passport extension origin.
+ * @param {string} origin
+ * @param {string[]} extensionIds Chrome extension ids.
+ * @returns {boolean}
  */
-function checkLocalSignerCaller (req) {
+function isPassportOrigin (origin, extensionIds = []) {
+  const value = String(origin || '');
+  const moz = /^moz-extension:\/\/([0-9a-f-]{36})$/i.exec(value);
+  if (moz) return true;
+  const chrome = /^chrome-extension:\/\/([a-p]{32})$/.exec(value);
+  return !!(chrome && extensionIds.includes(chrome[1]));
+}
+
+/**
+ * Who may reach the local signer: direct loopback, loopback Host, and a
+ * Passport `Origin` (or, with `allowNoOrigin`, none at all).
+ * @param {import('http').IncomingMessage} req
+ * @param {Object} [options]
+ * @param {string[]} [options.extensionIds]
+ * @param {boolean} [options.allowNoOrigin]
+ * @returns {{ ok: true, passport: boolean }|{ ok: false, status: number, error: string }}
+ */
+function checkLocalSignerCaller (req, options = {}) {
   if (requestHasProxyForwardHeaders(req) || !isLocalRequest(req)) {
     return { ok: false, status: 403, error: 'the local signer answers loopback callers only' };
   }
@@ -82,10 +92,14 @@ function checkLocalSignerCaller (req) {
     return { ok: false, status: 421, error: 'Host must be localhost, 127.0.0.1, or [::1]' };
   }
   const origin = req && req.headers && req.headers.origin;
-  if (origin != null && origin !== '' && !EXTENSION_ORIGIN.test(String(origin))) {
-    return { ok: false, status: 403, error: 'web pages cannot call the local signer' };
+  if (origin == null || origin === '') {
+    if (options.allowNoOrigin) return { ok: true, passport: false };
+    return { ok: false, status: 403, error: 'only Passport can call the local signer' };
   }
-  return { ok: true };
+  if (!isPassportOrigin(origin, options.extensionIds || [])) {
+    return { ok: false, status: 403, error: 'only Passport can call the local signer' };
+  }
+  return { ok: true, passport: true };
 }
 
 /**
@@ -140,153 +154,183 @@ async function readRequestFabricUri (req, limit) {
  * @param {object} json
  */
 function sendJson (res, status, json) {
-  if (typeof res.status === 'function' && typeof res.json === 'function') {
-    res.status(status).json(json);
-    return;
-  }
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.statusCode = status;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store');
   res.end(JSON.stringify(json));
 }
 
 /**
  * Build the local signer for a desktop app.
  * @param {Object} options
- * @param {string} options.signer `hub` | `gooncitizen` | `desktop` (label in the response)
- * @param {string} [options.name] Display name shown to Passport
- * @param {Function} options.getKey `() => Key|null` — the unlocked desktop key (null while locked)
- * @param {Function} options.isLinkedDevice `(xOnlyPubkeyHex) => boolean|Promise<boolean>` — identity-cluster check
- * @param {Function} options.approve `({ kind, origin, purpose, device, expiresAt }) => boolean|Promise<boolean>` — desktop user consent; `kind` is `sign` or `link`
- * @param {Function} [options.includeXpub] `(origin) => boolean` — attach the desktop xpub (default: never)
- * @param {Function} [options.linkBase] `() => string|null` — loopback origin of this app's own `/device-links`; enables `POST /services/fabric/link`
- * @param {Function} [options.onLinkAccepted] `({ peerPubkey, nonce, sessionId, label, origin }) => void` — publish this side's IdentityCrossSign
+ * @param {string} options.signer `hub` | `gooncitizen`
+ * @param {string} [options.name] Display name shown to Passport.
+ * @param {string[]} [options.extensionIds] Chrome extension ids of Passport builds to answer.
+ * @param {string} options.network Network the desktop runs on (for links and the identity route).
+ * @param {Function} options.getAccount `({ network, account }) => account|null` — the
+ *   desktop's own account on that network (`deriveAccount` shape), null while locked.
+ * @param {Function} options.linkedDevice `(xOnlyPubkeyHex) => (string|null)` — the device's
+ *   compressed pubkey when it is in the identity cluster.
+ * @param {Function} options.approve `(prompt) => boolean` — native desktop consent. `prompt`:
+ *   `{ kind: 'sign', origin, purpose, device, network, account, shares, expiresAt }` or
+ *   `{ kind: 'link', origin, label, device, code, expiresAt }`.
+ * @param {Function} [options.linkBase] `() => string|null` — loopback origin of this app's own
+ *   `/device-links`; enables `POST /services/fabric/link`.
+ * @param {Function} [options.onLinkAccepted] `({ peerPubkey, nonce, sessionId, label, origin }) => void`
  * @param {Function} [options.now] Clock override `() => ms`
  * @returns {{ identity: Function, sign: Function, signFabricUri: Function, acceptDeviceLink: Function, link: Function, handle: Function, mount: Function }}
  */
 function createFabricLocalSigner (options = {}) {
   const settings = Object.assign({
     name: null,
-    includeXpub: () => false,
+    extensionIds: [],
     now: () => Date.now(),
     maxBodyBytes: MAX_BODY_BYTES
   }, options);
-  if (!['hub', 'gooncitizen', 'desktop'].includes(settings.signer)) {
-    throw new TypeError('createFabricLocalSigner: signer must be hub, gooncitizen, or desktop');
+  if (!['hub', 'gooncitizen'].includes(settings.signer)) {
+    throw new TypeError('createFabricLocalSigner: signer must be hub or gooncitizen');
   }
-  for (const hook of ['getKey', 'isLinkedDevice', 'approve']) {
+  for (const hook of ['getAccount', 'linkedDevice', 'approve']) {
     if (typeof settings[hook] !== 'function') {
       throw new TypeError(`createFabricLocalSigner: ${hook} is required`);
     }
   }
+  if (!settings.network) throw new TypeError('createFabricLocalSigner: network is required');
+  const extensionIds = (settings.extensionIds || []).filter((id) => CHROME_EXTENSION_ID.test(String(id)));
+  const gate = (req, allowNoOrigin = false) => checkLocalSignerCaller(req, { extensionIds, allowNoOrigin });
+  const startedAt = settings.now();
 
   const spent = new Map();
-  let waiting = null;
+  let signWaiting = false;
+  let linkWaiting = false;
+  let lastLinkPromptAt = -Infinity;
 
   function pruneSpent (now) {
     for (const [nonce, expiresAt] of spent) {
-      if (expiresAt <= now) spent.delete(nonce);
+      if (expiresAt + NONCE_GRACE_MS <= now) spent.delete(nonce);
     }
   }
 
-  function currentKey () {
-    let key = null;
+  function accountFor (network, account = null) {
+    let out = null;
     try {
-      key = settings.getKey();
+      out = settings.getAccount({ network, account });
     } catch (_) {}
+    const key = out && out.identity && out.identity.key;
     if (!key || !key.private || typeof key.pubkey !== 'string') return null;
-    return key;
+    return out;
   }
 
   function describe () {
-    const core = loadCoreSiteLogin();
-    const key = currentKey();
+    const account = accountFor(settings.network);
     const out = {
       ok: true,
       signer: settings.signer,
       name: settings.name,
-      available: !!core,
-      locked: !key,
+      network: settings.network,
+      locked: !account,
       pubkey: null,
       id: null,
       signPath: FABRIC_SIGN_PATH,
       linkPath: typeof settings.linkBase === 'function' ? FABRIC_LINK_PATH : null
     };
-    if (key) {
-      out.pubkey = key.pubkey.toLowerCase();
-      try {
-        const { fabricIdentityIdFromPubkeyHex } = require('./fabricIdentitySchnorr');
-        out.id = fabricIdentityIdFromPubkeyHex(out.pubkey);
-      } catch (_) {}
+    if (account) {
+      out.pubkey = account.identity.pubkey.toLowerCase();
+      out.id = fabricIdentityIdFromPubkeyHex(out.pubkey);
     }
     return out;
   }
 
+  async function lookupDevice (xOnly) {
+    try {
+      const device = await settings.linkedDevice(xOnly);
+      const hex = typeof device === 'string' ? device.toLowerCase() : '';
+      return /^0[23][0-9a-f]{64}$/.test(hex) && hex.slice(2) === xOnly ? hex : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /**
-   * Check, approve, and answer one `fabric:` `FabricSignRequest`.
+   * Check, approve, and answer one `fabric:` `PASSPORT_SIGN_REQUEST`.
    * @param {string} uri
    * @returns {Promise<{ status: number, json: object }>}
    */
   async function signFabricUri (uri) {
-    const core = loadCoreSiteLogin();
-    if (!core) return { status: 501, json: { ok: false, available: false, error: 'fabric: signing needs a newer @fabric/core' } };
     const now = settings.now();
-    const read = core.readFabricSignRequest(uri, { now });
+    if (passportOutdated(uri, 'PASSPORT_SIGN_REQUEST')) return { status: 426, json: Object.assign({ ok: false }, PASSPORT_OUTDATED) };
+    const read = readSignRequest(uri, { now });
     if (!read.ok) return { status: 400, json: { ok: false, error: read.error } };
+    if (read.issuedAt < startedAt) return { status: 409, json: { ok: false, error: 'sign request predates this signer' } };
 
     const spentKey = `${read.author}:${read.nonce}`;
     pruneSpent(now);
     if (spent.has(spentKey)) return { status: 409, json: { ok: false, error: 'sign request already used' } };
     if (spent.size >= MAX_SPENT_NONCES) return { status: 429, json: { ok: false, error: 'too many sign requests' } };
 
-    let linked = false;
-    try {
-      linked = await settings.isLinkedDevice(read.author);
-    } catch (_) {}
-    if (linked !== true) return { status: 403, json: { ok: false, error: 'this device is not linked to the desktop identity' } };
+    const device = await lookupDevice(read.author);
+    if (!device) return { status: 403, json: { ok: false, error: 'this device is not linked to the desktop identity' } };
 
-    const key = currentKey();
-    if (!key) return { status: 503, json: { ok: false, locked: true, error: 'desktop identity is locked' } };
+    const network = read.challenge.network || settings.network;
+    const account = accountFor(network, read.account);
+    if (!account) return { status: 503, json: { ok: false, locked: true, error: 'desktop identity is locked' } };
+    if (read.disclose.includes('wallet') && !account.wallet) {
+      return { status: 409, json: { ok: false, error: 'this desktop has no wallet keys to share' } };
+    }
+    if (read.disclose.includes('cosigner') && !(account.cosigner && account.cosigner.key)) {
+      return { status: 409, json: { ok: false, error: 'this desktop has no cosigner key to share' } };
+    }
 
-    if (waiting) return { status: 429, json: { ok: false, error: 'another sign-in is waiting for approval' } };
+    if (signWaiting) return { status: 429, json: { ok: false, error: 'another sign-in is waiting for approval' } };
     spent.set(spentKey, read.expiresAt);
 
     let approved = false;
-    waiting = read.nonce;
+    signWaiting = true;
     try {
       approved = await settings.approve({
         kind: 'sign',
         origin: read.origin,
-        purpose: read.request.purpose || null,
-        device: read.author,
+        purpose: read.challenge.purpose || null,
+        device,
+        network,
+        account: read.account,
+        shares: ['identity'].concat(read.disclose),
         expiresAt: read.expiresAt
       });
     } catch (_) {
       approved = false;
     } finally {
-      waiting = null;
+      signWaiting = false;
     }
     if (approved !== true) return { status: 403, json: { ok: false, declined: true, error: 'declined on the desktop' } };
 
     const signedAt = settings.now();
     if (signedAt >= read.expiresAt) return { status: 410, json: { ok: false, error: 'sign request expired while waiting for approval' } };
 
-    let xpub = null;
+    let signed;
     try {
-      if (settings.includeXpub(read.origin) === true && key.xpub) xpub = key.xpub;
-    } catch (_) {}
-
-    const signed = core.signSiteLoginResponse({
-      origin: read.origin,
-      nonce: read.request.nonce,
-      signer: settings.signer,
-      xpub,
-      now: signedAt
-    }, key);
+      signed = signAssertion({
+        challenge: read.challengeBuffer,
+        origin: read.origin,
+        signer: settings.signer,
+        network,
+        disclose: read.disclose,
+        wallet: account.wallet,
+        cosignerKey: account.cosigner && account.cosigner.key,
+        device,
+        now: signedAt
+      }, account.identity.key);
+    } catch (err) {
+      return { status: 400, json: { ok: false, error: err.message } };
+    }
     return {
       status: 200,
       json: {
         ok: true,
         signer: settings.signer,
-        identity: { id: signed.identity.id, pubkey: signed.identity.pubkey },
+        identity: signed.identity,
+        network: signed.network,
+        disclosed: signed.disclosed,
         fabric: signed.uri,
         expiresAt: signed.expiresAt
       }
@@ -295,14 +339,13 @@ function createFabricLocalSigner (options = {}) {
 
   function ownLinkBase () {
     if (typeof settings.linkBase !== 'function') return null;
-    let base = null;
+    let url;
     try {
-      base = new URL(String(settings.linkBase() || '')).origin;
+      url = new URL(String(settings.linkBase() || ''));
     } catch (_) {
       return null;
     }
-    const host = hostnameOf(new URL(base).host);
-    return base.startsWith('http://') && isLoopbackHostname(host) ? base : null;
+    return url.protocol === 'http:' && isLoopbackHostname(hostnameOf(url.host)) ? url.origin : null;
   }
 
   /**
@@ -315,9 +358,9 @@ function createFabricLocalSigner (options = {}) {
     if (!base) return { status: 404, json: { ok: false, error: 'this app does not accept device links here' } };
     const sid = String(sessionId || '').trim().toLowerCase();
     if (!isSessionIdHex(sid)) return { status: 400, json: { ok: false, error: 'sessionId must be 48 hex chars' } };
-    const key = currentKey();
-    if (!key) return { status: 503, json: { ok: false, locked: true, error: 'desktop identity is locked' } };
-    if (!key.xpub) return { status: 503, json: { ok: false, error: 'desktop key has no xpub' } };
+    const account = accountFor(settings.network);
+    if (!account) return { status: 503, json: { ok: false, locked: true, error: 'desktop identity is locked' } };
+    const key = account.identity.key;
 
     let st;
     try {
@@ -333,25 +376,33 @@ function createFabricLocalSigner (options = {}) {
     if (!offer.ok) return { status: 409, json: { ok: false, error: offer.error } };
     const initiator = offer.initiator;
     const initiatorPubkey = initiator.pubkeyHex;
-    const ownId = fabricIdentityIdFromPubkeyHex(key.pubkey.toLowerCase());
+    const ownPubkey = key.pubkey.toLowerCase();
+    const ownId = fabricIdentityIdFromPubkeyHex(ownPubkey);
     if (initiator.id === ownId) return { status: 400, json: { ok: false, error: 'cannot link the desktop to itself' } };
 
-    if (waiting) return { status: 429, json: { ok: false, error: 'another request is waiting for approval' } };
+    if (linkWaiting) return { status: 429, json: { ok: false, error: 'another link is waiting for approval' } };
+    const now = settings.now();
+    if (now - lastLinkPromptAt < LINK_PROMPT_INTERVAL_MS) {
+      return { status: 429, json: { ok: false, error: 'wait before asking to link again' } };
+    }
+    lastLinkPromptAt = now;
     const label = String(st.label || 'device');
+    const code = pairingCode(initiatorPubkey, ownPubkey);
     let approved = false;
-    waiting = sid;
+    linkWaiting = true;
     try {
       approved = await settings.approve({
         kind: 'link',
         origin: base,
-        purpose: label,
-        device: initiatorPubkey.slice(2),
-        expiresAt: settings.now() + LINK_APPROVAL_MS
+        label,
+        device: initiatorPubkey,
+        code,
+        expiresAt: now + LINK_APPROVAL_MS
       });
     } catch (_) {
       approved = false;
     } finally {
-      waiting = null;
+      linkWaiting = false;
     }
     if (approved !== true) return { status: 403, json: { ok: false, declined: true, error: 'declined on the desktop' } };
 
@@ -382,16 +433,17 @@ function createFabricLocalSigner (options = {}) {
         status: 'accepted',
         sessionId: sid,
         signer: settings.signer,
-        identity: { id: ownId, pubkey: key.pubkey.toLowerCase() }
+        code,
+        identity: { id: ownId, pubkey: ownPubkey }
       }
     };
   }
 
   async function link (req, res) {
-    const gate = checkLocalSignerCaller(req);
-    if (!gate.ok) return sendJson(res, gate.status, { ok: false, error: gate.error });
+    const checked = gate(req);
+    if (!checked.ok) return sendJson(res, checked.status, { ok: false, error: checked.error });
     let body = req && req.body;
-    if (!body || typeof body !== 'object') {
+    if (!body || typeof body !== 'object' || !body.sessionId) {
       try {
         body = JSON.parse(await readRequestText(req, 4096));
       } catch (_) {
@@ -402,39 +454,37 @@ function createFabricLocalSigner (options = {}) {
     sendJson(res, out.status, out.json);
   }
 
-  function identity (req, res) {
-    const gate = checkLocalSignerCaller(req);
-    if (!gate.ok) return sendJson(res, gate.status, { ok: false, error: gate.error });
+  async function identity (req, res) {
+    const checked = gate(req, true);
+    if (!checked.ok) return sendJson(res, checked.status, { ok: false, error: checked.error });
     const out = describe();
     let pubkeyQuery = '';
     try {
       const url = new URL(req.url || '/', 'http://localhost');
       pubkeyQuery = String(url.searchParams.get('pubkey') || '').toLowerCase();
     } catch (_) {}
-    const finish = (linked) => {
-      if (linked != null) out.linked = linked === true;
-      sendJson(res, 200, out);
-    };
-    if (!/^(0[23])?[0-9a-f]{64}$/.test(pubkeyQuery)) return finish(null);
-    const xOnly = pubkeyQuery.length === 66 ? pubkeyQuery.slice(2) : pubkeyQuery;
-    Promise.resolve()
-      .then(() => settings.isLinkedDevice(xOnly))
-      .then(finish, () => finish(false));
+    if (checked.passport && /^(0[23])?[0-9a-f]{64}$/.test(pubkeyQuery)) {
+      const xOnly = pubkeyQuery.length === 66 ? pubkeyQuery.slice(2) : pubkeyQuery;
+      out.linked = !!(await lookupDevice(xOnly));
+    }
+    sendJson(res, 200, out);
   }
 
   async function sign (req, res) {
-    const gate = checkLocalSignerCaller(req);
-    if (!gate.ok) return sendJson(res, gate.status, { ok: false, error: gate.error });
+    const checked = gate(req);
+    if (!checked.ok) return sendJson(res, checked.status, { ok: false, error: checked.error });
     let uri = null;
     try {
       uri = await readRequestFabricUri(req, settings.maxBodyBytes);
     } catch (err) {
       return sendJson(res, err && err.status ? err.status : 400, { ok: false, error: 'unreadable request body' });
     }
-    if (!uri) return sendJson(res, 400, { ok: false, error: 'body must be a fabric: FabricSignRequest' });
+    if (!uri) return sendJson(res, 400, { ok: false, error: 'body must be a fabric: PASSPORT_SIGN_REQUEST' });
     const out = await signFabricUri(uri);
     sendJson(res, out.status, out.json);
   }
+
+  const failed = (res, what) => () => sendJson(res, 500, { ok: false, error: `${what} failed` });
 
   /**
    * Plain `http` router hook. Returns true when it answered.
@@ -445,20 +495,15 @@ function createFabricLocalSigner (options = {}) {
    */
   function handle (req, res, pathname) {
     if (pathname === FABRIC_IDENTITY_PATH && req.method === 'GET') {
-      identity(req, res);
+      identity(req, res).catch(failed(res, 'identity'));
       return true;
     }
     if (pathname === FABRIC_SIGN_PATH && req.method === 'POST') {
-      sign(req, res).catch(() => sendJson(res, 500, { ok: false, error: 'sign failed' }));
+      sign(req, res).catch(failed(res, 'sign'));
       return true;
     }
     if (pathname === FABRIC_LINK_PATH && req.method === 'POST' && ownLinkBase()) {
-      link(req, res).catch(() => sendJson(res, 500, { ok: false, error: 'link failed' }));
-      return true;
-    }
-    if ((pathname === FABRIC_IDENTITY_PATH || pathname === FABRIC_SIGN_PATH) && req.method === 'OPTIONS') {
-      res.writeHead(204, { Allow: pathname === FABRIC_SIGN_PATH ? 'POST' : 'GET' });
-      res.end();
+      link(req, res).catch(failed(res, 'link'));
       return true;
     }
     return false;
@@ -469,14 +514,10 @@ function createFabricLocalSigner (options = {}) {
    * @param {object} app
    */
   function mount (app) {
-    app.get(FABRIC_IDENTITY_PATH, identity);
-    app.post(FABRIC_SIGN_PATH, (req, res) => {
-      sign(req, res).catch(() => sendJson(res, 500, { ok: false, error: 'sign failed' }));
-    });
+    app.get(FABRIC_IDENTITY_PATH, (req, res) => identity(req, res).catch(failed(res, 'identity')));
+    app.post(FABRIC_SIGN_PATH, (req, res) => sign(req, res).catch(failed(res, 'sign')));
     if (typeof settings.linkBase === 'function') {
-      app.post(FABRIC_LINK_PATH, (req, res) => {
-        link(req, res).catch(() => sendJson(res, 500, { ok: false, error: 'link failed' }));
-      });
+      app.post(FABRIC_LINK_PATH, (req, res) => link(req, res).catch(failed(res, 'link')));
     }
   }
 
@@ -487,6 +528,9 @@ module.exports = {
   FABRIC_IDENTITY_PATH,
   FABRIC_SIGN_PATH,
   FABRIC_LINK_PATH,
+  LINK_PROMPT_INTERVAL_MS,
+  NONCE_GRACE_MS,
+  isPassportOrigin,
   checkLocalSignerCaller,
   createFabricLocalSigner
 };

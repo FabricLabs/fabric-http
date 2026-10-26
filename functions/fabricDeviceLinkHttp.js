@@ -21,13 +21,12 @@
 const crypto = require('crypto');
 const Key = require('@fabric/core/types/key');
 const { normalizeHubOrigin, isAllowedFabricHub, isLoopbackHubOrigin } = require('./fabricHubAllowlist');
+const { fabricIdentityIdFromPubkeyHex, verifyIdentitySchnorr } = require('./fabricIdentitySchnorr');
 const {
-  fabricIdentityIdFromPubkeyHex,
-  verifyIdentitySchnorr,
   isLocalRequest,
-  clientMayPollDesktopSession,
+  clientMayPollSession,
   requestMayRedeemSessionSecret
-} = require('./fabricSiteLoginVerify');
+} = require('./httpRequestTrust');
 const {
   DEVICE_LINK_PREFIX,
   DEVICE_LINK_OFFER_TAG,
@@ -119,7 +118,7 @@ function isThinClientOrigin (originLike) {
  * cancel additionally require `pollSecret` from the create JSON.
  */
 function clientMayAccessDeviceLink (req, sessionOrigin) {
-  if (clientMayPollDesktopSession(req, sessionOrigin)) return true;
+  if (clientMayPollSession(req, sessionOrigin)) return true;
   if (!isAllowedFabricHub(sessionOrigin)) return false;
   const hdrOrigin = req && req.headers && req.headers.origin;
   if (isThinClientOrigin(hdrOrigin)) return true;
