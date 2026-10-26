@@ -31,7 +31,7 @@ This package fails closed on missing auth secrets, enforces Hub origin allowlist
 - ~~**RFC6902 sidechain JSON bridge**~~ — multi-op sequences are preserved in `patchesCanonical` (`functions/messageBodyJsonBridge.js`; `tests/messageBodyJsonBridge.test.js`). Catalog still seeds from the first `/registry` op.
 - **Fabric coin types (downstream)** — core pin includes **7777** / **7778**; Hub/app helpers that still hardcode `7778` for mainnet still need alignment.
 - **Site-login delegation token** — fail-closed when `expected` supplies only one of `sessionId` / `origin`; expired-session GET requires opaque Bearer registry key + `timingSafeEqual` bind to path `sessionId`, or `Authorization: Bearer` matching path when the path **is** the token; unauthenticated `GET /sessions/:delegationToken` is 404. Standalone relays omit Bearer when `issueBearer` is absent (no orphan random token). Remaining: hub dual-key legacy cleanup if any path still stores under `sessionId`.
-- **Device-link client** — `createDeviceLinkOffer` / fetch / signature helpers require an explicit browser `origin` (no `hubBase` fallback).
+- **Device-link client** — `prepareDeviceLinkOffer` / `commitDeviceLinkOffer` / fetch / signature helpers require an explicit browser `origin` (no `hubBase` fallback).
 
 ## Process
 1. `npm test` before merging HTTP/auth changes.

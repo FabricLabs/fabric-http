@@ -6,7 +6,6 @@ const {
   buildLoginMessage,
   completeSessionWithFabricResponse,
   fabricUriFromBody,
-  verifyFabricDesktopLoginSignedPayload,
   originsMatchForDesktopSession,
   isLocalRequest,
   clientMayPollDesktopSession,
@@ -15,21 +14,6 @@ const {
 } = require('./fabricSiteLoginVerify');
 const SESSION_TTL_MS = 10 * 60 * 1000;
 const MAX_SESSIONS = 256;
-
-/**
- * True when the request body is a client-signed player login completion
- * (wallet extensions / desktop peers / any wallet holding the user key). Empty body
- * keeps the legacy hub-node self-sign path.
- */
-function hasClientSignatureBody (body) {
-  if (!body || typeof body !== 'object') return false;
-  if (typeof body.signature !== 'string' || !/^[a-f0-9]{128}$/i.test(body.signature.trim())) return false;
-  if (typeof body.pubkeyHex !== 'string' || !/^[a-f0-9]{66}$/i.test(body.pubkeyHex.trim())) return false;
-  const identity = body.identity;
-  if (!identity || typeof identity !== 'object') return false;
-  if (typeof identity.xpub !== 'string' || !identity.xpub.trim()) return false;
-  return true;
-}
 
 function randomSessionId () {
   return crypto.randomBytes(24).toString('hex');
@@ -148,13 +132,12 @@ function handleSessionCreate (hub, req, res) {
 /**
  * Complete a pending login session.
  *
- * **Client-signed (player login):** body `{ signature, pubkeyHex, identity: { id, xpub } }`
- * — BIP340 over the server-stored challenge. Used by wallet extensions / desktop peers /
- * any wallet. Crypto verification is the authenticator (sessionId is
- * unguessable; message binds origin).
+ * **Client-signed (player login):** body `{ fabric: "fabric:…" }` — a
+ * `SITE_LOGIN_RESPONSE` the wallet built itself for the session's origin and
+ * nonce. Crypto verification is the authenticator.
  *
- * **Hub self-sign (legacy desktop link):** empty / non-client body — Hub signs
- * with its root key so a browser can adopt this node's watch-only identity.
+ * **Hub self-sign:** empty body — the Hub signs a `SITE_LOGIN_RESPONSE` with
+ * its root key so a browser can adopt this node's watch-only identity.
  * Opt-in via `hub.allowHubSelfSign === true` and **loopback only**.
  */
 function handleDesktopSign (hub, req, res) {
@@ -185,54 +168,11 @@ function handleDesktopSign (hub, req, res) {
       return;
     }
 
-    const body = (req && req.body && typeof req.body === 'object') ? req.body : {};
-
-    if (hasClientSignatureBody(body)) {
-      // Always verify against the server-held challenge — never trust a client `message`.
-      const payload = {
-        signature: String(body.signature).trim(),
-        pubkeyHex: String(body.pubkeyHex).trim(),
-        message: session.message,
-        identity: {
-          id: body.identity.id != null ? body.identity.id : null,
-          xpub: String(body.identity.xpub).trim()
-        }
-      };
-      const verified = verifyFabricDesktopLoginSignedPayload(payload, {
-        sessionId,
-        origin: session.origin
-      });
-      if (!verified.ok) {
-        sendJson(res, 400, { ok: false, error: verified.error || 'invalid client signature' });
-        return;
-      }
-
-      session.status = 'signed';
-      session.signedAt = Date.now();
-      session.signer = 'client';
-      session.signature = payload.signature.toLowerCase();
-      session.pubkeyHex = payload.pubkeyHex.toLowerCase();
-      session.identity = {
-        id: payload.identity.id != null ? String(payload.identity.id) : null,
-        xpub: payload.identity.xpub
-      };
-
-      sendJson(res, 200, {
-        ok: true,
-        sessionId,
-        signer: 'client',
-        signature: session.signature,
-        pubkeyHex: session.pubkeyHex,
-        message: session.message,
-        identity: session.identity
-      });
-      return;
-    }
-
-    if (hub.allowHubSelfSign !== true) {
+    const body = req && req.body && typeof req.body === 'object' ? req.body : {};
+    if (hub.allowHubSelfSign !== true || Object.keys(body).length > 0) {
       sendJson(res, 400, {
         ok: false,
-        error: 'client signature required: { signature, pubkeyHex, identity: { id, xpub } } or { fabric: "fabric:…" }'
+        error: 'a signed SiteLoginResponse is required: { fabric: "fabric:…" }'
       });
       return;
     }
@@ -250,35 +190,25 @@ function handleDesktopSign (hub, req, res) {
       return;
     }
 
-    const msgBuf = Buffer.from(session.message, 'utf8');
-    const signature = hub._rootKey.signSchnorr(msgBuf);
-    const pubkeyHex = typeof hub._rootKey.pubkey === 'string' ? hub._rootKey.pubkey : Buffer.from(hub._rootKey.pubkey || []).toString('hex');
-
-    const identity = {
-      id: (hub.identity && hub.identity.id != null)
-        ? hub.identity.id
-        : (hub.agent && hub.agent.identity && hub.agent.identity.id != null)
-          ? hub.agent.identity.id
-          : null,
-      xpub: hub._rootKey.xpub || null
-    };
-
-    session.status = 'signed';
-    session.signedAt = Date.now();
+    let signed;
+    try {
+      signed = require('@fabric/core/functions/fabricSiteLogin').signSiteLoginResponse({
+        origin: session.origin,
+        nonce: session.nonce,
+        signer: 'hub',
+        xpub: hub._rootKey.xpub || ''
+      }, hub._rootKey);
+    } catch (err) {
+      sendJson(res, 501, { ok: false, error: `hub cannot sign a SiteLoginResponse: ${err && err.message ? err.message : err}` });
+      return;
+    }
+    const done = completeSessionWithFabricResponse(session, signed.uri);
+    if (!done.ok) {
+      sendJson(res, done.status, { ok: false, error: done.error });
+      return;
+    }
     session.signer = 'hub';
-    session.signature = signature.toString('hex');
-    session.pubkeyHex = pubkeyHex;
-    session.identity = identity;
-
-    sendJson(res, 200, {
-      ok: true,
-      sessionId,
-      signer: 'hub',
-      signature: session.signature,
-      pubkeyHex,
-      message: session.message,
-      identity
-    });
+    sendJson(res, 200, { ...done.json, signer: 'hub', sessionId });
   } catch (err) {
     console.error('[HUB:SESSIONS:SIGN]', err && err.stack ? err.stack : err);
     sendJson(res, 500, { ok: false, error: 'sign failed' });
@@ -432,7 +362,6 @@ module.exports = {
   randomNonce,
   randomSessionId,
   originsMatchForDesktopSession,
-  hasClientSignatureBody,
   handleSessionCreate,
   handleSessionGet,
   handleDesktopSign,

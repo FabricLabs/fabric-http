@@ -10,11 +10,14 @@
 
 const {
   DEVICE_LINK_PREFIX,
+  DEVICE_LINK_OFFER_TAG,
+  DEVICE_LINK_TAG,
   buildDeviceLinkOfferMessage,
   buildDeviceLinkMessage,
   parseDeviceLinkMessage
 } = require('./fabricDeviceLinkMessages');
 const { applyPollSecretHeader } = require('./fabricSiteLoginVerify');
+const { verifyIdentitySchnorr } = require('./fabricIdentitySchnorr');
 
 function isBrowserFetchGlobal () {
   return typeof globalThis.window === 'object' && globalThis.window === globalThis;
@@ -104,13 +107,73 @@ async function commitDeviceLinkOffer (opts) {
 }
 
 /**
- * @deprecated Prefer prepareDeviceLinkOffer + commitDeviceLinkOffer (v2 protocol).
+ * Check a session's offer before answering it: rebuild the v3 offer from the
+ * session fields and verify the initiator's signature over it, with the
+ * initiator's pubkey derived from its xpub and its id from that pubkey.
+ * @param {object} st session JSON from `GET /device-links/:id`
+ * @param {string} [origin] origin the caller expects the offer to name
+ * @returns {{ ok: true, initiator: { id: string, xpub: string, pubkeyHex: string }, origin: string }|{ ok: false, error: string }}
  */
-async function createDeviceLinkOffer (opts) {
-  if (!opts.signature) {
-    return prepareDeviceLinkOffer(opts);
+function verifyDeviceLinkOffer (st, origin) {
+  const initiator = (st && st.initiator) || {};
+  let expected;
+  try {
+    expected = buildDeviceLinkOfferMessage(st.sessionId, st.nonce, initiator.id, st.label, st.origin);
+  } catch (err) {
+    return { ok: false, error: `malformed device link: ${err.message}` };
   }
-  return commitDeviceLinkOffer(opts);
+  if (origin != null && new URL(String(origin)).origin !== new URL(st.origin).origin) {
+    return { ok: false, error: 'device link was offered for another origin' };
+  }
+  if (st.offerMessage != null && st.offerMessage !== expected) {
+    return { ok: false, error: 'offer message does not match the session' };
+  }
+  const verified = verifyIdentitySchnorr(
+    expected,
+    String(initiator.offerSignature || ''),
+    String(initiator.pubkeyHex || '').toLowerCase(),
+    { id: initiator.id, xpub: initiator.xpub },
+    DEVICE_LINK_OFFER_TAG
+  );
+  if (!verified.ok) return { ok: false, error: `offer signature: ${verified.error}` };
+  return {
+    ok: true,
+    origin: new URL(st.origin).origin,
+    initiator: { id: initiator.id, xpub: initiator.xpub, pubkeyHex: String(initiator.pubkeyHex).toLowerCase() }
+  };
+}
+
+/**
+ * Check the responder's signature on an accepted session: rebuild the v3 link
+ * from the session fields and verify it with the responder's xpub-derived key.
+ * @param {object} st session JSON (`accepted` or `linked`)
+ * @returns {{ ok: true, linkMessage: string, responder: { id: string, xpub: string, pubkeyHex: string } }|{ ok: false, error: string }}
+ */
+function verifyDeviceLinkResponder (st) {
+  const initiator = (st && st.initiator) || {};
+  const responder = (st && st.responder) || {};
+  let expected;
+  try {
+    expected = buildDeviceLinkMessage(st.sessionId, st.nonce, initiator.id, responder.id, st.label, st.origin);
+  } catch (err) {
+    return { ok: false, error: `malformed device link: ${err.message}` };
+  }
+  if (st.linkMessage != null && st.linkMessage !== expected) {
+    return { ok: false, error: 'link message does not match the session' };
+  }
+  const verified = verifyIdentitySchnorr(
+    expected,
+    String(responder.signature || ''),
+    String(responder.pubkeyHex || '').toLowerCase(),
+    { id: responder.id, xpub: responder.xpub },
+    DEVICE_LINK_TAG
+  );
+  if (!verified.ok) return { ok: false, error: `responder signature: ${verified.error}` };
+  return {
+    ok: true,
+    linkMessage: expected,
+    responder: { id: responder.id, xpub: responder.xpub, pubkeyHex: String(responder.pubkeyHex).toLowerCase() }
+  };
 }
 
 async function fetchDeviceLinkSession (hubBase, sessionId, opts = {}) {
@@ -192,12 +255,15 @@ async function postDeviceLinkSignature (hubBase, sessionId, body, opts = {}) {
 
 module.exports = {
   DEVICE_LINK_PREFIX,
+  DEVICE_LINK_OFFER_TAG,
+  DEVICE_LINK_TAG,
   buildDeviceLinkOfferMessage,
   buildDeviceLinkMessage,
   parseDeviceLinkMessage,
+  verifyDeviceLinkOffer,
+  verifyDeviceLinkResponder,
   prepareDeviceLinkOffer,
   commitDeviceLinkOffer,
-  createDeviceLinkOffer,
   fetchDeviceLinkSession,
   postDeviceLinkSignature,
   cancelDeviceLinkSession,

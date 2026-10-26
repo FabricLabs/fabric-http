@@ -39,7 +39,7 @@ describe('fabricDeviceLinkHttp identityFromXpub', function () {
   it('matches buildFabricIdentitySignedPayload identity material', function () {
     const seed = new Key();
     const ident = new Identity(seed);
-    const payload = buildFabricIdentitySignedPayload(ident, 'fabric:device-link:test');
+    const payload = buildFabricIdentitySignedPayload(ident, 'fabric:device-link:test', 'Fabric/Test');
     const resolved = identityFromXpub(payload.identity.xpub);
     assert.strictEqual(resolved.pubkeyHex, payload.pubkeyHex.toLowerCase());
     assert.strictEqual(resolved.id, payload.identity.id);

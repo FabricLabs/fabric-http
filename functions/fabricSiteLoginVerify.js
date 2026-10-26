@@ -221,38 +221,10 @@ function verifyFabricDesktopLoginSignedPayload (payload, expected) {
   if (!payload || typeof payload !== 'object') {
     return { ok: false, error: 'Invalid login payload' };
   }
-  if (typeof payload.fabric === 'string' && payload.fabric) {
-    return verifyFabricDesktopLoginResponse(payload, expected);
+  if (typeof payload.fabric !== 'string' || !payload.fabric) {
+    return { ok: false, error: 'Login payload has no signed SiteLoginResponse' };
   }
-  const verified = verifyIdentitySchnorr(
-    payload.message,
-    payload.signature,
-    payload.pubkeyHex,
-    payload.identity
-  );
-  if (!verified.ok) return verified;
-
-  const exp = expected && typeof expected === 'object' ? expected : {};
-  const wantSid = exp.sessionId != null ? String(exp.sessionId).trim() : '';
-  const wantOrigin = exp.origin != null ? String(exp.origin).trim() : '';
-  // Fail closed on a half-populated binding: signature-only is only for unbound callers.
-  if ((wantSid && !wantOrigin) || (!wantSid && wantOrigin)) {
-    return { ok: false, error: 'Login session binding is incomplete' };
-  }
-  if (wantSid && wantOrigin) {
-    const parsed = parseDesktopLoginMessage(payload.message);
-    if (!parsed) {
-      return { ok: false, error: 'Signed message format is invalid' };
-    }
-    if (parsed.sessionId.toLowerCase() !== wantSid.toLowerCase()) {
-      return { ok: false, error: 'Login session does not match' };
-    }
-    if (!originsMatchForDesktopSession(parsed.origin, wantOrigin)) {
-      return { ok: false, error: 'Login origin does not match this page' };
-    }
-  }
-
-  return { ok: true };
+  return verifyFabricDesktopLoginResponse(payload, expected);
 }
 
 /**

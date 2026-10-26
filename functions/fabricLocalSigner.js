@@ -28,8 +28,8 @@ const {
   buildFabricIdentitySignedPayload,
   fabricIdentityIdFromPubkeyHex
 } = require('./fabricSiteLoginVerify');
-const { fetchDeviceLinkSession, postDeviceLinkSignature } = require('./fabricDeviceLinkClient');
-const { buildDeviceLinkMessage, isSessionIdHex } = require('./fabricDeviceLinkMessages');
+const { fetchDeviceLinkSession, postDeviceLinkSignature, verifyDeviceLinkOffer } = require('./fabricDeviceLinkClient');
+const { buildDeviceLinkMessage, isSessionIdHex, DEVICE_LINK_TAG } = require('./fabricDeviceLinkMessages');
 
 const FABRIC_IDENTITY_PATH = '/services/fabric/identity';
 const FABRIC_SIGN_PATH = '/services/fabric/sign';
@@ -158,7 +158,7 @@ function sendJson (res, status, json) {
  * @param {Function} options.approve `({ kind, origin, purpose, device, expiresAt }) => boolean|Promise<boolean>` — desktop user consent; `kind` is `sign` or `link`
  * @param {Function} [options.includeXpub] `(origin) => boolean` — attach the desktop xpub (default: never)
  * @param {Function} [options.linkBase] `() => string|null` — loopback origin of this app's own `/device-links`; enables `POST /services/fabric/link`
- * @param {Function} [options.onLinkAccepted] `({ peerPubkey, nonce, sessionId, label }) => void` — publish this side's IdentityCrossSign
+ * @param {Function} [options.onLinkAccepted] `({ peerPubkey, nonce, sessionId, label, origin }) => void` — publish this side's IdentityCrossSign
  * @param {Function} [options.now] Clock override `() => ms`
  * @returns {{ identity: Function, sign: Function, signFabricUri: Function, acceptDeviceLink: Function, link: Function, handle: Function, mount: Function }}
  */
@@ -326,11 +326,13 @@ function createFabricLocalSigner (options = {}) {
       return { status: 502, json: { ok: false, error: 'could not read the device-link session' } };
     }
     if (!st || !st.ok) return { status: 404, json: { ok: false, error: (st && st.error) || 'unknown device-link session' } };
-    const initiator = st.initiator || {};
-    const initiatorPubkey = String(initiator.pubkeyHex || '').toLowerCase();
-    if (st.status !== 'pending' || !initiator.id || !/^0[23][0-9a-f]{64}$/.test(initiatorPubkey)) {
+    if (st.status !== 'pending' || st.sessionId !== sid) {
       return { status: 409, json: { ok: false, error: 'device link is not waiting for this desktop' } };
     }
+    const offer = verifyDeviceLinkOffer(st, base);
+    if (!offer.ok) return { status: 409, json: { ok: false, error: offer.error } };
+    const initiator = offer.initiator;
+    const initiatorPubkey = initiator.pubkeyHex;
     const ownId = fabricIdentityIdFromPubkeyHex(key.pubkey.toLowerCase());
     if (initiator.id === ownId) return { status: 400, json: { ok: false, error: 'cannot link the desktop to itself' } };
 
@@ -353,8 +355,8 @@ function createFabricLocalSigner (options = {}) {
     }
     if (approved !== true) return { status: 403, json: { ok: false, declined: true, error: 'declined on the desktop' } };
 
-    const linkMessage = buildDeviceLinkMessage(sid, st.nonce, initiator.id, ownId, label);
-    const signed = buildFabricIdentitySignedPayload({ fabricKey: key, identityId: ownId }, linkMessage);
+    const linkMessage = buildDeviceLinkMessage(sid, st.nonce, initiator.id, ownId, label, offer.origin);
+    const signed = buildFabricIdentitySignedPayload({ fabricKey: key, identityId: ownId }, linkMessage, DEVICE_LINK_TAG);
     let posted;
     try {
       posted = await postDeviceLinkSignature(base, sid, {
@@ -370,7 +372,7 @@ function createFabricLocalSigner (options = {}) {
 
     if (typeof settings.onLinkAccepted === 'function') {
       try {
-        await settings.onLinkAccepted({ peerPubkey: initiatorPubkey, nonce: st.nonce, sessionId: sid, label });
+        await settings.onLinkAccepted({ peerPubkey: initiatorPubkey, nonce: st.nonce, sessionId: sid, label, origin: offer.origin });
       } catch (_) {}
     }
     return {

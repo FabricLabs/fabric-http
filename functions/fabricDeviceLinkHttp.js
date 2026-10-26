@@ -3,8 +3,8 @@
 /**
  * Mutual device-link attestations (wallet extension ↔ hub ↔ desktop peers).
  *
- * Challenge (both parties BIP340-sign the same UTF-8 string):
- *   fabric:device-link:2:<sessionId>:<64-hex nonce>:<initiatorId>:<responderId>:<label>
+ * Offer and link strings are device-link v3 (`fabricDeviceLinkMessages`); the
+ * initiator signs the offer, then both parties sign the same link string.
  *
  * Flow (Hub rendezvous under `/device-links`):
  * 1. Initiator POST /device-links **without** signature → `{ sessionId, nonce, offerMessage, pollSecret }`
@@ -30,8 +30,8 @@ const {
 } = require('./fabricSiteLoginVerify');
 const {
   DEVICE_LINK_PREFIX,
-  DEVICE_LINK_V1_PREFIX,
-  DEVICE_LINK_V2_PREFIX,
+  DEVICE_LINK_OFFER_TAG,
+  DEVICE_LINK_TAG,
   isSessionIdHex,
   buildDeviceLinkMessage,
   buildDeviceLinkOfferMessage,
@@ -348,7 +348,7 @@ function handleDeviceLinkCommit (hub, req, res, ctx) {
   const offerVerify = verifyIdentitySchnorr(session.offerMessage, signature, pubkeyHex, {
     id: initiatorId,
     xpub: identity.xpub
-  });
+  }, DEVICE_LINK_OFFER_TAG);
   if (!offerVerify.ok) {
     sendJson(res, 400, { ok: false, error: offerVerify.error || 'invalid offer signature' });
     return;
@@ -511,12 +511,13 @@ function handleDeviceLinkSign (hub, req, res) {
         session.nonce,
         session.initiator.id,
         responderId,
-        session.label
+        session.label,
+        session.origin
       );
       const verified = verifyIdentitySchnorr(linkMessage, signature, pubkeyHex, {
         id: responderId,
         xpub: identity.xpub
-      });
+      }, DEVICE_LINK_TAG);
       if (!verified.ok) {
         sendJson(res, 400, { ok: false, error: verified.error || 'invalid responder signature' });
         return;
@@ -548,7 +549,7 @@ function handleDeviceLinkSign (hub, req, res) {
       const verified = verifyIdentitySchnorr(session.linkMessage, signature, pubkeyHex, {
         id: session.initiator.id,
         xpub: session.initiator.xpub
-      });
+      }, DEVICE_LINK_TAG);
       if (!verified.ok) {
         sendJson(res, 400, { ok: false, error: verified.error || 'invalid initiator countersignature' });
         return;
@@ -633,7 +634,8 @@ function handleDeviceLinkGet (hub, req, res) {
         initiator: {
           id: session.initiator.id,
           xpub: session.initiator.xpub,
-          pubkeyHex: session.initiator.pubkeyHex
+          pubkeyHex: session.initiator.pubkeyHex,
+          offerSignature: session.initiator.offerSignature
         },
         offerMessage: session.initiator.offerMessage,
         createdAt: session.createdAt
@@ -651,10 +653,12 @@ function handleDeviceLinkGet (hub, req, res) {
         nonce: session.nonce,
         label: session.label,
         linkMessage: session.linkMessage,
+        offerMessage: session.initiator.offerMessage,
         initiator: {
           id: session.initiator.id,
           xpub: session.initiator.xpub,
-          pubkeyHex: session.initiator.pubkeyHex
+          pubkeyHex: session.initiator.pubkeyHex,
+          offerSignature: session.initiator.offerSignature
         },
         responder: {
           id: session.responder.id,
@@ -756,8 +760,8 @@ function mountFabricDeviceLinkHttp (hub) {
 
 module.exports = {
   DEVICE_LINK_PREFIX,
-  DEVICE_LINK_V1_PREFIX,
-  DEVICE_LINK_V2_PREFIX,
+  DEVICE_LINK_OFFER_TAG,
+  DEVICE_LINK_TAG,
   SESSION_TTL_MS,
   MAX_SESSIONS,
   MAX_SESSIONS_PER_ORIGIN,

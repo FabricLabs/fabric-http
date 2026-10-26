@@ -12,7 +12,8 @@ const { verifyFabricSiteLogin, fabricUriFromBody, verifyFabricDesktopLoginSigned
 const { handleSessionCreate, handleDesktopSign, handleSessionGet } = require('../functions/fabricSiteLoginHttp');
 const { createSiteLoginStore, createSession, completeSession, getSession } = require('../functions/fabricSiteLogin');
 const { createFabricLocalSigner, checkLocalSignerCaller } = require('../functions/fabricLocalSigner');
-const { buildDeviceLinkMessage } = require('../functions/fabricDeviceLinkMessages');
+const { buildDeviceLinkMessage, buildDeviceLinkOfferMessage, DEVICE_LINK_OFFER_TAG, DEVICE_LINK_TAG } = require('../functions/fabricDeviceLinkMessages');
+const { buildFabricIdentitySignedPayload } = require('../functions/fabricIdentitySchnorr');
 const { verifyIdentitySchnorr, fabricIdentityIdFromPubkeyHex } = require('../functions/fabricSiteLoginVerify');
 
 const SITE = 'https://shop.example';
@@ -254,9 +255,14 @@ describe('@fabric/http local fabric: signer', function () {
       restore = null;
     });
 
-    function stubHub (device, status = 'pending', sessionOrigin = BASE) {
+    function stubHub (device, status = 'pending', sessionOrigin = BASE, offerOrigin = sessionOrigin) {
       const prev = globalThis.fetch;
       const hub = { posted: null, initiatorId: fabricIdentityIdFromPubkeyHex(device.pubkey) };
+      const offer = buildFabricIdentitySignedPayload(
+        { privateKeyHex: device.private.toString('hex'), xpub: device.xpub },
+        buildDeviceLinkOfferMessage(SID, NONCE, hub.initiatorId, 'Passport', offerOrigin),
+        DEVICE_LINK_OFFER_TAG
+      );
       globalThis.fetch = async (url, init = {}) => {
         const u = new URL(url);
         const origin = init.headers && init.headers.Origin;
@@ -267,9 +273,10 @@ describe('@fabric/http local fabric: signer', function () {
             ok: true,
             status,
             sessionId: SID,
+            origin: offerOrigin,
             nonce: NONCE,
             label: 'Passport',
-            initiator: { id: hub.initiatorId, xpub: device.xpub, pubkeyHex: device.pubkey }
+            initiator: { id: hub.initiatorId, xpub: device.xpub, pubkeyHex: device.pubkey, offerSignature: hub.forgeOffer ? '00'.repeat(64) : offer.signature }
           });
         }
         if (u.pathname === `/device-links/${SID}/signatures` && init.method === 'POST') {
@@ -294,11 +301,11 @@ describe('@fabric/http local fabric: signer', function () {
       assert.strictEqual(prompts[0].kind, 'link');
       assert.strictEqual(prompts[0].device, device.pubkey.slice(2));
       const desktopId = fabricIdentityIdFromPubkeyHex(desktop.pubkey);
-      const message = buildDeviceLinkMessage(SID, NONCE, hub.initiatorId, desktopId, 'Passport');
-      const verified = verifyIdentitySchnorr(message, hub.posted.signature, hub.posted.pubkeyHex, hub.posted.identity);
+      const message = buildDeviceLinkMessage(SID, NONCE, hub.initiatorId, desktopId, 'Passport', BASE);
+      const verified = verifyIdentitySchnorr(message, hub.posted.signature, hub.posted.pubkeyHex, hub.posted.identity, DEVICE_LINK_TAG);
       assert.strictEqual(verified.ok, true, verified.error);
       assert.strictEqual(hub.posted.role, 'responder');
-      assert.deepStrictEqual(accepted, [{ peerPubkey: device.pubkey, nonce: NONCE, sessionId: SID, label: 'Passport' }]);
+      assert.deepStrictEqual(accepted, [{ peerPubkey: device.pubkey, nonce: NONCE, sessionId: SID, label: 'Passport', origin: BASE }]);
     });
 
     it('refuses without linkBase, when declined, when not pending, and for another origin', async function () {
@@ -323,6 +330,22 @@ describe('@fabric/http local fabric: signer', function () {
 
       const remote = setup({ linkBase: () => 'https://hub.example' });
       assert.strictEqual((await remote.signer.acceptDeviceLink(SID)).status, 404);
+    });
+
+    it('refuses before prompting when the offer signature or its origin does not check out', async function () {
+      const forged = setup({ linkBase: () => BASE });
+      const hub = stubHub(forged.device);
+      hub.forgeOffer = true;
+      assert.strictEqual((await forged.signer.acceptDeviceLink(SID)).status, 409);
+      assert.strictEqual(forged.prompts.length, 0);
+      assert.strictEqual(hub.posted, null);
+      restore();
+
+      const elsewhere = setup({ linkBase: () => BASE });
+      const other = stubHub(elsewhere.device, 'pending', BASE, 'https://evil.example');
+      assert.strictEqual((await elsewhere.signer.acceptDeviceLink(SID)).status, 409);
+      assert.strictEqual(elsewhere.prompts.length, 0);
+      assert.strictEqual(other.posted, null);
     });
   });
 });

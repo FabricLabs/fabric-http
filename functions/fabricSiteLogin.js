@@ -12,7 +12,6 @@ const {
   buildLoginMessage,
   completeSessionWithFabricResponse,
   fabricUriFromBody,
-  verifyFabricDesktopLoginSignedPayload,
   isLoopbackHostname,
   isLocalRequest,
   clientMayPollDesktopSession,
@@ -29,16 +28,6 @@ function randomSessionId () {
 
 function randomNonce () {
   return crypto.randomBytes(32).toString('hex');
-}
-
-function hasClientSignatureBody (body) {
-  if (!body || typeof body !== 'object') return false;
-  if (typeof body.signature !== 'string' || !/^[a-f0-9]{128}$/i.test(body.signature.trim())) return false;
-  if (typeof body.pubkeyHex !== 'string' || !/^[a-f0-9]{66}$/i.test(body.pubkeyHex.trim())) return false;
-  const identity = body.identity;
-  if (!identity || typeof identity !== 'object') return false;
-  if (typeof identity.xpub !== 'string' || !identity.xpub.trim()) return false;
-  return true;
 }
 
 function createSiteLoginStore () {
@@ -226,72 +215,9 @@ function completeSession (req, sessionId, body, store, opts = {}) {
     return { status: 200, json };
   }
 
-  if (!hasClientSignatureBody(body)) {
-    return {
-      status: 400,
-      json: {
-        ok: false,
-        error: 'client signature required: { signature, pubkeyHex, identity: { id, xpub } } or { fabric: "fabric:…" }'
-      }
-    };
-  }
-
-  // Always verify against the server-held challenge — never trust a client `message`.
-  const payload = {
-    signature: String(body.signature).trim(),
-    pubkeyHex: String(body.pubkeyHex).trim(),
-    message: session.message,
-    identity: {
-      id: body.identity.id != null ? body.identity.id : null,
-      xpub: String(body.identity.xpub).trim()
-    }
-  };
-  const verified = verifyFabricDesktopLoginSignedPayload(payload, {
-    sessionId: id,
-    origin: session.origin
-  });
-  if (!verified.ok) {
-    return { status: 400, json: { ok: false, error: verified.error || 'invalid client signature' } };
-  }
-
-  session.status = 'signed';
-  session.signedAt = Date.now();
-  session.signer = 'client';
-  session.signature = payload.signature.toLowerCase();
-  session.pubkeyHex = payload.pubkeyHex.toLowerCase();
-  session.identity = {
-    id: payload.identity.id != null ? String(payload.identity.id) : null,
-    xpub: payload.identity.xpub
-  };
-
-  let delegationToken = null;
-  if (typeof opts.issueBearer === 'function') {
-    try {
-      delegationToken = opts.issueBearer(session.pubkeyHex);
-    } catch (_) {
-      return { status: 500, json: { ok: false, error: 'failed to issue bearer token' } };
-    }
-    if (!delegationToken) {
-      return { status: 500, json: { ok: false, error: 'failed to issue bearer token' } };
-    }
-    session.delegationToken = delegationToken;
-  }
-  // Without issueBearer, omit the token — never mint an unrecognized Bearer.
-
-  const json = {
-    ok: true,
-    sessionId: id,
-    signer: 'client',
-    signature: session.signature,
-    pubkeyHex: session.pubkeyHex,
-    message: session.message,
-    identity: session.identity
-  };
-  if (delegationToken) json.delegationToken = delegationToken;
-
   return {
-    status: 200,
-    json
+    status: 400,
+    json: { ok: false, error: 'a signed SiteLoginResponse is required: { fabric: "fabric:…" }' }
   };
 }
 
@@ -382,7 +308,6 @@ module.exports = {
   createSession,
   getSession,
   completeSession,
-  hasClientSignatureBody,
   clientMayPollDesktopSession,
   requestMayRedeemSessionSecret,
   tryHandleSiteLogin,
