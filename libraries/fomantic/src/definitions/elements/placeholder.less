@@ -71,7 +71,7 @@
 
 & when (@variationPlaceholderImage) {
     /* Image */
-    .ui.placeholder .image:not(.header):not(.ui):not(.icon) {
+    .ui.placeholder .image:not(.header, .ui, .icon) {
         height: @placeholderImageHeight;
     }
     .ui.placeholder .square.image:not(.header) {
@@ -248,5 +248,4 @@
     }
 }
 
-// stylelint-disable no-invalid-position-at-import-rule
 @import (multiple, optional) "../../overrides.less";

@@ -154,7 +154,7 @@ function xmlEscape (value) {
 
 /**
  * `express.send` can label theme fonts as `application/octet-stream`. With `X-Content-Type-Options: nosniff`
- * (set by @fabric/hub) Chromium/Electron may refuse to load @font-face resources; set explicit font MIME
+ * (set by many apps) Chromium/Electron may refuse to load @font-face resources; set explicit font MIME
  * types for common Fomantic (Semantic) theme files under /themes/…/assets/fonts/
  * @param {http.ServerResponse} res
  * @param {string} filePath

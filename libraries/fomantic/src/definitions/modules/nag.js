@@ -19,55 +19,50 @@
         ? window
         : globalThis;
 
-    $.fn.nag = function (parameters) {
-        var
-            $allModules    = $(this),
-            $body          = $('body'),
+    $.fn.nag = function (...args) {
+        const $allModules = $(this);
+        const $body = $('body');
 
-            time           = Date.now(),
-            performance    = [],
+        let time = Date.now();
+        let performance = [];
 
-            query          = arguments[0],
-            methodInvoked  = typeof query === 'string',
-            queryArguments = [].slice.call(arguments, 1),
-            contextCheck   = function (context, win) {
-                var $context;
-                if ([window, document].indexOf(context) >= 0) {
-                    $context = $(context);
-                } else {
-                    $context = $(win.document).find(context);
-                    if ($context.length === 0) {
-                        $context = win.frameElement ? contextCheck(context, win.parent) : $body;
-                    }
+        const parameters = args[0];
+        const methodInvoked = typeof parameters === 'string';
+        const queryArguments = args.slice(1);
+        const contextCheck = function (context, win) {
+            let $context;
+            if ([window, document].includes(context)) {
+                $context = $(context);
+            } else {
+                $context = $(win.document).find(context);
+                if ($context.length === 0) {
+                    $context = win.frameElement ? contextCheck(context, win.parent) : $body;
                 }
+            }
 
-                return $context;
-            },
-            returnedValue
-        ;
+            return $context;
+        };
+        let returnedValue;
         $allModules.each(function () {
-            var
-                settings          = $.isPlainObject(parameters)
-                    ? $.extend(true, {}, $.fn.nag.settings, parameters)
-                    : $.extend({}, $.fn.nag.settings),
+            const settings = $.isPlainObject(parameters)
+                ? $.extend(true, {}, $.fn.nag.settings, parameters)
+                : $.extend({}, $.fn.nag.settings);
 
-                selector        = settings.selector,
-                error           = settings.error,
-                namespace       = settings.namespace,
+            const selector = settings.selector;
+            const error = settings.error;
+            const namespace = settings.namespace;
 
-                eventNamespace  = '.' + namespace,
-                moduleNamespace = namespace + '-module',
+            const eventNamespace = '.' + namespace;
+            const moduleNamespace = namespace + '-module';
 
-                $module         = $(this),
+            const $module = $(this);
 
-                $context        = settings.context ? contextCheck(settings.context, window) : $body,
+            const $context = settings.context ? contextCheck(settings.context, window) : $body;
 
-                element         = this,
-                instance        = $module.data(moduleNamespace),
-                storage,
-                module
-            ;
-            module = {
+            const element = this;
+            const instance = $module.data(moduleNamespace);
+            let storage;
+            const module = {
 
                 initialize: function () {
                     module.verbose('Initializing element');
@@ -77,14 +72,12 @@
                     storage = module.get.storage();
                     $module
                         .on('click' + eventNamespace, selector.close, module.dismiss)
-                        .data(moduleNamespace, module)
-                    ;
+                        .data(moduleNamespace, module);
 
                     if (settings.detachable && $module.parent()[0] !== $context[0]) {
                         $module
                             .detach()
-                            .prependTo($context)
-                        ;
+                            .prependTo($context);
                     }
 
                     if (settings.displayTime > 0) {
@@ -99,8 +92,7 @@
                     module.verbose('Destroying instance');
                     $module
                         .removeData(moduleNamespace)
-                        .off(eventNamespace)
-                    ;
+                        .off(eventNamespace);
                 },
 
                 show: function () {
@@ -113,12 +105,10 @@
                         module.debug('Showing nag', settings.animation.show);
                         if (settings.animation.show === 'fade') {
                             $module
-                                .fadeIn(settings.duration, settings.easing, settings.onVisible)
-                            ;
+                                .fadeIn(settings.duration, settings.easing, settings.onVisible);
                         } else {
                             $module
-                                .slideDown(settings.duration, settings.easing, settings.onVisible)
-                            ;
+                                .slideDown(settings.duration, settings.easing, settings.onVisible);
                         }
                     }
                 },
@@ -132,12 +122,10 @@
                     module.debug('Hiding nag', settings.animation.hide);
                     if (settings.animation.hide === 'fade') {
                         $module
-                            .fadeOut(settings.duration, settings.easing, settings.onHidden)
-                        ;
+                            .fadeOut(settings.duration, settings.easing, settings.onHidden);
                     } else {
                         $module
-                            .slideUp(settings.duration, settings.easing, settings.onHidden)
-                        ;
+                            .slideUp(settings.duration, settings.easing, settings.onHidden);
                     }
                 },
 
@@ -182,65 +170,55 @@
                         module.error(error.expiresFormat);
                     },
                     storage: function () {
-                        if (settings.storageMethod === 'localstorage' && window.localStorage !== undefined) {
+                        if (settings.storageMethod === 'localstorage') {
                             module.debug('Using local storage');
 
                             return window.localStorage;
                         }
-                        if (settings.storageMethod === 'sessionstorage' && window.sessionStorage !== undefined) {
+                        if (settings.storageMethod === 'sessionstorage') {
                             module.debug('Using session storage');
 
                             return window.sessionStorage;
                         }
-                        if ('cookie' in document) {
-                            module.debug('Using cookie');
+                        module.debug('Using cookie');
 
-                            return {
-                                setItem: function (key, value, options) {
-                                    // RFC6265 compliant encoding
-                                    key = encodeURIComponent(key)
-                                        .replace(/%(2[346B]|5E|60|7C)/g, decodeURIComponent)
-                                        .replace(/[()]/g, escape)
-                                    ;
-                                    value = encodeURIComponent(value)
-                                        .replace(/%(2[346BF]|3[AC-F]|40|5[BDE]|60|7[B-D])/g, decodeURIComponent)
-                                    ;
+                        return {
+                            setItem: function (key, value, options) {
+                                // RFC6265 compliant encoding
+                                key = encodeURIComponent(key)
+                                    .replace(/%(2[346B]|5E|60|7C)/g, decodeURIComponent)
+                                    .replace(/[()]/g, escape);
+                                value = encodeURIComponent(value)
+                                    .replace(/%(2[346BF]|3[AC-F]|40|5[BDE]|60|7[B-D])/g, decodeURIComponent);
 
-                                    var cookieOptions = '';
-                                    for (var option in options) {
-                                        if (Object.prototype.hasOwnProperty.call(options, option)) {
-                                            cookieOptions += '; ' + option;
-                                            if (typeof options[option] === 'string') {
-                                                cookieOptions += '=' + options[option].split(';')[0];
-                                            }
+                                let cookieOptions = '';
+                                for (const option in options) {
+                                    if (Object.prototype.hasOwnProperty.call(options, option)) {
+                                        cookieOptions += '; ' + option;
+                                        if (typeof options[option] === 'string') {
+                                            cookieOptions += '=' + options[option].split(';')[0];
                                         }
                                     }
-                                    document.cookie = key + '=' + value + cookieOptions;
-                                },
-                                getItem: function (key) {
-                                    var cookies = document.cookie.split('; ');
-                                    for (var i = 0, il = cookies.length; i < il; i++) {
-                                        var
-                                            parts    = cookies[i].split('='),
-                                            foundKey = parts[0].replace(/(%[\da-f]{2})+/gi, decodeURIComponent)
-                                        ;
-                                        if (key === foundKey) {
-                                            return parts[1] || '';
-                                        }
+                                }
+                                document.cookie = key + '=' + value + cookieOptions;
+                            },
+                            getItem: function (key) {
+                                const cookies = document.cookie.split('; ');
+                                for (const c of cookies) {
+                                    const parts = c.split('=');
+                                    const foundKey = parts[0].replace(/(%[\da-f]{2})+/gi, decodeURIComponent);
+                                    if (key === foundKey) {
+                                        return parts[1] || '';
                                     }
-                                },
-                                removeItem: function (key, options) {
-                                    storage.setItem(key, '', options);
-                                },
-                            };
-                        }
-
-                        module.error(error.noStorage);
+                                }
+                            },
+                            removeItem: function (key, options) {
+                                storage.setItem(key, '', options);
+                            },
+                        };
                     },
                     storageOptions: function () {
-                        var
-                            options = {}
-                        ;
+                        const options = {};
                         if (settings.expires) {
                             options.expires = module.get.expirationDate(settings.expires);
                         }
@@ -267,9 +245,7 @@
 
                 storage: {
                     set: function (key, value) {
-                        var
-                            options = module.get.storageOptions()
-                        ;
+                        const options = module.get.storageOptions();
                         if (storage === window.localStorage && options.expires) {
                             module.debug('Storing expiration value in localStorage', key, options.expires);
                             storage.setItem(key + settings.expirationKey, options.expires);
@@ -277,17 +253,15 @@
                         module.debug('Value stored', key, value);
                         try {
                             storage.setItem(key, value, options);
-                        } catch (e) {
-                            module.error(error.setItem, e);
+                        } catch (error_) {
+                            module.error(error.setItem, error_);
                         }
                     },
                     get: function (key) {
-                        var
-                            storedValue
-                        ;
+                        let storedValue;
                         storedValue = storage.getItem(key);
                         if (storage === window.localStorage) {
-                            var expiration = storage.getItem(key + settings.expirationKey);
+                            const expiration = storage.getItem(key + settings.expirationKey);
                             if (expiration !== null && expiration !== undefined && new Date(expiration) < new Date()) {
                                 module.debug('Value in localStorage has expired. Deleting key', key);
                                 module.storage.remove(key);
@@ -301,9 +275,7 @@
                         return storedValue;
                     },
                     remove: function (key) {
-                        var
-                            options = module.get.storageOptions()
-                        ;
+                        const options = module.get.storageOptions();
                         options.expires = module.get.expirationDate(-1);
                         if (storage === window.localStorage) {
                             storage.removeItem(key + settings.expirationKey);
@@ -335,39 +307,37 @@
                         return module[name];
                     }
                 },
-                debug: function () {
+                debug: function (...args) {
                     if (!settings.silent && settings.debug) {
                         if (settings.performance) {
-                            module.performance.log(arguments);
+                            module.performance.log(args);
                         } else {
                             module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
-                            module.debug.apply(console, arguments);
+                            module.debug.apply(console, args);
                         }
                     }
                 },
-                verbose: function () {
+                verbose: function (...args) {
                     if (!settings.silent && settings.verbose && settings.debug) {
                         if (settings.performance) {
-                            module.performance.log(arguments);
+                            module.performance.log(args);
                         } else {
                             module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
-                            module.verbose.apply(console, arguments);
+                            module.verbose.apply(console, args);
                         }
                     }
                 },
-                error: function () {
+                error: function (...args) {
                     if (!settings.silent) {
                         module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
-                        module.error.apply(console, arguments);
+                        module.error.apply(console, args);
                     }
                 },
                 performance: {
                     log: function (message) {
-                        var
-                            currentTime,
-                            executionTime,
-                            previousTime
-                        ;
+                        let currentTime;
+                        let executionTime;
+                        let previousTime;
                         if (settings.performance) {
                             currentTime = Date.now();
                             previousTime = time || currentTime;
@@ -375,7 +345,7 @@
                             time = currentTime;
                             performance.push({
                                 Name: message[0],
-                                Arguments: [].slice.call(message, 1) || '',
+                                Arguments: message.slice(1),
                                 Element: element,
                                 'Execution Time': executionTime,
                             });
@@ -386,10 +356,8 @@
                         }, 500);
                     },
                     display: function () {
-                        var
-                            title = settings.name + ':',
-                            totalTime = 0
-                        ;
+                        let title = settings.name + ':';
+                        let totalTime = 0;
                         time = false;
                         clearTimeout(module.performance.timer);
                         $.each(performance, function (index, data) {
@@ -398,35 +366,24 @@
                         title += ' ' + totalTime + 'ms';
                         if (performance.length > 0) {
                             console.groupCollapsed(title);
-                            if (console.table) {
-                                console.table(performance);
-                            } else {
-                                $.each(performance, function (index, data) {
-                                    console.log(data.Name + ': ' + data['Execution Time'] + 'ms');
-                                });
-                            }
+                            console.table(performance);
                             console.groupEnd();
                         }
                         performance = [];
                     },
                 },
-                invoke: function (query, passedArguments, context) {
-                    var
-                        object = instance,
-                        maxDepth,
-                        found,
-                        response
-                    ;
-                    passedArguments = passedArguments || queryArguments;
-                    context = context || element;
+                invoke: function (query, passedArguments = queryArguments, context = element) {
+                    let object = instance;
+                    let maxDepth;
+                    let found;
+                    let response;
                     if (typeof query === 'string' && object !== undefined) {
                         query = query.split(/[ .]/);
                         maxDepth = query.length - 1;
                         $.each(query, function (depth, value) {
-                            var camelCaseValue = depth !== maxDepth
+                            const camelCaseValue = depth !== maxDepth
                                 ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
-                                : query
-                            ;
+                                : query;
                             if ($.isPlainObject(object[camelCaseValue]) && (depth !== maxDepth)) {
                                 object = object[camelCaseValue];
                             } else if (object[camelCaseValue] !== undefined) {
@@ -467,7 +424,7 @@
                 if (instance === undefined) {
                     module.initialize();
                 }
-                module.invoke(query);
+                module.invoke(parameters);
             } else {
                 if (instance !== undefined) {
                     instance.invoke('destroy');
@@ -495,7 +452,7 @@
         // allows cookie to be overridden
         persist: false,
 
-        // set to zero to require manually dismissal, otherwise hides on its own
+        // set to zero to require manual dismissal, otherwise hides on its own
         displayTime: 0,
 
         animation: {
@@ -525,7 +482,6 @@
         expirationKey: 'ExpirationDate',
 
         error: {
-            noStorage: 'Unsupported storage method',
             method: 'The method you called is not defined.',
             setItem: 'Unexpected error while setting value',
             expiresFormat: '"expires" must be a number of days or a Date Object',

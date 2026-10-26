@@ -1,16 +1,17 @@
 'use strict';
 
 /**
- * Fabric site-login sessions for LiveRelay (D-011).
- * Hosts the same REST contract as Hub `POST|GET /sessions` so Passport and
- * desktop peers can sign in when this service is deployed alone
- * (e.g. relay.goon.vc). Client-signed completions only — no Hub-node self-sign.
+ * Fabric site-login sessions for standalone relays.
+ * Hosts the same REST contract as a hub's `POST|GET /sessions` so wallet extensions
+ * and desktop peers can sign in when this service is deployed alone.
+ * Client-signed completions only — no hub-node self-sign.
  */
 
 const crypto = require('crypto');
 const {
   buildLoginMessage,
-  verifyFabricDesktopLoginSignedPayload,
+  completeSessionWithFabricResponse,
+  fabricUriFromBody,
   isLoopbackHostname,
   isLocalRequest,
   clientMayPollDesktopSession,
@@ -27,16 +28,6 @@ function randomSessionId () {
 
 function randomNonce () {
   return crypto.randomBytes(32).toString('hex');
-}
-
-function hasClientSignatureBody (body) {
-  if (!body || typeof body !== 'object') return false;
-  if (typeof body.signature !== 'string' || !/^[a-f0-9]{128}$/i.test(body.signature.trim())) return false;
-  if (typeof body.pubkeyHex !== 'string' || !/^[a-f0-9]{66}$/i.test(body.pubkeyHex.trim())) return false;
-  const identity = body.identity;
-  if (!identity || typeof identity !== 'object') return false;
-  if (typeof identity.xpub !== 'string' || !identity.xpub.trim()) return false;
-  return true;
 }
 
 function createSiteLoginStore () {
@@ -173,6 +164,10 @@ function getSession (req, sessionId, store) {
       pubkeyHex: session.pubkeyHex,
       message: session.message
     };
+    if (session.fabric) {
+      payload.fabric = session.fabric;
+      payload.signerLabel = session.signerLabel;
+    }
     store.delete(id);
     return { status: 200, json: payload };
   }
@@ -182,7 +177,7 @@ function getSession (req, sessionId, store) {
 
 /**
  * Complete with a client Schnorr signature. Optionally registers a Bearer
- * token on the LiveRelay instance for server-mode API auth.
+ * token on the relay instance for server-mode API auth.
  *
  * @param {import('http').IncomingMessage} req
  * @param {string} sessionId
@@ -203,79 +198,33 @@ function completeSession (req, sessionId, body, store, opts = {}) {
     return { status: 404, json: { ok: false, error: 'unknown or expired session' } };
   }
 
-  if (!hasClientSignatureBody(body)) {
-    return {
-      status: 400,
-      json: {
-        ok: false,
-        error: 'client signature required: { signature, pubkeyHex, identity: { id, xpub } }'
-      }
-    };
-  }
-
-  // Always verify against the server-held challenge — never trust a client `message`.
-  const payload = {
-    signature: String(body.signature).trim(),
-    pubkeyHex: String(body.pubkeyHex).trim(),
-    message: session.message,
-    identity: {
-      id: body.identity.id != null ? body.identity.id : null,
-      xpub: String(body.identity.xpub).trim()
+  const fabricUri = fabricUriFromBody(body);
+  if (fabricUri) {
+    const done = completeSessionWithFabricResponse(session, fabricUri);
+    if (!done.ok) return { status: done.status, json: { ok: false, error: done.error } };
+    const json = { ...done.json, sessionId: id };
+    if (typeof opts.issueBearer === 'function') {
+      let token = null;
+      try {
+        token = opts.issueBearer(session.pubkeyHex);
+      } catch (_) {}
+      if (!token) return { status: 500, json: { ok: false, error: 'failed to issue bearer token' } };
+      session.delegationToken = token;
+      json.delegationToken = token;
     }
-  };
-  const verified = verifyFabricDesktopLoginSignedPayload(payload, {
-    sessionId: id,
-    origin: session.origin
-  });
-  if (!verified.ok) {
-    return { status: 400, json: { ok: false, error: verified.error || 'invalid client signature' } };
+    return { status: 200, json };
   }
-
-  session.status = 'signed';
-  session.signedAt = Date.now();
-  session.signer = 'client';
-  session.signature = payload.signature.toLowerCase();
-  session.pubkeyHex = payload.pubkeyHex.toLowerCase();
-  session.identity = {
-    id: payload.identity.id != null ? String(payload.identity.id) : null,
-    xpub: payload.identity.xpub
-  };
-
-  let delegationToken = null;
-  if (typeof opts.issueBearer === 'function') {
-    try {
-      delegationToken = opts.issueBearer(session.pubkeyHex);
-    } catch (_) {
-      return { status: 500, json: { ok: false, error: 'failed to issue bearer token' } };
-    }
-    if (!delegationToken) {
-      return { status: 500, json: { ok: false, error: 'failed to issue bearer token' } };
-    }
-    session.delegationToken = delegationToken;
-  }
-  // Without issueBearer, omit the token — never mint an unrecognized Bearer.
-
-  const json = {
-    ok: true,
-    sessionId: id,
-    signer: 'client',
-    signature: session.signature,
-    pubkeyHex: session.pubkeyHex,
-    message: session.message,
-    identity: session.identity
-  };
-  if (delegationToken) json.delegationToken = delegationToken;
 
   return {
-    status: 200,
-    json
+    status: 400,
+    json: { ok: false, error: 'a signed SiteLoginResponse is required: { fabric: "fabric:…" }' }
   };
 }
 
 /**
  * Try to handle `/sessions` routes. Returns true if the response was sent.
  *
- * @param {object} relay LiveRelay instance (`_siteLoginSessions`, `_sessions`)
+ * @param {object} relay Relay instance (`_siteLoginSessions`, `_sessions`)
  * @param {import('http').IncomingMessage} req
  * @param {import('http').ServerResponse} res
  * @param {string} pathname
@@ -359,7 +308,6 @@ module.exports = {
   createSession,
   getSession,
   completeSession,
-  hasClientSignatureBody,
   clientMayPollDesktopSession,
   requestMayRedeemSessionSecret,
   tryHandleSiteLogin,

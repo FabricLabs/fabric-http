@@ -37,7 +37,8 @@ describe('fabric-document component', function () {
   });
 
   it('renders a hash-only record with ranked offers and never leaks names', function () {
-    const doc = Document.seal(Buffer.alloc(5000, 7), { chunkBytes: 2048, documentId: 'demo' });
+    // Random keys: convergent sealing would give these repeated chunks one hash.
+    const doc = Document.seal(Buffer.alloc(5000, 7), { chunkBytes: 2048, documentId: 'demo', private: true });
     const record = doc.record();
     const leaf0 = record.blobs[0].blobHashHex;
     const offers = [
@@ -228,7 +229,7 @@ describe('fabric-document component', function () {
 
     before(async function () {
       this.timeout(20000);
-      record = Document.seal(Buffer.alloc(5000, 9), { chunkBytes: 2048, documentId: 'market' }).record();
+      record = Document.seal(Buffer.alloc(5000, 9), { chunkBytes: 2048, documentId: 'market', private: true }).record();
       const port = await new Promise((resolve, reject) => {
         const s = net.createServer();
         s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)); });

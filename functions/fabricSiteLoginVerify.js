@@ -1,9 +1,9 @@
 'use strict';
 
 /**
- * Verify client-signed Fabric site-login completions (D-011).
- * Same challenge format as Hub `fabric:hub-login:1` so Passport and
- * desktop peers stay interchangeable against LiveRelay on relay.goon.vc.
+ * Verify client-signed Fabric site-login completions.
+ * Same challenge format as `fabric:hub-login:1` so wallet extensions and
+ * desktop peers stay interchangeable between hubs and standalone relays.
  */
 
 const crypto = require('crypto');
@@ -221,39 +221,161 @@ function verifyFabricDesktopLoginSignedPayload (payload, expected) {
   if (!payload || typeof payload !== 'object') {
     return { ok: false, error: 'Invalid login payload' };
   }
-  const verified = verifyIdentitySchnorr(
-    payload.message,
-    payload.signature,
-    payload.pubkeyHex,
-    payload.identity
-  );
-  if (!verified.ok) return verified;
+  if (typeof payload.fabric !== 'string' || !payload.fabric) {
+    return { ok: false, error: 'Login payload has no signed SiteLoginResponse' };
+  }
+  return verifyFabricDesktopLoginResponse(payload, expected);
+}
 
+/**
+ * Core `fabric:` site-login helpers, loaded lazily so an older pinned
+ * `@fabric/core` still loads this module (the `fabric:` path then reports
+ * `available: false`).
+ * @private
+ * @returns {object|null}
+ */
+function loadCoreSiteLogin () {
+  try {
+    return require('@fabric/core/functions/fabricSiteLogin');
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * `fabric:` string from a request body: the raw text body, or `{ fabric }`.
+ * @param {string|object} body
+ * @returns {string|null}
+ */
+function fabricUriFromBody (body) {
+  let text = null;
+  if (typeof body === 'string') text = body;
+  else if (Buffer.isBuffer(body)) text = body.toString('utf8');
+  else if (body && typeof body === 'object' && typeof body.fabric === 'string') text = body.fabric;
+  if (text == null) return null;
+  text = text.trim();
+  return /^fabric:/i.test(text) ? text : null;
+}
+
+/**
+ * Session-poll payload completed with a `fabric:` `SiteLoginResponse`: the
+ * session's own `message` names the nonce, session id, and origin the
+ * response must be bound to.
+ * @private
+ * @param {Object} payload `{ fabric, message, identity }` from `GET /sessions/:id`
+ * @param {Object} [expected] `{ sessionId, origin }`
+ * @returns {{ ok: true, fabric: object }|{ ok: false, error: string }}
+ */
+function verifyFabricDesktopLoginResponse (payload, expected) {
+  const parsed = parseDesktopLoginMessage(payload.message);
+  if (!parsed) return { ok: false, error: 'Signed message format is invalid' };
   const exp = expected && typeof expected === 'object' ? expected : {};
   const wantSid = exp.sessionId != null ? String(exp.sessionId).trim() : '';
   const wantOrigin = exp.origin != null ? String(exp.origin).trim() : '';
-  // Fail closed on a half-populated binding: signature-only is only for unbound callers.
   if ((wantSid && !wantOrigin) || (!wantSid && wantOrigin)) {
     return { ok: false, error: 'Login session binding is incomplete' };
   }
-  if (wantSid && wantOrigin) {
-    const parsed = parseDesktopLoginMessage(payload.message);
-    if (!parsed) {
-      return { ok: false, error: 'Signed message format is invalid' };
-    }
-    if (parsed.sessionId.toLowerCase() !== wantSid.toLowerCase()) {
-      return { ok: false, error: 'Login session does not match' };
-    }
-    if (!originsMatchForDesktopSession(parsed.origin, wantOrigin)) {
-      return { ok: false, error: 'Login origin does not match this page' };
-    }
+  if (wantSid && parsed.sessionId.toLowerCase() !== wantSid.toLowerCase()) {
+    return { ok: false, error: 'Login session does not match' };
   }
+  if (wantOrigin && !originsMatchForDesktopSession(parsed.origin, wantOrigin)) {
+    return { ok: false, error: 'Login origin does not match this page' };
+  }
+  const out = verifyFabricSiteLogin(payload.fabric, { origin: parsed.origin, nonce: parsed.nonce });
+  if (!out.ok) return { ok: false, error: out.error || 'fabric: login response invalid' };
+  const claimed = payload.identity && payload.identity.id != null ? String(payload.identity.id) : '';
+  if (claimed && out.identity && out.identity.id && claimed !== String(out.identity.id)) {
+    return { ok: false, error: 'Login identity does not match the signed response' };
+  }
+  return { ok: true, fabric: out };
+}
 
-  return { ok: true };
+/**
+ * Verify a signed `fabric:` `SiteLoginResponse` for the site that asked.
+ * The response must name `origin` and echo `nonce`; the signer key is the
+ * frame author.
+ * @param {string} uri `fabric:` string
+ * @param {Object} expected
+ * @param {string} expected.origin Site origin the response must name
+ * @param {string} expected.nonce Challenge nonce the response must echo
+ * @param {number} [expected.now] Clock override (ms)
+ * @param {string[]} [expected.signers] Allowed signer labels
+ * @returns {{ ok: true, identity: { id: string, pubkey: string, xpub: (string|null) }, pubkeyHex: string, signer: string, crossSign: (object|null), issuedAt: number, expiresAt: number }|{ ok: false, error: string, available?: boolean }}
+ */
+function verifyFabricSiteLogin (uri, expected = {}) {
+  const core = loadCoreSiteLogin();
+  if (!core || typeof core.verifySiteLoginResponse !== 'function') {
+    return { ok: false, available: false, error: 'fabric: site login needs a newer @fabric/core' };
+  }
+  const exp = expected && typeof expected === 'object' ? expected : {};
+  if (!exp.origin || !exp.nonce) {
+    return { ok: false, error: 'origin and nonce are required to verify a site login' };
+  }
+  const verified = core.verifySiteLoginResponse(uri, {
+    origin: exp.origin,
+    nonce: exp.nonce,
+    now: exp.now,
+    signers: exp.signers
+  });
+  if (!verified.ok) return { ok: false, error: verified.error || 'invalid site login' };
+  return {
+    ok: true,
+    identity: verified.identity,
+    pubkeyHex: verified.identity.pubkey,
+    signer: verified.signer,
+    crossSign: verified.crossSign,
+    issuedAt: verified.issuedAt,
+    expiresAt: verified.expiresAt
+  };
+}
+
+/**
+ * Complete a pending `/sessions` record from a `fabric:` `SiteLoginResponse`
+ * bound to the session's origin and challenge nonce. Mutates `session` on
+ * success; the frame itself is kept as `session.fabric` so pollers can verify
+ * it again with {@link verifyFabricSiteLogin}.
+ * @param {{ origin: string, nonce: string, status: string }} session
+ * @param {string} uri
+ * @param {Object} [options]
+ * @param {number} [options.now]
+ * @returns {{ ok: true, json: object }|{ ok: false, status: number, error: string }}
+ */
+function completeSessionWithFabricResponse (session, uri, options = {}) {
+  const verified = verifyFabricSiteLogin(uri, {
+    origin: session && session.origin,
+    nonce: session && session.nonce,
+    now: options.now
+  });
+  if (!verified.ok) {
+    return { ok: false, status: verified.available === false ? 501 : 400, error: verified.error };
+  }
+  session.status = 'signed';
+  session.signedAt = Date.now();
+  session.signer = 'client';
+  session.signerLabel = verified.signer;
+  session.signature = null;
+  session.fabric = String(uri).trim();
+  session.pubkeyHex = verified.pubkeyHex;
+  session.identity = { id: verified.identity.id, xpub: verified.identity.xpub };
+  return {
+    ok: true,
+    json: {
+      ok: true,
+      signer: 'client',
+      signerLabel: verified.signer,
+      pubkeyHex: session.pubkeyHex,
+      message: session.message,
+      identity: session.identity,
+      fabric: session.fabric
+    }
+  };
 }
 
 module.exports = {
   DESKTOP_LOGIN_PREFIX,
+  completeSessionWithFabricResponse,
+  fabricUriFromBody,
+  verifyFabricSiteLogin,
   FABRIC_POLL_HEADER,
   buildLoginMessage,
   parseDesktopLoginMessage,

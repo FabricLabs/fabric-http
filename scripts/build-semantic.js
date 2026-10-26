@@ -4,18 +4,20 @@
  * Fabric UI semantic build: run Fomantic `gulp build` in `libraries/fomantic`, then mirror
  * `dist/` into `assets/` (root CSS/JS + `themes/` for icon fonts and Arvo).
  *
- * The **fabric** theme source is under `libraries/fomantic/src/themes/fabric/`. It should match
- * `@fabric/hub`’s `libraries/semantic/src/themes/fabric/` (e.g. `rsync -a hub/.../themes/fabric/
- * libraries/fomantic/src/themes/fabric/`) so page colors (e.g. @pageBackground) and font binaries
- * stay in sync, then re-run this script and commit the resulting `assets/`.
+ * The **fabric** theme under `libraries/fomantic/src/themes/fabric/` only overrides the vendored
+ * upstream **default** theme: `globals/site.variables` (Arvo, colors, `@fontPath`),
+ * `elements/{flag,emoji}.variables` (Twemoji paths), plus the font binaries in `assets/`. Edit those,
+ * re-run this script, and commit the resulting `assets/`. The Twemoji SVGs are imported from a pinned
+ * release on every run (`functions/twemoji.js`) and are not committed.
  *
- * **Installed as a dependency** (e.g. Hub after `npm i`): this package has no `libraries/`; if prebuilt
+ * **Installed as a dependency** (after an app's `npm i`): this package has no `libraries/`; if prebuilt
  * `assets/semantic.min.css` is present, this script exits 0 and does not run Gulp. Rebuilds require
  * a full fabric-http clone (or `npm link`) with `libraries/fomantic`.
  */
 const path = require('path');
 const { spawnSync } = require('child_process');
 const fs = require('fs');
+const { importTwemoji } = require('../functions/twemoji');
 
 const root = path.resolve(__dirname, '..');
 const fomanticDir = path.join(root, 'libraries', 'fomantic');
@@ -39,7 +41,7 @@ function safeJoin (base, ...segments) {
 
 /**
  * Gulp is required for `libraries/fomantic`’s Gulpfile. It may live in this package’s `node_modules`,
- * under `fomantic-ui`’s tree, or be hoisted to a parent (e.g. `hub/node_modules` when @fabric/http is linked).
+ * under `fomantic-ui`’s tree, or be hoisted to a parent `node_modules` (e.g. when @fabric/http is linked into an app).
  * @returns {string|null} Absolute path to `gulp.js`, or null.
  */
 function findGulpBin (startRoot) {
@@ -140,7 +142,7 @@ pruneOrphanDistThemes();
  *
  * Fomantic build steps can rewrite or replace theme asset binaries in dist/. For @fabric/http we
  * treat `libraries/fomantic/src/themes/fabric/assets` as the canonical source of icon and Arvo
- * font files that should be shipped to consumers (Hub, extension, etc.).
+ * font files that should be shipped to consumers.
  */
 function syncFabricThemeAssetsFromSource () {
   const srcAssets = path.join(fabricThemeSrc, 'assets');
@@ -193,5 +195,45 @@ copyIfExists(path.join(assetsStyles, 'semantic.rtl.min.css'), path.join(assetsRo
 copyIfExists(path.join(assetsStyles, 'semantic.rtl.css'), path.join(assetsRoot, 'semantic.rtl.css'));
 
 /* Gulp output uses `url(themes/...)` relative to `/semantic.min.css` — no post-processing. `themes/fabric/`
-   paths come from `src/themes/fabric/globals/site.variables` (`@fontPath` / `@imagePath`). */
-console.log('[fabric-http] Fomantic dist → assets/scripts, assets/styles, assets/themes, assets/*.semantic*');
+   paths come from `src/themes/fabric/globals/site.variables` (`@fontPath`) and `elements/{flag,emoji}.variables`. */
+
+/**
+ * Every resource the shipped CSS loads must be in `assets/`: a remote URL (CDN fonts, Twemoji on
+ * jsDelivr, …) or a missing file fails the build.
+ */
+function checkCssResources () {
+  const problems = new Set();
+  for (const name of ['semantic.css', 'semantic.min.css', 'semantic.rtl.css', 'semantic.rtl.min.css']) {
+    const cssPath = path.join(assetsRoot, name);
+    // nosemgrep: trusted-internal-build-paths
+    if (!fs.existsSync(cssPath)) continue;
+    const css = fs.readFileSync(cssPath, 'utf8');
+    for (const match of css.matchAll(/url\(\s*(['"]?)([^'")]+)\1\s*\)/g)) {
+      const ref = match[2].trim();
+      if (ref.startsWith('data:') || ref.startsWith('#')) continue;
+      if (/^([a-z][a-z0-9+.-]*:|\/\/)/i.test(ref)) {
+        problems.add(`${name}: external resource ${ref}`);
+        continue;
+      }
+      const file = path.resolve(assetsRoot, ref.split(/[?#]/)[0]);
+      // nosemgrep: trusted-internal-build-paths
+      if (!file.startsWith(assetsRoot + path.sep) || !fs.existsSync(file)) {
+        problems.add(`${name}: missing ${ref}`);
+      }
+    }
+  }
+  if (problems.size > 0) {
+    for (const problem of [...problems].slice(0, 20)) console.error('[fabric-http]', problem);
+    console.error(`[fabric-http] ${problems.size} CSS resource(s) are not in assets/.`);
+    process.exit(1);
+  }
+}
+
+importTwemoji(path.join(assetsThemes, 'fabric', 'assets', 'twemoji')).then(({ tag, count }) => {
+  console.log(`[fabric-http] Twemoji ${tag}: ${count} SVGs → assets/themes/fabric/assets/twemoji`);
+  checkCssResources();
+  console.log('[fabric-http] Fomantic dist → assets/scripts, assets/styles, assets/themes, assets/*.semantic*');
+}).catch((err) => {
+  console.error('[fabric-http] Twemoji import failed:', err.message || err);
+  process.exit(1);
+});

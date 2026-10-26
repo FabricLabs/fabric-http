@@ -4,18 +4,22 @@
  * Pure message builders for mutual device-link (browser-safe).
  * Keep free of Node built-ins and Hub HTTP so webpack can include this in the SPA.
  *
- * v2 binds `sessionId` (48-hex) into offer + link attest strings so captured
- * signatures cannot be replayed under a different Hub session id.
+ * v3 is the only version. Both strings name the Hub session, its nonce, and the
+ * origin the offer was made for, and are BIP340-signed over
+ * `taggedHash(DEVICE_LINK_OFFER_TAG | DEVICE_LINK_TAG, utf8)`:
+ *   fabric:device-link:3:offer:<sessionId>:<nonce>:<initiatorId>:<label>:<origin>
+ *   fabric:device-link:3:link:<sessionId>:<nonce>:<initiatorId>:<responderId>:<label>:<origin>
+ * Signers build these strings themselves from the session fields; they never
+ * sign a string a Hub hands them.
  */
 
-const DEVICE_LINK_V1_PREFIX = 'fabric:device-link:1';
-const DEVICE_LINK_V2_PREFIX = 'fabric:device-link:2';
-/** @deprecated use DEVICE_LINK_V2_PREFIX */
-const DEVICE_LINK_PREFIX = DEVICE_LINK_V1_PREFIX;
-const DEVICE_LINK_LINK_VERSION = 2;
+const DEVICE_LINK_PREFIX = 'fabric:device-link:3';
+const DEVICE_LINK_OFFER_TAG = 'Fabric/DeviceLinkOffer';
+const DEVICE_LINK_TAG = 'Fabric/DeviceLink';
 
 const SESSION_ID_HEX_LEN = 48;
 const NONCE_HEX_LEN = 64;
+const IDENTITY_ID_PATTERN = /^id1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{6,100}$/;
 
 function isSessionIdHex (value) {
   return /^[a-f0-9]{48}$/i.test(String(value || '').trim());
@@ -25,96 +29,130 @@ function isNonceHex (value) {
   return /^[a-f0-9]{64}$/i.test(String(value || '').trim());
 }
 
-function safeLabel (label) {
-  return String(label || 'device').replace(/:/g, '-').slice(0, 64);
+function isIdentityId (value) {
+  return typeof value === 'string' && IDENTITY_ID_PATTERN.test(value);
 }
 
 /**
- * Canonical mutual-link message both parties BIP340-sign (v2).
+ * Label as signed: no separators or control / bidi characters, at most 64 chars.
+ * @param {string} label
+ * @returns {string}
+ */
+function safeLabel (label) {
+  const cleaned = String(label || '')
+    .replace(/[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '')
+    .replace(/:/g, '-')
+    .trim()
+    .slice(0, 64);
+  return cleaned || 'device';
+}
+
+/**
+ * Canonical http(s) origin, or null.
+ * @param {string} origin
+ * @returns {string|null}
+ */
+function normalizeLinkOrigin (origin) {
+  try {
+    const u = new URL(String(origin || '').trim());
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+    return u.origin;
+  } catch (_) {
+    return null;
+  }
+}
+
+function _fields (sessionId, nonce, ids, origin) {
+  const sid = String(sessionId || '').trim().toLowerCase();
+  const n = String(nonce || '').trim().toLowerCase();
+  if (!isSessionIdHex(sid)) throw new Error('sessionId must be 48 hex chars');
+  if (!isNonceHex(n)) throw new Error('nonce must be 64 hex chars');
+  for (const id of ids) {
+    if (!isIdentityId(id)) throw new Error('identity ids must be Fabric id1… strings');
+  }
+  const o = normalizeLinkOrigin(origin);
+  if (!o) throw new Error('origin must be an http(s) origin');
+  return { sid, n, o };
+}
+
+/**
+ * Offer the initiator signs when committing a pending link.
  * @param {string} sessionId 48-hex Hub session id
  * @param {string} nonce 64-hex
  * @param {string} initiatorId Fabric Identity.id
- * @param {string} responderId
  * @param {string} label
+ * @param {string} origin origin the offer was made for
+ * @returns {string}
  */
-function buildDeviceLinkMessage (sessionId, nonce, initiatorId, responderId, label) {
-  const sid = String(sessionId || '').trim().toLowerCase();
-  const n = String(nonce || '').trim().toLowerCase();
-  if (!isSessionIdHex(sid)) throw new Error('sessionId must be 48 hex chars');
-  if (!isNonceHex(n)) throw new Error('nonce must be 64 hex chars');
-  return `${DEVICE_LINK_V2_PREFIX}:${sid}:${n}:${initiatorId}:${responderId}:${safeLabel(label)}`;
+function buildDeviceLinkOfferMessage (sessionId, nonce, initiatorId, label, origin) {
+  const { sid, n, o } = _fields(sessionId, nonce, [initiatorId], origin);
+  return `${DEVICE_LINK_PREFIX}:offer:${sid}:${n}:${initiatorId}:${safeLabel(label)}:${o}`;
 }
 
 /**
- * Offer preamble the initiator signs when committing a pending link (v2).
- * Format: fabric:device-link:2:offer:<sessionId>:<nonce>:<initiatorId>:<label>:<origin>
+ * Link both parties sign once the responder has answered the offer.
+ * @param {string} sessionId 48-hex Hub session id
+ * @param {string} nonce 64-hex
+ * @param {string} initiatorId Fabric Identity.id
+ * @param {string} responderId Fabric Identity.id
+ * @param {string} label
+ * @param {string} origin origin the offer was made for
+ * @returns {string}
  */
-function buildDeviceLinkOfferMessage (sessionId, nonce, initiatorId, label, origin) {
-  const sid = String(sessionId || '').trim().toLowerCase();
-  const n = String(nonce || '').trim().toLowerCase();
-  if (!isSessionIdHex(sid)) throw new Error('sessionId must be 48 hex chars');
-  if (!isNonceHex(n)) throw new Error('nonce must be 64 hex chars');
-  return `${DEVICE_LINK_V2_PREFIX}:offer:${sid}:${n}:${initiatorId}:${safeLabel(label)}:${origin}`;
+function buildDeviceLinkMessage (sessionId, nonce, initiatorId, responderId, label, origin) {
+  const { sid, n, o } = _fields(sessionId, nonce, [initiatorId, responderId], origin);
+  if (initiatorId === responderId) throw new Error('responder must be a different identity');
+  return `${DEVICE_LINK_PREFIX}:link:${sid}:${n}:${initiatorId}:${responderId}:${safeLabel(label)}:${o}`;
 }
 
-function parseDeviceLinkMessageV1 (rest) {
-  if (rest.startsWith('offer:')) return null;
-  const nonce = rest.slice(0, NONCE_HEX_LEN);
-  if (!isNonceHex(nonce) || rest[NONCE_HEX_LEN] !== ':') return null;
-  const after = rest.slice(NONCE_HEX_LEN + 1);
-  const parts = after.split(':');
-  if (parts.length < 3) return null;
-  const initiatorId = parts[0];
-  const responderId = parts[1];
-  const label = parts.slice(2).join(':');
-  if (!initiatorId || !responderId) return null;
-  return { version: 1, sessionId: null, nonce, initiatorId, responderId, label };
-}
-
-function parseDeviceLinkMessageV2 (rest) {
-  if (rest.startsWith('offer:')) return null;
-  const sessionId = rest.slice(0, SESSION_ID_HEX_LEN);
-  if (!isSessionIdHex(sessionId) || rest[SESSION_ID_HEX_LEN] !== ':') return null;
-  const afterSid = rest.slice(SESSION_ID_HEX_LEN + 1);
-  const nonce = afterSid.slice(0, NONCE_HEX_LEN);
-  if (!isNonceHex(nonce) || afterSid[NONCE_HEX_LEN] !== ':') return null;
-  const after = afterSid.slice(NONCE_HEX_LEN + 1);
-  const parts = after.split(':');
-  if (parts.length < 3) return null;
-  const initiatorId = parts[0];
-  const responderId = parts[1];
-  const label = parts.slice(2).join(':');
-  if (!initiatorId || !responderId) return null;
-  return {
-    version: 2,
-    sessionId: sessionId.toLowerCase(),
-    nonce: nonce.toLowerCase(),
-    initiatorId,
-    responderId,
-    label
-  };
-}
-
+/**
+ * Parse a v3 offer or link string; anything else is null.
+ * @param {string} msg
+ * @returns {object|null} `{ kind: 'offer'|'link', sessionId, nonce, initiatorId, responderId?, label, origin }`
+ */
 function parseDeviceLinkMessage (msg) {
   const s = String(msg || '');
-  if (s.startsWith(`${DEVICE_LINK_V2_PREFIX}:`)) {
-    return parseDeviceLinkMessageV2(s.slice(DEVICE_LINK_V2_PREFIX.length + 1));
+  const offer = s.match(/^fabric:device-link:3:offer:([a-f0-9]{48}):([a-f0-9]{64}):(id1[a-z0-9]+):([^:]*):(https?:\/\/.+)$/);
+  if (offer) {
+    const parsed = { kind: 'offer', sessionId: offer[1], nonce: offer[2], initiatorId: offer[3], label: offer[4], origin: offer[5] };
+    try {
+      return buildDeviceLinkOfferMessage(parsed.sessionId, parsed.nonce, parsed.initiatorId, parsed.label, parsed.origin) === s ? parsed : null;
+    } catch (_) {
+      return null;
+    }
   }
-  if (s.startsWith(`${DEVICE_LINK_V1_PREFIX}:`)) {
-    return parseDeviceLinkMessageV1(s.slice(DEVICE_LINK_V1_PREFIX.length + 1));
+  const link = s.match(/^fabric:device-link:3:link:([a-f0-9]{48}):([a-f0-9]{64}):(id1[a-z0-9]+):(id1[a-z0-9]+):([^:]*):(https?:\/\/.+)$/);
+  if (link) {
+    const parsed = {
+      kind: 'link',
+      sessionId: link[1],
+      nonce: link[2],
+      initiatorId: link[3],
+      responderId: link[4],
+      label: link[5],
+      origin: link[6]
+    };
+    try {
+      return buildDeviceLinkMessage(parsed.sessionId, parsed.nonce, parsed.initiatorId, parsed.responderId, parsed.label, parsed.origin) === s ? parsed : null;
+    } catch (_) {
+      return null;
+    }
   }
   return null;
 }
 
 module.exports = {
   DEVICE_LINK_PREFIX,
-  DEVICE_LINK_V1_PREFIX,
-  DEVICE_LINK_V2_PREFIX,
-  DEVICE_LINK_LINK_VERSION,
+  DEVICE_LINK_OFFER_TAG,
+  DEVICE_LINK_TAG,
   SESSION_ID_HEX_LEN,
   NONCE_HEX_LEN,
+  IDENTITY_ID_PATTERN,
   isSessionIdHex,
   isNonceHex,
+  isIdentityId,
+  safeLabel,
+  normalizeLinkOrigin,
   buildDeviceLinkMessage,
   buildDeviceLinkOfferMessage,
   parseDeviceLinkMessage

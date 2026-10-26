@@ -19,33 +19,30 @@
         ? window
         : globalThis;
 
-    $.fn.site = function (parameters) {
-        var
-            time           = Date.now(),
-            performance    = [],
+    $.fn.site = function (...args) {
+        let time = Date.now();
+        let performance = [];
 
-            query          = arguments[0],
-            methodInvoked  = typeof query === 'string',
-            queryArguments = [].slice.call(arguments, 1),
+        const parameters = args[0];
+        const methodInvoked = typeof parameters === 'string';
+        const queryArguments = args.slice(1);
 
-            settings        = $.isPlainObject(parameters)
-                ? $.extend(true, {}, $.site.settings, parameters)
-                : $.extend({}, $.site.settings),
+        const settings = $.isPlainObject(parameters)
+            ? $.extend(true, {}, $.site.settings, parameters)
+            : $.extend({}, $.site.settings);
 
-            namespace       = settings.namespace,
-            error           = settings.error,
+        const namespace = settings.namespace;
+        const error = settings.error;
 
-            moduleNamespace = 'module-' + namespace,
+        const moduleNamespace = 'module-' + namespace;
 
-            $document       = $(document),
-            $module         = $document,
-            element         = this,
-            instance        = $module.data(moduleNamespace),
+        const $document = $(document);
+        const $module = $document;
+        const element = this;
+        let instance = $module.data(moduleNamespace);
 
-            module,
-            returnedValue
-        ;
-        module = {
+        let returnedValue;
+        const module = {
 
             initialize: function () {
                 module.instantiate();
@@ -55,8 +52,7 @@
                 module.verbose('Storing instance of site', module);
                 instance = module;
                 $module
-                    .data(moduleNamespace, module)
-                ;
+                    .data(moduleNamespace, module);
             },
 
             normalize: function () {
@@ -77,11 +73,8 @@
             },
 
             enabled: {
-                modules: function (modules) {
-                    var
-                        enabledModules = []
-                    ;
-                    modules = modules || settings.modules;
+                modules: function (modules = settings.modules) {
+                    const enabledModules = [];
                     $.each(modules, function (index, name) {
                         if (module.moduleExists(name)) {
                             enabledModules.push(name);
@@ -93,11 +86,8 @@
             },
 
             disabled: {
-                modules: function (modules) {
-                    var
-                        disabledModules = []
-                    ;
-                    modules = modules || settings.modules;
+                modules: function (modules = settings.modules) {
+                    const disabledModules = [];
                     $.each(modules, function (index, name) {
                         if (!module.moduleExists(name)) {
                             disabledModules.push(name);
@@ -109,22 +99,17 @@
             },
 
             change: {
-                setting: function (setting, value, modules, modifyExisting) {
+                setting: function (setting, value, modules, modifyExisting = true) {
                     modules = typeof modules === 'string'
                         ? (modules === 'all'
                             ? settings.modules
                             : [modules])
                         : modules || settings.modules;
-                    modifyExisting = modifyExisting !== undefined
-                        ? modifyExisting
-                        : true;
                     $.each(modules, function (index, name) {
-                        var
-                            namespace = module.moduleExists(name)
-                                ? $.fn[name].settings.namespace || false
-                                : true,
-                            $existingModules
-                        ;
+                        const namespace = module.moduleExists(name)
+                            ? $.fn[name].settings.namespace || false
+                            : true;
+                        let $existingModules;
                         if (module.moduleExists(name)) {
                             module.verbose('Changing default setting', setting, value, name);
                             $.fn[name].settings[setting] = value;
@@ -138,17 +123,12 @@
                         }
                     });
                 },
-                settings: function (newSettings, modules, modifyExisting) {
+                settings: function (newSettings, modules, modifyExisting = true) {
                     modules = typeof modules === 'string'
                         ? [modules]
                         : modules || settings.modules;
-                    modifyExisting = modifyExisting !== undefined
-                        ? modifyExisting
-                        : true;
                     $.each(modules, function (index, name) {
-                        var
-                            $existingModules
-                        ;
+                        let $existingModules;
                         if (module.moduleExists(name)) {
                             module.verbose('Changing default setting', newSettings, name);
                             $.extend(true, $.fn[name].settings, newSettings);
@@ -168,13 +148,11 @@
                 console: function () {
                     module.console(true);
                 },
-                debug: function (modules, modifyExisting) {
-                    modules = modules || settings.modules;
+                debug: function (modules = settings.modules, modifyExisting = true) {
                     module.debug('Enabling debug for modules', modules);
                     module.change.setting('debug', true, modules, modifyExisting);
                 },
-                verbose: function (modules, modifyExisting) {
-                    modules = modules || settings.modules;
+                verbose: function (modules = settings.modules, modifyExisting = true) {
                     module.debug('Enabling verbose debug for modules', modules);
                     module.change.setting('verbose', true, modules, modifyExisting);
                 },
@@ -183,13 +161,11 @@
                 console: function () {
                     module.console(false);
                 },
-                debug: function (modules, modifyExisting) {
-                    modules = modules || settings.modules;
+                debug: function (modules = settings.modules, modifyExisting = true) {
                     module.debug('Disabling debug for modules', modules);
                     module.change.setting('debug', false, modules, modifyExisting);
                 },
-                verbose: function (modules, modifyExisting) {
-                    modules = modules || settings.modules;
+                verbose: function (modules = settings.modules, modifyExisting = true) {
                     module.debug('Disabling verbose debug for modules', modules);
                     module.change.setting('verbose', false, modules, modifyExisting);
                 },
@@ -224,8 +200,7 @@
             destroy: function () {
                 module.verbose('Destroying previous site for', $module);
                 $module
-                    .removeData(moduleNamespace)
-                ;
+                    .removeData(moduleNamespace);
             },
 
             cache: {},
@@ -248,37 +223,35 @@
                     return module[name];
                 }
             },
-            debug: function () {
+            debug: function (...args) {
                 if (settings.debug) {
                     if (settings.performance) {
-                        module.performance.log(arguments);
+                        module.performance.log(args);
                     } else {
                         module.debug = Function.prototype.bind.call(console.info, console, settings.name + ':');
-                        module.debug.apply(console, arguments);
+                        module.debug.apply(console, args);
                     }
                 }
             },
-            verbose: function () {
+            verbose: function (...args) {
                 if (settings.verbose && settings.debug) {
                     if (settings.performance) {
-                        module.performance.log(arguments);
+                        module.performance.log(args);
                     } else {
                         module.verbose = Function.prototype.bind.call(console.info, console, settings.name + ':');
-                        module.verbose.apply(console, arguments);
+                        module.verbose.apply(console, args);
                     }
                 }
             },
-            error: function () {
+            error: function (...args) {
                 module.error = Function.prototype.bind.call(console.error, console, settings.name + ':');
-                module.error.apply(console, arguments);
+                module.error.apply(console, args);
             },
             performance: {
                 log: function (message) {
-                    var
-                        currentTime,
-                        executionTime,
-                        previousTime
-                    ;
+                    let currentTime;
+                    let executionTime;
+                    let previousTime;
                     if (settings.performance) {
                         currentTime = Date.now();
                         previousTime = time || currentTime;
@@ -287,7 +260,7 @@
                         performance.push({
                             Element: element,
                             Name: message[0],
-                            Arguments: [].slice.call(message, 1) || '',
+                            Arguments: message.slice(1),
                             'Execution Time': executionTime,
                         });
                     }
@@ -297,10 +270,8 @@
                     }, 500);
                 },
                 display: function () {
-                    var
-                        title = settings.name + ':',
-                        totalTime = 0
-                    ;
+                    let title = settings.name + ':';
+                    let totalTime = 0;
                     time = false;
                     clearTimeout(module.performance.timer);
                     $.each(performance, function (index, data) {
@@ -309,35 +280,24 @@
                     title += ' ' + totalTime + 'ms';
                     if (performance.length > 0) {
                         console.groupCollapsed(title);
-                        if (console.table) {
-                            console.table(performance);
-                        } else {
-                            $.each(performance, function (index, data) {
-                                console.log(data.Name + ': ' + data['Execution Time'] + 'ms');
-                            });
-                        }
+                        console.table(performance);
                         console.groupEnd();
                     }
                     performance = [];
                 },
             },
-            invoke: function (query, passedArguments, context) {
-                var
-                    object = instance,
-                    maxDepth,
-                    found,
-                    response
-                ;
-                passedArguments = passedArguments || queryArguments;
-                context = context || element;
+            invoke: function (query, passedArguments = queryArguments, context = element) {
+                let object = instance;
+                let maxDepth;
+                let found;
+                let response;
                 if (typeof query === 'string' && object !== undefined) {
                     query = query.split(/[ .]/);
                     maxDepth = query.length - 1;
                     $.each(query, function (depth, value) {
-                        var camelCaseValue = depth !== maxDepth
+                        const camelCaseValue = depth !== maxDepth
                             ? value + query[depth + 1].charAt(0).toUpperCase() + query[depth + 1].slice(1)
-                            : query
-                        ;
+                            : query;
                         if ($.isPlainObject(object[camelCaseValue]) && (depth !== maxDepth)) {
                             object = object[camelCaseValue];
                         } else if (object[camelCaseValue] !== undefined) {
@@ -378,7 +338,7 @@
             if (instance === undefined) {
                 module.initialize();
             }
-            module.invoke(query);
+            module.invoke(parameters);
         } else {
             if (instance !== undefined) {
                 module.destroy();

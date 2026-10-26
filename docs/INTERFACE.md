@@ -75,7 +75,7 @@ fragment (`extends env` / `block content` / `fabric-document(state=…,
 data-merkle-root=…, data-document-id=…)`) that `compose` renders into the
 layout's content slot. Server-side output is hash-only: Tree root, blob leaves
 (`blobHashHex`, `paymentHashHex`), publisher key, sizes, and ranked provider
-offers from the local `DocumentOfferBook`. Buying a blob goes through the
+offers from the local `DocumentBook`. Buying a blob goes through the
 existing 402 flow (`functions/fabricDocumentPayment402.js`,
 `documentOffer.blobHashHex`): the component handles its own buy / load buttons
 (`data-blob-index`, `data-document-id`, falling back to the `/documents/<id>`
@@ -93,7 +93,7 @@ await server.define('Document', FabricDocument.resource);
 ```
 
 The server knows nothing about markets on its own, so the app that holds the
-`DocumentOfferBook` supplies two optional hooks:
+`DocumentBook` supplies two optional hooks:
 
 ```js
 await server.define('Document', {

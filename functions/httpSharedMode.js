@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * HTTP shared-mode bind helpers for Fabric nodes (Hub, LiveRelay, desktop).
+ * HTTP shared-mode bind helpers for Fabric nodes (hubs, relays, desktop apps).
  * Default local dashboard bind is loopback; LAN (`0.0.0.0`) is opt-in.
  *
  * Canonical env (Fabric-wide — no app prefixes):

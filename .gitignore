@@ -45,6 +45,9 @@ typings/
 # Optional eslint cache
 .eslintcache
 
+# Build scratch (Twemoji tarball, icon sets) — scripts never write outside the package
+.cache/
+
 # Optional REPL history
 .node_repl_history
 
@@ -68,6 +71,9 @@ config.json
 
 # Fomantic Gulp output — `npm run build:semantic` mirrors this into assets/
 libraries/fomantic/dist/**
+# Twemoji SVGs — imported from a pinned release at build time (functions/twemoji.js)
+assets/themes/fabric/assets/twemoji/
+libraries/fomantic/src/themes/fabric/assets/twemoji/
 
 # Stale 2022 browser bundle + local scratch (not the Hub SPA)
 assets/scripts/fabric.http.js

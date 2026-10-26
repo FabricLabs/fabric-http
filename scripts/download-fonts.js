@@ -8,17 +8,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
-function safeRootFromEnv () {
-  const raw = process.env.FABRIC_HTTP;
-  if (!raw) return path.join(__dirname, '..');
-  const resolved = path.resolve(String(raw));
-  if (!path.isAbsolute(resolved)) {
-    throw new Error('FABRIC_HTTP must resolve to an absolute path');
-  }
-  return resolved;
-}
-
-const root = safeRootFromEnv();
+const root = path.join(__dirname, '..');
 const fontDir = path.join(
   root, 'libraries', 'fomantic', 'src', 'themes', 'fabric', 'assets', 'fonts'
 );
@@ -69,7 +59,7 @@ async function main () {
     console.error(
       '[download-fonts] Expected',
       fomanticTheme,
-      '— use a full fabric-http clone (libraries/fomantic) or set FABRIC_HTTP to one.'
+      '— run this from a full fabric-http clone (libraries/fomantic).'
     );
     process.exit(1);
   }

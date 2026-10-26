@@ -91,7 +91,7 @@ describe('@fabric/http messageBodyJsonBridge', function () {
 
   it('sidechain patch frames round-trip vector parent through AMP wire', function () {
     const Key = require('@fabric/core/types/key');
-    const { frameIdOf } = require('../functions/fabricMessageParent');
+    const { frameIdOf } = Message;
     const key = new Key();
     const digest = 'ef'.repeat(32);
     const genesis = messageFromJsonBody('SIDECHAIN_STATE_PATCH', {
@@ -125,13 +125,8 @@ describe('@fabric/http messageBodyJsonBridge', function () {
     assert.deepStrictEqual(view.rfc6902.patches, patches);
   });
 
-  it('fabricMessageParent re-export matches core and supports parent vectors', function () {
+  it('parent vectors round-trip through Message.fromVector', function () {
     const Key = require('@fabric/core/types/key');
-    const httpParent = require('../functions/fabricMessageParent');
-    const coreParent = require('@fabric/core/functions/fabricMessageParent');
-    assert.strictEqual(httpParent.ZERO_PARENT, coreParent.ZERO_PARENT);
-    assert.strictEqual(httpParent.frameIdOf, coreParent.frameIdOf);
-
     const key = new Key();
     const genesis = Message.fromVector(['P2P_CHAT_MESSAGE', 'hub-genesis']).signWithKey(key);
     const child = Message.fromVector(['P2P_CHAT_MESSAGE', 'hub-child', genesis]).signWithKey(key);

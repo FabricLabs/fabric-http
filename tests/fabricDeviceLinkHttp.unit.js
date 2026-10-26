@@ -17,6 +17,9 @@ const {
   deviceLinkProtocolUrl
 } = require('../functions/fabricDeviceLinkHttp');
 const { cancelDeviceLinkSession, deviceLinkHeaders } = require('../functions/fabricDeviceLinkClient');
+const { DEFAULT_FABRIC_HUB_ORIGINS } = require('../functions/fabricHubAllowlist');
+
+const ALLOWLISTED_HUB = DEFAULT_FABRIC_HUB_ORIGINS[0];
 const {
   fabricIdentityIdFromPubkeyHex,
   buildFabricIdentitySignedPayload
@@ -36,7 +39,7 @@ describe('fabricDeviceLinkHttp identityFromXpub', function () {
   it('matches buildFabricIdentitySignedPayload identity material', function () {
     const seed = new Key();
     const ident = new Identity(seed);
-    const payload = buildFabricIdentitySignedPayload(ident, 'fabric:device-link:test');
+    const payload = buildFabricIdentitySignedPayload(ident, 'fabric:device-link:test', 'Fabric/Test');
     const resolved = identityFromXpub(payload.identity.xpub);
     assert.strictEqual(resolved.pubkeyHex, payload.pubkeyHex.toLowerCase());
     assert.strictEqual(resolved.id, payload.identity.id);
@@ -50,14 +53,14 @@ describe('fabricDeviceLinkHttp identityFromXpub', function () {
 describe('fabricDeviceLinkHttp protocol URL', function () {
   it('uses the rendezvous hub base, not the page origin', function () {
     const hub = {
-      settings: { publicOrigin: 'https://hub.fabric.pub' },
+      settings: { publicOrigin: 'https://hub.example.com' },
       http: { settings: { hostname: '127.0.0.1', port: 8080 } }
     };
-    const req = { headers: { host: 'relay.goon.vc' }, socket: {} };
-    assert.strictEqual(resolveDeviceLinkHubBase(hub, req), 'https://hub.fabric.pub');
-    const url = deviceLinkProtocolUrl(hub, req, 'aa'.repeat(24), 'https://goon.vc');
-    assert.match(url, /hub=https%3A%2F%2Fhub\.fabric\.pub/);
-    assert.ok(!url.includes('goon.vc'));
+    const req = { headers: { host: 'relay.example.com' }, socket: {} };
+    assert.strictEqual(resolveDeviceLinkHubBase(hub, req), 'https://hub.example.com');
+    const url = deviceLinkProtocolUrl(hub, req, 'aa'.repeat(24), 'https://app.example.com');
+    assert.match(url, /hub=https%3A%2F%2Fhub\.example\.com/);
+    assert.ok(!url.includes('app.example.com'));
   });
 });
 
@@ -100,12 +103,12 @@ describe('fabricDeviceLinkHttp per-origin create quota', function () {
       MAX_SESSIONS_PER_ORIGIN,
       evictDeviceLinkOriginOverflow
     } = require('../functions/fabricDeviceLinkHttp');
-    const origin = 'https://relay.goon.vc';
+    const origin = 'https://relay.example.com';
     const hub = { _deviceLinkSessions: new Map() };
     for (let i = 0; i < MAX_SESSIONS_PER_ORIGIN; i++) {
       hub._deviceLinkSessions.set('sess-' + i, { origin, createdAt: i });
     }
-    hub._deviceLinkSessions.set('other', { origin: 'https://hub.fabric.pub', createdAt: 0 });
+    hub._deviceLinkSessions.set('other', { origin: 'https://hub.example.com', createdAt: 0 });
     evictDeviceLinkOriginOverflow(hub, origin);
     assert.strictEqual(hub._deviceLinkSessions.has('sess-0'), false);
     assert.strictEqual(hub._deviceLinkSessions.size, MAX_SESSIONS_PER_ORIGIN);
@@ -121,7 +124,7 @@ describe('fabricDeviceLinkHttp companion WebView access', function () {
     assert.strictEqual(isCompanionWebViewOrigin('capacitor://localhost'), true);
     assert.strictEqual(isCompanionWebViewOrigin('https://evil.example'), false);
     assert.strictEqual(isExtensionOrigin('chrome-extension://abcdefghijklmnop'), true);
-    assert.strictEqual(isExtensionOrigin('https://relay.goon.vc'), false);
+    assert.strictEqual(isExtensionOrigin('https://relay.example.com'), false);
   });
 
   it('lets an Android WebView poll an allowlisted hub session', function () {
@@ -129,16 +132,16 @@ describe('fabricDeviceLinkHttp companion WebView access', function () {
       headers: { origin: 'https://localhost' },
       socket: { remoteAddress: '203.0.113.9' }
     };
-    assert.strictEqual(clientMayAccessDeviceLink(req, 'https://relay.goon.vc'), true);
+    assert.strictEqual(clientMayAccessDeviceLink(req, ALLOWLISTED_HUB), true);
     assert.strictEqual(clientMayAccessDeviceLink(req, 'https://phish.example'), false);
   });
 
-  it('lets Passport (chrome-extension) create/poll an allowlisted hub session', function () {
+  it('lets a wallet extension (chrome-extension) create/poll an allowlisted hub session', function () {
     const req = {
       headers: { origin: 'chrome-extension://abcdefghijklmnopqrstuvwxyz' },
       socket: { remoteAddress: '203.0.113.9' }
     };
-    assert.strictEqual(clientMayAccessDeviceLink(req, 'https://relay.goon.vc'), true);
+    assert.strictEqual(clientMayAccessDeviceLink(req, ALLOWLISTED_HUB), true);
     assert.strictEqual(clientMayAccessDeviceLink(req, 'https://phish.example'), false);
   });
 
@@ -161,13 +164,13 @@ describe('fabricDeviceLinkHttp companion WebView access', function () {
     }
   });
 
-  it('lets Firefox Passport (moz-extension) poll an allowlisted hub', function () {
+  it('lets a Firefox wallet extension (moz-extension) poll an allowlisted hub', function () {
     const req = {
       headers: { origin: 'moz-extension://aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' },
       socket: { remoteAddress: '203.0.113.9' }
     };
     assert.strictEqual(isExtensionOrigin(req.headers.origin), true);
-    assert.strictEqual(clientMayAccessDeviceLink(req, 'https://hub.fabric.pub'), true);
+    assert.strictEqual(clientMayAccessDeviceLink(req, ALLOWLISTED_HUB), true);
     assert.strictEqual(clientMayAccessDeviceLink(req, 'https://phish.example'), false);
   });
 });
@@ -191,7 +194,7 @@ describe('fabricDeviceLinkHttp cancel', function () {
     const res = mockRes();
     handleDeviceLinkCancel(hub, {
       params: { sessionId: 'aa'.repeat(24) },
-      headers: { origin: 'https://relay.goon.vc' },
+      headers: { origin: 'https://relay.example.com' },
       socket: { remoteAddress: '203.0.113.9' }
     }, res);
     assert.strictEqual(res.out.statusCode, 200);
@@ -225,7 +228,7 @@ describe('fabricDeviceLinkHttp cancel', function () {
     const hub = {
       _deviceLinkSessions: new Map([[sessionId, {
         status: 'pending',
-        origin: 'https://relay.goon.vc',
+        origin: 'https://relay.example.com',
         pollSecret,
         createdAt: Date.now()
       }]])
@@ -234,7 +237,7 @@ describe('fabricDeviceLinkHttp cancel', function () {
     handleDeviceLinkCancel(hub, {
       params: { sessionId },
       headers: {
-        origin: 'https://relay.goon.vc',
+        origin: 'https://relay.example.com',
         'x-fabric-poll-secret': pollSecret
       },
       socket: { remoteAddress: '203.0.113.9' }
@@ -250,7 +253,7 @@ describe('fabricDeviceLinkHttp cancel', function () {
     const hub = {
       _deviceLinkSessions: new Map([[sessionId, {
         status: 'pending',
-        origin: 'https://relay.goon.vc',
+        origin: 'https://relay.example.com',
         pollSecret: 'ff'.repeat(32),
         createdAt: Date.now()
       }]])
@@ -258,7 +261,7 @@ describe('fabricDeviceLinkHttp cancel', function () {
     const res = mockRes();
     handleDeviceLinkCancel(hub, {
       params: { sessionId },
-      headers: { origin: 'https://relay.goon.vc' },
+      headers: { origin: 'https://relay.example.com' },
       socket: { remoteAddress: '203.0.113.9' }
     }, res);
     assert.strictEqual(res.out.statusCode, 403);
@@ -272,7 +275,7 @@ describe('fabricDeviceLinkHttp cancel', function () {
     const hub = {
       _deviceLinkSessions: new Map([[sessionId, {
         status: 'pending',
-        origin: 'https://relay.goon.vc',
+        origin: 'https://relay.example.com',
         pollSecret,
         createdAt: Date.now()
       }]])
@@ -281,7 +284,7 @@ describe('fabricDeviceLinkHttp cancel', function () {
     handleDeviceLinkCancel(hub, {
       params: { sessionId },
       headers: {
-        origin: 'https://relay.goon.vc',
+        origin: 'https://relay.example.com',
         'x-fabric-poll-secret': '22'.repeat(32)
       },
       socket: { remoteAddress: '203.0.113.9' }
@@ -295,7 +298,7 @@ describe('fabricDeviceLinkHttp cancel', function () {
     const hub = {
       _deviceLinkSessions: new Map([[sessionId, {
         status: 'pending',
-        origin: 'https://relay.goon.vc',
+        origin: 'https://relay.example.com',
         pollSecret: 'cd'.repeat(32),
         nonce: '11'.repeat(32),
         label: 'device',
@@ -311,7 +314,7 @@ describe('fabricDeviceLinkHttp cancel', function () {
     const res = mockRes();
     handleDeviceLinkGet(hub, {
       params: { sessionId },
-      headers: { origin: 'https://relay.goon.vc' },
+      headers: { origin: 'https://relay.example.com' },
       socket: { remoteAddress: '203.0.113.9' }
     }, res);
     assert.strictEqual(res.out.statusCode, 200);
@@ -325,7 +328,7 @@ describe('fabricDeviceLinkHttp cancel', function () {
     const hub = {
       _deviceLinkSessions: new Map([[sessionId, {
         status: 'linked',
-        origin: 'https://relay.goon.vc',
+        origin: 'https://relay.example.com',
         pollSecret,
         createdAt: Date.now()
       }]])
@@ -334,7 +337,7 @@ describe('fabricDeviceLinkHttp cancel', function () {
     handleDeviceLinkCancel(hub, {
       params: { sessionId },
       headers: {
-        origin: 'https://relay.goon.vc',
+        origin: 'https://relay.example.com',
         'x-fabric-poll-secret': pollSecret
       },
       socket: { remoteAddress: '203.0.113.9' }
@@ -348,7 +351,7 @@ describe('fabricDeviceLinkHttp cancel', function () {
     const hub = {
       _deviceLinkSessions: new Map([[sessionId, {
         status: 'pending',
-        origin: 'https://relay.goon.vc',
+        origin: 'https://relay.example.com',
         createdAt: Date.now()
       }]])
     };
@@ -365,8 +368,8 @@ describe('fabricDeviceLinkHttp cancel', function () {
 
 describe('cancelDeviceLinkSession client', function () {
   it('treats HTTP 404 as success', async function () {
-    const out = await cancelDeviceLinkSession('https://relay.goon.vc', 'aa'.repeat(24), {
-      origin: 'https://relay.goon.vc',
+    const out = await cancelDeviceLinkSession('https://relay.example.com', 'aa'.repeat(24), {
+      origin: 'https://relay.example.com',
       fetchImpl: async () => ({
         ok: false,
         status: 404,
@@ -378,8 +381,8 @@ describe('cancelDeviceLinkSession client', function () {
   });
 
   it('returns ok: false when fetchImpl rejects', async function () {
-    const out = await cancelDeviceLinkSession('https://relay.goon.vc', 'aa'.repeat(24), {
-      origin: 'https://relay.goon.vc',
+    const out = await cancelDeviceLinkSession('https://relay.example.com', 'aa'.repeat(24), {
+      origin: 'https://relay.example.com',
       fetchImpl: async () => {
         throw new Error('hub unreachable');
       }
@@ -390,8 +393,8 @@ describe('cancelDeviceLinkSession client', function () {
   });
 
   it('keeps already-linked as ok: true, cancelled: false', async function () {
-    const out = await cancelDeviceLinkSession('https://relay.goon.vc', 'aa'.repeat(24), {
-      origin: 'https://relay.goon.vc',
+    const out = await cancelDeviceLinkSession('https://relay.example.com', 'aa'.repeat(24), {
+      origin: 'https://relay.example.com',
       fetchImpl: async () => ({
         ok: false,
         status: 409,
