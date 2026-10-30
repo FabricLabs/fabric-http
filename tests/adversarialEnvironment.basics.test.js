@@ -14,11 +14,12 @@ const {
 const {
   isLocalRequest,
   requestHasProxyForwardHeaders,
-  clientMayPollDesktopSession
-} = require('../functions/fabricSiteLoginVerify');
-const {
-  clientMayAccessDeviceLink
-} = require('../functions/fabricDeviceLinkHttp');
+  clientMayPollSession
+} = require('../functions/httpRequestTrust');
+const Key = require('@fabric/core/types/key');
+const delegation = require('@fabric/core/functions/delegation');
+const { readLinkInvitation } = require('../functions/fabricDelegationClient');
+const { checkDelegateCaller } = require('../functions/fabricDelegate');
 
 describe('adversarialEnvironment.basics (@fabric/http)', function () {
   it('rejects phishing hub origins for login/link completion', function () {
@@ -51,89 +52,45 @@ describe('adversarialEnvironment.basics (@fabric/http)', function () {
     assert.strictEqual(isLocalRequest(viaCaddy), false);
   });
 
-  it('shares one Origin poll gate across site-login and device-link', function () {
+  it('gates session polls on Origin or Referer, never on Host', function () {
     const origin = 'https://hub.example';
     const remote = { socket: { remoteAddress: '203.0.113.9' }, headers: {} };
-    assert.strictEqual(clientMayPollDesktopSession(remote, origin), false);
-    assert.strictEqual(clientMayPollDesktopSession({
+    assert.strictEqual(clientMayPollSession(remote, origin), false);
+    assert.strictEqual(clientMayPollSession({
       socket: { remoteAddress: '203.0.113.9' },
       headers: { origin }
     }, origin), true);
-    assert.strictEqual(clientMayPollDesktopSession({
+    assert.strictEqual(clientMayPollSession({
       socket: { remoteAddress: '203.0.113.9' },
       headers: { origin: 'https://evil.example' }
     }, origin), false);
-    assert.strictEqual(clientMayPollDesktopSession({
+    assert.strictEqual(clientMayPollSession({
       socket: { remoteAddress: '203.0.113.9' },
       headers: { 'sec-fetch-site': 'same-origin', host: 'hub.example' }
+    }, origin), false);
+    assert.strictEqual(clientMayPollSession({
+      socket: { remoteAddress: '203.0.113.9' },
+      headers: { referer: 'https://hub.example/devices' }
     }, origin), true);
-    assert.strictEqual(clientMayPollDesktopSession({
+    assert.strictEqual(clientMayPollSession({
       socket: { remoteAddress: '127.0.0.1' },
       headers: {}
     }, origin), true);
   });
 
-  it('lets thin clients poll device-link on allowlisted hubs only', function () {
-    const android = {
-      socket: { remoteAddress: '203.0.113.9' },
-      headers: { origin: 'https://localhost' }
-    };
-    const extension = {
-      socket: { remoteAddress: '203.0.113.9' },
-      headers: { origin: 'chrome-extension://abcdefghijklmnop' }
-    };
-    assert.strictEqual(clientMayAccessDeviceLink(android, DEFAULT_FABRIC_HUB_ORIGINS[0]), true);
-    assert.strictEqual(clientMayAccessDeviceLink(extension, DEFAULT_FABRIC_HUB_ORIGINS[0]), true);
-    assert.strictEqual(clientMayAccessDeviceLink(android, 'https://phish.example'), false);
-    assert.strictEqual(clientMayPollDesktopSession(android, DEFAULT_FABRIC_HUB_ORIGINS[0]), false);
+  it('pairs only through rendezvous on the allowlist', function () {
+    const key = new Key();
+    const good = delegation.createLinkOffer({ origin: DEFAULT_FABRIC_HUB_ORIGINS[0] }, key);
+    const phish = delegation.createLinkOffer({ origin: 'https://phish.example' }, key);
+    assert.strictEqual(readLinkInvitation(good.uri).ok, true);
+    assert.strictEqual(readLinkInvitation(phish.uri).ok, false);
   });
 
-  it('does not treat path sessionId as a delegation-registry credential', function () {
-    const { handleSessionGet } = require('../functions/fabricSiteLoginHttp');
-    const token = 'aa'.repeat(24);
-    const loginSessionId = 'bb'.repeat(24);
-    const hub = {
-      _desktopAuthSessions: new Map(),
-      _delegationRegistry: new Map([
-        [token, {
-          origin: 'https://hub.example.com',
-          linkedAt: Date.now(),
-          label: 'browser',
-          identityId: 'id1example',
-          sessionId: loginSessionId
-        }]
-      ]),
-      getDelegationSessionById (id) {
-        const row = this._delegationRegistry.get(id);
-        if (!row) return null;
-        return { ok: true, kind: 'delegation', id, origin: row.origin, identityId: row.identityId };
-      }
-    };
-    function mockRes () {
-      const out = { statusCode: 0, body: null };
-      return {
-        out,
-        setHeader () {},
-        status (code) { out.statusCode = code; return this; },
-        send (body) { out.body = body; return this; }
-      };
-    }
-    const unauth = mockRes();
-    handleSessionGet(hub, {
-      params: { sessionId: token },
-      headers: { accept: 'application/json' }
-    }, unauth);
-    assert.strictEqual(unauth.out.statusCode, 404);
-
-    const authed = mockRes();
-    handleSessionGet(hub, {
-      params: { sessionId: token },
-      headers: { accept: 'application/json', authorization: 'Bearer ' + token }
-    }, authed);
-    assert.strictEqual(authed.out.statusCode, 200);
-    const parsed = JSON.parse(authed.out.body);
-    assert.strictEqual(parsed.ok, true);
-    assert.strictEqual(parsed.kind, 'delegation');
-    assert.strictEqual(parsed.identityId, 'id1example');
+  it('answers delegation requests on loopback from extensions only', function () {
+    const direct = (headers) => ({ socket: { remoteAddress: '127.0.0.1' }, headers: Object.assign({ host: '127.0.0.1:8080' }, headers) });
+    assert.strictEqual(checkDelegateCaller(direct({ origin: 'https://evil.example' })).ok, false);
+    assert.strictEqual(checkDelegateCaller(direct({ origin: 'moz-extension://0b5c2a4e-1111-2222-3333-444455556666', 'x-forwarded-for': '203.0.113.9' })).ok, false);
+    assert.strictEqual(checkDelegateCaller(direct({ origin: 'moz-extension://0b5c2a4e-1111-2222-3333-444455556666', host: 'evil.example' })).status, 421);
+    assert.strictEqual(checkDelegateCaller(direct({ origin: 'moz-extension://0b5c2a4e-1111-2222-3333-444455556666' })).ok, true);
   });
 });
