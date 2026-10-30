@@ -104,6 +104,31 @@ describe('passportHttp', function () {
     return { res, binding: binding.value, line: binding.line };
   }
 
+  it('refuses the 31st challenge from one address and still redeems an earlier one', async function () {
+    this.timeout(20000);
+    await start();
+    const first = await browserChallenge();
+    for (let i = 0; i < 29; i++) await browserChallenge();
+    const blocked = await request(server, 'POST', '/sessions/challenges', { headers: { origin: SITE }, body: {} });
+    assert.strictEqual(blocked.status, 429);
+    const signedIn = await request(server, 'POST', '/sessions', {
+      headers: { origin: SITE, cookie: `${BINDING_COOKIE}=${first.binding}` },
+      body: { assertion: sign(first.res.body.challenge, SITE) }
+    });
+    assert.strictEqual(signedIn.status, 200, JSON.stringify(signedIn.body));
+  });
+
+  it('refuses the 31st sign-in attempt from one address in a minute', async function () {
+    this.timeout(20000);
+    await start();
+    for (let i = 0; i < 30; i++) {
+      const res = await request(server, 'POST', '/sessions', { headers: { origin: SITE }, body: { assertion: 'fabric:AA' } });
+      assert.notStrictEqual(res.status, 429);
+    }
+    const blocked = await request(server, 'POST', '/sessions', { headers: { origin: SITE }, body: { assertion: 'fabric:AA' } });
+    assert.strictEqual(blocked.status, 429);
+  });
+
   it('signs a browser in with HttpOnly cookies and never returns a token', async function () {
     await start();
     const { res, binding, line } = await browserChallenge();
@@ -327,6 +352,17 @@ describe('passportHttp', function () {
       assert.strictEqual(other.status, 403);
       const none = await request(server, 'POST', '/sessions/self', { body: {} });
       assert.strictEqual(none.status, 403);
+    });
+
+    it('ignores a self origin that is not loopback, even when pinned', async function () {
+      await start({
+        http: {
+          selfOrigins: [SITE],
+          selfSign: async ({ challenge, origin }) => sign(challenge, origin, HOST_ACCOUNT.identity.key, 'hub')
+        }
+      });
+      const res = await request(server, 'POST', '/sessions/self', { headers: { origin: SITE }, body: {} });
+      assert.strictEqual(res.status, 403);
     });
 
     it('is absent without selfSign', async function () {

@@ -18,7 +18,7 @@ const MAX_FRAME_BODY_BYTES = 96 * 1024;
  * @returns {Promise<string>}
  */
 function readRequestText (req, limit) {
-  if (!req || typeof req.on !== 'function' || req.readableEnded || req.complete) {
+  if (!req || typeof req.on !== 'function' || req.readableEnded || req.readable === false) {
     return Promise.resolve('');
   }
   return new Promise((resolve, reject) => {

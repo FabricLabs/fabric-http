@@ -37,6 +37,15 @@ describe('passportRelyingParty', function () {
     assert.throws(() => createPassportRelyingParty({ production: true, pinnedOrigins: ['not a url'] }), /pinnedOrigins/);
   });
 
+  it('keeps issuing for an origin that already holds many live challenges', async function () {
+    const rp = party();
+    const first = await rp.issueChallenge({ origin: SITE });
+    for (let i = 0; i < 100; i++) await rp.issueChallenge({ origin: SITE });
+    const last = await rp.issueChallenge({ origin: SITE });
+    assert.strictEqual((await rp.redeem(first.bindingSecret, sign(first))).ok, true);
+    assert.strictEqual((await rp.redeem(last.bindingSecret, sign(last))).ok, true);
+  });
+
   it('issues challenges only for pinned origins', async function () {
     const rp = party({ pinnedOrigins: [SITE, OTHER_SITE] });
     assert.strictEqual((await rp.issueChallenge({ origin: `${SITE}/path` })).origin, SITE);
@@ -101,6 +110,17 @@ describe('passportRelyingParty', function () {
     const ok = await rp.redeem(asked.bindingSecret, sign(asked, { disclose: ['wallet'], wallet: ACCOUNT.wallet }));
     assert.strictEqual(ok.ok, true, ok.error);
     assert.strictEqual(ok.wallet.segwit.xpub.slice(0, 4), 'tpub');
+  });
+
+  it('refuses a new record instead of dropping one already stored', async function () {
+    const store = createMemoryStore({ max: 2 });
+    await store.put('a', { n: 1, expiresAt: Date.now() + 60_000 });
+    await store.put('b', { n: 2, expiresAt: Date.now() + 60_000 });
+    await assert.rejects(() => store.put('c', { n: 3, expiresAt: Date.now() + 60_000 }), /too many pending records/);
+    assert.strictEqual((await store.get('a')).n, 1);
+    assert.strictEqual((await store.get('b')).n, 2);
+    await store.put('a', { n: 4, expiresAt: Date.now() + 60_000 });
+    assert.strictEqual((await store.get('a')).n, 4);
   });
 
   it('keeps sessions under hashed tokens and revokes them', async function () {

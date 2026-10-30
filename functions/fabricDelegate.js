@@ -208,29 +208,36 @@ function createFabricDelegate (options = {}) {
    * @param {string} origin The caller's extension origin.
    * @returns {Promise<{ status: number, json: object }>}
    */
+  async function firefoxOriginAllowed (origin) {
+    if (!origin.startsWith('moz-extension://') || configured.has(origin)) return true;
+    const pins = new Set();
+    const received = await store.grants('received');
+    for (const item of received) {
+      const pinned = item && item.grant && item.grant.extensionOrigin;
+      if (typeof pinned === 'string' && pinned.startsWith('moz-extension://')) pins.add(pinned);
+    }
+    return !pins.size || pins.has(origin);
+  }
+
   async function takeLinkFrame (frame, origin) {
     const type = delegation.delegationType(frame);
+    if (type === 'DELEGATION_LINK_OFFER' || type === 'DELEGATION_LINK_REVEAL' || type === 'DELEGATION_GRANT') {
+      if (!(await firefoxOriginAllowed(origin))) {
+        return { status: 403, json: { ok: false, error: 'this browser is already paired with another Passport' } };
+      }
+    }
     if (type === 'DELEGATION_LINK_OFFER') {
       if (!configured.has(origin) && !origin.startsWith('moz-extension://')) {
         return { status: 403, json: { ok: false, error: 'this extension is not set up to pair here' } };
-      }
-      if (origin.startsWith('moz-extension://') && !configured.has(origin)) {
-        const pins = new Set();
-        const received = await store.grants('received');
-        for (const item of received) {
-          const pinned = item && item.grant && item.grant.extensionOrigin;
-          if (typeof pinned === 'string' && pinned.startsWith('moz-extension://')) pins.add(pinned);
-        }
-        if (pins.size && !pins.has(origin)) {
-          return { status: 403, json: { ok: false, error: 'this browser is already paired with another Passport' } };
-        }
       }
       const now = settings.now();
       if (linkWaiting || now - lastLinkPromptAt < LINK_PROMPT_INTERVAL_MS) {
         return { status: 429, json: { ok: false, error: 'wait before pairing again' } };
       }
+      lastLinkPromptAt = now;
       try {
         const made = await store.answer(frame, { label: settings.name || settings.signer });
+        linkOrigins.clear();
         linkOrigins.set(made.linkId, origin);
         return { status: 201, json: { ok: true, linkId: made.linkId, frame: made.uri } };
       } catch (err) {
@@ -238,12 +245,26 @@ function createFabricDelegate (options = {}) {
       }
     }
     if (type === 'DELEGATION_LINK_REVEAL') {
-      const taken = await store.receive(frame);
-      if (!taken.ok) return { status: 400, json: { ok: false, error: taken.error } };
-      if (linkOrigins.get(taken.linkId) !== origin) return { status: 403, json: { ok: false, error: 'pairing started from another origin' } };
-      let confirmed = false;
+      if (linkWaiting) return { status: 429, json: { ok: false, error: 'wait before pairing again' } };
       linkWaiting = true;
       lastLinkPromptAt = settings.now();
+      let taken;
+      try {
+        taken = await store.receive(frame);
+      } catch (err) {
+        linkWaiting = false;
+        return { status: 400, json: { ok: false, error: err.message } };
+      }
+      if (!taken.ok) {
+        linkWaiting = false;
+        return { status: 400, json: { ok: false, error: taken.error } };
+      }
+      if (linkOrigins.get(taken.linkId) !== origin) {
+        linkWaiting = false;
+        return { status: 403, json: { ok: false, error: 'pairing started from another origin' } };
+      }
+      linkOrigins.delete(taken.linkId);
+      let confirmed = false;
       try {
         confirmed = typeof settings.confirmLink === 'function'
           ? (await settings.confirmLink({ linkId: taken.linkId, sas: taken.sas, peer: taken.peer, peerLabel: taken.peerLabel || '', origin })) === true
@@ -303,7 +324,7 @@ function createFabricDelegate (options = {}) {
     }
     const account = accountFor(settings.network);
     if (!account) return { error: 'locked' };
-    if (read.scope === 'message') return { frame: delegation.answerMessage(read, account.identity.key) };
+    if (read.scope === 'message') return { frame: delegation.answerMessage(read, account.identity.key).toBuffer() };
     if (typeof settings.answer === 'function') {
       const frame = await settings.answer(item, account);
       return frame ? { frame } : { error: `this app does not answer ${read.scope} requests here` };

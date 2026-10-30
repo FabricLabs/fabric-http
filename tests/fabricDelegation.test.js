@@ -144,6 +144,74 @@ describe('@fabric/http delegation transports', function () {
       assert.strictEqual((await send(origin, 'GET', '/services/delegation/mailbox')).status, 401);
     });
 
+    it('keeps a mailbox that is still loading, and remembers a used fetch', async function () {
+      let release;
+      const gate = new Promise((resolve) => { release = resolve; });
+      const persisted = {
+        seq: 3,
+        boxes: {
+          aa: [{ seq: 3, hash: 'cd'.repeat(32), type: 'DELEGATION_GRANT', hex: '00', at: 1, until: Date.now() + 60 * 60 * 1000 }]
+        },
+        spent: {}
+      };
+      const store = {
+        async get () { await gate; return JSON.stringify(persisted); },
+        async set (_key, value) { persisted.raw = value; }
+      };
+      const mailbox = createDelegationMailbox({ store });
+      const hub = new Delegation({ key: HUB.identity.key });
+      const grant = await hub.grant({ grantee: PASSPORT.identity.pubkey, scopes: ['message'] });
+      const posting = mailbox.post(grant.uri);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      assert.strictEqual(persisted.raw, undefined);
+      release();
+      const posted = await posting;
+      assert.strictEqual(posted.status, 201, posted.body.error);
+      const saved = JSON.parse(persisted.raw);
+      assert.ok(saved.boxes.aa, 'the stored frame is still there');
+      assert.ok(Object.keys(saved.boxes).length >= 2);
+
+      const proof = d.createMailboxFetch({}, PASSPORT.identity.key);
+      assert.strictEqual((await mailbox.fetch(proof.uri)).status, 200);
+      const restarted = createDelegationMailbox({
+        store: {
+          async get () { return persisted.raw; },
+          async set () {}
+        }
+      });
+      assert.strictEqual((await restarted.fetch(proof.uri)).status, 409);
+    });
+
+    it('refuses to queue while the stored mailbox cannot be read, then keeps it', async function () {
+      const persisted = {
+        raw: JSON.stringify({
+          seq: 3,
+          boxes: { aa: [{ seq: 3, hash: 'cd'.repeat(32), type: 'DELEGATION_GRANT', hex: '00', at: 1, until: Date.now() + 60 * 60 * 1000 }] },
+          spent: {}
+        })
+      };
+      let failing = true;
+      let writes = 0;
+      const store = {
+        async get () {
+          if (failing) throw new Error('disk busy');
+          return persisted.raw;
+        },
+        async set (_key, value) { writes++; persisted.raw = value; }
+      };
+      const mailbox = createDelegationMailbox({ store });
+      const hub = new Delegation({ key: HUB.identity.key });
+      const grant = await hub.grant({ grantee: PASSPORT.identity.pubkey, scopes: ['message'] });
+      await assert.rejects(() => mailbox.post(grant.uri), (err) => err.status === 503);
+      assert.strictEqual(writes, 0);
+      failing = false;
+      const posted = await mailbox.post(grant.uri);
+      assert.strictEqual(posted.status, 201, posted.body.error);
+      assert.strictEqual(posted.body.seq, 4);
+      const saved = JSON.parse(persisted.raw);
+      assert.ok(saved.boxes.aa, 'the stored frame is still there');
+    });
+
     it('needs `to` for results, and hands the host its own frames', async function () {
       const taken = [];
       const mailbox = createDelegationMailbox({ deliver: (to, buffer) => { if (to === HUB.identity.pubkey.slice(2)) { taken.push(buffer); return true; } return false; } });
@@ -210,6 +278,38 @@ describe('@fabric/http delegation transports', function () {
       assert.strictEqual(described.body.granted, true);
       const asStranger = await send(origin, 'GET', `/services/delegation?pubkey=${PASSPORT.identity.pubkey}`, { headers: { origin: STRANGER } });
       assert.strictEqual(asStranger.body.granted, false);
+    });
+
+    it('accepts one pairing offer at a time', async function () {
+      const { origin } = await setup();
+      const passport = new Delegation({ key: PASSPORT.identity.key });
+      const headers = { origin: EXTENSION };
+      const first = await passport.offer({ origin, label: 'Passport' });
+      assert.strictEqual((await send(origin, 'POST', '/services/delegation/links', { body: { frame: first.uri }, headers })).status, 201);
+      const second = await passport.offer({ origin, label: 'Passport' });
+      assert.strictEqual((await send(origin, 'POST', '/services/delegation/links', { body: { frame: second.uri }, headers })).status, 429);
+    });
+
+    it('shows a code only for the latest offer, and only once', async function () {
+      let clock = Date.now();
+      const { origin, prompts } = await setup({ now: () => clock });
+      const passport = new Delegation({ key: PASSPORT.identity.key });
+      const headers = { origin: EXTENSION };
+      const links = '/services/delegation/links';
+      const first = await passport.offer({ origin, label: 'Passport' });
+      const firstAnswer = await send(origin, 'POST', links, { body: { frame: first.uri }, headers });
+      assert.strictEqual(firstAnswer.status, 201, firstAnswer.body.error);
+      clock += 31 * 1000;
+      const second = await passport.offer({ origin, label: 'Passport' });
+      const secondAnswer = await send(origin, 'POST', links, { body: { frame: second.uri }, headers });
+      assert.strictEqual(secondAnswer.status, 201, secondAnswer.body.error);
+
+      const stale = await passport.receive(firstAnswer.body.frame);
+      assert.strictEqual((await send(origin, 'POST', links, { body: { frame: stale.reveal }, headers })).status, 403);
+      const fresh = await passport.receive(secondAnswer.body.frame);
+      assert.strictEqual((await send(origin, 'POST', links, { body: { frame: fresh.reveal }, headers })).status, 200);
+      assert.notStrictEqual((await send(origin, 'POST', links, { body: { frame: fresh.reveal }, headers })).status, 200);
+      assert.strictEqual(prompts.length, 1);
     });
 
     it('lets the first Firefox Passport pair, then refuses a different one', async function () {

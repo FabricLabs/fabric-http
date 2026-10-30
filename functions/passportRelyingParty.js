@@ -24,6 +24,8 @@ const { isLoopbackHostname, tokensEqual } = require('./httpRequestTrust');
 const PASSPORT_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 /** Most pending challenges an in-memory store keeps. */
 const MEMORY_STORE_MAX = 10000;
+/** Most live sessions the default in-memory session store keeps. */
+const MEMORY_SESSION_STORE_MAX = 100000;
 
 /**
  * sha256 hex of a secret or token.
@@ -44,7 +46,8 @@ function randomToken () {
 
 /**
  * In-memory store: `put`, atomic `take`, `get`, `delete`. Entries expire at
- * `expiresAt`; the oldest are dropped past `max`.
+ * `expiresAt`. A new key past `max` is refused; nothing already stored is
+ * dropped to make room.
  * @param {Object} [options]
  * @param {number} [options.max]
  * @param {function(): number} [options.now]
@@ -57,9 +60,16 @@ function createMemoryStore (options = {}) {
   const live = (row) => row && (!row.expiresAt || row.expiresAt > now());
   return {
     async put (key, value) {
+      for (const [id, row] of rows) {
+        if (!live(row)) rows.delete(id);
+      }
+      if (!rows.has(key) && rows.size >= max) {
+        const err = new Error('too many pending records');
+        err.status = 503;
+        throw err;
+      }
       rows.delete(key);
       rows.set(key, value);
-      while (rows.size > max) rows.delete(rows.keys().next().value);
     },
     async take (key) {
       const row = rows.get(key);
@@ -141,7 +151,7 @@ function createPassportRelyingParty (settings = {}) {
     ? settings.sessionTtlMs
     : PASSPORT_SESSION_TTL_MS;
   const challengeStore = settings.challengeStore || createMemoryStore({ now });
-  const sessionStore = settings.sessionStore || createMemoryStore({ now });
+  const sessionStore = settings.sessionStore || createMemoryStore({ now, max: MEMORY_SESSION_STORE_MAX });
 
   /**
    * The pinned origin for `candidate`, or null.

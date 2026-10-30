@@ -25,15 +25,19 @@ const passport = require('@fabric/core/functions/passport');
 const { decodeFabricUri } = require('@fabric/core/functions/fabricUri');
 const {
   isLocalRequest,
+  isLoopbackHostname,
   requestHasProxyForwardHeaders,
   fabricUriFromBody
 } = require('./httpRequestTrust');
+const { clientAddress, createRateLimit } = require('./delegationHttpBody');
 
 const SESSION_COOKIE = 'fabric.session';
 const BINDING_COOKIE = 'fabric.passport';
 const NATIVE_HEADER = 'x-fabric-native';
 const BINDING_HEADER = 'x-fabric-binding';
 const MAX_BODY_BYTES = 64 * 1024;
+/** Challenges one client address may issue, and assertions it may redeem, per minute. */
+const CHALLENGES_PER_MINUTE = 30;
 
 /** Answer (426) to a Passport, Hub, or GoonCitizen build from before v2. */
 const PASSPORT_OUTDATED = Object.freeze({
@@ -177,6 +181,15 @@ function secureFor (origin) {
 }
 
 /** @private */
+function isLoopbackOrigin (origin) {
+  try {
+    return isLoopbackHostname(new URL(origin).hostname);
+  } catch (_) {
+    return false;
+  }
+}
+
+/** @private */
 function requestedDisclosures (body) {
   if (!body || typeof body !== 'object') return [];
   const raw = body.request;
@@ -194,14 +207,24 @@ function requestedDisclosures (body) {
  * @param {function(object, object): object} [settings.view] Session JSON (default `relyingParty.sessionView`).
  * @param {function({ challenge: string, origin: string, request: string[] }): Promise<string>} [settings.selfSign]
  *   Host-signed assertion for `POST /sessions/self`.
- * @param {string[]} [settings.selfOrigins] Loopback origins allowed to call `/sessions/self`.
+ * @param {string[]} [settings.selfOrigins] Loopback origins allowed to call `/sessions/self`; other origins are ignored.
+ * @param {boolean} [settings.trustProxy] Rate-limit by the last `X-Forwarded-For` hop instead of the socket address.
  * @returns {{ routes: Array<{ method: string, path: string, handler: Function }>, mount: function(object): void, readRequestSession: function(import('http').IncomingMessage): Promise<(object|null)>, sessionToken: function(import('http').IncomingMessage): (string|null) }}
  */
 function createPassportHttp (settings = {}) {
   const rp = settings.relyingParty;
   if (!rp || typeof rp.issueChallenge !== 'function') throw new TypeError('relyingParty required');
   const view = typeof settings.view === 'function' ? settings.view : (session) => rp.sessionView(session);
-  const selfOrigins = (settings.selfOrigins || []).map((o) => passport.normalizeOrigin(o)).filter(Boolean);
+  const selfOrigins = (settings.selfOrigins || [])
+    .map((o) => passport.normalizeOrigin(o))
+    .filter((o) => o && isLoopbackOrigin(o));
+  const limitOptions = {
+    limit: CHALLENGES_PER_MINUTE,
+    windowMs: 60 * 1000,
+    now: typeof settings.now === 'function' ? settings.now : undefined
+  };
+  const challengeLimit = createRateLimit(limitOptions);
+  const redeemLimit = createRateLimit(limitOptions);
 
   function sessionToken (req) {
     return bearerToken(req) || parseCookies(req)[SESSION_COOKIE] || null;
@@ -246,6 +269,9 @@ function createPassportHttp (settings = {}) {
 
   async function createChallenge (req, res) {
     try {
+      if (!challengeLimit(clientAddress(req, settings.trustProxy))) {
+        return send(res, 429, { error: 'slow down' });
+      }
       const body = await readBody(req);
       const origin = challengeOrigin(req, body);
       if (!origin) return send(res, 403, { error: 'origin is not pinned for this service' });
@@ -276,6 +302,9 @@ function createPassportHttp (settings = {}) {
 
   async function createSession (req, res) {
     try {
+      if (!redeemLimit(clientAddress(req, settings.trustProxy))) {
+        return send(res, 429, { error: 'slow down' });
+      }
       const body = await readBody(req);
       const assertion = body && typeof body === 'object' && typeof body.assertion === 'string'
         ? body.assertion
@@ -292,23 +321,31 @@ function createPassportHttp (settings = {}) {
       if (header && passport.normalizeOrigin(header) !== verified.origin) {
         return send(res, 403, { error: 'origin mismatch' });
       }
-      return finish(req, res, verified, native);
+      return await finish(req, res, verified, native);
     } catch (err) {
       return send(res, err.status || 400, { error: err.message || 'sign-in failed' });
     }
   }
 
   async function currentSession (req, res) {
-    const session = await readRequestSession(req);
-    if (!session) return send(res, 401, { error: 'not signed in' });
-    return send(res, 200, { session: view(session) });
+    try {
+      const session = await readRequestSession(req);
+      if (!session) return send(res, 401, { error: 'not signed in' });
+      return send(res, 200, { session: view(session) });
+    } catch (err) {
+      return send(res, err.status || 500, { error: err.message || 'session failed' });
+    }
   }
 
   async function endSession (req, res) {
-    const token = sessionToken(req);
-    if (token) await rp.revokeSession(token);
-    appendSetCookie(res, cookie(SESSION_COOKIE, '', { secure: secureFor(req.headers && req.headers.origin), maxAgeSeconds: 0 }));
-    return send(res, 200, { ok: true });
+    try {
+      const token = sessionToken(req);
+      if (token) await rp.revokeSession(token);
+      appendSetCookie(res, cookie(SESSION_COOKIE, '', { secure: secureFor(req.headers && req.headers.origin), maxAgeSeconds: 0 }));
+      return send(res, 200, { ok: true });
+    } catch (err) {
+      return send(res, err.status || 500, { error: err.message || 'sign-out failed' });
+    }
   }
 
   async function selfSession (req, res) {
@@ -324,7 +361,7 @@ function createPassportHttp (settings = {}) {
       const assertion = await settings.selfSign({ challenge: issued.challenge, origin, request: issued.request });
       const verified = await rp.redeem(issued.bindingSecret, assertion);
       if (!verified.ok) return send(res, verified.status || 400, { error: verified.error });
-      return finish(req, res, verified, false);
+      return await finish(req, res, verified, false);
     } catch (err) {
       return send(res, err.status || 500, { error: err.message || 'self sign-in failed' });
     }

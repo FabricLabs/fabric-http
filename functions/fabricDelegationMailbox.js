@@ -52,27 +52,43 @@ function createDelegationMailbox (options = {}) {
   const spent = new Map();
   let seq = 0;
   let loaded = !options.store;
+  let loading = null;
   let saving = Promise.resolve();
 
   async function load () {
     if (loaded) return;
-    loaded = true;
+    if (!loading) loading = hydrate();
+    return loading;
+  }
+
+  async function hydrate () {
     try {
       const raw = await options.store.get(storeKey);
       const doc = raw ? JSON.parse(raw) : null;
       if (doc && doc.boxes) {
-        seq = Number(doc.seq) || 0;
+        seq = Math.max(seq, Number(doc.seq) || 0);
         for (const [to, items] of Object.entries(doc.boxes)) {
-          boxes.set(to, items.map((i) => Object.assign({}, i, { buffer: Buffer.from(i.hex, 'hex') })));
+          if (!boxes.has(to)) boxes.set(to, items.map((i) => Object.assign({}, i, { buffer: Buffer.from(i.hex, 'hex') })));
         }
       }
-    } catch (_) {}
+      if (doc && doc.spent) {
+        for (const [nonce, until] of Object.entries(doc.spent)) {
+          if (!spent.has(nonce)) spent.set(nonce, Number(until) || 0);
+        }
+      }
+      loaded = true;
+    } catch (err) {
+      throw Object.assign(new Error('mailbox unavailable'), { status: 503, cause: err });
+    } finally {
+      loading = null;
+    }
   }
 
   function save () {
-    if (!options.store) return Promise.resolve();
-    const doc = { seq, boxes: {} };
+    if (!options.store || !loaded) return Promise.resolve();
+    const doc = { seq, boxes: {}, spent: {} };
     for (const [to, items] of boxes) doc.boxes[to] = items.map((i) => ({ seq: i.seq, hash: i.hash, type: i.type, hex: i.buffer.toString('hex'), at: i.at, until: i.until }));
+    for (const [nonce, until] of spent) doc.spent[nonce] = until;
     saving = saving.then(() => options.store.set(storeKey, JSON.stringify(doc))).catch(() => {});
     return saving;
   }
@@ -140,11 +156,12 @@ function createDelegationMailbox (options = {}) {
    */
   async function fetch (proof, params = {}) {
     await load();
-    sweep();
     const read = delegation.readMailboxFetch(proof, { now: now() });
     if (!read.ok) return { status: 401, body: { ok: false, error: read.error } };
     if (spent.has(read.nonce)) return { status: 409, body: { ok: false, error: 'fetch already used' } };
+    sweep();
     spent.set(read.nonce, read.expiresAt);
+    await save();
     const to = delegation.xOnly(read.pubkey);
     const max = Math.min(DEFAULT_FETCH_LIMIT, Math.max(1, Number(params.limit) || DEFAULT_FETCH_LIMIT));
     const items = (boxes.get(to) || []).filter((i) => i.seq > read.since).slice(0, max);
@@ -167,11 +184,11 @@ function createDelegationMailbox (options = {}) {
     const method = String(req.method || 'GET').toUpperCase();
     try {
       let out;
+      if (!limit(clientAddress(req, options.trustProxy))) {
+        sendJson(res, 429, { ok: false, error: 'slow down' });
+        return true;
+      }
       if (method === 'POST') {
-        if (!limit(clientAddress(req, options.trustProxy))) {
-          sendJson(res, 429, { ok: false, error: 'slow down' });
-          return true;
-        }
         const { frame, body } = await readFrame(req);
         out = frame ? await post(frame, { to: typeof body.to === 'string' ? body.to : undefined }) : { status: 400, body: { ok: false, error: 'frame required' } };
       } else if (method === 'GET') {
