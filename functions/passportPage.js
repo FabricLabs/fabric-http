@@ -3,7 +3,8 @@
 /**
  * @fileoverview Page side of Passport v2 sign-in (browser only, no Node deps).
  *
- * The page asks its server for a challenge, hands it to Passport with
+ * The page checks Passport is there ({@link probePassport}), asks its server
+ * for a challenge, hands it to Passport with
  * `window.postMessage({ source: 'fabric-site', type: 'PASSPORT_CHALLENGE',
  * challenge }, origin, [port])`, and reads the answer only from the
  * transferred `MessagePort`: `{ type: 'PASSPORT_ASSERTION', ok: true,
@@ -12,34 +13,66 @@
  * checks it when the assertion comes back (`passportHttp`).
  */
 
-/** Attribute Passport's content script sets on `<html>`; its value is the protocol version. */
+/**
+ * Attribute older Passports set on every page's `<html>`. Current Passport
+ * sets nothing and answers {@link probePassport} instead; the attribute only
+ * tells an outdated Passport from none.
+ */
 const PASSPORT_MARKER = 'data-fabric-passport';
-const PASSPORT_PROTOCOL = '2';
+const PASSPORT_PROTOCOL = 2;
+const PASSPORT_HELLO_WAIT_MS = 600;
 const PASSPORT_MIN_WAIT_MS = 5000;
 const PASSPORT_MAX_WAIT_MS = 3 * 60 * 1000 + 30 * 1000;
 
 /**
- * Whether a Passport that speaks v2 runs on this page.
- * @param {Document|Window} [doc]
+ * @private
+ * @param {Window} win
  * @returns {boolean}
  */
-function passportInstalled (doc) {
-  return passportStatus(doc) === 'ready';
+function hasOldMarker (win) {
+  const root = win && win.document && win.document.documentElement;
+  if (!root || typeof root.getAttribute !== 'function') return false;
+  const marker = root.getAttribute(PASSPORT_MARKER);
+  return marker !== null && marker !== undefined;
 }
 
 /**
- * What runs on this page: `ready` (Passport v2), `outdated` (an older
- * Passport; ask the user to update it), or `missing`.
- * @param {Document|Window} [doc] A `Window` is read through its `document`.
- * @returns {'ready'|'outdated'|'missing'}
+ * Ask whether Passport runs on this page: post `{ source: 'fabric-site',
+ * type: 'PASSPORT_HELLO', v: 2 }` with a transferred port and wait briefly
+ * for `{ type: 'PASSPORT_HELLO', v: 2 }` on it (top-level frames only).
+ * @param {Window} win
+ * @param {{ timeoutMs: (number|undefined) }} [options]
+ * @returns {Promise<'ready'|'outdated'|'missing'>} `outdated`: an older
+ *   Passport is installed; ask the user to update it.
  */
-function passportStatus (doc) {
-  const page = doc && !doc.documentElement && doc.document ? doc.document : doc;
-  const root = page && page.documentElement;
-  if (!root || typeof root.getAttribute !== 'function') return 'missing';
-  const marker = root.getAttribute(PASSPORT_MARKER);
-  if (marker === null || marker === undefined) return 'missing';
-  return marker === PASSPORT_PROTOCOL ? 'ready' : 'outdated';
+function probePassport (win, options = {}) {
+  return new Promise((resolve) => {
+    if (!win || typeof win.MessageChannel !== 'function' || typeof win.postMessage !== 'function') {
+      resolve('missing');
+      return;
+    }
+    const channel = new win.MessageChannel();
+    let done = false;
+    const finish = (status) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      try { channel.port1.close(); } catch (_) {}
+      resolve(status);
+    };
+    channel.port1.onmessage = (event) => {
+      const d = event && event.data;
+      if (!d || typeof d !== 'object' || d.type !== 'PASSPORT_HELLO') return;
+      finish(Number(d.v) === PASSPORT_PROTOCOL ? 'ready' : 'outdated');
+    };
+    const wait = Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : PASSPORT_HELLO_WAIT_MS;
+    const timer = setTimeout(() => finish(hasOldMarker(win) ? 'outdated' : 'missing'), wait);
+    try {
+      win.postMessage({ source: 'fabric-site', type: 'PASSPORT_HELLO', v: PASSPORT_PROTOCOL }, win.location.origin, [channel.port2]);
+    } catch (_) {
+      finish('missing');
+    }
+  });
 }
 
 /**
@@ -137,8 +170,7 @@ async function signInWithPassport (params = {}) {
 module.exports = {
   PASSPORT_MARKER,
   PASSPORT_PROTOCOL,
-  passportInstalled,
-  passportStatus,
+  probePassport,
   askPassport,
   signInWithPassport
 };

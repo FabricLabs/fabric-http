@@ -4,8 +4,7 @@ const assert = require('assert');
 const { MessageChannel } = require('worker_threads');
 const {
   PASSPORT_MARKER,
-  passportInstalled,
-  passportStatus,
+  probePassport,
   askPassport,
   signInWithPassport
 } = require('../functions/passportPage');
@@ -26,23 +25,28 @@ function fakeWindow (passport) {
 }
 
 describe('@fabric/http Passport page helper', function () {
-  it('sees Passport only when the marker says protocol 2', function () {
-    const doc = (value) => ({ documentElement: { getAttribute: (name) => (name === PASSPORT_MARKER ? value : null) } });
-    assert.strictEqual(passportInstalled(doc('2')), true);
-    assert.strictEqual(passportInstalled(doc('')), false);
-    assert.strictEqual(passportInstalled(doc('abcdefghijklmnopabcdefghijklmnop')), false);
-    assert.strictEqual(passportInstalled(null), false);
+  it('finds Passport by its answer to the hello, on a private port', async function () {
+    const win = fakeWindow((data, port) => {
+      assert.deepStrictEqual(data, { source: 'fabric-site', type: 'PASSPORT_HELLO', v: 2 });
+      port.postMessage({ type: 'PASSPORT_HELLO', v: 2 });
+      port.close();
+    });
+    assert.strictEqual(await probePassport(win), 'ready');
+    assert.strictEqual(win.posted[0].targetOrigin, ORIGIN);
+    assert.strictEqual(win.posted[0].transfer.length, 1);
   });
 
-  it('tells an older Passport from none, and reads a Window through its document', function () {
-    const doc = (value) => ({ documentElement: { getAttribute: (name) => (name === PASSPORT_MARKER ? value : null) } });
-    assert.strictEqual(passportStatus(doc('2')), 'ready');
-    assert.strictEqual(passportStatus(doc('')), 'outdated');
-    assert.strictEqual(passportStatus(doc('abcdefghijklmnopabcdefghijklmnop')), 'outdated');
-    assert.strictEqual(passportStatus(doc(null)), 'missing');
-    assert.strictEqual(passportStatus(undefined), 'missing');
-    assert.strictEqual(passportStatus({ document: doc('2') }), 'ready');
-    assert.strictEqual(passportInstalled({ document: doc('2') }), true);
+  it('tells an older Passport (marker, or another version) from none', async function () {
+    const marked = (value) => Object.assign(fakeWindow(null), {
+      document: { documentElement: { getAttribute: (name) => (name === PASSPORT_MARKER ? value : null) } }
+    });
+    assert.strictEqual(await probePassport(marked('2'), { timeoutMs: 20 }), 'outdated');
+    assert.strictEqual(await probePassport(marked(''), { timeoutMs: 20 }), 'outdated');
+    assert.strictEqual(await probePassport(marked(null), { timeoutMs: 20 }), 'missing');
+    assert.strictEqual(await probePassport(fakeWindow(null), { timeoutMs: 20 }), 'missing');
+    assert.strictEqual(await probePassport(undefined), 'missing');
+    const old = fakeWindow((data, port) => { port.postMessage({ type: 'PASSPORT_HELLO', v: 1 }); port.close(); });
+    assert.strictEqual(await probePassport(old), 'outdated');
   });
 
   it('posts the challenge with a port and reads the answer from that port only', async function () {

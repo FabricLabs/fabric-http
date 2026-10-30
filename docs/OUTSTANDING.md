@@ -56,6 +56,7 @@ downstream lockfiles when this lands** so those shims delete themselves.
 - [ ] After `@fabric/core` [#187](https://github.com/FabricLabs/fabric/pull/187) lands (contractPublishAuthority + SIDECHAIN fail-closed + Beacon federation accumulate), refresh this package lockfile tip and Hub pins together.
 
 ## Closed this pass (do not re-open)
+- Device links (`fabricDeviceLink*`, `/device-links`, `fabric://link`, poll secrets for link sessions) and the local signer are gone; pairing and signing requests are delegation frames (`fabricDelegationHttp`, `fabricDelegationMailbox`, `fabricDelegate`). Device-link entries below are history.
 - HTTPServer no longer logs full Internal message/commit JSON at default verbosity; commit Transactions omit full `state`; StateUpdate dumps are verbosity-gated (Hub OOM from OpenSSF advisory floods).
 - **HTTPServer.start** awaits the Node `listening` event (or rejects on bind error) so `server.http.listening` is true before `start()` resolves. Tests: `tests/web.server.js`.
 - Mesh shoutbox helper `functions/fabricChatNormalize` re-exports `@fabric/core/functions/fabricChatText` (`chatTextOf` / `chatActorIdOf`); Hub cache shape stays here (`normalizeP2pChatMessage`).

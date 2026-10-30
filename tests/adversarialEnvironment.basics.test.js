@@ -16,9 +16,10 @@ const {
   requestHasProxyForwardHeaders,
   clientMayPollSession
 } = require('../functions/httpRequestTrust');
-const {
-  clientMayAccessDeviceLink
-} = require('../functions/fabricDeviceLinkHttp');
+const Key = require('@fabric/core/types/key');
+const delegation = require('@fabric/core/functions/delegation');
+const { readLinkInvitation } = require('../functions/fabricDelegationClient');
+const { checkDelegateCaller } = require('../functions/fabricDelegate');
 
 describe('adversarialEnvironment.basics (@fabric/http)', function () {
   it('rejects phishing hub origins for login/link completion', function () {
@@ -77,18 +78,19 @@ describe('adversarialEnvironment.basics (@fabric/http)', function () {
     }, origin), true);
   });
 
-  it('lets thin clients poll device-link on allowlisted hubs only', function () {
-    const android = {
-      socket: { remoteAddress: '203.0.113.9' },
-      headers: { origin: 'https://localhost' }
-    };
-    const extension = {
-      socket: { remoteAddress: '203.0.113.9' },
-      headers: { origin: 'chrome-extension://abcdefghijklmnop' }
-    };
-    assert.strictEqual(clientMayAccessDeviceLink(android, DEFAULT_FABRIC_HUB_ORIGINS[0]), true);
-    assert.strictEqual(clientMayAccessDeviceLink(extension, DEFAULT_FABRIC_HUB_ORIGINS[0]), true);
-    assert.strictEqual(clientMayAccessDeviceLink(android, 'https://phish.example'), false);
-    assert.strictEqual(clientMayPollSession(android, DEFAULT_FABRIC_HUB_ORIGINS[0]), false);
+  it('pairs only through rendezvous on the allowlist', function () {
+    const key = new Key();
+    const good = delegation.createLinkOffer({ origin: DEFAULT_FABRIC_HUB_ORIGINS[0] }, key);
+    const phish = delegation.createLinkOffer({ origin: 'https://phish.example' }, key);
+    assert.strictEqual(readLinkInvitation(good.uri).ok, true);
+    assert.strictEqual(readLinkInvitation(phish.uri).ok, false);
+  });
+
+  it('answers delegation requests on loopback from extensions only', function () {
+    const direct = (headers) => ({ socket: { remoteAddress: '127.0.0.1' }, headers: Object.assign({ host: '127.0.0.1:8080' }, headers) });
+    assert.strictEqual(checkDelegateCaller(direct({ origin: 'https://evil.example' })).ok, false);
+    assert.strictEqual(checkDelegateCaller(direct({ origin: 'moz-extension://0b5c2a4e-1111-2222-3333-444455556666', 'x-forwarded-for': '203.0.113.9' })).ok, false);
+    assert.strictEqual(checkDelegateCaller(direct({ origin: 'moz-extension://0b5c2a4e-1111-2222-3333-444455556666', host: 'evil.example' })).status, 421);
+    assert.strictEqual(checkDelegateCaller(direct({ origin: 'moz-extension://0b5c2a4e-1111-2222-3333-444455556666' })).ok, true);
   });
 });

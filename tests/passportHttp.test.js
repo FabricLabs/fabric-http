@@ -185,8 +185,8 @@ describe('passportHttp', function () {
     const { res } = await browserChallenge();
     const assertion = sign(res.body.challenge, SITE);
     assert.strictEqual(passportOutdated(assertion, 'PASSPORT_ASSERTION'), false);
-    assert.strictEqual(passportOutdated(assertion, 'PASSPORT_SIGN_REQUEST'), true);
-    assert.strictEqual(passportOutdated(retype(assertion, 0x4232), 'PASSPORT_SIGN_REQUEST'), true);
+    assert.strictEqual(passportOutdated(assertion, 'DELEGATION_REQUEST'), true);
+    assert.strictEqual(passportOutdated(retype(assertion, 0x4232), 'DELEGATION_REQUEST'), true);
     assert.strictEqual(passportOutdated(undefined, 'PASSPORT_ASSERTION'), true);
     assert.strictEqual(passportOutdated('fabric:AAAA', 'PASSPORT_ASSERTION'), false);
   });

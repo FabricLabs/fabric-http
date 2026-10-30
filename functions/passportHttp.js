@@ -47,7 +47,7 @@ const PASSPORT_OUTDATED = Object.freeze({
  * frames), or `expectedType` at an older version. Malformed input is not
  * "outdated"; it gets the usual error.
  * @param {*} input `fabric:` string from the request
- * @param {string} expectedType `PASSPORT_ASSERTION` or `PASSPORT_SIGN_REQUEST`
+ * @param {string} expectedType `PASSPORT_ASSERTION`
  * @returns {boolean}
  */
 function passportOutdated (input, expectedType) {
