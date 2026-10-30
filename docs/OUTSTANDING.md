@@ -56,6 +56,7 @@ downstream lockfiles when this lands** so those shims delete themselves.
 - [ ] After `@fabric/core` [#187](https://github.com/FabricLabs/fabric/pull/187) lands (contractPublishAuthority + SIDECHAIN fail-closed + Beacon federation accumulate), refresh this package lockfile tip and Hub pins together.
 
 ## Closed this pass (do not re-open)
+- Device links (`fabricDeviceLink*`, `/device-links`, `fabric://link`, poll secrets for link sessions) and the local signer are gone; pairing and signing requests are delegation frames (`fabricDelegationHttp`, `fabricDelegationMailbox`, `fabricDelegate`). Device-link entries below are history.
 - HTTPServer no longer logs full Internal message/commit JSON at default verbosity; commit Transactions omit full `state`; StateUpdate dumps are verbosity-gated (Hub OOM from OpenSSF advisory floods).
 - **HTTPServer.start** awaits the Node `listening` event (or rejects on bind error) so `server.http.listening` is true before `start()` resolves. Tests: `tests/web.server.js`.
 - Mesh shoutbox helper `functions/fabricChatNormalize` re-exports `@fabric/core/functions/fabricChatText` (`chatTextOf` / `chatActorIdOf`); Hub cache shape stays here (`normalizeP2pChatMessage`).
@@ -65,7 +66,7 @@ downstream lockfiles when this lands** so those shims delete themselves.
 - Shared-bind helper `applySharedModeWebsocketGate` fail-closes `websocket.requireClientToken` (explicit `false` still wins). Hub `scripts/hub.js` applies it; do not wire it inside the `HTTPServer` constructor (default host is already `0.0.0.0`).
 - `scripts/cli.js` reads `--wallet` / `--wallet=` from argv **before** `Environment.start()` (`functions/cliWalletArgv.js`). Separate `--wallet -p` is not a path.
 - Own-host DNS cache via `dns.promises.lookup` (no `lookupSync`). Device-link per-origin create FIFO cap (`MAX_SESSIONS_PER_ORIGIN`).
-- Expired `GET /sessions/:delegationToken` requires matching Bearer (path is not a registry credential). Browser device-link fetch omits client-set Origin/Referer.
+- Site login and its delegation tokens are gone; sign-in is Passport v2 (`functions/passportHttp`). Browser device-link fetch omits client-set Origin/Referer.
 - CLI `scripts/cli.js` / `scripts/node.js` load `~/.fabric/env` via `@fabric/core/functions/fabricHomeEnv` before `Environment.start()` (process env still wins). Missing-module catch is `MODULE_NOT_FOUND` only so a broken home env still fails startup.
 - `@fabric/core` lockfile **`ff7c05c52`**: [#186](https://github.com/FabricLabs/fabric/pull/186) review pass — `Tree#verifyInclusion` no longer accepts a prover-chosen root, NOISE `onverify` will not restore a freed WASM pointer, `frameId` is 64-hex validated, `Store#flush` runs during deferred `opening` (plus NOISE handshake-bus + gossip catalog + entropy harden, and [#185](https://github.com/FabricLabs/fabric/pull/185) Filesystem retain cut / MuSig2 / BIP-21 / collection cwd-containment / `fabricIdentityAccountPath`).
 - Device-link **DELETE** `/device-links/:sessionId` cancels pending/accepted/`awaiting_offer` sessions (404-as-success; `linked` is 409). Client `cancelDeviceLinkSession` returns `ok: false` when fetch rejects. Off-loopback DELETE requires `pollSecret`. Locked in `tests/fabricDeviceLinkHttp.unit.js`.
