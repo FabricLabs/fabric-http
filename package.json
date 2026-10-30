@@ -123,7 +123,7 @@
     "Victor Wu"
   ],
   "dependencies": {
-    "@fabric/core": "FabricLabs/fabric#740889605a08fe9787485afa716af132cce3df23",
+    "@fabric/core": "FabricLabs/fabric#feature/passport",
     "@noble/ciphers": "=2.4.0",
     "@noble/hashes": "=2.4.0",
     "assert-browserify": "=2.0.0",

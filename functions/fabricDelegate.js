@@ -214,6 +214,17 @@ function createFabricDelegate (options = {}) {
       if (!configured.has(origin) && !origin.startsWith('moz-extension://')) {
         return { status: 403, json: { ok: false, error: 'this extension is not set up to pair here' } };
       }
+      if (origin.startsWith('moz-extension://') && !configured.has(origin)) {
+        const pins = new Set();
+        const received = await store.grants('received');
+        for (const item of received) {
+          const pinned = item && item.grant && item.grant.extensionOrigin;
+          if (typeof pinned === 'string' && pinned.startsWith('moz-extension://')) pins.add(pinned);
+        }
+        if (pins.size && !pins.has(origin)) {
+          return { status: 403, json: { ok: false, error: 'this browser is already paired with another Passport' } };
+        }
+      }
       const now = settings.now();
       if (linkWaiting || now - lastLinkPromptAt < LINK_PROMPT_INTERVAL_MS) {
         return { status: 429, json: { ok: false, error: 'wait before pairing again' } };

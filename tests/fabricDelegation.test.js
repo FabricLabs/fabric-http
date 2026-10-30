@@ -212,6 +212,25 @@ describe('@fabric/http delegation transports', function () {
       assert.strictEqual(asStranger.body.granted, false);
     });
 
+    it('lets the first Firefox Passport pair, then refuses a different one', async function () {
+      const fresh = await setup();
+      const opener = new Delegation({ key: OTHER.identity.key });
+      const opened = await send(fresh.origin, 'POST', '/services/delegation/links', {
+        body: { frame: (await opener.offer({ origin: fresh.origin, label: 'Other' })).uri },
+        headers: { origin: STRANGER }
+      });
+      assert.strictEqual(opened.status, 201, opened.body.error);
+
+      const { origin } = await setup();
+      const passport = new Delegation({ key: PASSPORT.identity.key });
+      await pair(origin, passport);
+      const later = await send(origin, 'POST', '/services/delegation/links', {
+        body: { frame: (await opener.offer({ origin, label: 'Other' })).uri },
+        headers: { origin: STRANGER }
+      });
+      assert.strictEqual(later.status, 403);
+    });
+
     it('answers a sign-in when `decide` says sign, and only for the granted origin', async function () {
       const { origin } = await setup({ decide: () => ({ action: 'sign', rule: 'sites' }) });
       const passport = new Delegation({ key: PASSPORT.identity.key });
