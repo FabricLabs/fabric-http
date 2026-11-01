@@ -23,7 +23,7 @@
 const delegation = require('@fabric/core/functions/delegation');
 const { encodeFabricUri } = require('@fabric/core/functions/fabricUri');
 const { normalizeHubOrigin } = require('./fabricHubAllowlist');
-const { readFrame, sendJson, clientAddress, createRateLimit } = require('./delegationHttpBody');
+const { readFrame, sendJson, clientKey, createRateLimit } = require('./delegationHttpBody');
 
 const DELEGATION_RENDEZVOUS_PATH = '/delegations';
 const MAILBOX_HEADER = 'x-fabric-mailbox';
@@ -214,7 +214,7 @@ function createDelegationRendezvous (options = {}) {
       sendJson(res, 404, { ok: false, error: 'no such link' });
       return true;
     }
-    if (method !== 'GET' && !limit(clientAddress(req, options.trustProxy))) {
+    if (method !== 'GET' && !limit(clientKey(req, options.trustProxy))) {
       sendJson(res, 429, { ok: false, error: 'slow down' });
       return true;
     }

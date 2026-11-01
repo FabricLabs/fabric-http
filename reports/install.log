@@ -1,7 +1,7 @@
 $ npm i --allow-git=all
 npm warn deprecated clone-buffer@1.0.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
 
-added 1047 packages, and audited 1048 packages in 1m
+added 1047 packages, and audited 1048 packages in 37s
 
 190 packages are looking for funding
   run `npm fund` for details

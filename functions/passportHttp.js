@@ -29,7 +29,7 @@ const {
   requestHasProxyForwardHeaders,
   fabricUriFromBody
 } = require('./httpRequestTrust');
-const { clientAddress, createRateLimit } = require('./delegationHttpBody');
+const { clientKey, createRateLimit } = require('./delegationHttpBody');
 
 const SESSION_COOKIE = 'fabric.session';
 const BINDING_COOKIE = 'fabric.passport';
@@ -269,7 +269,7 @@ function createPassportHttp (settings = {}) {
 
   async function createChallenge (req, res) {
     try {
-      if (!challengeLimit(clientAddress(req, settings.trustProxy))) {
+      if (!challengeLimit(clientKey(req, settings.trustProxy))) {
         return send(res, 429, { error: 'slow down' });
       }
       const body = await readBody(req);
@@ -302,7 +302,7 @@ function createPassportHttp (settings = {}) {
 
   async function createSession (req, res) {
     try {
-      if (!redeemLimit(clientAddress(req, settings.trustProxy))) {
+      if (!redeemLimit(clientKey(req, settings.trustProxy))) {
         return send(res, 429, { error: 'slow down' });
       }
       const body = await readBody(req);

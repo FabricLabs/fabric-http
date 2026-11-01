@@ -6,6 +6,7 @@
  * Works with Express (`req.body` already parsed) and plain `http`.
  */
 
+const net = require('net');
 const { fabricUriFromBody } = require('./httpRequestTrust');
 
 /** Largest body any delegation route reads. */
@@ -94,6 +95,34 @@ function clientAddress (req, trustProxy = false) {
 }
 
 /**
+ * The client an address belongs to: IPv4 as is (also when IPv4-mapped), IPv6
+ * by its /64, since one host usually holds a whole /64.
+ * @param {string} address
+ * @returns {string}
+ */
+function clientGroup (address) {
+  const a = String(address || '').trim().toLowerCase().split('%')[0];
+  const mapped = a.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if (mapped) return mapped[1];
+  if (!net.isIPv6(a)) return a;
+  const [head, tail] = a.split('::');
+  const left = head ? head.split(':') : [];
+  const right = tail === undefined ? [] : (tail ? tail.split(':') : []);
+  const groups = tail === undefined ? left : left.concat(new Array(8 - left.length - right.length).fill('0'), right);
+  return groups.slice(0, 4).map((g) => parseInt(g, 16).toString(16)).join(':') + '::/64';
+}
+
+/**
+ * Key every rate limit counts a request by: its {@link clientGroup}.
+ * @param {import('http').IncomingMessage} req
+ * @param {boolean} [trustProxy]
+ * @returns {string}
+ */
+function clientKey (req, trustProxy = false) {
+  return clientGroup(clientAddress(req, trustProxy));
+}
+
+/**
  * Path parameter from Express (`req.params[name]`) or a plain URL match.
  * @param {import('http').IncomingMessage} req
  * @param {string} name
@@ -143,6 +172,8 @@ module.exports = {
   readFrame,
   sendJson,
   clientAddress,
+  clientGroup,
+  clientKey,
   pathParam,
   createRateLimit
 };

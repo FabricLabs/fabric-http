@@ -22,10 +22,9 @@
  */
 
 const crypto = require('crypto');
-const net = require('net');
 const delegation = require('@fabric/core/functions/delegation');
 const { encodeFabricUri } = require('@fabric/core/functions/fabricUri');
-const { readFrame, sendJson, clientAddress, createRateLimit } = require('./delegationHttpBody');
+const { readFrame, sendJson, clientKey, clientGroup, createRateLimit } = require('./delegationHttpBody');
 
 const DELEGATION_MAILBOX_PATH = '/services/delegation/mailbox';
 const MAILBOX_HEADER = 'x-fabric-mailbox';
@@ -34,23 +33,6 @@ const DEFAULT_MAX_ADDRESSES = 4096;
 const DEFAULT_RETAIN_MS = 7 * 24 * 60 * 60 * 1000;
 const DEFAULT_POSTS_PER_MINUTE = 60;
 const DEFAULT_FETCH_LIMIT = 100;
-
-/**
- * The address a sender is counted by: IPv4 as is (also when IPv4-mapped),
- * IPv6 by its /64, since one host usually holds a whole /64.
- * @private
- */
-function senderGroup (address) {
-  const a = String(address || '').trim().toLowerCase().split('%')[0];
-  const mapped = a.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
-  if (mapped) return mapped[1];
-  if (!net.isIPv6(a)) return a;
-  const [head, tail] = a.split('::');
-  const left = head ? head.split(':') : [];
-  const right = tail === undefined ? [] : (tail ? tail.split(':') : []);
-  const groups = tail === undefined ? left : left.concat(new Array(8 - left.length - right.length).fill('0'), right);
-  return groups.slice(0, 4).map((g) => parseInt(g, 16).toString(16)).join(':') + '::/64';
-}
 
 /**
  * @param {Object} [options]
@@ -85,7 +67,7 @@ function createDelegationMailbox (options = {}) {
 
   function senderOf (address) {
     if (!address) return undefined;
-    return crypto.createHmac('sha256', secret).update(senderGroup(address)).digest('hex').slice(0, 32);
+    return crypto.createHmac('sha256', secret).update(clientGroup(address)).digest('hex').slice(0, 32);
   }
 
   async function load () {
@@ -241,7 +223,7 @@ function createDelegationMailbox (options = {}) {
     const method = String(req.method || 'GET').toUpperCase();
     try {
       let out;
-      const address = clientAddress(req, options.trustProxy);
+      const address = clientKey(req, options.trustProxy);
       if (!(method === 'GET' ? fetchLimit : limit)(address)) {
         sendJson(res, 429, { ok: false, error: 'slow down' });
         return true;

@@ -75,6 +75,29 @@ function cookieValue (res, name) {
   return null;
 }
 
+describe('clientGroup', function () {
+  const { clientGroup } = require('../functions/delegationHttpBody');
+
+  it('keeps IPv4 and unwraps IPv4-mapped IPv6', function () {
+    assert.strictEqual(clientGroup('203.0.113.7'), '203.0.113.7');
+    assert.strictEqual(clientGroup('::ffff:203.0.113.7'), '203.0.113.7');
+  });
+
+  it('groups IPv6 by its /64 in any written form', function () {
+    const group = '2001:db8:1:2::/64';
+    assert.strictEqual(clientGroup('2001:db8:1:2::1'), group);
+    assert.strictEqual(clientGroup('2001:0DB8:0001:0002:aaaa:bbbb:cccc:dddd'), group);
+    assert.strictEqual(clientGroup('2001:db8:1:2::1%eth0'), group);
+    assert.strictEqual(clientGroup('2001:db8::1'), '2001:db8:0:0::/64');
+    assert.notStrictEqual(clientGroup('2001:db8:1:3::1'), group);
+  });
+
+  it('is stable when applied to its own output', function () {
+    const group = clientGroup('2001:db8:1:2::1');
+    assert.strictEqual(clientGroup(group), group);
+  });
+});
+
 describe('passportHttp', function () {
   let server;
   let selfOrigin;
@@ -127,6 +150,20 @@ describe('passportHttp', function () {
     }
     const blocked = await request(server, 'POST', '/sessions', { headers: { origin: SITE }, body: { assertion: 'fabric:AA' } });
     assert.strictEqual(blocked.status, 429);
+  });
+
+  it('counts every address in one IPv6 /64 as one client', async function () {
+    this.timeout(20000);
+    await start({ http: { trustProxy: true } });
+    const from = (address) => ({ origin: SITE, 'x-forwarded-for': address });
+    for (let i = 0; i < 30; i++) {
+      const res = await request(server, 'POST', '/sessions/challenges', { headers: from(`2001:db8:1:2::${(i + 1).toString(16)}`), body: {} });
+      assert.strictEqual(res.status, 200, JSON.stringify(res.body));
+    }
+    const blocked = await request(server, 'POST', '/sessions/challenges', { headers: from('2001:db8:1:2:ffff:ffff:ffff:ffff'), body: {} });
+    assert.strictEqual(blocked.status, 429);
+    const neighbor = await request(server, 'POST', '/sessions/challenges', { headers: from('2001:db8:1:3::1'), body: {} });
+    assert.strictEqual(neighbor.status, 200, JSON.stringify(neighbor.body));
   });
 
   it('signs a browser in with HttpOnly cookies and never returns a token', async function () {
