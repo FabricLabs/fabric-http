@@ -36,7 +36,7 @@ const stoppable = require('stoppable');
 // const graphql = require('graphql-http/lib/use/http').createHandler;
 
 // Pathing
-const { pathToRegexp, parse: parsePath, compile: compilePath } = require('path-to-regexp');
+const { pathToRegexp, parse: parsePath } = require('path-to-regexp');
 
 // Fabric Core constants (AMP wire)
 const { MAGIC_BYTES, HEADER_SIZE } = require('@fabric/core/constants');
@@ -115,25 +115,25 @@ function safeFileComponent (input, fallback) {
 }
 
 /**
- * A concrete path for `template`, with every parameter set to a sample
- * sha256 hex (blob routes only answer 64-hex hashes).
+ * Concrete paths for `template`, one per combination of its optional groups,
+ * with every parameter and wildcard set to a sample sha256 hex (blob routes
+ * only answer 64-hex hashes).
  * @private
  */
-function sampleRoutePath (template) {
+function sampleRoutePaths (template) {
   const sample = '0123456789abcdef'.repeat(4);
-  const params = {};
-  const visit = (tokens) => {
-    for (const token of tokens) {
-      if (token.type === 'param') params[token.name] = sample;
-      else if (token.type === 'wildcard') params[token.name] = [sample];
-      else if (token.type === 'group') visit(token.tokens);
+  const expand = (tokens) => tokens.reduce((paths, token) => {
+    if (token.type === 'group') {
+      const inner = expand(token.tokens);
+      return paths.flatMap((p) => [p].concat(inner.map((i) => p + i)));
     }
-  };
+    const text = token.type === 'text' ? token.value : sample;
+    return paths.map((p) => p + text);
+  }, ['']);
   try {
-    visit(parsePath(template).tokens);
-    return compilePath(template, { encode: false })(params);
+    return expand(parsePath(template).tokens).slice(0, 256);
   } catch (_) {
-    return null;
+    return [];
   }
 }
 
@@ -142,9 +142,9 @@ function sampleRoutePath (template) {
  * @private
  */
 function routeTemplatesOverlap (a, b) {
-  const probeB = sampleRoutePath(b);
-  const probeA = sampleRoutePath(a);
-  return Boolean((probeB && pathToRegexp(a).regexp.test(probeB)) || (probeA && pathToRegexp(b).regexp.test(probeA)));
+  const matchA = pathToRegexp(a).regexp;
+  const matchB = pathToRegexp(b).regexp;
+  return sampleRoutePaths(b).some((p) => matchA.test(p)) || sampleRoutePaths(a).some((p) => matchB.test(p));
 }
 
 function xmlEscape (value) {

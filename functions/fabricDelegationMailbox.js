@@ -6,8 +6,11 @@
  * the pubkey each frame is for (`mailboxAddress` in
  * `@fabric/core/functions/delegation`). Anyone may post a signed frame; only
  * the addressee reads it back, by presenting a fresh
- * `DELEGATION_MAILBOX_FETCH` signed by its key (each nonce works once). The
- * mailbox is a courier: recipients check every frame themselves.
+ * `DELEGATION_MAILBOX_FETCH` signed by its key (each nonce works once). A
+ * fetch's `since` acknowledges every frame up to it, and those are dropped so
+ * the addressee frees its slots; one client address holds at most a quarter
+ * of any key's slots. The mailbox is a courier: recipients check every frame
+ * themselves.
  *
  * Routes:
  * - `POST /services/delegation/mailbox { frame, to? }` (`to` is needed for
@@ -34,7 +37,7 @@ const DEFAULT_FETCH_LIMIT = 100;
  * @param {number} [options.maxPerAddress]
  * @param {number} [options.maxAddresses]
  * @param {number} [options.retainMs] How long grants, revokes, and results are kept.
- * @param {number} [options.postsPerMinute] Per client address.
+ * @param {number} [options.postsPerMinute] Per client address; fetches get six times that.
  * @param {boolean} [options.trustProxy]
  * @param {Object} [options.store] `{ get(key), set(key, value) }` (async, JSON string) to survive restarts.
  * @param {string} [options.storeKey='delegation-mailbox']
@@ -47,7 +50,10 @@ function createDelegationMailbox (options = {}) {
   const maxAddresses = Number(options.maxAddresses) > 0 ? Number(options.maxAddresses) : DEFAULT_MAX_ADDRESSES;
   const retainMs = Number(options.retainMs) > 0 ? Number(options.retainMs) : DEFAULT_RETAIN_MS;
   const storeKey = options.storeKey || 'delegation-mailbox';
-  const limit = createRateLimit({ limit: Number(options.postsPerMinute) > 0 ? Number(options.postsPerMinute) : DEFAULT_POSTS_PER_MINUTE, windowMs: 60 * 1000, now });
+  const maxPerSender = Math.ceil(maxPerAddress / 4);
+  const postsPerMinute = Number(options.postsPerMinute) > 0 ? Number(options.postsPerMinute) : DEFAULT_POSTS_PER_MINUTE;
+  const limit = createRateLimit({ limit: postsPerMinute, windowMs: 60 * 1000, now });
+  const fetchLimit = createRateLimit({ limit: 6 * postsPerMinute, windowMs: 60 * 1000, now });
   const boxes = new Map();
   const spent = new Map();
   let seq = 0;
@@ -114,7 +120,7 @@ function createDelegationMailbox (options = {}) {
   /**
    * Queue a frame for its addressee.
    * @param {string|Buffer} frame
-   * @param {{ to: (string|undefined) }} [hints]
+   * @param {{ to: (string|undefined), from: (string|undefined) }} [hints] `from` is the poster's client address.
    * @returns {Promise<{ status: number, body: object }>}
    */
   async function post (frame, hints = {}) {
@@ -139,10 +145,13 @@ function createDelegationMailbox (options = {}) {
     if (items.some((i) => i.hash === addressed.hash)) return { status: 200, body: { ok: true, hash: addressed.hash, duplicate: true } };
     if (!boxes.has(to) && boxes.size >= maxAddresses) return { status: 503, body: { ok: false, error: 'mailbox full' } };
     if (items.length >= maxPerAddress) return { status: 429, body: { ok: false, error: 'mailbox full for that key' } };
+    if (hints.from && items.filter((i) => i.from === hints.from).length >= maxPerSender) {
+      return { status: 429, body: { ok: false, error: 'too many frames for that key from this address' } };
+    }
     const until = lifetime(addressed.type, addressed.buffer);
     if (until <= now()) return { status: 400, body: { ok: false, error: 'frame expired' } };
     seq++;
-    items.push({ seq, hash: addressed.hash, type: addressed.type, buffer: addressed.buffer, at: now(), until });
+    items.push({ seq, hash: addressed.hash, type: addressed.type, buffer: addressed.buffer, at: now(), until, from: hints.from });
     boxes.set(to, items);
     await save();
     return { status: 201, body: { ok: true, hash: addressed.hash, seq } };
@@ -161,10 +170,13 @@ function createDelegationMailbox (options = {}) {
     if (spent.has(read.nonce)) return { status: 409, body: { ok: false, error: 'fetch already used' } };
     sweep();
     spent.set(read.nonce, read.expiresAt);
-    await save();
     const to = delegation.xOnly(read.pubkey);
+    const unread = (boxes.get(to) || []).filter((i) => i.seq > read.since);
+    if (unread.length) boxes.set(to, unread);
+    else boxes.delete(to);
+    await save();
     const max = Math.min(DEFAULT_FETCH_LIMIT, Math.max(1, Number(params.limit) || DEFAULT_FETCH_LIMIT));
-    const items = (boxes.get(to) || []).filter((i) => i.seq > read.since).slice(0, max);
+    const items = unread.slice(0, max);
     const next = items.length ? items[items.length - 1].seq : read.since;
     return {
       status: 200,
@@ -184,13 +196,14 @@ function createDelegationMailbox (options = {}) {
     const method = String(req.method || 'GET').toUpperCase();
     try {
       let out;
-      if (!limit(clientAddress(req, options.trustProxy))) {
+      const address = clientAddress(req, options.trustProxy);
+      if (!(method === 'GET' ? fetchLimit : limit)(address)) {
         sendJson(res, 429, { ok: false, error: 'slow down' });
         return true;
       }
       if (method === 'POST') {
         const { frame, body } = await readFrame(req);
-        out = frame ? await post(frame, { to: typeof body.to === 'string' ? body.to : undefined }) : { status: 400, body: { ok: false, error: 'frame required' } };
+        out = frame ? await post(frame, { to: typeof body.to === 'string' ? body.to : undefined, from: address }) : { status: 400, body: { ok: false, error: 'frame required' } };
       } else if (method === 'GET') {
         const proof = String((req.headers && req.headers[MAILBOX_HEADER]) || '').trim();
         out = proof ? await fetch(proof, { limit: url.searchParams.get('limit') }) : { status: 401, body: { ok: false, error: `${MAILBOX_HEADER} required` } };

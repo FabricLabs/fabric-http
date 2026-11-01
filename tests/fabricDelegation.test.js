@@ -212,6 +212,40 @@ describe('@fabric/http delegation transports', function () {
       assert.ok(saved.boxes.aa, 'the stored frame is still there');
     });
 
+    it('drops frames the addressee read past, and keeps one address from filling a key', async function () {
+      const mailbox = createDelegationMailbox({ maxPerAddress: 4 });
+      const hub = new Delegation({ key: HUB.identity.key });
+      const grants = [];
+      for (let i = 0; i < 6; i++) grants.push(await hub.grant({ grantee: PASSPORT.identity.pubkey, scopes: ['message'], label: `grant ${i}` }));
+      assert.strictEqual((await mailbox.post(grants[0].uri, { from: 'a' })).status, 201);
+      const crowded = await mailbox.post(grants[1].uri, { from: 'a' });
+      assert.strictEqual(crowded.status, 429);
+      assert.match(crowded.body.error, /from this address/);
+      for (const [i, from] of [[1, 'b'], [2, 'c'], [3, 'd']]) assert.strictEqual((await mailbox.post(grants[i].uri, { from })).status, 201);
+      assert.strictEqual((await mailbox.post(grants[4].uri, { from: 'e' })).status, 429);
+
+      const first = await mailbox.fetch(d.createMailboxFetch({}, PASSPORT.identity.key).uri);
+      assert.strictEqual(first.body.frames.length, 4);
+      const acknowledged = await mailbox.fetch(d.createMailboxFetch({ since: first.body.next }, PASSPORT.identity.key).uri);
+      assert.strictEqual(acknowledged.body.frames.length, 0);
+      assert.strictEqual((await mailbox.post(grants[4].uri, { from: 'e' })).status, 201);
+      assert.strictEqual((await mailbox.post(grants[5].uri, { from: 'a' })).status, 201);
+    });
+
+    it('rate-limits fetches apart from posts', async function () {
+      const mailbox = createDelegationMailbox({ postsPerMinute: 1 });
+      const { server, origin } = await serve(mailbox.handle);
+      servers.push(server);
+      const hub = new Delegation({ key: HUB.identity.key });
+      const grant = await hub.grant({ grantee: PASSPORT.identity.pubkey, scopes: ['message'] });
+      assert.strictEqual((await client.postMailbox(origin, grant.uri)).httpStatus, 201);
+      for (let i = 0; i < 3; i++) {
+        const proof = d.createMailboxFetch({}, PASSPORT.identity.key);
+        assert.strictEqual((await client.fetchMailbox(origin, proof.uri)).httpStatus, 200);
+      }
+      assert.strictEqual((await client.postMailbox(origin, grant.uri)).httpStatus, 429);
+    });
+
     it('needs `to` for results, and hands the host its own frames', async function () {
       const taken = [];
       const mailbox = createDelegationMailbox({ deliver: (to, buffer) => { if (to === HUB.identity.pubkey.slice(2)) { taken.push(buffer); return true; } return false; } });

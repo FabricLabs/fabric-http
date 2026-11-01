@@ -387,5 +387,20 @@ describe('fabric-document component', function () {
       await other.define('Archive', { blobOffer: async () => null, routes: { blob: '/archive-blobs/:hash' } });
       assert.ok(other.routes.some((r) => r.isBlob && r.path === '/archive-blobs/:hash'));
     });
+
+    it('sees overlaps through wildcards and omitted optional groups', async function () {
+      const tails = new HTTPServer({ listen: false });
+      await tails.define('Archive', { blobOffer: async () => null, routes: { blob: '/files/:hash' } });
+      await assert.rejects(
+        tails.define('Tail', { routes: { view: '/files/abc*tail', list: '/tails' } }),
+        /cannot mount \/files\/abc\*tail: it overlaps Archive's \/files\/:hash/
+      );
+      const groups = new HTTPServer({ listen: false });
+      await groups.define('Archive', { blobOffer: async () => null, routes: { blob: '/files{/a}/:hash' } });
+      await assert.rejects(
+        groups.define('Version', { routes: { view: '/files{/b}/:id', list: '/versions' } }),
+        /cannot mount \/files\{\/b\}\/:id: it overlaps Archive's \/files\{\/a\}\/:hash/
+      );
+    });
   });
 });
