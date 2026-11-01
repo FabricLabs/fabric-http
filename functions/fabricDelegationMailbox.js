@@ -8,9 +8,11 @@
  * the addressee reads it back, by presenting a fresh
  * `DELEGATION_MAILBOX_FETCH` signed by its key (each nonce works once). A
  * fetch's `since` acknowledges every frame up to it, and those are dropped so
- * the addressee frees its slots; one client address holds at most a quarter
- * of any key's slots. The mailbox is a courier: recipients check every frame
- * themselves.
+ * the addressee frees its slots. A post is never refused for space: one sender
+ * (a client address, an IPv6 host by its /64) holds at most a quarter of a
+ * key's slots, and a full box drops the oldest frame of the sender holding
+ * the most. Senders are kept as keyed hashes, never addresses. The mailbox is
+ * a courier: recipients check every frame themselves.
  *
  * Routes:
  * - `POST /services/delegation/mailbox { frame, to? }` (`to` is needed for
@@ -19,6 +21,8 @@
  *   returns frames after the fetch's `since` sequence number.
  */
 
+const crypto = require('crypto');
+const net = require('net');
 const delegation = require('@fabric/core/functions/delegation');
 const { encodeFabricUri } = require('@fabric/core/functions/fabricUri');
 const { readFrame, sendJson, clientAddress, createRateLimit } = require('./delegationHttpBody');
@@ -30,6 +34,23 @@ const DEFAULT_MAX_ADDRESSES = 4096;
 const DEFAULT_RETAIN_MS = 7 * 24 * 60 * 60 * 1000;
 const DEFAULT_POSTS_PER_MINUTE = 60;
 const DEFAULT_FETCH_LIMIT = 100;
+
+/**
+ * The address a sender is counted by: IPv4 as is (also when IPv4-mapped),
+ * IPv6 by its /64, since one host usually holds a whole /64.
+ * @private
+ */
+function senderGroup (address) {
+  const a = String(address || '').trim().toLowerCase().split('%')[0];
+  const mapped = a.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if (mapped) return mapped[1];
+  if (!net.isIPv6(a)) return a;
+  const [head, tail] = a.split('::');
+  const left = head ? head.split(':') : [];
+  const right = tail === undefined ? [] : (tail ? tail.split(':') : []);
+  const groups = tail === undefined ? left : left.concat(new Array(8 - left.length - right.length).fill('0'), right);
+  return groups.slice(0, 4).map((g) => parseInt(g, 16).toString(16)).join(':') + '::/64';
+}
 
 /**
  * @param {Object} [options]
@@ -57,9 +78,15 @@ function createDelegationMailbox (options = {}) {
   const boxes = new Map();
   const spent = new Map();
   let seq = 0;
+  let secret = options.store ? null : crypto.randomBytes(32);
   let loaded = !options.store;
   let loading = null;
   let saving = Promise.resolve();
+
+  function senderOf (address) {
+    if (!address) return undefined;
+    return crypto.createHmac('sha256', secret).update(senderGroup(address)).digest('hex').slice(0, 32);
+  }
 
   async function load () {
     if (loaded) return;
@@ -71,6 +98,7 @@ function createDelegationMailbox (options = {}) {
     try {
       const raw = await options.store.get(storeKey);
       const doc = raw ? JSON.parse(raw) : null;
+      secret = doc && /^[0-9a-f]{64}$/.test(String(doc.secret)) ? Buffer.from(doc.secret, 'hex') : crypto.randomBytes(32);
       if (doc && doc.boxes) {
         seq = Math.max(seq, Number(doc.seq) || 0);
         for (const [to, items] of Object.entries(doc.boxes)) {
@@ -92,11 +120,14 @@ function createDelegationMailbox (options = {}) {
 
   function save () {
     if (!options.store || !loaded) return Promise.resolve();
-    const doc = { seq, boxes: {}, spent: {} };
-    for (const [to, items] of boxes) doc.boxes[to] = items.map((i) => ({ seq: i.seq, hash: i.hash, type: i.type, hex: i.buffer.toString('hex'), at: i.at, until: i.until }));
+    const doc = { seq, secret: secret.toString('hex'), boxes: {}, spent: {} };
+    for (const [to, items] of boxes) doc.boxes[to] = items.map((i) => ({ seq: i.seq, hash: i.hash, type: i.type, hex: i.buffer.toString('hex'), at: i.at, until: i.until, from: i.from }));
     for (const [nonce, until] of spent) doc.spent[nonce] = until;
-    saving = saving.then(() => options.store.set(storeKey, JSON.stringify(doc))).catch(() => {});
-    return saving;
+    const write = saving.then(() => options.store.set(storeKey, JSON.stringify(doc)));
+    saving = write.catch(() => {});
+    return write.catch((err) => {
+      throw Object.assign(new Error('mailbox unavailable'), { status: 503, cause: err });
+    });
   }
 
   function sweep () {
@@ -107,6 +138,20 @@ function createDelegationMailbox (options = {}) {
       else if (live.length !== items.length) boxes.set(to, live);
     }
     for (const [nonce, until] of spent) if (until <= t) spent.delete(nonce);
+  }
+
+  function oldestOfLargestSender (items) {
+    const held = new Map();
+    for (const item of items) {
+      const key = item.from || '';
+      if (!held.has(key)) held.set(key, { count: 0, oldest: item });
+      held.get(key).count++;
+    }
+    let pick = null;
+    for (const entry of held.values()) {
+      if (!pick || entry.count > pick.count || (entry.count === pick.count && entry.oldest.seq < pick.oldest.seq)) pick = entry;
+    }
+    return pick.oldest;
   }
 
   function lifetime (type, buffer) {
@@ -144,14 +189,14 @@ function createDelegationMailbox (options = {}) {
     const items = boxes.get(to) || [];
     if (items.some((i) => i.hash === addressed.hash)) return { status: 200, body: { ok: true, hash: addressed.hash, duplicate: true } };
     if (!boxes.has(to) && boxes.size >= maxAddresses) return { status: 503, body: { ok: false, error: 'mailbox full' } };
-    if (items.length >= maxPerAddress) return { status: 429, body: { ok: false, error: 'mailbox full for that key' } };
-    if (hints.from && items.filter((i) => i.from === hints.from).length >= maxPerSender) {
-      return { status: 429, body: { ok: false, error: 'too many frames for that key from this address' } };
-    }
     const until = lifetime(addressed.type, addressed.buffer);
     if (until <= now()) return { status: 400, body: { ok: false, error: 'frame expired' } };
+    const from = senderOf(hints.from);
+    const own = from ? items.filter((i) => i.from === from) : [];
+    if (own.length >= maxPerSender) items.splice(items.indexOf(own[0]), 1);
+    else if (items.length >= maxPerAddress) items.splice(items.indexOf(oldestOfLargestSender(items)), 1);
     seq++;
-    items.push({ seq, hash: addressed.hash, type: addressed.type, buffer: addressed.buffer, at: now(), until, from: hints.from });
+    items.push({ seq, hash: addressed.hash, type: addressed.type, buffer: addressed.buffer, at: now(), until, from });
     boxes.set(to, items);
     await save();
     return { status: 201, body: { ok: true, hash: addressed.hash, seq } };

@@ -212,24 +212,80 @@ describe('@fabric/http delegation transports', function () {
       assert.ok(saved.boxes.aa, 'the stored frame is still there');
     });
 
-    it('drops frames the addressee read past, and keeps one address from filling a key', async function () {
-      const mailbox = createDelegationMailbox({ maxPerAddress: 4 });
+    async function grantsFor (count) {
       const hub = new Delegation({ key: HUB.identity.key });
       const grants = [];
-      for (let i = 0; i < 6; i++) grants.push(await hub.grant({ grantee: PASSPORT.identity.pubkey, scopes: ['message'], label: `grant ${i}` }));
-      assert.strictEqual((await mailbox.post(grants[0].uri, { from: 'a' })).status, 201);
-      const crowded = await mailbox.post(grants[1].uri, { from: 'a' });
-      assert.strictEqual(crowded.status, 429);
-      assert.match(crowded.body.error, /from this address/);
-      for (const [i, from] of [[1, 'b'], [2, 'c'], [3, 'd']]) assert.strictEqual((await mailbox.post(grants[i].uri, { from })).status, 201);
-      assert.strictEqual((await mailbox.post(grants[4].uri, { from: 'e' })).status, 429);
+      for (let i = 0; i < count; i++) grants.push(await hub.grant({ grantee: PASSPORT.identity.pubkey, scopes: ['message'], label: `grant ${i}` }));
+      return grants;
+    }
+
+    async function queue (mailbox, grant, from) {
+      const out = await mailbox.post(grant.uri, { from });
+      assert.strictEqual(out.status, 201, out.body.error);
+      return out.body.hash;
+    }
+
+    async function queued (mailbox) {
+      const got = await mailbox.fetch(d.createMailboxFetch({}, PASSPORT.identity.key).uri);
+      return got.body.frames.map((f) => f.hash);
+    }
+
+    it('drops frames the addressee read past, and makes room for every sender', async function () {
+      const mailbox = createDelegationMailbox({ maxPerAddress: 4 });
+      const grants = await grantsFor(7);
+      await queue(mailbox, grants[0], 'a');
+      await queue(mailbox, grants[1], 'a');
+      const b = await queue(mailbox, grants[2], 'b');
+      const c = await queue(mailbox, grants[3], 'c');
+      const dd = await queue(mailbox, grants[4], 'd');
+      const e = await queue(mailbox, grants[5], 'e');
 
       const first = await mailbox.fetch(d.createMailboxFetch({}, PASSPORT.identity.key).uri);
-      assert.strictEqual(first.body.frames.length, 4);
+      assert.deepStrictEqual(first.body.frames.map((f) => f.hash), [b, c, dd, e], 'a kept one frame, then lost it to e');
       const acknowledged = await mailbox.fetch(d.createMailboxFetch({ since: first.body.next }, PASSPORT.identity.key).uri);
       assert.strictEqual(acknowledged.body.frames.length, 0);
-      assert.strictEqual((await mailbox.post(grants[4].uri, { from: 'e' })).status, 201);
-      assert.strictEqual((await mailbox.post(grants[5].uri, { from: 'a' })).status, 201);
+      const again = await queue(mailbox, grants[6], 'a');
+      assert.deepStrictEqual(await queued(mailbox), [again]);
+    });
+
+    it('counts an IPv6 sender by its /64, and an IPv4-mapped one as IPv4', async function () {
+      const mailbox = createDelegationMailbox({ maxPerAddress: 4 });
+      const grants = await grantsFor(5);
+      await queue(mailbox, grants[0], '2001:db8::1');
+      const sameNet = await queue(mailbox, grants[1], '2001:db8:0:0:ffff::2');
+      const otherNet = await queue(mailbox, grants[2], '2001:db8:0:1::1');
+      await queue(mailbox, grants[3], '::ffff:10.0.0.1');
+      const v4 = await queue(mailbox, grants[4], '10.0.0.1');
+      assert.deepStrictEqual(await queued(mailbox), [sameNet, otherNet, v4]);
+    });
+
+    it('keeps counting a sender after a restart, without saving its address', async function () {
+      const persisted = { raw: null };
+      const store = {
+        async get () { return persisted.raw; },
+        async set (_key, value) { persisted.raw = value; }
+      };
+      const grants = await grantsFor(2);
+      await queue(createDelegationMailbox({ store, maxPerAddress: 4 }), grants[0], '203.0.113.7');
+      assert.ok(!persisted.raw.includes('203.0.113.7'));
+      const restarted = createDelegationMailbox({ store, maxPerAddress: 4 });
+      const latest = await queue(restarted, grants[1], '203.0.113.7');
+      assert.deepStrictEqual(await queued(restarted), [latest]);
+      assert.ok(!persisted.raw.includes('203.0.113.7'));
+    });
+
+    it('answers 503 when the mailbox cannot be saved', async function () {
+      const mailbox = createDelegationMailbox({
+        store: {
+          async get () { return null; },
+          async set () { throw new Error('disk full'); }
+        }
+      });
+      const [grant] = await grantsFor(1);
+      await assert.rejects(() => mailbox.post(grant.uri, { from: 'a' }), (err) => err.status === 503);
+      const proof = d.createMailboxFetch({}, PASSPORT.identity.key);
+      await assert.rejects(() => mailbox.fetch(proof.uri), (err) => err.status === 503);
+      assert.strictEqual((await mailbox.fetch(proof.uri)).status, 409, 'the fetch stays used');
     });
 
     it('rate-limits fetches apart from posts', async function () {

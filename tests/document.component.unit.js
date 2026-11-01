@@ -218,6 +218,7 @@ describe('fabric-document component', function () {
   });
 
   describe('server market hooks', function () {
+    this.timeout(20000);
     const os = require('os');
     const net = require('net');
     const HTTPServer = require('../types/server');
@@ -228,7 +229,6 @@ describe('fabric-document component', function () {
     let record;
 
     before(async function () {
-      this.timeout(20000);
       record = Document.seal(Buffer.alloc(5000, 9), { chunkBytes: 2048, documentId: 'market', private: true }).record();
       const port = await new Promise((resolve, reject) => {
         const s = net.createServer();
