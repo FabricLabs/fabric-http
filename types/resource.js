@@ -85,7 +85,7 @@ class Resource extends Fabric.Resource {
 
     // Blob purchase path, only when the definition prices blobs.
     this.blobRoute = (typeof definition.blobOffer === 'function') ? (blobRoute || '/blobs/:hash') : null;
-    if (this.blobRoute && !parse(this.blobRoute).some((token) => typeof token === 'object' && token.name === 'hash')) {
+    if (this.blobRoute && !parse(this.blobRoute).tokens.some((token) => token.type === 'param' && token.name === 'hash')) {
       throw new Error(`[HTTP:RESOURCE] ${name} blob route ${this.blobRoute} must include a :hash parameter`);
     }
     this._matchBlob = this.blobRoute ? match(this.blobRoute) : null;

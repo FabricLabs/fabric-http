@@ -122,12 +122,16 @@ function safeFileComponent (input, fallback) {
 function sampleRoutePath (template) {
   const sample = '0123456789abcdef'.repeat(4);
   const params = {};
-  for (const token of parsePath(template)) {
-    if (typeof token !== 'object') continue;
-    params[token.name] = (token.modifier === '+' || token.modifier === '*') ? [sample] : sample;
-  }
+  const visit = (tokens) => {
+    for (const token of tokens) {
+      if (token.type === 'param') params[token.name] = sample;
+      else if (token.type === 'wildcard') params[token.name] = [sample];
+      else if (token.type === 'group') visit(token.tokens);
+    }
+  };
   try {
-    return compilePath(template, { validate: false })(params);
+    visit(parsePath(template).tokens);
+    return compilePath(template, { encode: false })(params);
   } catch (_) {
     return null;
   }
@@ -140,7 +144,7 @@ function sampleRoutePath (template) {
 function routeTemplatesOverlap (a, b) {
   const probeB = sampleRoutePath(b);
   const probeA = sampleRoutePath(a);
-  return Boolean((probeB && pathToRegexp(a).test(probeB)) || (probeA && pathToRegexp(b).test(probeA)));
+  return Boolean((probeB && pathToRegexp(a).regexp.test(probeB)) || (probeA && pathToRegexp(b).regexp.test(probeA)));
 }
 
 function xmlEscape (value) {
@@ -689,10 +693,10 @@ class FabricHTTPServer extends Service {
     resource.store.on('commit', () => server._broadcastStateUpdate());
 
     // Register list and view paths in the route-match table.
-    this.routes.push({ path: resource.routes.view, route: pathToRegexp(resource.routes.view), resource: name, isView: true });
-    this.routes.push({ path: resource.routes.list, route: pathToRegexp(resource.routes.list), resource: name, isView: false });
+    this.routes.push({ path: resource.routes.view, route: pathToRegexp(resource.routes.view).regexp, resource: name, isView: true });
+    this.routes.push({ path: resource.routes.list, route: pathToRegexp(resource.routes.list).regexp, resource: name, isView: false });
     if (resource.blobRoute) {
-      this.routes.push({ path: resource.blobRoute, route: pathToRegexp(resource.blobRoute), resource: name, isView: true, isBlob: true });
+      this.routes.push({ path: resource.blobRoute, route: pathToRegexp(resource.blobRoute).regexp, resource: name, isView: true, isBlob: true });
     }
 
     // Mirror to SPA router; seed local store.
@@ -2448,14 +2452,14 @@ class FabricHTTPServer extends Service {
     }
 
     // Attach the internal router (optional SPA shell before resource router)
-    this.express.get('/*', this._maybeServeSpaShell.bind(this), this._handleRoutableRequest.bind(this));
-    this.express.head('/*', this._handleRoutableRequest.bind(this));
-    this.express.put('/*', this._handleRoutableRequest.bind(this));
-    this.express.post('/*', this._handleRoutableRequest.bind(this));
-    this.express.patch('/*', this._handleRoutableRequest.bind(this));
-    this.express.delete('/*', this._handleRoutableRequest.bind(this));
-    this.express.options('/*', this._handleRoutableRequest.bind(this));
-    this.express.search('/*', this._handleRoutableRequest.bind(this));
+    this.express.get('/{*splat}', this._maybeServeSpaShell.bind(this), this._handleRoutableRequest.bind(this));
+    this.express.head('/{*splat}', this._handleRoutableRequest.bind(this));
+    this.express.put('/{*splat}', this._handleRoutableRequest.bind(this));
+    this.express.post('/{*splat}', this._handleRoutableRequest.bind(this));
+    this.express.patch('/{*splat}', this._handleRoutableRequest.bind(this));
+    this.express.delete('/{*splat}', this._handleRoutableRequest.bind(this));
+    this.express.options('/{*splat}', this._handleRoutableRequest.bind(this));
+    this.express.search('/{*splat}', this._handleRoutableRequest.bind(this));
 
     const servicesTestPrize = (req, res) => res.send({ message: 'I am the prize!' });
     const pay = this.settings.payments || {};

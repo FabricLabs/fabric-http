@@ -1,24 +1,40 @@
 # Fabric HTTP Security Audit
 Living posture notes for `@fabric/http` **0.1.0-RC1**. Re-run **`npm audit`** after dependency changes; keep this file aligned with the current lockfile.
 
-## Status (2026-10-24)
+## Status (2026-11-01)
 
 | Area | Posture |
 |------|---------|
-| `@fabric/core` | Git pin `FabricLabs/fabric#feature/channels` (lockfile SHA `1ba3b3cd0376858824c94ae17929eb2e77111a91`; Node **26.12.1**) |
+| `@fabric/core` | Git pin `FabricLabs/fabric#a76f49f03ce843dd2ac7dd4f4952fba0a04255b4` (Node **26.12.1**) |
 | npm `allow-git` | **`.npmrc` `allow-git=all`** — nested git-dep preparation resolves core to a commit SHA; `root` is refused (intentional — do not flip to `root`) |
-| WebSocket (`ws`) | **Mitigated** — direct **`8.22.0`** (GHSA-58qx-3vcg-4xpx / fragment DoS); no override. jayson keeps its own `ws@7.5.13` (`^7.5.10`, patched) |
+| WebSocket (`ws`) | **Mitigated** — direct **`8.22.1`** (GHSA-58qx-3vcg-4xpx / fragment DoS); no override. jayson keeps its own `ws@7.5.13` (`^7.5.10`, patched) |
 | Test tooling | **`mocha@12.0.3`** / **`c8@12.0.0`** (same as core / Hub) — mocha 12 resolves `serialize-javascript@^7.1.1` and `diff@^9`, so those overrides are gone |
-| Express / body-parser / qs | **Mitigated** — `express@4.22.3` and direct `body-parser@1.20.9` both resolve `qs@6.16.1`; no override |
-| Fomantic UI | **`fomantic-ui@2.10.0-beta.128`** (build-only devDependency) — its GitHub admin tooling (`@octokit/*`, `@actions/*`) is now Fomantic's own devDependency, so the `undici` / `@octokit` overrides are gone; it depends on the scoped `@fomantic/*` gulp plugins directly, so the npm aliases are gone too. Its flag and emoji CSS no longer loads Twemoji from jsDelivr: the SVGs are imported at build time from a SHA-256-pinned jdecked/twemoji `v17.0.3` release (`functions/twemoji.js`, not committed), and `build:semantic` fails on any remote `url()` |
-| Markdown (SLIP-0044 script) | **Mitigated** — replaced `showdown` (unfixed ReDoS GHSA-rmmh-p597-ppvv) with **`marked@15.0.12`** |
+| Express / body-parser / qs | **Mitigated** — `express@5.3.0` and direct `body-parser@2.4.0` both resolve `qs@6.17.1`; no override. Routes use path-to-regexp 8+ syntax (`/{*splat}`, not `/*`) |
+| Fomantic UI | **`fomantic-ui@2.10.0-beta.128`** (build-only devDependency) — its GitHub admin tooling (`@octokit/*`, `@actions/*`) is now Fomantic's own devDependency, so the `undici` / `@octokit` overrides are gone; it depends on the scoped `@fomantic/*` gulp plugins directly, so the npm aliases are gone too. Its flag and emoji CSS no longer loads Twemoji from jsDelivr: the SVGs are imported at build time from a SHA-256-pinned jdecked/twemoji `v17.0.3` release (`functions/twemoji.js`, not committed), and `build:semantic` fails on any remote `url()`. **Known, accepted:** the six dev-only findings below come from its gulp plugins and have no upstream fix |
+| Markdown (SLIP-0044 script) | **Mitigated** — replaced `showdown` (unfixed ReDoS GHSA-rmmh-p597-ppvv) with **`marked@18.1.2`** |
 | PeerJS / browser mesh | **Removed** — `types/swarm.js` is a no-op stub; Hub native WebRTC |
 | Browser `crypto` polyfill | **Removed** `crypto-browserify` (and with it `elliptic`, `asn1.js`, `browserify-sign`, `create-ecdh`) — the Compiler maps `crypto` to `functions/browserCrypto.js` (`@noble/hashes` + `@noble/ciphers@2.4.0`), so the `elliptic` override is gone |
-| npm audit status | **0** (2026-10-24, `puppeteer@25.15.0`, `webpack@5.112.2`, `babel-loader@9.1.3`, `jsdom@30.1.3`, `eslint@10.13.0`, `jsdoc@4.0.5`, no `crypto-browserify`, `fomantic-ui@2.10.0-beta.128`) |
+| npm audit status | **Production 0** — `npm audit --omit=dev` is a CI gate (`.github/workflows/ci.yml`). **Full tree: 6** (2 low, 4 moderate), all dev-only under `fomantic-ui` (2026-11-01, `express@5.3.0`, `webpack@5.112.2`, `babel-loader@10.1.1`, `@babel/core@8.0.10`, `typescript@7.0.2`, `eslint@10.14.0`, `puppeteer@25.16.0`) |
+
+## Known dev-only findings (accepted)
+
+Both reach only `npm run build:semantic` (the Fomantic theme build), never the published package or a running server.
+
+| Advisory | Path | Why it stays |
+|----------|------|--------------|
+| `minimatch` &lt; 11.0.1, globparts DoS ([GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249)) — 4 moderate | `fomantic-ui` → `gulp-if@3.0.0` → `gulp-match@1.1.0` → `minimatch@3.1.5` | `gulp-match` (last release 2022) calls `minimatch(path, pattern)`; only 11.x is patched and it no longer exports a callable function, so no override fits. The globs are Fomantic's own build patterns, not input |
+| `deepmerge` prototype poisoning ([GHSA-gcqx-w48m-w2h4](https://github.com/advisories/GHSA-gcqx-w48m-w2h4)) — 2 low | `fomantic-ui` → `gulp-json-editor@2.6.0` → `deepmerge@4.3.1` | No patched release exists, and the advisory covers every version through 4.3.1, so a downgrade would only hide it. `gulp-json-editor` runs only in Fomantic's `install` / admin tasks, which `build:semantic` never invokes |
+
+Local shim packages wired in with `file:` overrides do not work under npm 12 (it resolves the path from the dependent's folder and applies the override to the shim's own dependencies), so do not retry that route.
 
 ## Overrides
 
-None. `package.json` has no `overrides` block; every finding above is fixed by a direct pin or an upgrade.
+| Override | Reason |
+|----------|--------|
+| `glob` → `=14.0.3` | GHSA-3g3m-2fjr-6pw4 (AbortSignal bypass, ≤ 14.0.1) under mocha, c8, js-beautify |
+| `minimatch@>=9.0.0 <11.0.1` → `=11.0.3` | GHSA-g3hv-75wg-m249 for every 9.x / 10.x consumer (eslint, mocha, ts-morph, editorconfig, …). Scoped by range so `gulp-match` keeps the callable 3.x |
+| `js-beautify` → `$js-beautify` | Moves `gulp-json-editor`'s nested 1.15.4 (old `glob` / `editorconfig`) onto the direct 2.0.3 |
+| `page` → `path-to-regexp` `=1.9.0` | GHSA-9wv6-86v2-598j (ReDoS) in the 1.2.1 that `page@1.11.6` asks for; 1.x API unchanged |
 
 Do **not** run `npm audit fix --force` casually — it has proposed downgrading `fomantic-ui`. Prefer explicit pins and a clean `npm audit`.
 
