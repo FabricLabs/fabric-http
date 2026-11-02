@@ -789,6 +789,27 @@ class FabricHTTPServer extends Service {
     return !!rpcAuthenticated;
   }
 
+  /**
+   * Optional `settings.websocket.verifyOrigin(req)` hook: an embedding app (e.g. Hub) decides
+   * which upgrade requests to accept by `Origin` / `Host`. A throw rejects the upgrade.
+   * @param {Object} info `ws` verifyClient info (`{ origin, secure, req }`)
+   * @returns {boolean}
+   */
+  _verifyWebSocketOrigin (info) {
+    const wsCfg = this.settings.websocket || {};
+    if (typeof wsCfg.verifyOrigin !== 'function') return true;
+    let ok = false;
+    try {
+      ok = wsCfg.verifyOrigin(info && info.req) === true;
+    } catch (_) {
+      ok = false;
+    }
+    if (!ok && (this.settings.verbosity || 0) >= 3) {
+      console.warn('[SERVER] WebSocket handshake rejected by verifyOrigin');
+    }
+    return ok;
+  }
+
   _verifyWebSocketClient (info) {
     const wsCfg = this.settings.websocket || {};
     const secret = wsCfg.clientToken || wsCfg.sharedSecret || null;
@@ -2485,8 +2506,13 @@ class FabricHTTPServer extends Service {
     const wsCfg = this.settings.websocket || {};
     const wsTokenConfigured = Boolean(wsCfg.clientToken || wsCfg.sharedSecret);
     const wsTokenRequired = wsCfg.requireClientToken === true || wsCfg.requireClientToken === '1' || wsCfg.requireClientToken === 1;
-    if (wsTokenConfigured && wsTokenRequired) {
-      wsOpts.verifyClient = this._verifyWebSocketClient.bind(this);
+    const wsCheckToken = wsTokenConfigured && wsTokenRequired;
+    const wsCheckOrigin = typeof wsCfg.verifyOrigin === 'function';
+    if (wsCheckToken || wsCheckOrigin) {
+      wsOpts.verifyClient = (info) => {
+        if (wsCheckOrigin && !this._verifyWebSocketOrigin(info)) return false;
+        return wsCheckToken ? this._verifyWebSocketClient(info) : true;
+      };
     }
     this.wss = new WebSocket.Server(wsOpts);
 

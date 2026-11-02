@@ -181,9 +181,7 @@ class App extends Component {
 
   get page () {
     // TODO: return current page
-    return new Resource({
-      name: 'BlankPage'
-    });
+    return new Resource('BlankPage');
   }
 
   get state () {
@@ -431,7 +429,7 @@ class App extends Component {
   }
 
   _refresh () {
-    let resource = new Resource();
+    let resource = new Resource('BlankPage');
     this.target.innerHTML = this._loadHTML(resource.render());
     return this;
   }
