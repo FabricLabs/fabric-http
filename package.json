@@ -148,7 +148,6 @@
     "json-pointer": "=0.6.2",
     "lodash.merge": "=4.6.2",
     "node-util": "=0.0.1",
-    "page": "=1.11.6",
     "path-browserify": "=1.0.1",
     "path-to-regexp": "=9.0.0",
     "pluralize": "=8.0.0",
@@ -206,9 +205,6 @@
   "overrides": {
     "glob": "=14.0.3",
     "js-beautify": "$js-beautify",
-    "minimatch@>=9.0.0 <11.0.1": "=11.0.3",
-    "page": {
-      "path-to-regexp": "=1.9.0"
-    }
+    "minimatch@>=9.0.0 <11.0.1": "=11.0.3"
   }
 }

@@ -95,21 +95,29 @@ function clientAddress (req, trustProxy = false) {
 }
 
 /**
- * The client an address belongs to: IPv4 as is (also when IPv4-mapped), IPv6
- * by its /64, since one host usually holds a whole /64.
+ * The client an address belongs to: IPv4 as is (also when IPv4-mapped, in
+ * dotted or hex form), IPv6 by its /64, since one host usually holds a whole
+ * /64. A dotted IPv4 tail counts as the last two groups.
  * @param {string} address
  * @returns {string}
  */
 function clientGroup (address) {
   const a = String(address || '').trim().toLowerCase().split('%')[0];
-  const mapped = a.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
-  if (mapped) return mapped[1];
   if (!net.isIPv6(a)) return a;
   const [head, tail] = a.split('::');
   const left = head ? head.split(':') : [];
   const right = tail === undefined ? [] : (tail ? tail.split(':') : []);
-  const groups = tail === undefined ? left : left.concat(new Array(8 - left.length - right.length).fill('0'), right);
-  return groups.slice(0, 4).map((g) => parseInt(g, 16).toString(16)).join(':') + '::/64';
+  const last = tail === undefined ? left : right;
+  if (last.length && last[last.length - 1].includes('.')) {
+    const octets = last.pop().split('.').map(Number);
+    last.push(((octets[0] << 8) | octets[1]).toString(16), ((octets[2] << 8) | octets[3]).toString(16));
+  }
+  const groups = (tail === undefined ? left : left.concat(new Array(8 - left.length - right.length).fill('0'), right))
+    .map((g) => parseInt(g, 16));
+  if (groups.slice(0, 5).every((g) => g === 0) && groups[5] === 0xffff) {
+    return [groups[6] >> 8, groups[6] & 0xff, groups[7] >> 8, groups[7] & 0xff].join('.');
+  }
+  return groups.slice(0, 4).map((g) => g.toString(16)).join(':') + '::/64';
 }
 
 /**

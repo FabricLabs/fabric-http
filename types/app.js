@@ -5,7 +5,7 @@ const {
   BROWSER_TARGET
 } = require('../constants');
 
-const page = require('page');
+const { page } = require('../functions/pageRouter');
 const crypto = require('crypto');
 const pluralize = require('pluralize');
 const beautify = require('js-beautify');

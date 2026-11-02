@@ -11,14 +11,14 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const LIMIT_MS = 20000;
 const FILES = [
-  'examples/passport-relying-party.js',
-  'examples/message-bridge.js',
-  'examples/delegation-body.js'
+  path.join(ROOT, 'examples', 'passport-relying-party.js'),
+  path.join(ROOT, 'examples', 'message-bridge.js'),
+  path.join(ROOT, 'examples', 'delegation-body.js')
 ];
 
 function run (file) {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, [path.join(ROOT, file)], {
+    const child = spawn(process.execPath, [file], {
       cwd: ROOT,
       stdio: ['ignore', 'inherit', 'inherit']
     });
@@ -49,7 +49,7 @@ async function main () {
   for (const file of FILES) {
     const result = await run(file);
     const ok = result.code === 0;
-    console.log(ok ? 'ok' : 'FAIL', file, ok ? '' : result.code);
+    console.log(ok ? 'ok' : 'FAIL', path.relative(ROOT, file), ok ? '' : result.code);
     if (!ok) failed += 1;
   }
   if (failed) {

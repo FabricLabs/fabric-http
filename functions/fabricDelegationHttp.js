@@ -54,6 +54,7 @@ function createDelegationRendezvous (options = {}) {
   const links = new Map();
   const spentNonces = new Map();
   const limit = createRateLimit({ limit: 60, windowMs: 60 * 1000, now });
+  const readLimit = createRateLimit({ limit: 360, windowMs: 60 * 1000, now });
   const opts = () => ({ now: now() });
 
   function sweep () {
@@ -214,7 +215,7 @@ function createDelegationRendezvous (options = {}) {
       sendJson(res, 404, { ok: false, error: 'no such link' });
       return true;
     }
-    if (method !== 'GET' && !limit(clientKey(req, options.trustProxy))) {
+    if (!(method === 'GET' ? readLimit : limit)(clientKey(req, options.trustProxy))) {
       sendJson(res, 429, { ok: false, error: 'slow down' });
       return true;
     }

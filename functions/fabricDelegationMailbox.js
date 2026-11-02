@@ -136,6 +136,17 @@ function createDelegationMailbox (options = {}) {
     return pick.oldest;
   }
 
+  function readAddressed (type, buffer) {
+    const opts = { now: now() };
+    switch (type) {
+      case 'DELEGATION_REQUEST': return delegation.readRequest(buffer, opts);
+      case 'DELEGATION_RESULT': return delegation.readResult(buffer, opts);
+      case 'DELEGATION_GRANT': return delegation.readGrant(buffer, opts);
+      case 'DELEGATION_REVOKE': return delegation.readRevoke(buffer, opts);
+      default: return { ok: false, error: 'not a mailbox frame' };
+    }
+  }
+
   function lifetime (type, buffer) {
     if (type === 'DELEGATION_REQUEST') {
       const read = delegation.readRequest(buffer, { now: now() });
@@ -155,32 +166,37 @@ function createDelegationMailbox (options = {}) {
     sweep();
     const addressed = delegation.mailboxAddress(frame, hints);
     if (!addressed.ok) return { status: 400, body: { ok: false, error: addressed.error } };
-    const checks = {
-      DELEGATION_REQUEST: delegation.readRequest,
-      DELEGATION_RESULT: delegation.readResult,
-      DELEGATION_GRANT: delegation.readGrant,
-      DELEGATION_REVOKE: delegation.readRevoke
-    };
-    const read = checks[addressed.type](addressed.buffer, { now: now() });
+    const read = readAddressed(addressed.type, addressed.buffer);
     if (!read.ok) return { status: 400, body: { ok: false, error: read.error } };
     const to = delegation.xOnly(addressed.to);
     if (typeof options.deliver === 'function') {
       const taken = await options.deliver(to, addressed.buffer, read);
       if (taken) return { status: 202, body: { ok: true, delivered: true, hash: addressed.hash } };
     }
-    const items = boxes.get(to) || [];
+    const previous = boxes.get(to);
+    const items = previous ? previous.slice() : [];
     if (items.some((i) => i.hash === addressed.hash)) return { status: 200, body: { ok: true, hash: addressed.hash, duplicate: true } };
-    if (!boxes.has(to) && boxes.size >= maxAddresses) return { status: 503, body: { ok: false, error: 'mailbox full' } };
+    if (!previous && boxes.size >= maxAddresses) return { status: 503, body: { ok: false, error: 'mailbox full' } };
     const until = lifetime(addressed.type, addressed.buffer);
     if (until <= now()) return { status: 400, body: { ok: false, error: 'frame expired' } };
     const from = senderOf(hints.from);
     const own = from ? items.filter((i) => i.from === from) : [];
     if (own.length >= maxPerSender) items.splice(items.indexOf(own[0]), 1);
     else if (items.length >= maxPerAddress) items.splice(items.indexOf(oldestOfLargestSender(items)), 1);
+    const before = seq;
     seq++;
     items.push({ seq, hash: addressed.hash, type: addressed.type, buffer: addressed.buffer, at: now(), until, from });
     boxes.set(to, items);
-    await save();
+    try {
+      await save();
+    } catch (err) {
+      if (boxes.get(to) === items) {
+        if (previous) boxes.set(to, previous);
+        else boxes.delete(to);
+      }
+      if (seq === before + 1) seq = before;
+      throw err;
+    }
     return { status: 201, body: { ok: true, hash: addressed.hash, seq } };
   }
 
@@ -190,7 +206,7 @@ function createDelegationMailbox (options = {}) {
    * @param {{ limit: (number|undefined) }} [params]
    * @returns {Promise<{ status: number, body: object }>}
    */
-  async function fetch (proof, params = {}) {
+  async function fetchFrames (proof, params = {}) {
     await load();
     const read = delegation.readMailboxFetch(proof, { now: now() });
     if (!read.ok) return { status: 401, body: { ok: false, error: read.error } };
@@ -233,7 +249,7 @@ function createDelegationMailbox (options = {}) {
         out = frame ? await post(frame, { to: typeof body.to === 'string' ? body.to : undefined, from: address }) : { status: 400, body: { ok: false, error: 'frame required' } };
       } else if (method === 'GET') {
         const proof = String((req.headers && req.headers[MAILBOX_HEADER]) || '').trim();
-        out = proof ? await fetch(proof, { limit: url.searchParams.get('limit') }) : { status: 401, body: { ok: false, error: `${MAILBOX_HEADER} required` } };
+        out = proof ? await fetchFrames(proof, { limit: url.searchParams.get('limit') }) : { status: 401, body: { ok: false, error: `${MAILBOX_HEADER} required` } };
       } else {
         out = { status: 405, body: { ok: false, error: 'method not allowed' } };
       }
@@ -263,7 +279,7 @@ function createDelegationMailbox (options = {}) {
     hub.http._addRoute('GET', DELEGATION_MAILBOX_PATH, route);
   }
 
-  return { post, fetch, load, handle, mount, mountOnHub };
+  return { post, fetch: fetchFrames, load, handle, mount, mountOnHub };
 }
 
 module.exports = {

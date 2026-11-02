@@ -18,7 +18,7 @@ const config = {
 const crypto = require('crypto');
 const { fabricFaviconHeadHtml } = require('../functions/fabricBrand');
 const merge = require('lodash.merge');
-const page = require('page');
+const { page } = require('../functions/pageRouter');
 const pluralize = require('pluralize');
 
 // Requisite Types

@@ -647,6 +647,8 @@ class FabricHTTPServer extends Service {
     const blobOwner = resource.blobRoute && this.routes.find((r) => r.isBlob && r.resource !== name && routeTemplatesOverlap(r.path, resource.blobRoute));
     if (blobOwner) throw new Error(`[HTTP:SERVER] ${name} cannot mount ${resource.blobRoute}: ${blobOwner.resource} already prices blobs at ${blobOwner.path}`);
     const ownPaths = [resource.routes.view, resource.routes.list];
+    const shadow = resource.blobRoute && ownPaths.find((p) => routeTemplatesOverlap(p, resource.blobRoute));
+    if (shadow) throw new Error(`[HTTP:SERVER] ${name} cannot mount ${resource.blobRoute}: it overlaps its own ${shadow}`);
     const conflict = this.routes.map((r) => {
       if (r.resource === name) return null;
       if (resource.blobRoute && routeTemplatesOverlap(r.path, resource.blobRoute)) return { path: resource.blobRoute, other: r };

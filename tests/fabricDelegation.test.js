@@ -117,6 +117,34 @@ describe('@fabric/http delegation transports', function () {
       assert.strictEqual(rendezvous.cancel(here.linkId, mine.uri).status, 200);
       assert.strictEqual(rendezvous.read(here.linkId).status, 404);
     });
+
+    it('rate-limits reads of a link', async function () {
+      const rendezvous = createDelegationRendezvous();
+      const { server, origin } = await serve(rendezvous.handle);
+      servers.push(server);
+      const offer = await new Delegation({ key: PASSPORT.identity.key }).offer({ origin });
+      assert.strictEqual((await client.openLink(origin, offer.uri)).httpStatus, 201);
+      for (let i = 0; i < 360; i++) {
+        assert.strictEqual((await send(origin, 'GET', `/delegations/${offer.linkId}`)).status, 200);
+      }
+      assert.strictEqual((await send(origin, 'GET', `/delegations/${offer.linkId}`)).status, 429);
+    });
+  });
+
+  describe('client grouping', function () {
+    const { clientGroup } = require('../functions/delegationHttpBody');
+
+    it('reads an IPv4-mapped address in hex form as IPv4', function () {
+      assert.strictEqual(clientGroup('::ffff:c000:0201'), '192.0.2.1');
+      assert.strictEqual(clientGroup('::ffff:192.0.2.1'), '192.0.2.1');
+      assert.strictEqual(clientGroup('0:0:0:0:0:ffff:c000:201'), '192.0.2.1');
+    });
+
+    it('counts a dotted IPv4 tail as two groups', function () {
+      assert.strictEqual(clientGroup('64:ff9b::1.2.3.4'), '64:ff9b:0:0::/64');
+      assert.strictEqual(clientGroup('2001:db8:1:2:3:4:1.2.3.4'), '2001:db8:1:2::/64');
+      assert.strictEqual(clientGroup('2001:db8::1'), '2001:db8:0:0::/64');
+    });
   });
 
   describe('mailbox', function () {
@@ -286,6 +314,28 @@ describe('@fabric/http delegation transports', function () {
       const proof = d.createMailboxFetch({}, PASSPORT.identity.key);
       await assert.rejects(() => mailbox.fetch(proof.uri), (err) => err.status === 503);
       assert.strictEqual((await mailbox.fetch(proof.uri)).status, 409, 'the fetch stays used');
+    });
+
+    it('stores a retry after a failed save instead of calling it a duplicate', async function () {
+      const persisted = { raw: null, fail: false };
+      const mailbox = createDelegationMailbox({
+        store: {
+          async get () { return persisted.raw; },
+          async set (_key, value) {
+            if (persisted.fail) throw new Error('disk full');
+            persisted.raw = value;
+          }
+        }
+      });
+      const [grant] = await grantsFor(1);
+      await mailbox.load();
+      persisted.fail = true;
+      await assert.rejects(() => mailbox.post(grant.uri, { from: 'a' }), (err) => err.status === 503);
+      persisted.fail = false;
+      const retry = await mailbox.post(grant.uri, { from: 'a' });
+      assert.strictEqual(retry.status, 201);
+      assert.strictEqual(retry.body.seq, 1, 'the failed post does not use up a sequence number');
+      assert.ok(JSON.parse(persisted.raw).boxes[PASSPORT.identity.pubkey.slice(2)], 'the retry is saved');
     });
 
     it('rate-limits fetches apart from posts', async function () {
