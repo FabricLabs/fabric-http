@@ -25,6 +25,48 @@ describe('functions/pageRouter', function () {
     assert.deepStrictEqual(seen, ['home']);
   });
 
+  it('routes same-origin link clicks through the router, and leaves the rest to the browser', async function () {
+    const listeners = {};
+    const pushed = [];
+    const saved = { window: global.window, document: global.document };
+    global.window = {
+      location: { pathname: '/', search: '', href: 'https://app.test/', origin: 'https://app.test' },
+      history: { pushState: (_s, _t, path) => pushed.push(path) },
+      addEventListener: () => {}
+    };
+    global.document = { addEventListener: (type, fn) => { listeners[type] = fn; } };
+    try {
+      const router = createPageRouter();
+      const seen = [];
+      router('/things/:id', (ctx) => seen.push(ctx.params.id));
+      router.start();
+      const link = (href, attrs = {}) => ({
+        nodeName: 'A',
+        href: new URL(href, 'https://app.test/').href,
+        getAttribute: (name) => (name === 'href' ? href : (attrs[name] == null ? null : attrs[name])),
+        hasAttribute: (name) => attrs[name] != null
+      });
+      const click = (target, extra = {}) => {
+        const event = Object.assign({ button: 0, target, defaultPrevented: false, preventDefault () { this.defaultPrevented = true; } }, extra);
+        listeners.click(event);
+        return event.defaultPrevented;
+      };
+      assert.strictEqual(click(link('/things/a')), true);
+      assert.strictEqual(click(link('/things/b'), { metaKey: true }), false);
+      assert.strictEqual(click(link('/things/c', { target: '_blank' })), false);
+      assert.strictEqual(click(link('/things/d', { download: '' })), false);
+      assert.strictEqual(click(link('https://elsewhere.test/things/e')), false);
+      assert.strictEqual(click(link('/unrouted')), false);
+      assert.strictEqual(click({ nodeName: 'SPAN', parentNode: link('/things/f') }), true);
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.deepStrictEqual(pushed, ['/things/a', '/things/f']);
+      assert.deepStrictEqual(seen, ['a', 'f']);
+    } finally {
+      global.window = saved.window;
+      global.document = saved.document;
+    }
+  });
+
   it('is one shared registry for SPA and App', function () {
     const SPA = require('../types/spa');
     const App = require('../types/app');

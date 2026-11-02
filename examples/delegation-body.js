@@ -8,8 +8,8 @@
  */
 
 const { generateMnemonic, importSeed, deriveAccount } = require('@fabric/core/functions/accountKeys');
-const { createGrant } = require('@fabric/core/functions/delegation');
-const { readFrame, createRateLimit } = require('../functions/delegationHttpBody');
+const { createGrant } = require('@fabric/core/types/delegation');
+const { readFrame, createRateLimit } = require('../functions/httpRequestTrust');
 
 function fail (message) {
   console.error('[EXAMPLES:DELEGATION_BODY]', message);

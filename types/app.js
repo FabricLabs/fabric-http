@@ -8,7 +8,6 @@ const {
 const { page } = require('../functions/pageRouter');
 const crypto = require('crypto');
 const pluralize = require('pluralize');
-const beautify = require('js-beautify');
 // const d3 = require('d3');
 
 const Collection = require('@fabric/core/types/collection');
@@ -473,13 +472,8 @@ class App extends Component {
    */
   render () {
     let page = this.page.render();
-    let html = this._loadHTML(page);
-    let pretty = beautify.html(html, {
-      indent_size: 2,
-      extra_liners: []
-    });
-
-    return pretty;
+    // Not pretty-printed: `js-beautify` is only a devDependency (see `Compiler`).
+    return this._loadHTML(page);
   }
 
   /**
@@ -524,6 +518,9 @@ class App extends Component {
     } catch (E) {
       console.error('Could not start, Exception:', E);
     }
+
+    // Dispatch the current URL, `popstate`, and in-app link clicks through `handler` (browser only).
+    page.start();
 
     return true;
   }

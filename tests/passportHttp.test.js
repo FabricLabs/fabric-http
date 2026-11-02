@@ -76,7 +76,7 @@ function cookieValue (res, name) {
 }
 
 describe('clientGroup', function () {
-  const { clientGroup } = require('../functions/delegationHttpBody');
+  const { clientGroup } = require('../functions/httpRequestTrust');
 
   it('keeps IPv4 and unwraps IPv4-mapped IPv6', function () {
     assert.strictEqual(clientGroup('203.0.113.7'), '203.0.113.7');

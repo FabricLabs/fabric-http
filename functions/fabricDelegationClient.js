@@ -12,7 +12,7 @@
  * not complete.
  */
 
-const delegation = require('@fabric/core/functions/delegation');
+const delegation = require('@fabric/core/types/delegation');
 const { isAllowedFabricHub, normalizeHubOrigin } = require('./fabricHubAllowlist');
 
 const RENDEZVOUS_PATH = '/delegations';

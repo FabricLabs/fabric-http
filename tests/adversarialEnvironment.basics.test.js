@@ -17,7 +17,7 @@ const {
   clientMayPollSession
 } = require('../functions/httpRequestTrust');
 const Key = require('@fabric/core/types/key');
-const delegation = require('@fabric/core/functions/delegation');
+const delegation = require('@fabric/core/types/delegation');
 const { readLinkInvitation } = require('../functions/fabricDelegationClient');
 const { checkDelegateCaller } = require('../functions/fabricDelegate');
 

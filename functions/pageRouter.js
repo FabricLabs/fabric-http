@@ -10,7 +10,7 @@
 const { match } = require('path-to-regexp');
 
 /**
- * @returns {Function} `handler(path, ...callbacks)` with `show(path)`, `start()`, and `routes`.
+ * @returns {Function} `handler(path, ...callbacks)` with `show(path)`, `redirect(path)`, `start()`, and `routes`.
  */
 function createPageRouter () {
   const routes = [];
@@ -48,7 +48,21 @@ function createPageRouter () {
   };
 
   /**
-   * Dispatch the current location and every `popstate` after it.
+   * Push `path` onto history and dispatch it.
+   * @param {string} path
+   * @returns {Promise<Object>} The context.
+   */
+  handler.redirect = function redirect (path) {
+    if (typeof window !== 'undefined' && window.history && typeof window.history.pushState === 'function') {
+      window.history.pushState({}, '', path);
+    }
+    return handler.show(path);
+  };
+
+  /**
+   * Dispatch the current location, every `popstate` after it, and clicks on
+   * same-origin links to a registered route (not modified clicks, links with
+   * a `target` or `download`, or links to another origin or only a hash).
    * @returns {Function} The handler.
    */
   handler.start = function start () {
@@ -56,11 +70,36 @@ function createPageRouter () {
     const current = () => window.location.pathname + window.location.search;
     if (!handler._started) {
       window.addEventListener('popstate', () => { handler.show(current()); });
+      if (typeof document !== 'undefined' && document && typeof document.addEventListener === 'function') {
+        document.addEventListener('click', (event) => {
+          const path = linkPath(event);
+          if (!path) return;
+          event.preventDefault();
+          handler.redirect(path);
+        });
+      }
       handler._started = true;
     }
     handler.show(current());
     return handler;
   };
+
+  /** @private the in-app path an eligible link click goes to, else null */
+  function linkPath (event) {
+    if (!event || event.defaultPrevented || event.button !== 0) return null;
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return null;
+    let el = event.target;
+    while (el && String(el.nodeName || '').toUpperCase() !== 'A') el = el.parentNode;
+    if (!el || !el.getAttribute || el.getAttribute('href') == null) return null;
+    if (el.hasAttribute('download') || (el.getAttribute('target') && el.getAttribute('target') !== '_self')) return null;
+    if (String(el.getAttribute('rel') || '').split(/\s+/).includes('external')) return null;
+    let url;
+    try { url = new URL(el.href, window.location.href); } catch (_) { return null; }
+    if (url.origin !== window.location.origin) return null;
+    if (url.pathname === window.location.pathname && url.search === window.location.search && url.hash) return null;
+    const path = url.pathname + url.search;
+    return routes.some((route) => route.path !== '*' && route.test(url.pathname)) ? path : null;
+  }
 
   handler.routes = routes;
   return handler;

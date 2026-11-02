@@ -3,12 +3,11 @@
 const assert = require('assert');
 const http = require('http');
 const Delegation = require('@fabric/core/types/delegation');
+const d = Delegation;
 const { FIXTURE_SEED } = require('@fabric/core/constants');
 const { importSeed, deriveAccount } = require('@fabric/core/functions/accountKeys');
 const { createChallenge, verifyAssertion } = require('@fabric/core/functions/passport');
-const d = require('@fabric/core/functions/delegation');
-const { createDelegationRendezvous } = require('../functions/fabricDelegationHttp');
-const { createDelegationMailbox } = require('../functions/fabricDelegationMailbox');
+const { createDelegationRendezvous, createDelegationMailbox } = require('../functions/fabricDelegationHttp');
 const { createFabricDelegate } = require('../functions/fabricDelegate');
 const client = require('../functions/fabricDelegationClient');
 
@@ -132,7 +131,7 @@ describe('@fabric/http delegation transports', function () {
   });
 
   describe('client grouping', function () {
-    const { clientGroup } = require('../functions/delegationHttpBody');
+    const { clientGroup } = require('../functions/httpRequestTrust');
 
     it('reads an IPv4-mapped address in hex form as IPv4', function () {
       assert.strictEqual(clientGroup('::ffff:c000:0201'), '192.0.2.1');
@@ -262,18 +261,46 @@ describe('@fabric/http delegation transports', function () {
       const mailbox = createDelegationMailbox({ maxPerAddress: 4 });
       const grants = await grantsFor(7);
       await queue(mailbox, grants[0], 'a');
-      await queue(mailbox, grants[1], 'a');
+      const a = await queue(mailbox, grants[1], 'a');
       const b = await queue(mailbox, grants[2], 'b');
       const c = await queue(mailbox, grants[3], 'c');
-      const dd = await queue(mailbox, grants[4], 'd');
+      await queue(mailbox, grants[4], 'd');
       const e = await queue(mailbox, grants[5], 'e');
 
       const first = await mailbox.fetch(d.createMailboxFetch({}, PASSPORT.identity.key).uri);
-      assert.deepStrictEqual(first.body.frames.map((f) => f.hash), [b, c, dd, e], 'a kept one frame, then lost it to e');
+      assert.deepStrictEqual(first.body.frames.map((f) => f.hash), [a, b, c, e], 'a kept one frame; on a tie the sender heard from last (d) gave way to e');
       const acknowledged = await mailbox.fetch(d.createMailboxFetch({ since: first.body.next }, PASSPORT.identity.key).uri);
       assert.strictEqual(acknowledged.body.frames.length, 0);
       const again = await queue(mailbox, grants[6], 'a');
       assert.deepStrictEqual(await queued(mailbox), [again]);
+    });
+
+    it('keeps a queued revoke while new senders fill the box', async function () {
+      const mailbox = createDelegationMailbox({ maxPerAddress: 4 });
+      const hub = new Delegation({ key: HUB.identity.key });
+      const revoked = await hub.grant({ grantee: PASSPORT.identity.pubkey, scopes: ['message'], label: 'revoked' });
+      const revoke = await hub.revoke(revoked.hash);
+      const posted = await mailbox.post(revoke.uri, { to: PASSPORT.identity.pubkey, from: 'r' });
+      assert.strictEqual(posted.status, 201, posted.body.error);
+      const grants = await grantsFor(12);
+      for (let i = 0; i < grants.length; i++) await queue(mailbox, grants[i], `flood-${i}`);
+      assert.ok((await queued(mailbox)).includes(posted.body.hash), 'the revoke is still queued');
+    });
+
+    it('does not acknowledge a frame whose write failed, even when posts overlap', async function () {
+      let fail = true;
+      const store = {
+        async get () { return null; },
+        async set () { if (fail) throw new Error('disk full'); }
+      };
+      const mailbox = createDelegationMailbox({ store });
+      const grants = await grantsFor(2);
+      const results = await Promise.allSettled([mailbox.post(grants[0].uri), mailbox.post(grants[1].uri)]);
+      assert.deepStrictEqual(results.map((r) => r.status), ['rejected', 'rejected']);
+      fail = false;
+      const retried = await mailbox.post(grants[0].uri);
+      assert.strictEqual(retried.status, 201, 'the retry is stored, not reported as a duplicate');
+      assert.deepStrictEqual(await queued(mailbox), [retried.body.hash]);
     });
 
     it('counts an IPv6 sender by its /64, and an IPv4-mapped one as IPv4', async function () {

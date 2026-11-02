@@ -3,7 +3,7 @@
 /**
  * @fileoverview Local delegate for desktop apps (Hub, GoonCitizen): Passport
  * on the same machine pairs with the app and asks it to sign, all as
- * delegation frames (`@fabric/core/functions/delegation`) handled by the
+ * delegation frames (`@fabric/core/types/delegation`) handled by the
  * app's own `Delegation` (`@fabric/core/types/delegation`).
  *
  * - `GET /services/delegation` names the delegate; with `?pubkey=` it says
@@ -27,11 +27,10 @@
  * Anything other than a delegation frame gets 426 (an older Passport).
  */
 
-const delegation = require('@fabric/core/functions/delegation');
+const delegation = require('@fabric/core/types/delegation');
 const { decodeFabricUri, encodeFabricUri } = require('@fabric/core/functions/fabricUri');
-const { isLoopbackHostname, isLocalRequest, requestHasProxyForwardHeaders } = require('./httpRequestTrust');
+const { isLoopbackHostname, isLocalRequest, requestHasProxyForwardHeaders, readFrame, sendJson } = require('./httpRequestTrust');
 const { PASSPORT_OUTDATED } = require('./passportHttp');
-const { readFrame, sendJson } = require('./delegationHttpBody');
 
 const DELEGATE_PATH = '/services/delegation';
 const DELEGATE_LINKS_PATH = '/services/delegation/links';

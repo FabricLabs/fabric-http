@@ -423,6 +423,9 @@ class SPA extends App {
       console.error('Could not start SPA router:', E);
     }
 
+    // Dispatch the current URL, `popstate`, and in-app link clicks through `handler` (browser only).
+    page.start();
+
     if (this.settings.websockets) {
       try {
         if (this.settings.verbosity >= 5) console.log('[HTTP:SPA]', 'Starting bridge...');

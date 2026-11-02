@@ -27,9 +27,10 @@ const {
   isLocalRequest,
   isLoopbackHostname,
   requestHasProxyForwardHeaders,
-  fabricUriFromBody
+  fabricUriFromBody,
+  clientKey,
+  createRateLimit
 } = require('./httpRequestTrust');
-const { clientKey, createRateLimit } = require('./delegationHttpBody');
 
 const SESSION_COOKIE = 'fabric.session';
 const BINDING_COOKIE = 'fabric.passport';
