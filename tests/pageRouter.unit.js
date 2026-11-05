@@ -16,6 +16,23 @@ describe('functions/pageRouter', function () {
     assert.strictEqual(ctx.path, '/things/a%20b?x=1');
   });
 
+  it('a query string does not stop a route lookup', function () {
+    const Router = require('../types/router');
+    const Browser = require('../types/browser');
+    const router = new Router({});
+    router._addRoute('/widgets', 'widget-list');
+    const found = Browser.prototype.route.call({ router }, '/widgets?sort=new');
+    assert.strictEqual(found.route.component, 'widget-list');
+  });
+
+  it('SPA.define keeps state under the resource\'s own route', function () {
+    const SPA = require('../types/spa');
+    const spa = new SPA({});
+    spa.define('Widget', { components: {} });
+    assert.ok(Object.prototype.hasOwnProperty.call(spa._state.content, 'widgets'));
+    assert.ok(!Object.prototype.hasOwnProperty.call(spa._state.content, 'radicals'));
+  });
+
   it('stops when a callback does not call next', async function () {
     const router = createPageRouter();
     const seen = [];

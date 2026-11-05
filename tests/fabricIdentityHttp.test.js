@@ -5,7 +5,7 @@ const http = require('http');
 const Key = require('@fabric/core/types/key');
 const Identity = require('@fabric/core/types/identity');
 const { buildFabricIdentitySignedPayload } = require('../functions/fabricIdentitySchnorr');
-const { originsMatch, readRequestText, readFrame } = require('../functions/httpRequestTrust');
+const { originsMatch, readRequestText, readFrame, clientAddress, isTrustedProxy } = require('../functions/httpRequestTrust');
 
 describe('@fabric/http identity HTTP', function () {
   it('signs from HD Key and from { mnemonic } bag', function () {
@@ -150,5 +150,25 @@ describe('@fabric/http httpRequestTrust bodies', function () {
     const out = await post(server, 'fabric:AAAA');
     assert.strictEqual(out.first, 'fabric:AAAA');
     assert.strictEqual(out.second, '');
+  });
+
+  it('answers an oversized body with its error instead of dropping the connection', async function () {
+    await serve(async (req) => readRequestText(req, 16));
+    const out = await post(server, 'x'.repeat(64 * 1024));
+    assert.strictEqual(out.error, 'request body too large');
+  });
+});
+
+describe('@fabric/http httpRequestTrust proxies', function () {
+  const req = (remoteAddress, forwarded) => ({ socket: { remoteAddress }, headers: forwarded ? { 'x-forwarded-for': forwarded } : {} });
+
+  it('reads X-Forwarded-For only from a trusted proxy', function () {
+    assert.strictEqual(clientAddress(req('::ffff:127.0.0.1', '198.51.100.1, 203.0.113.9'), true), '203.0.113.9');
+    assert.strictEqual(clientAddress(req('203.0.113.50', '198.51.100.1'), true), '203.0.113.50', 'a direct client cannot pick its bucket');
+    assert.strictEqual(clientAddress(req('10.0.0.2', '198.51.100.1'), ['10.0.0.2']), '198.51.100.1');
+    assert.strictEqual(clientAddress(req('10.0.0.3', '198.51.100.1'), '10.0.0.2,10.0.0.4'), '10.0.0.3');
+    assert.strictEqual(clientAddress(req('127.0.0.1', '198.51.100.1'), false), '127.0.0.1');
+    assert.strictEqual(isTrustedProxy('::1', true), true);
+    assert.strictEqual(isTrustedProxy('192.0.2.1', true), false);
   });
 });

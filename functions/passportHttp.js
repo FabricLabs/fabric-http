@@ -209,7 +209,7 @@ function requestedDisclosures (body) {
  * @param {function({ challenge: string, origin: string, request: string[] }): Promise<string>} [settings.selfSign]
  *   Host-signed assertion for `POST /sessions/self`.
  * @param {string[]} [settings.selfOrigins] Loopback origins allowed to call `/sessions/self`; other origins are ignored.
- * @param {boolean} [settings.trustProxy] Rate-limit by the last `X-Forwarded-For` hop instead of the socket address.
+ * @param {(boolean|string|string[])} [settings.trustProxy] Rate-limit by the last `X-Forwarded-For` hop when the socket peer is a trusted proxy: `true` for one on loopback, or the proxy addresses.
  * @returns {{ routes: Array<{ method: string, path: string, handler: Function }>, mount: function(object): void, readRequestSession: function(import('http').IncomingMessage): Promise<(object|null)>, sessionToken: function(import('http').IncomingMessage): (string|null) }}
  */
 function createPassportHttp (settings = {}) {

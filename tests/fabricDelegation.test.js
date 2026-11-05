@@ -246,6 +246,10 @@ describe('@fabric/http delegation transports', function () {
       return grants;
     }
 
+    async function hubGrant () {
+      return new Delegation({ key: HUB.identity.key }).grant({ grantee: PASSPORT.identity.pubkey, scopes: ['message'], label: 'passport' });
+    }
+
     async function queue (mailbox, grant, from) {
       const out = await mailbox.post(grant.uri, { from });
       assert.strictEqual(out.status, 201, out.body.error);
@@ -285,6 +289,37 @@ describe('@fabric/http delegation transports', function () {
       const grants = await grantsFor(12);
       for (let i = 0; i < grants.length; i++) await queue(mailbox, grants[i], `flood-${i}`);
       assert.ok((await queued(mailbox)).includes(posted.body.hash), 'the revoke is still queued');
+    });
+
+    it('a sender drops its own oldest non-revoke frame first', async function () {
+      const mailbox = createDelegationMailbox({ maxPerAddress: 8 });
+      const hub = new Delegation({ key: HUB.identity.key });
+      const revoked = await hub.grant({ grantee: PASSPORT.identity.pubkey, scopes: ['message'], label: 'revoked' });
+      const revoke = await mailbox.post((await hub.revoke(revoked.hash)).uri, { to: PASSPORT.identity.pubkey, from: 'hub' });
+      const grants = await grantsFor(2);
+      const first = await queue(mailbox, grants[0], 'hub');
+      const second = await queue(mailbox, grants[1], 'hub');
+      assert.deepStrictEqual(await queued(mailbox), [revoke.body.hash, second], 'the revoke stays; the oldest grant went');
+      assert.ok(!(await queued(mailbox)).includes(first));
+    });
+
+    it('a sender opens only its share of boxes, and a full table drops the busiest sender\'s newest box', async function () {
+      const hub = new Delegation({ key: HUB.identity.key });
+      const grantTo = async (i) => hub.grant({ grantee: deriveAccount(MASTER, { account: 10 + i, network: 'regtest' }).identity.pubkey, scopes: ['message'], label: `box ${i}` });
+      const capped = createDelegationMailbox({ maxAddresses: 32 });
+      assert.strictEqual((await capped.post((await grantTo(0)).uri, { from: 'flood' })).status, 201);
+      assert.strictEqual((await capped.post((await grantTo(1)).uri, { from: 'flood' })).status, 201);
+      const refused = await capped.post((await grantTo(2)).uri, { from: 'flood' });
+      assert.strictEqual(refused.status, 429, 'a sender may open maxAddresses / 16 boxes');
+
+      const table = createDelegationMailbox({ maxAddresses: 4 });
+      const revoke = await hub.revoke((await grantTo(3)).hash);
+      const kept = await table.post(revoke.uri, { to: deriveAccount(MASTER, { account: 13, network: 'regtest' }).identity.pubkey, from: 'a' });
+      assert.strictEqual(kept.status, 201, kept.body.error);
+      for (const [i, from] of [[4, 'b'], [5, 'c'], [6, 'd']]) assert.strictEqual((await table.post((await grantTo(i)).uri, { from })).status, 201);
+      const passport = await table.post((await hubGrant()).uri, { from: 'e' });
+      assert.strictEqual(passport.status, 201, 'a full table makes room instead of refusing');
+      assert.strictEqual(passport.body.ok, true);
     });
 
     it('does not acknowledge a frame whose write failed, even when posts overlap', async function () {

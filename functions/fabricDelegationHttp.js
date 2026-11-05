@@ -28,12 +28,16 @@
  * the addressee reads it back, by presenting a fresh
  * `DELEGATION_MAILBOX_FETCH` signed by its key (each nonce works once). A
  * fetch's `since` acknowledges every frame up to it, and those are dropped so
- * the addressee frees its slots. A post is never refused for space: one sender
- * (a client address, an IPv6 host by its /64) holds at most a quarter of a
- * key's slots, and a full box drops the newest frame of the sender holding
- * the most (on a tie, the sender heard from last), and a revoke only when the
- * box holds nothing else, so a flood of new senders cannot push out a revoke
- * already queued. Posts and fetches run one at a time, each with its write.
+ * the addressee frees its slots. Space is shared by sender (a client
+ * address, an IPv6 host by its /64): one sender holds at most a quarter of a
+ * key's slots (its own oldest non-revoke frame goes first), and a full box
+ * drops the newest frame of the sender holding the most (on a tie, the sender
+ * heard from last), and a revoke only when the box holds nothing else, so a
+ * flood of new senders cannot push out a revoke already queued. Across keys,
+ * one sender opens at most a sixteenth of `maxAddresses` boxes; a full table
+ * drops the newest box that only the sender holding the most boxes wrote to
+ * (never one holding a revoke), and a post is refused for space only when no
+ * such box exists. Posts and fetches run one at a time, each with its write.
  * Senders are kept as keyed hashes, never addresses. The mailbox is a
  * courier: recipients check every frame themselves.
  *
@@ -71,7 +75,7 @@ const DEFAULT_FETCH_LIMIT = 100;
  * @param {number} [options.retainMs]
  * @param {number} [options.maxLinks]
  * @param {number} [options.maxPerAuthor]
- * @param {boolean} [options.trustProxy] Rate-limit by the last `X-Forwarded-For` hop.
+ * @param {(boolean|string|string[])} [options.trustProxy] Rate-limit by the last `X-Forwarded-For` hop from a trusted proxy (`isTrustedProxy`).
  * @returns {Object} `{ create, append, read, cancel, size, handle, mount, mountOnHub }`
  */
 function createDelegationRendezvous (options = {}) {
@@ -311,7 +315,7 @@ function createDelegationRendezvous (options = {}) {
  * @param {number} [options.maxAddresses]
  * @param {number} [options.retainMs] How long grants, revokes, and results are kept.
  * @param {number} [options.postsPerMinute] Per client address; fetches get six times that.
- * @param {boolean} [options.trustProxy]
+ * @param {(boolean|string|string[])} [options.trustProxy]
  * @param {Object} [options.store] `{ get(key), set(key, value) }` (async, JSON string) to survive restarts.
  * @param {string} [options.storeKey='delegation-mailbox']
  * @param {function(string, Buffer, object): (boolean|Promise<boolean>)} [options.deliver] Called with `(to, frame, read)` first; return true to take the frame instead of queueing it (the host's own participant).
@@ -324,6 +328,7 @@ function createDelegationMailbox (options = {}) {
   const retainMs = Number(options.retainMs) > 0 ? Number(options.retainMs) : MAILBOX_RETAIN_MS;
   const storeKey = options.storeKey || 'delegation-mailbox';
   const maxPerSender = Math.ceil(maxPerAddress / 4);
+  const maxAddressesPerSender = Math.ceil(maxAddresses / 16);
   const postsPerMinute = Number(options.postsPerMinute) > 0 ? Number(options.postsPerMinute) : DEFAULT_POSTS_PER_MINUTE;
   const limit = createRateLimit({ limit: postsPerMinute, windowMs: 60 * 1000, now });
   const fetchLimit = createRateLimit({ limit: 6 * postsPerMinute, windowMs: 60 * 1000, now });
@@ -418,6 +423,34 @@ function createDelegationMailbox (options = {}) {
     return pick.newest;
   }
 
+  /** Boxes each sender has written to. */
+  function boxesBySender () {
+    const held = new Map();
+    for (const [to, items] of boxes) {
+      for (const from of new Set(items.map((i) => i.from || ''))) {
+        if (!held.has(from)) held.set(from, []);
+        held.get(from).push(to);
+      }
+    }
+    return held;
+  }
+
+  /** A box to drop for a new one: the newest that only the busiest sender wrote to, holding no revoke. */
+  function boxEvictionFor (held) {
+    const ranked = [...held.entries()].sort((a, b) => b[1].length - a[1].length);
+    for (const [from, addresses] of ranked) {
+      let pick = null;
+      for (const to of addresses) {
+        const items = boxes.get(to);
+        if (items.some((i) => (i.from || '') !== from || i.type === 'DELEGATION_REVOKE')) continue;
+        const newest = Math.max(...items.map((i) => i.seq));
+        if (!pick || newest > pick.newest) pick = { to, newest };
+      }
+      if (pick) return pick.to;
+    }
+    return null;
+  }
+
   function readAddressed (type, buffer) {
     const opts = { now: now() };
     switch (type) {
@@ -463,13 +496,27 @@ function createDelegationMailbox (options = {}) {
     const previous = boxes.get(to);
     const items = previous ? previous.slice() : [];
     if (items.some((i) => i.hash === addressed.hash)) return { status: 200, body: { ok: true, hash: addressed.hash, duplicate: true } };
-    if (!previous && boxes.size >= maxAddresses) return { status: 503, body: { ok: false, error: 'mailbox full' } };
     const until = lifetime(addressed.type, addressed.buffer);
     if (until <= now()) return { status: 400, body: { ok: false, error: 'frame expired' } };
     const from = senderOf(hints.from);
+    let dropped = null;
+    if (!previous) {
+      const held = boxesBySender();
+      if (from && (held.get(from) || []).length >= maxAddressesPerSender) {
+        return { status: 429, body: { ok: false, error: 'too many mailboxes from this client' } };
+      }
+      if (boxes.size >= maxAddresses) {
+        const victim = boxEvictionFor(held);
+        if (!victim) return { status: 503, body: { ok: false, error: 'mailbox full' } };
+        dropped = { to: victim, items: boxes.get(victim) };
+        boxes.delete(victim);
+      }
+    }
     const own = from ? items.filter((i) => i.from === from) : [];
-    if (own.length >= maxPerSender) items.splice(items.indexOf(own[0]), 1);
-    else if (items.length >= maxPerAddress) items.splice(items.indexOf(evictionFor(items)), 1);
+    if (own.length >= maxPerSender) {
+      const mine = own.filter((i) => i.type !== 'DELEGATION_REVOKE');
+      items.splice(items.indexOf(mine.length ? mine[0] : own[0]), 1);
+    } else if (items.length >= maxPerAddress) items.splice(items.indexOf(evictionFor(items)), 1);
     const before = seq;
     seq++;
     items.push({ seq, hash: addressed.hash, type: addressed.type, buffer: addressed.buffer, at: now(), until, from });
@@ -480,6 +527,7 @@ function createDelegationMailbox (options = {}) {
       // Nothing else ran since this post began, so its snapshot is still current.
       if (previous) boxes.set(to, previous);
       else boxes.delete(to);
+      if (dropped) boxes.set(dropped.to, dropped.items);
       seq = before;
       throw err;
     }

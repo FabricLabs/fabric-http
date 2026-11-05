@@ -304,6 +304,7 @@ class App extends Component {
 
     let self = this;
     let address = await self.browser.route(ctx.path);
+    if (!address || !address.route) return;
     let sample = await self.browser.load(ctx.path);
 
     console.log('[MAKI:APP]', 'final testing:', sample);

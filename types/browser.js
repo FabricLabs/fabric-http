@@ -97,7 +97,7 @@ class Browser extends Service {
 
       element.state = {};
 
-      pointer.set(element.state, path, x);
+      pointer.set(element.state, String(path).split('?')[0], x);
 
       self._setElement(element);
     }, function (e) {
@@ -111,7 +111,8 @@ class Browser extends Service {
 
   route (path) {
     if (!path) path = '/';
-    return this.router.route(path);
+    // Routes match the pathname; the query string is for the data request.
+    return this.router.route(String(path).split('?')[0]);
   }
 
   _redraw () {

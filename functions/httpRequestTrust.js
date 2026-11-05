@@ -200,11 +200,15 @@ function readRequestText (req, limit) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let size = 0;
+    let over = false;
     req.on('data', (chunk) => {
+      if (over) return;
       size += chunk.length;
       if (size > limit) {
+        // Discard the rest without closing the socket, so the 413 still reaches the client.
+        over = true;
+        chunks.length = 0;
         reject(Object.assign(new Error('request body too large'), { status: 413 }));
-        req.destroy();
         return;
       }
       chunks.push(chunk);
@@ -254,19 +258,44 @@ function sendJson (res, status, json) {
   res.end(JSON.stringify(json));
 }
 
+/** @private An address without an IPv4-mapped prefix or zone. */
+function plainAddress (address) {
+  const a = String(address || '').trim().toLowerCase().split('%')[0];
+  return a.startsWith('::ffff:') && net.isIPv4(a.slice(7)) ? a.slice(7) : a;
+}
+
+/**
+ * Is the socket peer a proxy whose `X-Forwarded-For` counts? `trustProxy`
+ * `true` trusts a loopback peer only (a proxy on this host); a list (array or
+ * comma string) names the proxy addresses.
+ * @param {string} peer Socket address.
+ * @param {(boolean|string|string[])} trustProxy
+ * @returns {boolean}
+ */
+function isTrustedProxy (peer, trustProxy) {
+  if (!trustProxy) return false;
+  const address = plainAddress(peer);
+  if (trustProxy === true) return address === '::1' || /^127\./.test(address);
+  const list = Array.isArray(trustProxy) ? trustProxy : String(trustProxy).split(',');
+  return list.map(plainAddress).filter(Boolean).includes(address);
+}
+
 /**
  * Address used for rate limits: the socket address, or the last
- * `X-Forwarded-For` hop when `trustProxy` (the hop our own proxy added).
+ * `X-Forwarded-For` hop (the one our proxy added) when the socket peer is a
+ * trusted proxy ({@link isTrustedProxy}). A client that reaches the backend
+ * directly cannot pick its own bucket.
  * @param {import('http').IncomingMessage} req
- * @param {boolean} [trustProxy]
+ * @param {(boolean|string|string[])} [trustProxy]
  * @returns {string}
  */
 function clientAddress (req, trustProxy = false) {
-  if (trustProxy) {
+  const peer = String((req && req.socket && req.socket.remoteAddress) || 'unknown');
+  if (isTrustedProxy(peer, trustProxy)) {
     const forwarded = String((req && req.headers && req.headers['x-forwarded-for']) || '').split(',').map((s) => s.trim()).filter(Boolean);
     if (forwarded.length) return forwarded[forwarded.length - 1];
   }
-  return String((req && req.socket && req.socket.remoteAddress) || 'unknown');
+  return peer;
 }
 
 /**
@@ -298,7 +327,7 @@ function clientGroup (address) {
 /**
  * Key every rate limit counts a request by: its {@link clientGroup}.
  * @param {import('http').IncomingMessage} req
- * @param {boolean} [trustProxy]
+ * @param {(boolean|string|string[])} [trustProxy]
  * @returns {string}
  */
 function clientKey (req, trustProxy = false) {
@@ -367,6 +396,7 @@ module.exports = {
   readFrame,
   sendJson,
   clientAddress,
+  isTrustedProxy,
   clientGroup,
   clientKey,
   pathParam,

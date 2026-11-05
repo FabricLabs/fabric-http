@@ -140,7 +140,8 @@ class SPA extends App {
     // TODO: check for async compatibility in HTTP.App
     super.define(name, definition);
 
-    let resource = new Resource(name, definition);
+    // Core Resource takes one definition object; its name gives the state address (`/<plural>`).
+    let resource = new Resource(Object.assign({}, definition, { name }));
     let snapshot = Object.assign({
       name: name,
       names: { plural: pluralize(name) }

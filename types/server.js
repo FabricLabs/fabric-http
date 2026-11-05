@@ -791,7 +791,8 @@ class FabricHTTPServer extends Service {
 
   /**
    * Optional `settings.websocket.verifyOrigin(req)` hook: an embedding app (e.g. Hub) decides
-   * which upgrade requests to accept by `Origin` / `Host`. A throw rejects the upgrade.
+   * which upgrade requests to accept by `Origin` / `Host`. Only `true` accepts; a throw or a
+   * promise (the hook is synchronous) rejects the upgrade.
    * @param {Object} info `ws` verifyClient info (`{ origin, secure, req }`)
    * @returns {boolean}
    */
@@ -800,7 +801,10 @@ class FabricHTTPServer extends Service {
     if (typeof wsCfg.verifyOrigin !== 'function') return true;
     let ok = false;
     try {
-      ok = wsCfg.verifyOrigin(info && info.req) === true;
+      const verdict = wsCfg.verifyOrigin(info && info.req);
+      // The hook is synchronous: a promise refuses the upgrade, and its rejection is handled.
+      if (verdict && typeof verdict.then === 'function') verdict.then(null, () => {});
+      ok = verdict === true;
     } catch (_) {
       ok = false;
     }
