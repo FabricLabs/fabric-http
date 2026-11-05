@@ -284,6 +284,31 @@ describe('@fabric/http functions/passportPeer', function () {
     assert.match(passport.readRefusal((await noBinding.json()).frame).error, /handshake/);
   });
 
+  it('never forgets a live request nonce: when full, new requests wait', async function () {
+    const small = createPassportPeer({ key: PEER, network: 'regtest', maxRequestNonces: 2 });
+    const conn = {};
+    const listeners = new Set();
+    const transport = {
+      send (buffer) {
+        small.handleFrame(conn, buffer).then((out) => {
+          for (const reply of out.replies) for (const l of listeners) l(reply);
+        });
+      },
+      onFrame (fn) { listeners.add(fn); return () => listeners.delete(fn); },
+      close () {}
+    };
+    const session = await openPeerSession({ transport, peer: PEER.pubkey, sign: signWithKey(USER.identity.key) });
+    const ask = (header) => small.authorizeRequest({ method: 'GET', target: '/x', header });
+    const first = session.authorize({ method: 'GET', target: '/x' });
+    assert.strictEqual((await ask(first)).ok, true);
+    assert.strictEqual((await ask(session.authorize({ method: 'GET', target: '/x' }))).ok, true);
+    const full = await ask(session.authorize({ method: 'GET', target: '/x' }));
+    assert.strictEqual(full.status, 503);
+    const replay = await ask(first);
+    assert.strictEqual(replay.status, 401);
+    assert.match(replay.error, /replayed/);
+  });
+
   it('works without HTTP: any transport object', async function () {
     const standalone = createPassportPeer({ key: PEER, network: 'regtest' });
     const conn = {};

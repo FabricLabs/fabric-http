@@ -2,6 +2,8 @@
 All notable changes to `@fabric/http` are documented here. This project follows semantic-ish versioning with **RC** milestones aligned to **`@fabric/core`**.
 
 ## Unreleased
+- **`withContext` methods see their connection.** The context is `{ passport, transportAuthorized, connection }`; `connection` is the WebSocket a call came in on (null over HTTP), so a host can answer one client without broadcasting. The Hub routes WebRTC signals this way.
+- **Passport peer requests are never replayable while live.** `authorizeRequest` forgets only expired request nonces; when `maxRequestNonces` (default 200,000) live nonces are held, a new request gets `503` instead of pushing out a live nonce whose request could then be replayed.
 - **The mailbox shares boxes by sender too.** One sender (client address, IPv6 by its /64) opens at most `maxAddresses / 16` boxes (`429` past that), and a full table drops the newest box that only the sender holding the most boxes wrote to (never one holding a revoke) instead of refusing every new addressee. A sender over its per-box quarter drops its own oldest non-revoke frame first.
 - **`trustProxy` reads `X-Forwarded-For` only from a trusted proxy.** `true` now trusts a loopback socket peer (a proxy on this host); pass the proxy addresses (array or comma string) for one elsewhere. A client that reaches the backend directly is counted by its socket address (`isTrustedProxy`, `clientAddress`).
 - **An oversized delegation body gets its `413`.** `readRequestText` stops reading without closing the socket, so the error response reaches the client.

@@ -931,8 +931,9 @@ class FabricHTTPServer extends Service {
    * @param {Function} method
    * @param {Object} [options]
    * @param {boolean} [options.withContext] Call as `method(context, ...params)`, where
-   *   `context` is `{ passport, transportAuthorized }`: `passport` is the Passport peer
-   *   session the call was signed for (`functions/passportPeer`), or null.
+   *   `context` is `{ passport, transportAuthorized, connection }`: `passport` is the Passport
+   *   peer session the call was signed for (`functions/passportPeer`), or null; `connection`
+   *   is the WebSocket the call came in on, or null over HTTP.
    */
   _registerMethod (name, method, options = {}) {
     this.methods[name] = method.bind(this);
@@ -1108,7 +1109,7 @@ class FabricHTTPServer extends Service {
     if (!this.methods[methodName]) throw new Error(`Method "${methodName}" has not been registered.`);
     const options = (this._methodOptions && this._methodOptions[methodName]) || {};
     if (options.withContext) {
-      const context = { passport: call.passport || null, transportAuthorized: call._fabricTransportAuthorized === true };
+      const context = { passport: call.passport || null, transportAuthorized: call._fabricTransportAuthorized === true, connection: call._connection || null };
       return this.methods[methodName].apply(this, [context].concat(params));
     }
     return this.methods[methodName].apply(this, params);
@@ -1338,7 +1339,8 @@ class FabricHTTPServer extends Service {
                 method: jsonCallPayload.method,
                 params: jsonCallPayload.params,
                 passport: passportCaller,
-                _fabricTransportAuthorized: socket._fabricTransportAuthorized === true
+                _fabricTransportAuthorized: socket._fabricTransportAuthorized === true,
+                _connection: socket
               });
 
               if (server.settings.debug) {

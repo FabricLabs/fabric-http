@@ -99,6 +99,7 @@ function isPassportPeerFrame (input) {
  * @param {function(object, object): Promise<(object|void)>} [settings.onSession] Called with the
  *   verified assertion and the connection before a session starts. Return extra session fields, or
  *   throw to refuse.
+ * @param {number} [settings.maxRequestNonces] Live request nonces remembered; when full, new requests get 503.
  * @param {function(): number} [settings.now]
  * @returns {object}
  */
@@ -112,6 +113,9 @@ function createPassportPeer (settings = {}) {
   const network = settings.network ? String(settings.network) : null;
   const signers = Array.isArray(settings.signers) ? settings.signers.slice() : null;
   const baseRequest = Array.isArray(settings.request) ? settings.request.slice() : [];
+  const maxSeenNonces = Number.isSafeInteger(settings.maxRequestNonces) && settings.maxRequestNonces > 0
+    ? settings.maxRequestNonces
+    : MAX_SEEN_REQUEST_NONCES;
   const store = settings.sessionStore || createMemoryStore({ now, max: MEMORY_SESSION_STORE_MAX });
   const connections = new WeakMap();
   /** HTTP handshakes: sha256(binding) → `{ conn, expiresAt }`. */
@@ -401,11 +405,14 @@ function createPassportPeer (settings = {}) {
     const at = now();
     if (!record || record.expiresAt <= at) return { ok: false, status: 401, error: 'unknown or expired session' };
     if (record.sessionKey.slice(2) !== read.author) return { ok: false, status: 401, error: 'not signed by the session key' };
+    // Forget only nonces whose requests have expired: dropping a live one
+    // would let its request be replayed. Oldest first; when full, sweep all.
     for (const [nonce, expiresAt] of seenNonces) {
-      if (expiresAt > at && seenNonces.size < MAX_SEEN_REQUEST_NONCES) break;
-      seenNonces.delete(nonce);
+      if (expiresAt > at && seenNonces.size < maxSeenNonces) break;
+      if (expiresAt <= at) seenNonces.delete(nonce);
     }
     if (seenNonces.has(read.nonce)) return { ok: false, status: 401, error: 'request replayed' };
+    if (seenNonces.size >= maxSeenNonces) return { ok: false, status: 503, error: 'too many requests in flight; retry shortly' };
     seenNonces.set(read.nonce, read.expiresAt + PASSPORT_REQUEST_CLOCK_SKEW_MS);
     return { ok: true, session: sessionView(record) };
   }
