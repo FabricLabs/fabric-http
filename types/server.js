@@ -71,6 +71,16 @@ const WebSocket = require('ws');
 const messageTransport = require('../functions/fabricMessageTransport');
 const jsonRpcTransport = require('../functions/fabricJsonRpcTransport');
 const webrtcInterop = require('../functions/fabricWebRtcInterop');
+const {
+  PASSPORT_REQUEST_HEADER,
+  isPassportPeerFrame,
+  createPassportPeerHttp
+} = require('../functions/passportPeer');
+
+/** Body-parser `verify`: keep the bytes of a request signed as a Passport peer session. */
+function keepSignedBody (req, res, buf) {
+  if (req.headers && req.headers[PASSPORT_REQUEST_HEADER]) req.rawBody = Buffer.from(buf);
+}
 const { resolveJsonBodyLimitForRequest } = require('../functions/jsonBodyLimit');
 const {
   buildApplicationResourceContract
@@ -366,6 +376,10 @@ class FabricHTTPServer extends Service {
     this.connections = {};
     this.definitions = {};
     this.methods = {};
+    this._methodOptions = {};
+    /** Passport peer sessions (`functions/passportPeer`), when the host attaches one. */
+    this._passportPeer = null;
+    this._passportPeerHttp = null;
     this.stores = {};
     /** Resource instances keyed by name. */
     /** @type {Map<string, Resource>} */
@@ -405,6 +419,7 @@ class FabricHTTPServer extends Service {
     this.collections = [];
     this.routes = [];
     this.customRoutes = [];
+    if (settings.passportPeer) this.attachPassportPeer(settings.passportPeer);
     this.keys = new Set();
     this.accessLogStream = null;
     this.resourceRouteIndex = new Map();
@@ -910,8 +925,34 @@ class FabricHTTPServer extends Service {
     return this;
   }
 
-  _registerMethod (name, method) {
+  /**
+   * Register a JSON-RPC method.
+   * @param {string} name
+   * @param {Function} method
+   * @param {Object} [options]
+   * @param {boolean} [options.withContext] Call as `method(context, ...params)`, where
+   *   `context` is `{ passport, transportAuthorized }`: `passport` is the Passport peer
+   *   session the call was signed for (`functions/passportPeer`), or null.
+   */
+  _registerMethod (name, method, options = {}) {
     this.methods[name] = method.bind(this);
+    this._methodOptions[name] = Object.assign({}, options);
+  }
+
+  /**
+   * Answer Passport peer sign-ins on this server: on its WebSockets, on
+   * `GET|POST /sessions/peer` (HTTP handshake), and on any request carrying
+   * `X-Fabric-Request`, which then has `req.passportSession` (or gets 401).
+   * @param {object} passportPeer From `createPassportPeer`.
+   * @param {Object} [options] `createPassportPeerHttp` options; `routes: false` skips the routes.
+   * @returns {HTTPServer}
+   */
+  attachPassportPeer (passportPeer, options = {}) {
+    if (!passportPeer || typeof passportPeer.handleFrame !== 'function') throw new TypeError('attachPassportPeer: a Passport peer is required');
+    this._passportPeer = passportPeer;
+    this._passportPeerHttp = createPassportPeerHttp(passportPeer, options);
+    if (options.routes !== false) this._passportPeerHttp.mount(this);
+    return this;
   }
 
   /**
@@ -1065,6 +1106,11 @@ class FabricHTTPServer extends Service {
     if (params === undefined || params === null) params = [];
     if (!Array.isArray(params)) params = [params];
     if (!this.methods[methodName]) throw new Error(`Method "${methodName}" has not been registered.`);
+    const options = (this._methodOptions && this._methodOptions[methodName]) || {};
+    if (options.withContext) {
+      const context = { passport: call.passport || null, transportAuthorized: call._fabricTransportAuthorized === true };
+      return this.methods[methodName].apply(this, [context].concat(params));
+    }
     return this.methods[methodName].apply(this, params);
   }
 
@@ -1132,6 +1178,7 @@ class FabricHTTPServer extends Service {
     // Clean up memory when the connection has been safely closed (ideal case).
     socket.on('close', function () {
       clearInterval(socket._heartbeat);
+      if (server._passportPeer) server._passportPeer.close(socket);
       // Clear subscriptions for this socket
       socket.subscriptions.clear();
       delete server.connections[player['@data'].connection];
@@ -1162,6 +1209,15 @@ class FabricHTTPServer extends Service {
           if (payloadBuf.length < HEADER_SIZE) {
             if ((server.settings.verbosity || 0) >= 2) {
               console.warn('[SERVER]', 'Ignoring WebSocket binary frame: shorter than AMP header.');
+            }
+            return;
+          }
+          // Passport peer sign-in: answered on this socket before any transport gate.
+          if (server._passportPeer && isPassportPeerFrame(payloadBuf)) {
+            const outcome = await server._passportPeer.handleFrame(socket, payloadBuf);
+            for (const reply of outcome.replies || []) socket.send(reply);
+            if (outcome.session) {
+              server.emit('passport:session', { session: outcome.session, resumed: !!outcome.resumed, connection: handle });
             }
             return;
           }
@@ -1274,10 +1330,14 @@ class FabricHTTPServer extends Service {
                 break;
               }
 
+              const passportCaller = payloadBuf && server._passportPeer
+                ? await server._passportPeer.callerOf(socket, payloadBuf)
+                : null;
               const result = await server._handleCall({
                 hash: hash,
                 method: jsonCallPayload.method,
                 params: jsonCallPayload.params,
+                passport: passportCaller,
                 _fabricTransportAuthorized: socket._fabricTransportAuthorized === true
               });
 
@@ -2392,13 +2452,18 @@ class FabricHTTPServer extends Service {
     }
 
     // Other Middlewares
-    this.express.use(parsers.urlencoded({ extended: true }));
+    this.express.use(parsers.urlencoded({ extended: true, verify: keepSignedBody }));
     // Fabric HTTP APIs expect JSON **objects** (or arrays where applicable), not bare primitives.
     // Keep the global JSON limit small; apply a larger limit only on known large-body paths
     // (JSON-RPC / CreateDocument). Unauthenticated POSTs elsewhere must not parse 12mb.
     this.express.use((req, res, next) => {
       const limit = this._jsonBodyLimitForRequest(req);
-      return parsers.json({ limit })(req, res, next);
+      return parsers.json({ limit, verify: keepSignedBody })(req, res, next);
+    });
+    // Passport peer sessions over HTTP: a signed `X-Fabric-Request` names the session.
+    this.express.use((req, res, next) => {
+      if (!this._passportPeerHttp || !req.headers[PASSPORT_REQUEST_HEADER]) return next();
+      return this._passportPeerHttp.middleware(req, res, next);
     });
 
     for (let name in this.settings.middlewares) {

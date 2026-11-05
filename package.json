@@ -106,6 +106,9 @@
     "./functions/passportRelyingParty": "./functions/passportRelyingParty.js",
     "./functions/passportHttp": "./functions/passportHttp.js",
     "./functions/passportPage": "./functions/passportPage.js",
+    "./functions/passportPeer": "./functions/passportPeer.js",
+    "./functions/passportPeerClient": "./functions/passportPeerClient.js",
+    "./functions/passportPeerRequest": "./functions/passportPeerRequest.js",
     "./functions/fabricDelegate": "./functions/fabricDelegate.js",
     "./functions/fabricDelegationHttp": "./functions/fabricDelegationHttp.js",
     "./functions/fabricDelegationClient": "./functions/fabricDelegationClient.js",
@@ -122,7 +125,7 @@
     "Victor Wu"
   ],
   "dependencies": {
-    "@fabric/core": "FabricLabs/fabric#feature/passport",
+    "@fabric/core": "FabricLabs/fabric#feature/schemas",
     "@noble/ciphers": "=2.4.0",
     "@noble/hashes": "=2.4.0",
     "assert-browserify": "=2.0.0",
