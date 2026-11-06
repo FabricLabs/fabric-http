@@ -57,6 +57,25 @@ describe('@fabric/http security hardening', function () {
     assert.strictEqual(ok, true);
   });
 
+  it('refuses an upgrade when verifyOrigin returns a promise, and handles its rejection', async function () {
+    const unhandled = [];
+    const onUnhandled = (reason) => unhandled.push(reason);
+    process.on('unhandledRejection', onUnhandled);
+    try {
+      const server = new HTTPServer({
+        listen: false,
+        websocket: { verifyOrigin: async () => { throw new Error('lookup failed'); } }
+      });
+      assert.strictEqual(server._verifyWebSocketOrigin({ req: { headers: {} } }), false);
+      const resolved = new HTTPServer({ listen: false, websocket: { verifyOrigin: async () => true } });
+      assert.strictEqual(resolved._verifyWebSocketOrigin({ req: { headers: {} } }), false);
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.deepStrictEqual(unhandled, []);
+    } finally {
+      process.removeListener('unhandledRejection', onUnhandled);
+    }
+  });
+
   it('rejects websocket client token when it does not match configured secret', function () {
     const server = new HTTPServer({
       listen: false,

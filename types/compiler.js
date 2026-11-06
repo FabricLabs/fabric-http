@@ -3,7 +3,6 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const beautify = require('js-beautify').html;
 const webpack = require('webpack');
 const merge = require('lodash.merge');
 const { JSDOM } = require('jsdom');
@@ -156,9 +155,15 @@ class Compiler extends Service {
       state: state
     });
 
-    // Cleanup output
-    const output = beautify(html, { indent_size: 2, extra_liners: [] });
-    return output;
+    // Cleanup output: `js-beautify` is a devDependency (its glob / minimatch tree
+    // carries advisories), so a consumer without it gets the HTML as built.
+    let beautify = null;
+    try {
+      beautify = require('js-beautify').html;
+    } catch (_) {
+      return html;
+    }
+    return beautify(html, { indent_size: 2, extra_liners: [] });
   }
 
   async compileTo (target = 'assets/index.html') {

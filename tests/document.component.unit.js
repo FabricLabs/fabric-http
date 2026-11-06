@@ -218,6 +218,7 @@ describe('fabric-document component', function () {
   });
 
   describe('server market hooks', function () {
+    this.timeout(20000);
     const os = require('os');
     const net = require('net');
     const HTTPServer = require('../types/server');
@@ -228,7 +229,6 @@ describe('fabric-document component', function () {
     let record;
 
     before(async function () {
-      this.timeout(20000);
       record = Document.seal(Buffer.alloc(5000, 9), { chunkBytes: 2048, documentId: 'market', private: true }).record();
       const port = await new Promise((resolve, reject) => {
         const s = net.createServer();
@@ -367,6 +367,7 @@ describe('fabric-document component', function () {
         /blob route \/purchases\/:id must include a :hash parameter/
       );
       assert.strictEqual(new Resource('Purchase', { blobOffer: async () => null, routes: { blob: '/purchases/:hash' } }).blobRoute, '/purchases/:hash');
+      assert.strictEqual(new Resource('Purchase', { blobOffer: async () => null, routes: { blob: '/purchases{/:hash}' } }).blobRoute, '/purchases{/:hash}');
     });
 
     it('lets only one resource price blobs', async function () {
@@ -377,15 +378,43 @@ describe('fabric-document component', function () {
     });
 
     it('refuses routes that overlap the blob route, in either order', async function () {
+      this.timeout(20000);
       await assert.rejects(server.define('Blob', {}), /cannot mount \/blobs\/:id: it overlaps Document's \/blobs\/:hash/);
       const other = new HTTPServer({ listen: false });
-      await other.define('Blob', {});
+      await other.localStore.start();
+      try {
+        await other.define('Blob', {});
+        await assert.rejects(
+          other.define('Archive', { blobOffer: async () => null }),
+          /cannot mount \/blobs\/:hash: it overlaps Blob's \/blobs\/:id/
+        );
+        await other.define('Archive', { blobOffer: async () => null, routes: { blob: '/archive-blobs/:hash' } });
+        assert.ok(other.routes.some((r) => r.isBlob && r.path === '/archive-blobs/:hash'));
+      } finally {
+        await other.localStore.stop();
+      }
+    });
+
+    it("refuses a blob route that overlaps the resource's own routes", async function () {
       await assert.rejects(
-        other.define('Archive', { blobOffer: async () => null }),
-        /cannot mount \/blobs\/:hash: it overlaps Blob's \/blobs\/:id/
+        new HTTPServer({ listen: false }).define('Blob', { blobOffer: async () => null }),
+        /Blob cannot mount \/blobs\/:hash: it overlaps its own \/blobs\/:id/
       );
-      await other.define('Archive', { blobOffer: async () => null, routes: { blob: '/archive-blobs/:hash' } });
-      assert.ok(other.routes.some((r) => r.isBlob && r.path === '/archive-blobs/:hash'));
+    });
+
+    it('sees overlaps through wildcards and omitted optional groups', async function () {
+      const tails = new HTTPServer({ listen: false });
+      await tails.define('Archive', { blobOffer: async () => null, routes: { blob: '/files/:hash' } });
+      await assert.rejects(
+        tails.define('Tail', { routes: { view: '/files/abc*tail', list: '/tails' } }),
+        /cannot mount \/files\/abc\*tail: it overlaps Archive's \/files\/:hash/
+      );
+      const groups = new HTTPServer({ listen: false });
+      await groups.define('Archive', { blobOffer: async () => null, routes: { blob: '/files{/a}/:hash' } });
+      await assert.rejects(
+        groups.define('Version', { routes: { view: '/files{/b}/:id', list: '/versions' } }),
+        /cannot mount \/files\{\/b\}\/:id: it overlaps Archive's \/files\{\/a\}\/:hash/
+      );
     });
   });
 });

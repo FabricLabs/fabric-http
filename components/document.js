@@ -40,7 +40,7 @@ class FabricDocument extends Component {
       opened: null
     }, settings);
     this._state.content = {
-      document: this.settings.document,
+      document: view.sanitizeRecord(this.settings.document),
       offers: Array.isArray(this.settings.offers) ? this.settings.offers : [],
       opened: this.settings.opened || null
     };
@@ -136,7 +136,7 @@ class FabricDocument extends Component {
    */
   async _buyBlob (index) {
     const doc = this._view.document;
-    const leaf = doc && doc.blobs.find((b) => b.index === Number(index));
+    const leaf = doc && Array.isArray(doc.blobs) ? doc.blobs.find((b) => b.index === Number(index)) : null;
     if (!leaf || !leaf.blobHashHex || typeof fetch !== 'function') return null;
     const base = String(this.settings.blobsHref || '/blobs').replace(/\/$/, '');
     const res = await fetch(`${base}/${leaf.blobHashHex}`, {

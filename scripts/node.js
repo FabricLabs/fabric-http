@@ -16,9 +16,7 @@
 
 'use strict';
 
-try {
-  require('@fabric/core/functions/fabricHomeEnv').loadFabricHomeEnv();
-} catch (_) { /* older @fabric/core pin */ }
+require('@fabric/core/functions/fabricHomeEnv').loadFabricHomeEnv();
 
 // Settings
 const settings = require('../settings/local');

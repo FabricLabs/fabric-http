@@ -63,7 +63,7 @@ class Router extends Service {
   _addRoute (route, component) {
     this.routes[component] = {
       path: route,
-      regex: pathToRegexp(route)
+      regex: pathToRegexp(route).regexp
     };
     // this.router.use(route.path, this._handleRoutableRequest.bind(this));
     return this.routes[route.name];

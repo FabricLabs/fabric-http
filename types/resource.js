@@ -56,7 +56,8 @@ const { sendPaymentRequired402Response } = require('../functions/sendPaymentRequ
  *   when that blob is not for sale. Blobs are content-addressed and may belong
  *   to many documents, so this mounts the canonical `GET /blobs/:hash`
  *   (`definition.routes.blob` to move it; it must keep a `:hash` parameter).
- *   That route answers HTTP 402 with `X-Fabric-Payment-Request`, or 404 when
+ *   That route answers HTTP 402 with `X-Fabric-Payment-Request`, 400 when
+ *   `:hash` is not 64 hex characters (before `blobOffer` runs), 404 when
  *   `blobOffer` returns nothing, 500 when the hook throws or returns an
  *   `amount` that is not a positive number, 503 when `settings.payments` is
  *   off or `server.bitcoin.createInvoice` is missing, and 502 when invoice
@@ -85,7 +86,9 @@ class Resource extends Fabric.Resource {
 
     // Blob purchase path, only when the definition prices blobs.
     this.blobRoute = (typeof definition.blobOffer === 'function') ? (blobRoute || '/blobs/:hash') : null;
-    if (this.blobRoute && !parse(this.blobRoute).some((token) => typeof token === 'object' && token.name === 'hash')) {
+    const hasHash = (tokens) => tokens.some((token) => (token.type === 'param' && token.name === 'hash') ||
+      (token.type === 'group' && hasHash(token.tokens)));
+    if (this.blobRoute && !hasHash(parse(this.blobRoute).tokens)) {
       throw new Error(`[HTTP:RESOURCE] ${name} blob route ${this.blobRoute} must include a :hash parameter`);
     }
     this._matchBlob = this.blobRoute ? match(this.blobRoute) : null;

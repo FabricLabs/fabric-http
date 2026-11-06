@@ -1,7 +1,5 @@
 'use strict';
 
-const $ = require('jquery');
-
 class SearchBox {
   constructor (settings = {}) {
     this.settings = Object.assign({}, settings);
@@ -11,6 +9,8 @@ class SearchBox {
   start () {
     console.log('[MAKI:SEARCH]', 'starting...');
 
+    // jQuery 4 throws when required without a window, so load it only here.
+    const $ = require('jquery');
     $('.ui.search').search({
       apiSettings: {
         url: '/searches/{query}'
