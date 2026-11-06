@@ -11,8 +11,9 @@
  * 2. `PASSPORT_ASSERTION` naming this peer and a `sessionKey` → the challenge
  *    is spent, the assertion verified, and a signed `PASSPORT_SESSION` sent back.
  * 3. From then on, frames on that connection signed by `sessionKey` are the
- *    identity's ({@link callerOf}). A relay that forwards the handshake can't
- *    sign as the session key, so it can't speak for the user.
+ *    identity's ({@link callerOf}), each once. A relay that forwards the
+ *    handshake can't sign as the session key, so it can't speak for the user,
+ *    and a frame it sends again speaks for nobody.
  * 4. `PASSPORT_RESUME`, signed by the session key over a fresh challenge,
  *    re-binds a live session on a new connection without asking the user.
  *
@@ -52,6 +53,8 @@ const PASSPORT_BINDING_HEADER = 'x-fabric-binding';
 const HTTP_HANDSHAKE_TTL_MS = 4 * 60 * 1000;
 /** Most HTTP handshakes in flight. */
 const MAX_HTTP_HANDSHAKES = 10000;
+/** Session-signed frames one connection remembers; when full, its sessions must resume. */
+const MAX_SEEN_FRAMES_PER_CONNECTION = 65536;
 /** Most request nonces remembered (each until its request expires). */
 const MAX_SEEN_REQUEST_NONCES = 200000;
 /** Largest handshake body. */
@@ -131,7 +134,7 @@ function createPassportPeer (settings = {}) {
   function stateOf (conn) {
     let state = connections.get(conn);
     if (!state) {
-      state = { challenge: null, sessions: new Map(), connects: [] };
+      state = { challenge: null, sessions: new Map(), connects: [], seenFrames: new Set() };
       connections.set(conn, state);
     }
     return state;
@@ -317,6 +320,16 @@ function createPassportPeer (settings = {}) {
     if (!sessionId) return null;
     const verified = Message.verifyFrameAuthor(buffer);
     if (!verified || !verified.ok) return null;
+    // A frame speaks once: sent again (by a relay that saw it), it speaks for nobody.
+    const frameId = crypto.createHash('sha256').update(buffer).digest('hex');
+    if (state.seenFrames.has(frameId)) return null;
+    if (state.seenFrames.size >= MAX_SEEN_FRAMES_PER_CONNECTION) {
+      // Forgetting frames would let them speak again: end the bindings instead (resume re-binds).
+      state.sessions.clear();
+      state.seenFrames.clear();
+      return null;
+    }
+    state.seenFrames.add(frameId);
     const record = await store.get(sessionId);
     if (!record || record.expiresAt <= now() || record.sessionKey.slice(2) !== author) {
       state.sessions.delete(author);

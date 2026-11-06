@@ -77,6 +77,14 @@ const {
   createPassportPeerHttp
 } = require('../functions/passportPeer');
 
+/**
+ * Key for the verified call context (`{ passport, connection }`) on a call
+ * object. Calls are also built from client JSON, which cannot carry a Symbol
+ * key, so only server code can vouch for a caller.
+ * @private
+ */
+const CALL_CONTEXT = Symbol('FabricHTTPServer.callContext');
+
 /** Body-parser `verify`: keep the bytes of a request signed as a Passport peer session. */
 function keepSignedBody (req, res, buf) {
   if (req.headers && req.headers[PASSPORT_REQUEST_HEADER]) req.rawBody = Buffer.from(buf);
@@ -933,7 +941,8 @@ class FabricHTTPServer extends Service {
    * @param {boolean} [options.withContext] Call as `method(context, ...params)`, where
    *   `context` is `{ passport, transportAuthorized, connection }`: `passport` is the Passport
    *   peer session the call was signed for (`functions/passportPeer`), or null; `connection`
-   *   is the WebSocket the call came in on, or null over HTTP.
+   *   is the WebSocket the call came in on, or null over HTTP. Both come only from
+   *   `call[HTTPServer.CALL_CONTEXT]`, never from fields a client can put in a call.
    */
   _registerMethod (name, method, options = {}) {
     this.methods[name] = method.bind(this);
@@ -1109,7 +1118,8 @@ class FabricHTTPServer extends Service {
     if (!this.methods[methodName]) throw new Error(`Method "${methodName}" has not been registered.`);
     const options = (this._methodOptions && this._methodOptions[methodName]) || {};
     if (options.withContext) {
-      const context = { passport: call.passport || null, transportAuthorized: call._fabricTransportAuthorized === true, connection: call._connection || null };
+      const trusted = call[CALL_CONTEXT] || {};
+      const context = { passport: trusted.passport || null, transportAuthorized: call._fabricTransportAuthorized === true, connection: trusted.connection || null };
       return this.methods[methodName].apply(this, [context].concat(params));
     }
     return this.methods[methodName].apply(this, params);
@@ -1350,9 +1360,8 @@ class FabricHTTPServer extends Service {
                 hash: hash,
                 method: jsonCallPayload.method,
                 params: jsonCallPayload.params,
-                passport: passportCaller,
                 _fabricTransportAuthorized: socket._fabricTransportAuthorized === true,
-                _connection: socket
+                [CALL_CONTEXT]: { passport: passportCaller, connection: socket }
               });
 
               if (server.settings.debug) {
@@ -1885,7 +1894,8 @@ class FabricHTTPServer extends Service {
             _fabricTransportAuthorized: transportAuthorized,
             _fabricRemoteAddress: req && req.socket && req.socket.remoteAddress
               ? String(req.socket.remoteAddress)
-              : ''
+              : '',
+            [CALL_CONTEXT]: { passport: (req && req.passportSession) || null }
           });
         } catch (callErr) {
           if ((this.settings.verbosity || 0) >= 3) console.error('[HTTP:SERVER] RPC call error:', callErr);
@@ -2826,5 +2836,7 @@ class FabricHTTPServer extends Service {
     return result;
   }
 }
+
+FabricHTTPServer.CALL_CONTEXT = CALL_CONTEXT;
 
 module.exports = FabricHTTPServer;

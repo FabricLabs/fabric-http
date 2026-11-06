@@ -330,7 +330,8 @@ function createSessionHandle (transport, context) {
    * @returns {Promise<*>}
    */
   function call (method, params = []) {
-    const body = JSON.stringify({ method: String(method), params: Array.isArray(params) ? params : [params] });
+    // The nonce makes each call its own frame: the peer lets a session-signed frame speak once.
+    const body = JSON.stringify({ method: String(method), params: Array.isArray(params) ? params : [params], nonce: crypto.randomBytes(16).toString('hex') });
     const { hash } = computeWebSocketJsonCallHashPair(body);
     const frame = sign(Message.fromVector(['JSONCall', body]));
     return new Promise((resolve, reject) => {

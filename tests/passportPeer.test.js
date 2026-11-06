@@ -328,5 +328,8 @@ describe('@fabric/http functions/passportPeer', function () {
     assert.strictEqual(caller.identity.pubkey, USER.identity.pubkey);
     assert.strictEqual(caller.signer, 'gooncitizen');
     assert.strictEqual(await standalone.callerOf({}, signed.toBuffer()), null, 'bound to its connection');
+    assert.strictEqual(await standalone.callerOf(conn, signed.toBuffer()), null, 'a frame sent again speaks for nobody');
+    const next = session.sign(Message.fromVector(['JSONCall', '{"method":"x","params":[],"nonce":"1"}']));
+    assert.strictEqual((await standalone.callerOf(conn, next.toBuffer())).identity.pubkey, USER.identity.pubkey, 'a new call still does');
   });
 });
