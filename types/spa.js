@@ -339,18 +339,22 @@ class SPA extends App {
       case 'Receipt':
         console.log('Receipt for your message:', msg);
         break;
-      case 'Pong':
-        console.log('Received pong:', msg.data);
-        let time = new Date(msg.data / 1000);
-        console.log('time:', time, time.toISOString());
-      case 'Ping':
+      case 'Pong': {
+        // Field body `{ nonce }`: the sender's clock in ms.
+        const parsed = typeof msg.toBuffer === 'function' ? Message.tryParseLegacyBody(msg) : null;
+        const nonce = parsed && parsed.ok && parsed.value ? Number(parsed.value.nonce) : NaN;
+        if (this.settings.verbosity >= 5) console.log('[HTTP:SPA]', 'Received pong:', Number.isFinite(nonce) ? new Date(nonce).toISOString() : msg.data);
+        break;
+      }
+      case 'Ping': {
         const now = Date.now();
-        const message = Message.fromVector(['Pong', now.toString()]);
+        const message = Message.fromLegacyBody('P2P_PONG', { nonce: now.toString() });
         if (this.bridge && this.bridge.key && this.bridge.key.private) {
           message.signWithKey(this.bridge.key);
         }
         this.bridge.send(message.toBuffer());
         break;
+      }
       case 'State':
         console.log('RAD STATE:', msg);
         this.state = msg.data;

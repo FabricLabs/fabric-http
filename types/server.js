@@ -585,7 +585,8 @@ class FabricHTTPServer extends Service {
     // Do not JSON.stringify the full HTTPServer state on every resource mutation
     // (OpenSSF advisory floods OOMed Hub while this ran on every Create).
     if ((this.settings.verbosity || 0) < 5) return;
-    const message = Message.fromVector(['StateUpdate', JSON.stringify({ clock: this.clock })]);
+    // `StateUpdate` is not a registered type; it always went out as P2P_BASE_MESSAGE.
+    const message = Message.fromVector(['P2P_BASE_MESSAGE', JSON.stringify({ type: 'StateUpdate', clock: this.clock })]);
     if (this._rootKey && this._rootKey.private) message.signWithKey(this._rootKey);
     this.broadcast(message);
   }
@@ -615,10 +616,9 @@ class FabricHTTPServer extends Service {
       this.emit('changes', this['@changes']);
       this.emit('message', message);
 
-      // Broadcast to connected peers (patches only — not a full state snapshot)
-      const outbound = Message.fromVector(['Transaction', JSON.stringify(message['@data'])]);
-      if (this._rootKey && this._rootKey.private) outbound.signWithKey(this._rootKey);
-      this.broadcast(outbound);
+      // No `Transaction` broadcast: `P2P_TRANSACTION` is deprecated (receivers
+      // ignore it) and its JSON body has no layout. Subscribers get resource
+      // changes through `_notifySubscribers`.
     }
 
     return this;
@@ -1150,7 +1150,7 @@ class FabricHTTPServer extends Service {
       clearInterval(socket._heartbeat);
       socket._heartbeat = setInterval(function () {
         const now = Date.now();
-        const ping = Message.fromVector(['Ping', now.toString()]);
+        const ping = Message.fromLegacyBody('P2P_PING', { nonce: now.toString() });
 
         // Sign the ping message before sending
         if (server._rootKey && server._rootKey.private) {
@@ -1246,12 +1246,24 @@ class FabricHTTPServer extends Service {
             const rawType = parsed.type || parsed['@type'];
             if (rawType === messageTransport.HEARTBEAT_TYPE) {
               const payload = parsed.body ?? parsed.data ?? parsed.content ?? parsed['@data'] ?? '';
-              message = Message.fromVector([
-                messageTransport.HEARTBEAT_TYPE,
-                typeof payload === 'string' ? payload : JSON.stringify(payload)
-              ]);
+              // A client JSON keepalive is a ping: carry it as a P2P_PING field
+              // frame (its payload, or the time, as the nonce). Dispatch below
+              // still uses the text frame's own `type`.
+              message = Message.fromLegacyBody('P2P_PING', {
+                nonce: typeof payload === 'string' && payload ? payload : String(Date.now())
+              });
             } else {
-              message = new Message(parsed);
+              // Client JSON may name an app-level type with no opcode; carry it as
+              // P2P_BASE_MESSAGE (what Message used to do silently) and dispatch on `type`.
+              try {
+                message = new Message(Object.assign({}, parsed, {
+                  type: Message.isRegisteredType(rawType) ? rawType : 'P2P_BASE_MESSAGE'
+                }));
+              } catch (buildErr) {
+                // e.g. an object body for a type with a field layout: refuse, don't throw.
+                console.warn('[SERVER]', 'Refused JSON frame:', buildErr && buildErr.message ? buildErr.message : buildErr);
+                return;
+              }
             }
           } else {
             message = Message.fromRaw(parsed);
@@ -1417,7 +1429,7 @@ class FabricHTTPServer extends Service {
           case messageTransport.PING_CANONICAL_TYPE:
             {
               const now = Date.now();
-              local = Message.fromVector([messageTransport.PONG_CANONICAL_TYPE, now.toString()]);
+              local = Message.fromLegacyBody('P2P_PONG', { nonce: now.toString() });
               if (server._rootKey && server._rootKey.private) local.signWithKey(server._rootKey);
               let sendResult = null;
               try {
@@ -1550,13 +1562,6 @@ class FabricHTTPServer extends Service {
       '@type': 'VerAck',
       '@version': 1
     })); */
-
-    if (this.app) {
-      const inventory = Message.fromVector(['InventoryRequest', { parent: server.app.id, version: 0 }]);
-      const state = Message.fromVector(['State', { content: server.app.state }]);
-      // socket.send(inventory.toBuffer());
-      // socket.send(state.toBuffer());
-    }
 
     return socket;
   }
