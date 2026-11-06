@@ -42,6 +42,15 @@ describe('@fabric/http messageBodyJsonBridge', function () {
     assert.deepStrictEqual(messageBodyToJson(m).legacy, body);
   });
 
+  it('reads a plain { type, data } record holding a JSON CONTRACT_MESSAGE', function () {
+    const body = { contract: 'ef'.repeat(32), type: 'Example', object: { n: 3 } };
+    const view = messageBodyToJson({ type: 'CONTRACT_MESSAGE', data: JSON.stringify(body) });
+    assert.strictEqual(view.ok, true, view.error);
+    assert.strictEqual(view.format, 'json');
+    assert.deepStrictEqual(view.value, body);
+    assert.deepStrictEqual(view.legacy, body);
+  });
+
   it('messageFromLegacyJson keeps keyed-layout keys (DOCUMENT_REQUEST)', function () {
     const body = { id: 'doc1', maxSats: 500, blobIndex: 0, reason: 'x' };
     const m = messageFromLegacyJson('DOCUMENT_REQUEST', body);

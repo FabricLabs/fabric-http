@@ -76,6 +76,7 @@ const {
   isPassportPeerFrame,
   createPassportPeerHttp
 } = require('../functions/passportPeer');
+const { PASSPORT_REPLAY_LIMIT, PASSPORT_REPLAY_LIMIT_CODE } = require('../functions/passportPeerRequest');
 
 /**
  * Key for the verified call context (`{ passport, connection }`) on a call
@@ -1353,9 +1354,23 @@ class FabricHTTPServer extends Service {
                 break;
               }
 
-              const passportCaller = payloadBuf && server._passportPeer
-                ? await server._passportPeer.callerOf(socket, payloadBuf)
-                : null;
+              let passportCaller = null;
+              if (payloadBuf && server._passportPeer) {
+                try {
+                  passportCaller = await server._passportPeer.callerOf(socket, payloadBuf);
+                } catch (refusal) {
+                  if (!refusal || refusal.code !== PASSPORT_REPLAY_LIMIT) throw refusal;
+                  const errBody = JSON.stringify(jsonRpcTransport.buildWebSocketJsonCallErrorBody({
+                    hash,
+                    code: PASSPORT_REPLAY_LIMIT_CODE,
+                    message: refusal.message
+                  }));
+                  const denied = Message.fromVector([messageTransport.JSON_CALL_CANONICAL_TYPE, errBody]);
+                  if (server._rootKey && server._rootKey.private) denied.signWithKey(server._rootKey);
+                  socket.send(denied.toBuffer());
+                  break;
+                }
+              }
               const result = await server._handleCall({
                 hash: hash,
                 method: jsonCallPayload.method,

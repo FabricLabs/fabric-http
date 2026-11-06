@@ -33,6 +33,13 @@ const PASSPORT_REQUEST_CLOCK_SKEW_MS = 30 * 1000;
 const PASSPORT_MAX_TARGET_LENGTH = 4096;
 /** Largest payload JSON. */
 const MAX_PAYLOAD_CHARS = 8192;
+/**
+ * Error a peer gives once a connection has carried as many session-signed
+ * frames as it remembers: the session must resume on a new connection.
+ */
+const PASSPORT_REPLAY_LIMIT = 'passport_replay_limit';
+/** JSON-RPC error code of {@link PASSPORT_REPLAY_LIMIT} on a WebSocket call. */
+const PASSPORT_REPLAY_LIMIT_CODE = -32002;
 
 /** @private */
 const HEX32 = /^[0-9a-f]{64}$/;
@@ -177,6 +184,8 @@ module.exports = {
   PASSPORT_REQUEST_TTL_MS,
   PASSPORT_REQUEST_MAX_TTL_MS,
   PASSPORT_REQUEST_CLOCK_SKEW_MS,
+  PASSPORT_REPLAY_LIMIT,
+  PASSPORT_REPLAY_LIMIT_CODE,
   requestBodyHash,
   normalizeTarget,
   createPeerRequest,

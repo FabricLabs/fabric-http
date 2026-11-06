@@ -27,7 +27,12 @@ session key. A page never holds a token, a cookie, or the key.
    speaks for the user. A JSON-RPC method registered
    `_registerMethod(name, fn, { withContext: true })` is called as
    `fn({ passport, transportAuthorized }, ...params)`, where `passport` is the
-   session view or null.
+   session view or null. Each session-signed frame speaks once, and a socket
+   carries at most 65,536 of them (`maxFramesPerConnection`); past that, its
+   session-signed calls get JSON-RPC error `-32002`
+   (`passport_replay_limit`), never an anonymous dispatch, and the client's
+   `call` rejects with `code` `passport_replay_limit`. Open a new socket and
+   resume the session there (`openPeerSession({ resume, sessionKey })`).
 2. **Routes.** `GET /sessions/peer` answers `{ peer, network }`.
    `POST /sessions/peer { frame }` runs one handshake frame over HTTP and
    answers `{ frame, binding? }`.

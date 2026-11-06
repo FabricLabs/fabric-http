@@ -332,4 +332,77 @@ describe('@fabric/http functions/passportPeer', function () {
     const next = session.sign(Message.fromVector(['JSONCall', '{"method":"x","params":[],"nonce":"1"}']));
     assert.strictEqual((await standalone.callerOf(conn, next.toBuffer())).identity.pubkey, USER.identity.pubkey, 'a new call still does');
   });
+
+  it('refuses session calls past the replay limit instead of running them anonymously, until resumed elsewhere', async function () {
+    const small = createPassportPeer({ key: PEER, network: 'regtest', maxFramesPerConnection: 2 });
+    const transportOn = (conn) => {
+      const listeners = new Set();
+      return {
+        send (buffer) {
+          small.handleFrame(conn, buffer).then((out) => {
+            for (const reply of out.replies) for (const l of listeners) l(reply);
+          });
+        },
+        onFrame (fn) { listeners.add(fn); return () => listeners.delete(fn); },
+        close () {}
+      };
+    };
+    const conn = {};
+    const sessionKey = new Key();
+    const session = await openPeerSession({ transport: transportOn(conn), peer: PEER.pubkey, sessionKey, sign: signWithKey(USER.identity.key) });
+    const frame = (n) => session.sign(Message.fromVector(['JSONCall', JSON.stringify({ method: 'x', params: [], nonce: String(n) })])).toBuffer();
+    const first = frame(1);
+    assert.ok(await small.callerOf(conn, first));
+    assert.ok(await small.callerOf(conn, frame(2)));
+    const limit = (err) => err.code === 'passport_replay_limit';
+    await assert.rejects(small.callerOf(conn, frame(3)), limit);
+    await assert.rejects(small.callerOf(conn, first), limit, 'a replay does not speak either');
+    const stranger = Message.fromVector(['JSONCall', '{"method":"x","params":[]}']).signWithKey(new Key()).toBuffer();
+    assert.strictEqual(await small.callerOf(conn, stranger), null, 'calls not signed by a session are unchanged');
+    await assert.rejects(openPeerSession({ transport: transportOn(conn), peer: PEER.pubkey, sessionKey, resume: session.sessionId }), limit);
+
+    const fresh = {};
+    const resumed = await openPeerSession({ transport: transportOn(fresh), peer: PEER.pubkey, sessionKey, resume: session.sessionId });
+    assert.strictEqual(resumed.sessionId, session.sessionId);
+    assert.strictEqual((await small.callerOf(fresh, frame(4))).identity.pubkey, USER.identity.pubkey);
+  });
+
+  it('tells a WebSocket client it hit the replay limit, and the client stops calling', async function () {
+    const limitedPort = await ephemeralPort();
+    const limitedPeer = createPassportPeer({ key: PEER, network: 'regtest', maxFramesPerConnection: 2 });
+    const limited = new HTTPServer({
+      port: limitedPort,
+      host: '127.0.0.1',
+      interface: '127.0.0.1',
+      hostname: '127.0.0.1',
+      listen: true,
+      accessLog: path.join(os.tmpdir(), `fabric-http-passport-peer-${limitedPort}.log`),
+      passportPeer: limitedPeer
+    });
+    let anonymous = 0;
+    limited._registerMethod('Whoami', function (context) {
+      if (!context.passport) anonymous++;
+      return context.passport ? context.passport.identity.id : null;
+    }, { withContext: true });
+    await limited.start();
+    const first = await openWebSocket(`ws://127.0.0.1:${limitedPort}/`, WebSocket);
+    const second = await openWebSocket(`ws://127.0.0.1:${limitedPort}/`, WebSocket);
+    try {
+      const sessionKey = new Key();
+      const session = await openPeerSession({ transport: webSocketTransport(first), peer: PEER.pubkey, sessionKey, sign: signWithKey(USER.identity.key) });
+      assert.strictEqual(await session.call('Whoami'), USER.identity.id);
+      assert.strictEqual(await session.call('Whoami'), USER.identity.id);
+      const limit = (err) => err.code === 'passport_replay_limit' && /new connection/.test(err.message);
+      await assert.rejects(session.call('Whoami'), limit);
+      await assert.rejects(session.call('Whoami'), limit, 'later calls are refused without sending');
+      assert.strictEqual(anonymous, 0, 'no session call ran without its session');
+
+      const resumed = await openPeerSession({ transport: webSocketTransport(second), peer: PEER.pubkey, sessionKey, resume: session.sessionId });
+      assert.strictEqual(await resumed.call('Whoami'), USER.identity.id);
+    } finally {
+      first.close();
+      second.close();
+      await limited.stop();
+    }
+  });
 });

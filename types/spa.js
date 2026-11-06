@@ -156,7 +156,7 @@ class SPA extends App {
     this.types.state[name] = definition;
     this.resources[name] = definition;
 
-    this._state.content[address] = {};
+    if (this._state.content[address] == null) this._state.content[address] = {};
 
     return this.resources[name];
   }

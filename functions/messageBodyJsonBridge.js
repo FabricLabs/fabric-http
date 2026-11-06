@@ -168,14 +168,12 @@ function messageBodyView (message) {
   if (!buf.length) return { ok: true, format: 'empty', value: null };
 
   // A stored JSON frame of a schema type must not hit the field decoder.
-  if (typeof message.toFields === 'function') {
-    try {
-      const parsed = Message.tryParseMessageBody(message);
-      if (parsed && parsed.ok && parsed.encoding === 'json') {
-        return { ok: true, format: 'json', value: parsed.value };
-      }
-    } catch (_) { /* fall through */ }
-  }
+  try {
+    const parsed = Message.tryParseMessageBody(message);
+    if (parsed && parsed.ok && parsed.encoding === 'json') {
+      return { ok: true, format: 'json', value: parsed.value };
+    }
+  } catch (_) { /* fall through */ }
 
   if (typeof message.toFields === 'function') {
     try {

@@ -86,18 +86,19 @@ class Browser extends Service {
     console.log('[FABRIC:BROWSER]', 'Loading:', path);
 
     let self = this;
+    let pathname = String(path).split(/[?#]/)[0];
     let route = this.route(path);
 
     console.log('loaded path:', path, route);
     let element = document.createElement(route.route.component);
 
-    self._GET(path).then(async function _applyToTarget (x) {
+    self._GET(pathname).then(async function _applyToTarget (x) {
       console.log('[FABRIC:BROWSER]', 'GOT DATA:', x);
       console.log('[FABRIC:BROWSER]', 'element is:', element);
 
       element.state = {};
 
-      pointer.set(element.state, String(path).split('?')[0], x);
+      pointer.set(element.state, pathname, x);
 
       self._setElement(element);
     }, function (e) {
@@ -111,8 +112,7 @@ class Browser extends Service {
 
   route (path) {
     if (!path) path = '/';
-    // Routes match the pathname; the query string is for the data request.
-    return this.router.route(String(path).split('?')[0]);
+    return this.router.route(String(path).split(/[?#]/)[0]);
   }
 
   _redraw () {

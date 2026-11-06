@@ -33,6 +33,46 @@ describe('functions/pageRouter', function () {
     assert.ok(!Object.prototype.hasOwnProperty.call(spa._state.content, 'radicals'));
   });
 
+  it('SPA.define keeps the resource\'s own data', function () {
+    const SPA = require('../types/spa');
+    const spa = new SPA({});
+    const data = [{ id: 'a' }, { id: 'b' }];
+    spa.define('Widget', { components: {}, data });
+    assert.deepStrictEqual(spa._state.content.widgets, data);
+  });
+
+  it('Browser#load reads state at the pathname, not the query string', async function () {
+    const Router = require('../types/router');
+    const Browser = require('../types/browser');
+    const saved = global.document;
+    global.document = { createElement: (tag) => ({ tagName: tag }) };
+    try {
+      const router = new Router({});
+      router._addRoute('/widgets', 'widget-list');
+      const asked = [];
+      let shown = null;
+      const fake = {
+        router,
+        route: Browser.prototype.route,
+        _GET: async (path) => { asked.push(path); return path === '/widgets' ? ['w'] : null; },
+        _setElement: (element) => { shown = element; }
+      };
+      Browser.prototype.load.call(fake, '/widgets?sort=new#top');
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.deepStrictEqual(asked, ['/widgets']);
+      assert.deepStrictEqual(shown.state, { widgets: ['w'] });
+    } finally {
+      global.document = saved;
+    }
+  });
+
+  it('App navigation passes on when no browser route matches', async function () {
+    const App = require('../types/app');
+    let passed = false;
+    await App.prototype._handleNavigation.call({ browser: { route: async () => null } }, { path: '/nowhere' }, () => { passed = true; });
+    assert.strictEqual(passed, true);
+  });
+
   it('stops when a callback does not call next', async function () {
     const router = createPageRouter();
     const seen = [];

@@ -514,6 +514,37 @@ describe('@fabric/http delegation transports', function () {
       assert.strictEqual(prompts.length, 1);
     });
 
+    it('keeps one pairing prompt open at a time, and waits the interval after it', async function () {
+      let clock = Date.now();
+      let release;
+      const gate = new Promise((resolve) => { release = resolve; });
+      const prompts = [];
+      const { origin } = await setup({ now: () => clock, confirmLink: async (p) => { prompts.push(p); await gate; return true; } });
+      const passport = new Delegation({ key: PASSPORT.identity.key });
+      const headers = { origin: EXTENSION };
+      const links = '/services/delegation/links';
+      const offer = await passport.offer({ origin, label: 'Passport' });
+      const answer = await send(origin, 'POST', links, { body: { frame: offer.uri }, headers });
+      assert.strictEqual(answer.status, 201, answer.body.error);
+      const revealed = await passport.receive(answer.body.frame);
+      clock += 31 * 1000;
+
+      const open = send(origin, 'POST', links, { body: { frame: revealed.reveal }, headers });
+      while (!prompts.length) await new Promise((resolve) => setTimeout(resolve, 5));
+      assert.strictEqual((await send(origin, 'POST', links, { body: { frame: revealed.reveal }, headers })).status, 429);
+      const during = await passport.offer({ origin, label: 'Passport' });
+      assert.strictEqual((await send(origin, 'POST', links, { body: { frame: during.uri }, headers })).status, 429, 'no new offer while a prompt is open');
+      release();
+      assert.strictEqual((await open).status, 200);
+      assert.strictEqual(prompts.length, 1);
+
+      const soon = await passport.offer({ origin, label: 'Passport' });
+      assert.strictEqual((await send(origin, 'POST', links, { body: { frame: soon.uri }, headers })).status, 429, 'the interval counts from the prompt');
+      clock += 31 * 1000;
+      const later = await passport.offer({ origin, label: 'Passport' });
+      assert.strictEqual((await send(origin, 'POST', links, { body: { frame: later.uri }, headers })).status, 201);
+    });
+
     it('lets the first Firefox Passport pair, then refuses a different one', async function () {
       const fresh = await setup();
       const opener = new Delegation({ key: OTHER.identity.key });

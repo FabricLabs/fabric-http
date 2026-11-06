@@ -16,6 +16,10 @@
  * ({@link httpTransport}) the handshake runs on `POST /sessions/peer`, and
  * every request carries an `X-Fabric-Request` signed by the session key
  * (`authorize`, `fetch` on the session handle).
+ *
+ * A connection carries a bounded number of session-signed calls. Past it, the
+ * peer refuses them and `call` rejects with `code` `passport_replay_limit`:
+ * open a new connection and `openPeerSession({ resume: sessionId, sessionKey })`.
  */
 
 const crypto = require('crypto');
@@ -24,7 +28,7 @@ const Key = require('@fabric/core/types/key');
 const Message = require('@fabric/core/types/message');
 const { encodeFabricUri, decodeFabricUri } = require('@fabric/core/functions/fabricUri');
 const { computeWebSocketJsonCallHashPair, JSON_CALL_RESULT_METHOD } = require('./fabricJsonRpcTransport');
-const { createPeerRequest } = require('./passportPeerRequest');
+const { createPeerRequest, PASSPORT_REPLAY_LIMIT, PASSPORT_REPLAY_LIMIT_CODE } = require('./passportPeerRequest');
 
 /** How long to wait for the peer (not the user) to answer a frame. */
 const PEER_REPLY_TIMEOUT_MS = 15 * 1000;
@@ -174,7 +178,7 @@ function nextFrame (transport, types, timeoutMs) {
 function refusalError (buffer) {
   const read = passport.readRefusal(buffer);
   const err = new Error(read.ok ? `peer refused: ${read.error}` : 'peer refused');
-  err.code = 'peer_refused';
+  err.code = read.ok && read.error === PASSPORT_REPLAY_LIMIT ? PASSPORT_REPLAY_LIMIT : 'peer_refused';
   return err;
 }
 
@@ -276,6 +280,7 @@ async function openPeerSession (params = {}) {
 /** @private */
 function createSessionHandle (transport, context) {
   const { peer, session, sessionKey, challenge, resumed, replyMs } = context;
+  let limited = null;
 
   /**
    * Sign a frame with the session key.
@@ -330,6 +335,7 @@ function createSessionHandle (transport, context) {
    * @returns {Promise<*>}
    */
   function call (method, params = []) {
+    if (limited) return Promise.reject(limited);
     // The nonce makes each call its own frame: the peer lets a session-signed frame speak once.
     const body = JSON.stringify({ method: String(method), params: Array.isArray(params) ? params : [params], nonce: crypto.randomBytes(16).toString('hex') });
     const { hash } = computeWebSocketJsonCallHashPair(body);
@@ -354,6 +360,10 @@ function createSessionHandle (transport, context) {
         if (parsed.error) {
           const err = new Error(parsed.error.message || 'call failed');
           err.code = parsed.error.code;
+          if (parsed.error.code === PASSPORT_REPLAY_LIMIT_CODE) {
+            err.code = PASSPORT_REPLAY_LIMIT;
+            limited = err;
+          }
           reject(err);
         } else {
           resolve(parsed.params[1]);
