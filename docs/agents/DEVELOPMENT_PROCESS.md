@@ -34,9 +34,17 @@ pins are used), and writes the full log to `reports/install.log`.
   subagents, not in separate sessions, not chained with `&`. Downstream
   installs fetch upstream Git refs, and tests share ports (Hub 8080, P2P
   7777, regtest RPC 20444, ZMQ 29500) and `stores/` directories.
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:e858036d6ff7ff20c7d096a724ff11f2b1b5347ab13b3ab7f6e972f9b2eb7b20 -->
+
 - Before starting, check nothing is already running
-  (`pgrep -fl 'npm (i|install|test|run)|mocha'`). If something is, wait or
+  (`pgrep -fl 'npm (i|ci|install|test|run)|mocha'`). If something is, wait or
   ask; do not kill another session's process.
+
+
+<!-- /coderabbit-ai-generated:v1 -->
+
 - If an upstream step fails, **stop**. Do not continue down the graph on a
   broken upstream; fix it (or report it) first.
 - Upstream change pushed? Downstream repos need a fresh `report:install` to
