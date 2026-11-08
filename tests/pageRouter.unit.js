@@ -41,6 +41,21 @@ describe('functions/pageRouter', function () {
     assert.deepStrictEqual(spa._state.content.widgets, data);
   });
 
+  it('SPA answers a binary P2P_PING with a pong', async function () {
+    const SPA = require('../types/spa');
+    const Message = require('@fabric/core/types/message');
+    const spa = new SPA({});
+    const sent = [];
+    spa.bridge = { send: (buffer) => sent.push(buffer) };
+    const ping = Message.fromBuffer(Message.fromLegacyBody('P2P_PING', { nonce: '1' }).toBuffer());
+    assert.strictEqual(ping.type, 'P2P_PING');
+    await spa._handleBridgeMessage(ping);
+    assert.strictEqual(sent.length, 1);
+    assert.strictEqual(Message.fromBuffer(sent[0]).type, 'P2P_PONG');
+    await spa._handleBridgeMessage(Message.fromBuffer(sent[0]));
+    assert.strictEqual(sent.length, 1, 'a pong is not answered');
+  });
+
   it('Browser#load reads state at the pathname, not the query string', async function () {
     const Router = require('../types/router');
     const Browser = require('../types/browser');

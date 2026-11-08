@@ -7,7 +7,8 @@
   "type": "commonjs",
   "bin": {
     "http": "./scripts/node.js",
-    "fabric-http": "./scripts/node.js"
+    "fabric-http": "./scripts/node.js",
+    "fabric-http-semantic": "./scripts/semantic.js"
   },
   "scripts": {
     "build": "npm test && npm run build:scripts && npm run build:docs",
@@ -72,6 +73,10 @@
     "settings/**/*.js",
     "settings/**/*.json",
     "scripts/node.js",
+    "scripts/semantic.js",
+    "libraries/fomantic/src/theme.config",
+    "libraries/fomantic/src/themes/fabric/**",
+    "!libraries/fomantic/src/themes/fabric/assets/twemoji/**",
     "assets/**",
     "!assets/scripts/fabric.http.js",
     "!assets/scripts/index.min.js",
@@ -84,6 +89,7 @@
   "exports": {
     ".": "./types/web.js",
     "./module.js": "./module.js",
+    "./assets/*": "./assets/*",
     "./types/*": "./types/*.js",
     "./constants": "./constants.js",
     "./middlewares/auth": "./middlewares/auth.js",
@@ -119,7 +125,9 @@
     "./functions/fabricChatNormalize": "./functions/fabricChatNormalize.js",
     "./functions/fabricPeeringHttp": "./functions/fabricPeeringHttp.js",
     "./functions/fabricBrand": "./functions/fabricBrand.js",
-    "./functions/browserCrypto": "./functions/browserCrypto.js"
+    "./functions/browserCrypto": "./functions/browserCrypto.js",
+    "./functions/semanticBuild": "./functions/semanticBuild.js",
+    "./functions/twemoji": "./functions/twemoji.js"
   },
   "contributors": [
     "Eric Martindale",
@@ -172,14 +180,21 @@
     "ajv": "=8.20.0",
     "c8": "=12.0.0",
     "eslint": "=10.14.0",
-    "fomantic-ui": "=2.10.0-beta.128",
+    "fomantic-ui": "=2.10.0-beta.129",
     "js-beautify": "=2.0.3",
-    "gulp": "=5.0.1",
     "jsdoc": "=4.0.5",
     "marked": "=18.1.2",
     "mocha": "=12.0.3",
     "neostandard": "=0.14.1",
     "typescript": "=7.0.2"
+  },
+  "peerDependencies": {
+    "fomantic-ui": "=2.10.0-beta.129"
+  },
+  "peerDependenciesMeta": {
+    "fomantic-ui": {
+      "optional": true
+    }
   },
   "browser": {
     "ws": false

@@ -18,6 +18,18 @@ const OTHER = deriveAccount(MASTER, { account: 2, network: 'regtest' });
 const SITE = 'https://goon.vc';
 const EXTENSION = 'moz-extension://0b5c2a4e-1111-2222-3333-444455556666';
 const STRANGER = 'moz-extension://99999999-1111-2222-3333-444455556666';
+const BOX = 'https://hub.fabric.pub';
+const { delegation: READ, cancel: CANCEL } = d.MAILBOX_FETCH_PURPOSES;
+
+/** A mailbox read proof for {@link BOX} unless `params` names another origin or purpose. */
+function fetchProof (params, key) {
+  return d.createMailboxFetch(Object.assign({ origin: BOX, purpose: READ }, params), key);
+}
+
+/** A mailbox answering on {@link BOX}. */
+function mailboxAt (options) {
+  return createDelegationMailbox(Object.assign({ origins: [BOX] }, options));
+}
 
 function serve (handle) {
   return new Promise((resolve) => {
@@ -110,21 +122,28 @@ describe('@fabric/http delegation transports', function () {
       assert.strictEqual(rendezvous.create(elsewhere.uri).status, 403);
       const here = await passport.offer({ origin: 'https://hub.fabric.pub' });
       assert.strictEqual(rendezvous.create(here.uri).status, 201);
-      const stranger = d.createMailboxFetch({}, OTHER.identity.key);
+      const stranger = fetchProof({ purpose: CANCEL }, OTHER.identity.key);
       assert.strictEqual(rendezvous.cancel(here.linkId, stranger.uri).status, 403);
-      const mine = d.createMailboxFetch({}, PASSPORT.identity.key);
+      const mine = fetchProof({ purpose: CANCEL }, PASSPORT.identity.key);
       assert.strictEqual(rendezvous.cancel(here.linkId, mine.uri).status, 200);
       assert.strictEqual(rendezvous.read(here.linkId).status, 404);
     });
 
-    it('refuses a pairing cancel with a proof already spent reading the mailbox', async function () {
+    it('cancels only with a proof for the link\'s own rendezvous and for cancelling', async function () {
       const rendezvous = createDelegationRendezvous();
-      const mailbox = createDelegationMailbox();
-      const here = await new Delegation({ key: PASSPORT.identity.key }).offer({ origin: 'https://hub.fabric.pub' });
+      const mailbox = mailboxAt();
+      const here = await new Delegation({ key: PASSPORT.identity.key }).offer({ origin: BOX });
       assert.strictEqual(rendezvous.create(here.uri).status, 201);
-      const proof = d.createMailboxFetch({}, PASSPORT.identity.key);
-      assert.strictEqual((await mailbox.fetch(proof.uri)).status, 200);
-      assert.strictEqual(rendezvous.cancel(here.linkId, proof.uri).status, 409);
+      const read = fetchProof({}, PASSPORT.identity.key);
+      assert.strictEqual((await mailbox.fetch(read.uri)).status, 200);
+      const reused = rendezvous.cancel(here.linkId, read.uri);
+      assert.strictEqual(reused.status, 401, 'a mailbox read is not a cancel');
+      assert.match(reused.body.error, /another purpose/);
+      const elsewhere = rendezvous.cancel(here.linkId, fetchProof({ origin: 'https://hub.goon.vc', purpose: CANCEL }, PASSPORT.identity.key).uri);
+      assert.strictEqual(elsewhere.status, 401, 'a cancel for another rendezvous');
+      assert.match(elsewhere.body.error, /another origin/);
+      const cancel = fetchProof({ purpose: CANCEL }, PASSPORT.identity.key);
+      assert.strictEqual((await mailbox.fetch(cancel.uri)).status, 401, 'a cancel does not read the mailbox');
       assert.strictEqual(rendezvous.read(here.linkId).status, 200, 'the pairing is still open');
     });
 
@@ -159,7 +178,7 @@ describe('@fabric/http delegation transports', function () {
 
   describe('mailbox', function () {
     it('keeps frames for their addressee, read back once per fetch', async function () {
-      const mailbox = createDelegationMailbox();
+      const mailbox = mailboxAt();
       const { server, origin } = await serve(mailbox.handle);
       servers.push(server);
       const hub = new Delegation({ key: HUB.identity.key });
@@ -168,18 +187,35 @@ describe('@fabric/http delegation transports', function () {
       assert.strictEqual(posted.httpStatus, 201, posted.error);
       assert.strictEqual((await client.postMailbox(origin, grant.uri)).duplicate, true);
 
-      const proof = d.createMailboxFetch({}, PASSPORT.identity.key);
+      const proof = fetchProof({}, PASSPORT.identity.key);
       const got = await client.fetchMailbox(origin, proof.uri);
       assert.strictEqual(got.httpStatus, 200, got.error);
       assert.strictEqual(got.frames.length, 1);
       assert.strictEqual(got.frames[0].type, 'DELEGATION_GRANT');
       assert.strictEqual((await client.fetchMailbox(origin, proof.uri)).httpStatus, 409);
 
-      const later = d.createMailboxFetch({ since: got.next }, PASSPORT.identity.key);
+      const later = fetchProof({ since: got.next }, PASSPORT.identity.key);
       assert.strictEqual((await client.fetchMailbox(origin, later.uri)).frames.length, 0);
-      const theirs = d.createMailboxFetch({}, OTHER.identity.key);
+      const theirs = fetchProof({}, OTHER.identity.key);
       assert.strictEqual((await client.fetchMailbox(origin, theirs.uri)).frames.length, 0);
       assert.strictEqual((await send(origin, 'GET', '/services/delegation/mailbox')).status, 401);
+    });
+
+    it('reads only with a proof signed for this Hub, and not at all without an origin', async function () {
+      const mailbox = mailboxAt();
+      const hub = new Delegation({ key: HUB.identity.key });
+      assert.strictEqual((await mailbox.post((await hub.grant({ grantee: PASSPORT.identity.pubkey, scopes: ['message'] })).uri)).status, 201);
+      const forOther = fetchProof({ origin: 'https://hub.goon.vc' }, PASSPORT.identity.key);
+      const replayed = await mailbox.fetch(forOther.uri);
+      assert.strictEqual(replayed.status, 401);
+      assert.match(replayed.body.error, /another origin/);
+      const here = await mailbox.fetch(fetchProof({}, PASSPORT.identity.key).uri);
+      assert.strictEqual(here.status, 200, here.body.error);
+      assert.strictEqual(here.body.frames.length, 1, 'the refused proof left the frames queued');
+      const unconfigured = createDelegationMailbox();
+      const refused = await unconfigured.fetch(fetchProof({}, PASSPORT.identity.key).uri);
+      assert.strictEqual(refused.status, 401);
+      assert.match(refused.body.error, /no origin/);
     });
 
     it('keeps a mailbox that is still loading, and remembers a used fetch', async function () {
@@ -196,7 +232,7 @@ describe('@fabric/http delegation transports', function () {
         async get () { await gate; return JSON.stringify(persisted); },
         async set (_key, value) { persisted.raw = value; }
       };
-      const mailbox = createDelegationMailbox({ store });
+      const mailbox = mailboxAt({ store });
       const hub = new Delegation({ key: HUB.identity.key });
       const grant = await hub.grant({ grantee: PASSPORT.identity.pubkey, scopes: ['message'] });
       const posting = mailbox.post(grant.uri);
@@ -209,9 +245,9 @@ describe('@fabric/http delegation transports', function () {
       assert.ok(saved.boxes.aa, 'the stored frame is still there');
       assert.ok(Object.keys(saved.boxes).length >= 2);
 
-      const proof = d.createMailboxFetch({}, PASSPORT.identity.key);
+      const proof = fetchProof({}, PASSPORT.identity.key);
       assert.strictEqual((await mailbox.fetch(proof.uri)).status, 200);
-      const restarted = createDelegationMailbox({
+      const restarted = mailboxAt({
         spentNonces: new Map(),
         store: {
           async get () { return persisted.raw; },
@@ -238,7 +274,7 @@ describe('@fabric/http delegation transports', function () {
         },
         async set (_key, value) { writes++; persisted.raw = value; }
       };
-      const mailbox = createDelegationMailbox({ store });
+      const mailbox = mailboxAt({ store });
       const hub = new Delegation({ key: HUB.identity.key });
       const grant = await hub.grant({ grantee: PASSPORT.identity.pubkey, scopes: ['message'] });
       await assert.rejects(() => mailbox.post(grant.uri), (err) => err.status === 503);
@@ -269,12 +305,12 @@ describe('@fabric/http delegation transports', function () {
     }
 
     async function queued (mailbox) {
-      const got = await mailbox.fetch(d.createMailboxFetch({}, PASSPORT.identity.key).uri);
+      const got = await mailbox.fetch(fetchProof({}, PASSPORT.identity.key).uri);
       return got.body.frames.map((f) => f.hash);
     }
 
     it('drops frames the addressee read past, and makes room for every sender', async function () {
-      const mailbox = createDelegationMailbox({ maxPerAddress: 4 });
+      const mailbox = mailboxAt({ maxPerAddress: 4 });
       const grants = await grantsFor(7);
       await queue(mailbox, grants[0], 'a');
       const a = await queue(mailbox, grants[1], 'a');
@@ -283,16 +319,16 @@ describe('@fabric/http delegation transports', function () {
       await queue(mailbox, grants[4], 'd');
       const e = await queue(mailbox, grants[5], 'e');
 
-      const first = await mailbox.fetch(d.createMailboxFetch({}, PASSPORT.identity.key).uri);
+      const first = await mailbox.fetch(fetchProof({}, PASSPORT.identity.key).uri);
       assert.deepStrictEqual(first.body.frames.map((f) => f.hash), [a, b, c, e], 'a kept one frame; on a tie the sender heard from last (d) gave way to e');
-      const acknowledged = await mailbox.fetch(d.createMailboxFetch({ since: first.body.next }, PASSPORT.identity.key).uri);
+      const acknowledged = await mailbox.fetch(fetchProof({ since: first.body.next }, PASSPORT.identity.key).uri);
       assert.strictEqual(acknowledged.body.frames.length, 0);
       const again = await queue(mailbox, grants[6], 'a');
       assert.deepStrictEqual(await queued(mailbox), [again]);
     });
 
     it('keeps a queued revoke while new senders fill the box', async function () {
-      const mailbox = createDelegationMailbox({ maxPerAddress: 4 });
+      const mailbox = mailboxAt({ maxPerAddress: 4 });
       const hub = new Delegation({ key: HUB.identity.key });
       const revoked = await hub.grant({ grantee: PASSPORT.identity.pubkey, scopes: ['message'], label: 'revoked' });
       const revoke = await hub.revoke(revoked.hash);
@@ -304,7 +340,7 @@ describe('@fabric/http delegation transports', function () {
     });
 
     it('a sender drops its own oldest non-revoke frame first', async function () {
-      const mailbox = createDelegationMailbox({ maxPerAddress: 8 });
+      const mailbox = mailboxAt({ maxPerAddress: 8 });
       const hub = new Delegation({ key: HUB.identity.key });
       const revoked = await hub.grant({ grantee: PASSPORT.identity.pubkey, scopes: ['message'], label: 'revoked' });
       const revoke = await mailbox.post((await hub.revoke(revoked.hash)).uri, { to: PASSPORT.identity.pubkey, from: 'hub' });
@@ -318,13 +354,13 @@ describe('@fabric/http delegation transports', function () {
     it('a sender opens only its share of boxes, and a full table drops the busiest sender\'s newest box', async function () {
       const hub = new Delegation({ key: HUB.identity.key });
       const grantTo = async (i) => hub.grant({ grantee: deriveAccount(MASTER, { account: 10 + i, network: 'regtest' }).identity.pubkey, scopes: ['message'], label: `box ${i}` });
-      const capped = createDelegationMailbox({ maxAddresses: 32 });
+      const capped = mailboxAt({ maxAddresses: 32 });
       assert.strictEqual((await capped.post((await grantTo(0)).uri, { from: 'flood' })).status, 201);
       assert.strictEqual((await capped.post((await grantTo(1)).uri, { from: 'flood' })).status, 201);
       const refused = await capped.post((await grantTo(2)).uri, { from: 'flood' });
       assert.strictEqual(refused.status, 429, 'a sender may open maxAddresses / 16 boxes');
 
-      const table = createDelegationMailbox({ maxAddresses: 4 });
+      const table = mailboxAt({ maxAddresses: 4 });
       const revoke = await hub.revoke((await grantTo(3)).hash);
       const kept = await table.post(revoke.uri, { to: deriveAccount(MASTER, { account: 13, network: 'regtest' }).identity.pubkey, from: 'a' });
       assert.strictEqual(kept.status, 201, kept.body.error);
@@ -340,7 +376,7 @@ describe('@fabric/http delegation transports', function () {
         async get () { return null; },
         async set () { if (fail) throw new Error('disk full'); }
       };
-      const mailbox = createDelegationMailbox({ store });
+      const mailbox = mailboxAt({ store });
       const grants = await grantsFor(2);
       const results = await Promise.allSettled([mailbox.post(grants[0].uri), mailbox.post(grants[1].uri)]);
       assert.deepStrictEqual(results.map((r) => r.status), ['rejected', 'rejected']);
@@ -351,7 +387,7 @@ describe('@fabric/http delegation transports', function () {
     });
 
     it('counts an IPv6 sender by its /64, and an IPv4-mapped one as IPv4', async function () {
-      const mailbox = createDelegationMailbox({ maxPerAddress: 4 });
+      const mailbox = mailboxAt({ maxPerAddress: 4 });
       const grants = await grantsFor(5);
       await queue(mailbox, grants[0], '2001:db8::1');
       const sameNet = await queue(mailbox, grants[1], '2001:db8:0:0:ffff::2');
@@ -368,16 +404,16 @@ describe('@fabric/http delegation transports', function () {
         async set (_key, value) { persisted.raw = value; }
       };
       const grants = await grantsFor(2);
-      await queue(createDelegationMailbox({ store, maxPerAddress: 4 }), grants[0], '203.0.113.7');
+      await queue(mailboxAt({ store, maxPerAddress: 4 }), grants[0], '203.0.113.7');
       assert.ok(!persisted.raw.includes('203.0.113.7'));
-      const restarted = createDelegationMailbox({ store, maxPerAddress: 4 });
+      const restarted = mailboxAt({ store, maxPerAddress: 4 });
       const latest = await queue(restarted, grants[1], '203.0.113.7');
       assert.deepStrictEqual(await queued(restarted), [latest]);
       assert.ok(!persisted.raw.includes('203.0.113.7'));
     });
 
     it('answers 503 when the mailbox cannot be saved', async function () {
-      const mailbox = createDelegationMailbox({
+      const mailbox = mailboxAt({
         store: {
           async get () { return null; },
           async set () { throw new Error('disk full'); }
@@ -385,14 +421,14 @@ describe('@fabric/http delegation transports', function () {
       });
       const [grant] = await grantsFor(1);
       await assert.rejects(() => mailbox.post(grant.uri, { from: 'a' }), (err) => err.status === 503);
-      const proof = d.createMailboxFetch({}, PASSPORT.identity.key);
+      const proof = fetchProof({}, PASSPORT.identity.key);
       await assert.rejects(() => mailbox.fetch(proof.uri), (err) => err.status === 503);
       assert.strictEqual((await mailbox.fetch(proof.uri)).status, 409, 'the fetch stays used');
     });
 
     it('stores a retry after a failed save instead of calling it a duplicate', async function () {
       const persisted = { raw: null, fail: false };
-      const mailbox = createDelegationMailbox({
+      const mailbox = mailboxAt({
         store: {
           async get () { return persisted.raw; },
           async set (_key, value) {
@@ -413,14 +449,14 @@ describe('@fabric/http delegation transports', function () {
     });
 
     it('rate-limits fetches apart from posts', async function () {
-      const mailbox = createDelegationMailbox({ postsPerMinute: 1 });
+      const mailbox = mailboxAt({ postsPerMinute: 1 });
       const { server, origin } = await serve(mailbox.handle);
       servers.push(server);
       const hub = new Delegation({ key: HUB.identity.key });
       const grant = await hub.grant({ grantee: PASSPORT.identity.pubkey, scopes: ['message'] });
       assert.strictEqual((await client.postMailbox(origin, grant.uri)).httpStatus, 201);
       for (let i = 0; i < 3; i++) {
-        const proof = d.createMailboxFetch({}, PASSPORT.identity.key);
+        const proof = fetchProof({}, PASSPORT.identity.key);
         assert.strictEqual((await client.fetchMailbox(origin, proof.uri)).httpStatus, 200);
       }
       assert.strictEqual((await client.postMailbox(origin, grant.uri)).httpStatus, 429);
@@ -428,7 +464,7 @@ describe('@fabric/http delegation transports', function () {
 
     it('needs `to` for results, and hands the host its own frames', async function () {
       const taken = [];
-      const mailbox = createDelegationMailbox({ deliver: (to, buffer) => { if (to === HUB.identity.pubkey.slice(2)) { taken.push(buffer); return true; } return false; } });
+      const mailbox = mailboxAt({ deliver: (to, buffer) => { if (to === HUB.identity.pubkey.slice(2)) { taken.push(buffer); return true; } return false; } });
       const passport = new Delegation({ key: PASSPORT.identity.key });
       const hub = new Delegation({ key: HUB.identity.key });
       const grant = await hub.grant({ grantee: PASSPORT.identity.pubkey, scopes: ['message'] });

@@ -58,6 +58,18 @@ Advanced protocol helpers are optional:
 - grouped under `require('@fabric/http').protocol`
 - or imported directly from `@fabric/http/functions/*` when you want a specific helper module
 
+### Semantic UI theme (Fomantic)
+`HTTPServer` serves this package's prebuilt Fomantic UI assets (`/semantic.min.css`, `/semantic.min.js`, `/themes/fabric/…`) behind your own `assets/`, so an app needs no Semantic files for the defaults. Apps that ship their own copy (static or desktop builds) run `fabric-http-semantic` from their root; it writes `assets/semantic*`, `assets/scripts/semantic*.js`, and `assets/themes/fabric/`. Bundlers can import `@fabric/http/assets/semantic.min.css` directly.
+
+To customize, add only the Fomantic site files you change under `semantic/site/` and install `fomantic-ui` (an optional peer dependency); `fabric-http-semantic` then compiles the fabric theme with them on top:
+
+```less
+/* semantic/site/globals/site.variables */
+@primaryColor: #663399;
+```
+
+The same is available in code from `@fabric/http/functions/semanticBuild` (`run`, `build`, `sync`).
+
 ### Deterministic avatars (`types/avatar`)
 `@fabric/http` includes a deterministic, Gravatar-like `Avatar` class with a Fabric-themed palette and an academic visual-hash approach inspired by "drunken bishop" / marching-bishop algorithms:
 

@@ -339,6 +339,8 @@ class SPA extends App {
       case 'Receipt':
         console.log('Receipt for your message:', msg);
         break;
+      // `Message.fromBuffer` names binary heartbeats `P2P_PING` / `P2P_PONG`; JSON ones arrive as `Ping` / `Pong`.
+      case 'P2P_PONG':
       case 'Pong': {
         // Field body `{ nonce }`: the sender's clock in ms.
         const parsed = typeof msg.toBuffer === 'function' ? Message.tryParseLegacyBody(msg) : null;
@@ -346,6 +348,7 @@ class SPA extends App {
         if (this.settings.verbosity >= 5) console.log('[HTTP:SPA]', 'Received pong:', Number.isFinite(nonce) ? new Date(nonce).toISOString() : msg.data);
         break;
       }
+      case 'P2P_PING':
       case 'Ping': {
         const now = Date.now();
         const message = Message.fromLegacyBody('P2P_PONG', { nonce: now.toString() });

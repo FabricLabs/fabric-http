@@ -124,7 +124,7 @@ async function waitForLinkFrames (origin, linkId, count, options = {}) {
  * End a link early.
  * @param {string} origin
  * @param {string} linkId
- * @param {string} proof `fabric:` `DELEGATION_MAILBOX_FETCH` from either participant.
+ * @param {string} proof `fabric:` `DELEGATION_MAILBOX_FETCH` from either participant, signed for the origin the link's offer names and purpose `delegation-cancel`.
  * @param {Object} [options]
  * @param {Function} [options.fetch]
  * @returns {Promise<object>}
@@ -151,7 +151,7 @@ function postMailbox (origin, frame, options = {}) {
 /**
  * Collect frames left for the key that signed `proof`.
  * @param {string} origin
- * @param {string} proof `fabric:` `DELEGATION_MAILBOX_FETCH`.
+ * @param {string} proof `fabric:` `DELEGATION_MAILBOX_FETCH` signed for `origin` and purpose `delegation-mailbox`.
  * @param {Object} [options]
  * @param {Function} [options.fetch]
  * @returns {Promise<object>} `{ frames: [{ seq, type, hash, frame, at }], next }`

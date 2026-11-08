@@ -16,7 +16,9 @@
  * - `POST /delegations/:id/frames { frame }` the next frame of that link.
  * - `GET /delegations/:id` the link's frames so far.
  * - `DELETE /delegations/:id` with a fresh `DELEGATION_MAILBOX_FETCH` from
- *   either participant in `X-Fabric-Mailbox` ends the link early.
+ *   either participant in `X-Fabric-Mailbox` ends the link early. The proof
+ *   must name the origin the link's offer names and purpose
+ *   `delegation-cancel`.
  *
  * Links are kept `retainMs` (10 minutes) after the offer; at most `maxLinks`
  * at once and `maxPerAuthor` per offering key.
@@ -44,8 +46,9 @@
  * Routes:
  * - `POST /services/delegation/mailbox { frame, to? }` (`to` is needed for
  *   results and revokes, which do not name their recipient).
- * - `GET /services/delegation/mailbox` with `X-Fabric-Mailbox: fabric:<fetch>`;
- *   returns frames after the fetch's `since` sequence number.
+ * - `GET /services/delegation/mailbox` with `X-Fabric-Mailbox: fabric:<fetch>`
+ *   signed for one of `origins` and purpose `delegation-mailbox`; returns
+ *   frames after the fetch's `since` sequence number.
  */
 
 const crypto = require('crypto');
@@ -73,6 +76,22 @@ const DEFAULT_FETCH_LIMIT = 100;
  * route (a mailbox read, a pairing cancel) is refused on the others.
  */
 const processSpentProofs = new Map();
+const PURPOSES = delegation.MAILBOX_FETCH_PURPOSES || { delegation: 'delegation-mailbox', cancel: 'delegation-cancel' };
+
+/**
+ * Read a `DELEGATION_MAILBOX_FETCH` signed for one of `origins` and for
+ * `purpose`. A core without the `origin` / `purpose` fields can't bind the
+ * proof, so its reads are refused rather than accepted unbound.
+ * @private
+ */
+function readProof (proof, origins, purpose, at) {
+  const list = (origins || []).filter(Boolean);
+  if (!list.length) return { ok: false, error: 'this mailbox has no origin to check proofs against' };
+  const read = delegation.readMailboxFetch(proof, { origin: list, purpose, now: at });
+  if (!read.ok) return read;
+  if (!read.origin || read.purpose !== purpose) return { ok: false, error: 'mailbox read is not bound to this origin and purpose' };
+  return read;
+}
 
 /**
  * @param {Object} [options]
@@ -229,7 +248,7 @@ function createDelegationRendezvous (options = {}) {
     const key = String(id || '').toLowerCase();
     const link = links.get(key);
     if (!link) return { status: 404, body: { ok: false, error: 'no such link' } };
-    const fetched = delegation.readMailboxFetch(proof, opts());
+    const fetched = readProof(proof, [link.origin], PURPOSES.cancel, now());
     if (!fetched.ok) return { status: 401, body: { ok: false, error: fetched.error } };
     const who = fetched.pubkey.slice(2);
     if (who !== link.initiator && who !== link.responder) return { status: 403, body: { ok: false, error: 'not a participant of this link' } };
@@ -317,6 +336,7 @@ function createDelegationRendezvous (options = {}) {
 
 /**
  * @param {Object} [options]
+ * @param {string[]} [options.origins] Origins this mailbox answers on; a read proof must name one (and purpose `delegation-mailbox`). Without any, reads are refused.
  * @param {Function} [options.now]
  * @param {number} [options.maxPerAddress]
  * @param {number} [options.maxAddresses]
@@ -341,6 +361,8 @@ function createDelegationMailbox (options = {}) {
   const limit = createRateLimit({ limit: postsPerMinute, windowMs: 60 * 1000, now });
   const fetchLimit = createRateLimit({ limit: 6 * postsPerMinute, windowMs: 60 * 1000, now });
   const boxes = new Map();
+  const origins = (Array.isArray(options.origins) ? options.origins : [])
+    .map((o) => normalizeHubOrigin(o)).filter(Boolean);
   const spent = options.spentNonces instanceof Map ? options.spentNonces : processSpentProofs;
   let seq = 0;
   let secret = options.store ? null : crypto.randomBytes(32);
@@ -550,7 +572,7 @@ function createDelegationMailbox (options = {}) {
    */
   async function fetchFrames (proof, params = {}) {
     await load();
-    const read = delegation.readMailboxFetch(proof, { now: now() });
+    const read = readProof(proof, origins, PURPOSES.delegation, now());
     if (!read.ok) return { status: 401, body: { ok: false, error: read.error } };
     return exclusive(() => drain(read, params));
   }
