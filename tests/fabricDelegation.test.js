@@ -117,6 +117,17 @@ describe('@fabric/http delegation transports', function () {
       assert.strictEqual(rendezvous.read(here.linkId).status, 404);
     });
 
+    it('refuses a pairing cancel with a proof already spent reading the mailbox', async function () {
+      const rendezvous = createDelegationRendezvous();
+      const mailbox = createDelegationMailbox();
+      const here = await new Delegation({ key: PASSPORT.identity.key }).offer({ origin: 'https://hub.fabric.pub' });
+      assert.strictEqual(rendezvous.create(here.uri).status, 201);
+      const proof = d.createMailboxFetch({}, PASSPORT.identity.key);
+      assert.strictEqual((await mailbox.fetch(proof.uri)).status, 200);
+      assert.strictEqual(rendezvous.cancel(here.linkId, proof.uri).status, 409);
+      assert.strictEqual(rendezvous.read(here.linkId).status, 200, 'the pairing is still open');
+    });
+
     it('rate-limits reads of a link', async function () {
       const rendezvous = createDelegationRendezvous();
       const { server, origin } = await serve(rendezvous.handle);
@@ -201,6 +212,7 @@ describe('@fabric/http delegation transports', function () {
       const proof = d.createMailboxFetch({}, PASSPORT.identity.key);
       assert.strictEqual((await mailbox.fetch(proof.uri)).status, 200);
       const restarted = createDelegationMailbox({
+        spentNonces: new Map(),
         store: {
           async get () { return persisted.raw; },
           async set () {}
@@ -480,6 +492,22 @@ describe('@fabric/http delegation transports', function () {
       assert.strictEqual(described.body.granted, true);
       const asStranger = await send(origin, 'GET', `/services/delegation?pubkey=${PASSPORT.identity.pubkey}`, { headers: { origin: STRANGER } });
       assert.strictEqual(asStranger.body.granted, false);
+    });
+
+    it('refuses a reveal from another origin before taking it, so the right one still pairs', async function () {
+      const { hub, origin, prompts } = await setup();
+      const passport = new Delegation({ key: PASSPORT.identity.key });
+      const links = '/services/delegation/links';
+      const offer = await passport.offer({ origin, label: 'Passport' });
+      const answered = await send(origin, 'POST', links, { body: { frame: offer.uri }, headers: { origin: EXTENSION } });
+      assert.strictEqual(answered.status, 201, answered.body.error);
+      const revealed = await passport.receive(answered.body.frame);
+      const elsewhere = await send(origin, 'POST', links, { body: { frame: revealed.reveal }, headers: { origin: STRANGER } });
+      assert.strictEqual(elsewhere.status, 403);
+      assert.strictEqual((await hub.links())[0].status, 'answered', 'the reveal was not taken');
+      const confirmed = await send(origin, 'POST', links, { body: { frame: revealed.reveal }, headers: { origin: EXTENSION } });
+      assert.strictEqual(confirmed.status, 200, confirmed.body.error);
+      assert.strictEqual(prompts.length, 1);
     });
 
     it('accepts one pairing offer at a time', async function () {

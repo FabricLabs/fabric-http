@@ -127,9 +127,24 @@ describe('passportHttp', function () {
     return { res, binding: binding.value, line: binding.line };
   }
 
+  it('refuses a ninth unredeemed challenge from one address until one is redeemed', async function () {
+    await start();
+    const first = await browserChallenge();
+    for (let i = 0; i < 7; i++) await browserChallenge();
+    const waiting = await request(server, 'POST', '/sessions/challenges', { headers: { origin: SITE }, body: {} });
+    assert.strictEqual(waiting.status, 429);
+    assert.match(waiting.body.error, /waiting/);
+    const signedIn = await request(server, 'POST', '/sessions', {
+      headers: { origin: SITE, cookie: `${BINDING_COOKIE}=${first.binding}` },
+      body: { assertion: sign(first.res.body.challenge, SITE) }
+    });
+    assert.strictEqual(signedIn.status, 200, JSON.stringify(signedIn.body));
+    await browserChallenge();
+  });
+
   it('refuses the 31st challenge from one address and still redeems an earlier one', async function () {
     this.timeout(20000);
-    await start();
+    await start({ rp: { pendingChallengesPerClient: 100 } });
     const first = await browserChallenge();
     for (let i = 0; i < 29; i++) await browserChallenge();
     const blocked = await request(server, 'POST', '/sessions/challenges', { headers: { origin: SITE }, body: {} });
@@ -154,7 +169,7 @@ describe('passportHttp', function () {
 
   it('counts every address in one IPv6 /64 as one client', async function () {
     this.timeout(20000);
-    await start({ http: { trustProxy: true } });
+    await start({ http: { trustProxy: true }, rp: { pendingChallengesPerClient: 100 } });
     const from = (address) => ({ origin: SITE, 'x-forwarded-for': address });
     for (let i = 0; i < 30; i++) {
       const res = await request(server, 'POST', '/sessions/challenges', { headers: from(`2001:db8:1:2::${(i + 1).toString(16)}`), body: {} });

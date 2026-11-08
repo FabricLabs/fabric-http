@@ -367,8 +367,11 @@ function createRateLimit (options) {
     const t = now();
     let w = windows.get(key);
     if (!w || t - w.start >= options.windowMs) {
-      if (windows.size > 4096) {
-        for (const [k, v] of windows) if (t - v.start >= options.windowMs) windows.delete(k);
+      // Windows are kept oldest first, so the expired ones are all at the front.
+      windows.delete(key);
+      for (const [k, v] of windows) {
+        if (t - v.start < options.windowMs) break;
+        windows.delete(k);
       }
       w = { start: t, count: 0 };
       windows.set(key, w);

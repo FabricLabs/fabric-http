@@ -2,8 +2,7 @@
 
 // Constants
 const {
-  HTTP_HEADER_CONTENT_TYPE,
-  P2P_CALL
+  HTTP_HEADER_CONTENT_TYPE
 } = require('@fabric/core/constants');
 
 // Local Constants

@@ -3,7 +3,7 @@
  * Command-line HTTP server — similar to `npx http-server [path] [options]`, with Fabric endpoints.
  *
  * Usage:
- *   fabric-http [path] [options]
+ *   http [path] [options]          (alias: fabric-http)
  *   node scripts/node.js [path] [options]
  *
  * Options (subset aligned with http-server):

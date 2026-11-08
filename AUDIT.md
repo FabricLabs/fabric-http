@@ -5,7 +5,7 @@ Living posture notes for `@fabric/http` **0.1.0-RC1**. Re-run **`npm audit`** af
 
 | Area | Posture |
 |------|---------|
-| `@fabric/core` | Git pin `FabricLabs/fabric#600ed7050ae4ecde64e5fecc447ff1231cef91d6` (Node **26.12.1**) |
+| `@fabric/core` | Git pin `FabricLabs/fabric#600ed7050ae4ecde64e5fecc447ff1231cef91d6` (Node **26.13.0**) |
 | npm `allow-git` | **`.npmrc` `allow-git=all`** — nested git-dep preparation resolves core to a commit SHA; `root` is refused (intentional — do not flip to `root`) |
 | WebSocket (`ws`) | **Mitigated** — direct **`8.22.1`** (GHSA-58qx-3vcg-4xpx / fragment DoS); no override. jayson keeps its own `ws@7.5.13` (`^7.5.10`, patched) |
 | Test tooling | **`mocha@12.0.3`** / **`c8@12.0.0`** (same as core / Hub) — mocha 12 resolves `serialize-javascript@^7.1.1` and `diff@^9`, so those overrides are gone |
@@ -78,7 +78,7 @@ ws  6.x / 8.18.x
 ## Recommendations
 
 1. After dependency edits: **`npm ci`** then **`npm audit`** and **`npm test`** against the checked-in lockfile. Use **`npm run report:install`** only when intentionally refreshing git pins (`#feature/channels`); it wipes `node_modules` **and** `package-lock.json`, then `npm i --allow-git=all`. Diff the new lockfile before committing — do not treat the wiped lockfile as a release artifact until that review.
-2. Keep **`engines.node`** at **26.12.1** with Hub / `@fabric/core`.
+2. Keep **`engines.node`** at **26.13.0** with Hub / `@fabric/core`.
 3. Do not reintroduce **peerjs** or **showdown**.
 4. Treat Fomantic gulp as **build-only**; never expose its admin GitHub tooling on production HTTP paths.
 5. Coordinate `@fabric/core` bumps with Hub (`npm run link:fabric` / git pin) so Message/Peer/opcode behavior stays aligned. Install from `FabricLabs/fabric#feature/channels` when refreshing, then **re-pin** `package.json` to the lockfile’s resolved SHA — do not leave a moving branch tip in releases.

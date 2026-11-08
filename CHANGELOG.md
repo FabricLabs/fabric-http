@@ -2,6 +2,7 @@
 All notable changes to `@fabric/http` are documented here. This project follows semantic-ish versioning with **RC** milestones aligned to **`@fabric/core`**.
 
 ## Unreleased
+- **The CLI installs as `http`.** `npm i -g @fabric/http` puts `http [path] [options]` on the PATH; `fabric-http` stays as an alias (for `npx fabric-http`, and where HTTPie already owns `http`).
 - **`withContext` methods see their connection.** The context is `{ passport, transportAuthorized, connection }`; `connection` is the WebSocket a call came in on (null over HTTP), so a host can answer one client without broadcasting. The Hub routes WebRTC signals this way.
 - **Passport peer requests are never replayable while live.** `authorizeRequest` forgets only expired request nonces; when `maxRequestNonces` (default 200,000) live nonces are held, a new request gets `503` instead of pushing out a live nonce whose request could then be replayed.
 - **The mailbox shares boxes by sender too.** One sender (client address, IPv6 by its /64) opens at most `maxAddresses / 16` boxes (`429` past that), and a full table drops the newest box that only the sender holding the most boxes wrote to (never one holding a revoke) instead of refusing every new addressee. A sender over its per-box quarter drops its own oldest non-revoke frame first.

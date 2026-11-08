@@ -34,8 +34,8 @@ const PASSPORT_MAX_TARGET_LENGTH = 4096;
 /** Largest payload JSON. */
 const MAX_PAYLOAD_CHARS = 8192;
 /**
- * Error a peer gives once a connection has carried as many session-signed
- * frames as it remembers: the session must resume on a new connection.
+ * Error a peer gives once a session has carried as many signed frames as it
+ * remembers, on any connection: the user must sign in again.
  */
 const PASSPORT_REPLAY_LIMIT = 'passport_replay_limit';
 /** JSON-RPC error code of {@link PASSPORT_REPLAY_LIMIT} on a WebSocket call. */

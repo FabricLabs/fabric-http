@@ -26,6 +26,10 @@ const PASSPORT_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const MEMORY_STORE_MAX = 10000;
 /** Most live sessions the default in-memory session store keeps. */
 const MEMORY_SESSION_STORE_MAX = 100000;
+/** Unredeemed challenges one client may hold at once. */
+const PENDING_CHALLENGES_PER_CLIENT = 8;
+/** Live sessions one identity may hold; a new one ends that identity's oldest. */
+const SESSIONS_PER_IDENTITY = 16;
 
 /**
  * sha256 hex of a secret or token.
@@ -60,8 +64,10 @@ function createMemoryStore (options = {}) {
   const live = (row) => row && (!row.expiresAt || row.expiresAt > now());
   return {
     async put (key, value) {
-      for (const [id, row] of rows) {
-        if (!live(row)) rows.delete(id);
+      if (!rows.has(key) && rows.size >= max) {
+        for (const [id, row] of rows) {
+          if (!live(row)) rows.delete(id);
+        }
       }
       if (!rows.has(key) && rows.size >= max) {
         const err = new Error('too many pending records');
@@ -132,6 +138,8 @@ function isLoopbackOrigin (origin) {
  * @param {string[]} [settings.signers] Accept only these signer labels.
  * @param {number} [settings.challengeTtlMs]
  * @param {number} [settings.sessionTtlMs]
+ * @param {number} [settings.pendingChallengesPerClient] Unredeemed challenges one client may hold (default 8).
+ * @param {number} [settings.sessionsPerIdentity] Live sessions one identity may hold (default 16).
  * @param {object} [settings.challengeStore] `{ put, take }` (default in-memory).
  * @param {object} [settings.sessionStore] `{ put, get, delete }` (default in-memory).
  * @param {object} [settings.key] Site key that signs challenges (optional).
@@ -152,6 +160,37 @@ function createPassportRelyingParty (settings = {}) {
     : PASSPORT_SESSION_TTL_MS;
   const challengeStore = settings.challengeStore || createMemoryStore({ now });
   const sessionStore = settings.sessionStore || createMemoryStore({ now, max: MEMORY_SESSION_STORE_MAX });
+  const positive = (value, fallback) => (Number.isSafeInteger(value) && value > 0 ? value : fallback);
+  const pendingPerClient = positive(settings.pendingChallengesPerClient, PENDING_CHALLENGES_PER_CLIENT);
+  const sessionsPerIdentity = positive(settings.sessionsPerIdentity, SESSIONS_PER_IDENTITY);
+  /** client → Map(challenge key → expiresAt), and challenge key → client. */
+  const pendingByClient = new Map();
+  const clientOfChallenge = new Map();
+  /** identityId → [{ key, expiresAt }] oldest first. */
+  const sessionsByIdentity = new Map();
+
+  function forgetChallenge (key) {
+    const client = clientOfChallenge.get(key);
+    if (client == null) return;
+    clientOfChallenge.delete(key);
+    const pending = pendingByClient.get(client);
+    if (!pending) return;
+    pending.delete(key);
+    if (!pending.size) pendingByClient.delete(client);
+  }
+
+  /** Room for one more challenge from `client`, or a 429. */
+  function reserveChallenge (client) {
+    const pending = pendingByClient.get(client);
+    if (!pending) return;
+    const at = now();
+    for (const [key, expiresAt] of pending) if (expiresAt <= at) forgetChallenge(key);
+    if ((pendingByClient.get(client) || new Map()).size >= pendingPerClient) {
+      const err = new Error('too many sign-ins waiting; finish one or wait a minute');
+      err.status = 429;
+      throw err;
+    }
+  }
 
   /**
    * The pinned origin for `candidate`, or null.
@@ -172,6 +211,7 @@ function createPassportRelyingParty (settings = {}) {
    * @param {string} [params.origin] Must be pinned (defaults to the only pinned origin).
    * @param {string[]} [params.request] `wallet` and/or `cosigner`.
    * @param {string} [params.purpose]
+   * @param {string} [params.client] Who asks (e.g. a client address bucket); limits their unredeemed challenges.
    * @returns {Promise<{ challenge: string, hash: string, expiresAt: number, origin: string, network: (string|null), request: string[], bindingSecret: string }>}
    */
   async function issueChallenge (params = {}) {
@@ -181,6 +221,8 @@ function createPassportRelyingParty (settings = {}) {
       err.status = 403;
       throw err;
     }
+    const client = params.client != null && params.client !== '' ? String(params.client) : null;
+    if (client) reserveChallenge(client);
     const created = passport.createChallenge({
       origin,
       network,
@@ -190,7 +232,8 @@ function createPassportRelyingParty (settings = {}) {
       now: now()
     }, settings.key || null);
     const bindingSecret = randomToken();
-    await challengeStore.put(hashSecret(bindingSecret), {
+    const key = hashSecret(bindingSecret);
+    await challengeStore.put(key, {
       nonce: created.nonce,
       origin,
       challengeHash: created.hash,
@@ -198,6 +241,11 @@ function createPassportRelyingParty (settings = {}) {
       request: created.request,
       expiresAt: created.expiresAt
     });
+    if (client) {
+      if (!pendingByClient.has(client)) pendingByClient.set(client, new Map());
+      pendingByClient.get(client).set(key, created.expiresAt);
+      clientOfChallenge.set(key, client);
+    }
     return {
       challenge: created.uri,
       hash: created.hash,
@@ -223,7 +271,9 @@ function createPassportRelyingParty (settings = {}) {
     if (typeof assertion !== 'string' || !assertion.trim()) {
       return { ok: false, status: 400, error: 'assertion required' };
     }
-    const record = await challengeStore.take(hashSecret(bindingSecret));
+    const key = hashSecret(bindingSecret);
+    forgetChallenge(key);
+    const record = await challengeStore.take(key);
     if (!record) return { ok: false, status: 400, error: 'unknown, used, or expired challenge' };
     const verified = passport.verifyAssertion(assertion.trim(), {
       origin: record.origin,
@@ -240,7 +290,8 @@ function createPassportRelyingParty (settings = {}) {
   }
 
   /**
-   * Start a session for a verified assertion.
+   * Start a session for a verified assertion. An identity holds at most
+   * `sessionsPerIdentity` sessions; a new one ends that identity's oldest.
    * @param {object} verified Output of {@link redeem}.
    * @param {object} [extra] Host fields kept with the session (e.g. a member id).
    * @returns {Promise<{ token: string, session: object }>}
@@ -260,7 +311,13 @@ function createPassportRelyingParty (settings = {}) {
       issuedAt,
       expiresAt: issuedAt + sessionTtlMs
     });
-    await sessionStore.put(hashSecret(token), session);
+    const key = hashSecret(token);
+    const id = String(session.identityId);
+    const held = (sessionsByIdentity.get(id) || []).filter((row) => row.expiresAt > issuedAt);
+    while (held.length >= sessionsPerIdentity) await sessionStore.delete(held.shift().key);
+    await sessionStore.put(key, session);
+    held.push({ key, expiresAt: session.expiresAt });
+    sessionsByIdentity.set(id, held);
     return { token, session };
   }
 
@@ -281,7 +338,15 @@ function createPassportRelyingParty (settings = {}) {
    */
   async function revokeSession (token) {
     if (!token || typeof token !== 'string') return;
-    await sessionStore.delete(hashSecret(token));
+    const key = hashSecret(token);
+    const session = await sessionStore.get(key);
+    if (session && sessionsByIdentity.has(String(session.identityId))) {
+      const id = String(session.identityId);
+      const held = sessionsByIdentity.get(id).filter((row) => row.key !== key);
+      if (held.length) sessionsByIdentity.set(id, held);
+      else sessionsByIdentity.delete(id);
+    }
+    await sessionStore.delete(key);
   }
 
   /**
@@ -320,6 +385,8 @@ function createPassportRelyingParty (settings = {}) {
 
 module.exports = {
   PASSPORT_SESSION_TTL_MS,
+  PENDING_CHALLENGES_PER_CLIENT,
+  SESSIONS_PER_IDENTITY,
   hashSecret,
   tokensEqual,
   createMemoryStore,

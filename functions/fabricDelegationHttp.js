@@ -67,6 +67,12 @@ const DEFAULT_MAX_ADDRESSES = 4096;
 const MAILBOX_RETAIN_MS = 7 * 24 * 60 * 60 * 1000;
 const DEFAULT_POSTS_PER_MINUTE = 60;
 const DEFAULT_FETCH_LIMIT = 100;
+/**
+ * `DELEGATION_MAILBOX_FETCH` nonces already spent in this process: nonce →
+ * expiresAt. One set for every rendezvous and mailbox, so a proof spent on one
+ * route (a mailbox read, a pairing cancel) is refused on the others.
+ */
+const processSpentProofs = new Map();
 
 /**
  * @param {Object} [options]
@@ -76,6 +82,7 @@ const DEFAULT_FETCH_LIMIT = 100;
  * @param {number} [options.maxLinks]
  * @param {number} [options.maxPerAuthor]
  * @param {(boolean|string|string[])} [options.trustProxy] Rate-limit by the last `X-Forwarded-For` hop from a trusted proxy (`isTrustedProxy`).
+ * @param {Map} [options.spentNonces] Spent mailbox proofs (default: one set per process, shared with the mailbox).
  * @returns {Object} `{ create, append, read, cancel, size, handle, mount, mountOnHub }`
  */
 function createDelegationRendezvous (options = {}) {
@@ -87,7 +94,7 @@ function createDelegationRendezvous (options = {}) {
     ? new Set(options.origins.map((o) => normalizeHubOrigin(o)).filter(Boolean))
     : null;
   const links = new Map();
-  const spentNonces = new Map();
+  const spentNonces = options.spentNonces instanceof Map ? options.spentNonces : processSpentProofs;
   const limit = createRateLimit({ limit: 60, windowMs: 60 * 1000, now });
   const readLimit = createRateLimit({ limit: 360, windowMs: 60 * 1000, now });
   const opts = () => ({ now: now() });
@@ -318,6 +325,7 @@ function createDelegationRendezvous (options = {}) {
  * @param {(boolean|string|string[])} [options.trustProxy]
  * @param {Object} [options.store] `{ get(key), set(key, value) }` (async, JSON string) to survive restarts.
  * @param {string} [options.storeKey='delegation-mailbox']
+ * @param {Map} [options.spentNonces] Spent mailbox proofs (default: one set per process, shared with the rendezvous).
  * @param {function(string, Buffer, object): (boolean|Promise<boolean>)} [options.deliver] Called with `(to, frame, read)` first; return true to take the frame instead of queueing it (the host's own participant).
  * @returns {Object} `{ post, fetch, load, handle, mount, mountOnHub }`
  */
@@ -333,7 +341,7 @@ function createDelegationMailbox (options = {}) {
   const limit = createRateLimit({ limit: postsPerMinute, windowMs: 60 * 1000, now });
   const fetchLimit = createRateLimit({ limit: 6 * postsPerMinute, windowMs: 60 * 1000, now });
   const boxes = new Map();
-  const spent = new Map();
+  const spent = options.spentNonces instanceof Map ? options.spentNonces : processSpentProofs;
   let seq = 0;
   let secret = options.store ? null : crypto.randomBytes(32);
   let loaded = !options.store;

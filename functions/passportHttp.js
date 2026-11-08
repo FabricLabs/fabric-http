@@ -270,7 +270,8 @@ function createPassportHttp (settings = {}) {
 
   async function createChallenge (req, res) {
     try {
-      if (!challengeLimit(clientKey(req, settings.trustProxy))) {
+      const client = clientKey(req, settings.trustProxy);
+      if (!challengeLimit(client)) {
         return send(res, 429, { error: 'slow down' });
       }
       const body = await readBody(req);
@@ -279,6 +280,7 @@ function createPassportHttp (settings = {}) {
       const native = isNativeRequest(req);
       const issued = await rp.issueChallenge({
         origin,
+        client,
         request: requestedDisclosures(body),
         purpose: body && typeof body === 'object' && typeof body.purpose === 'string' ? body.purpose : undefined
       });

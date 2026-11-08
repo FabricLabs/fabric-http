@@ -11,11 +11,12 @@
  * 2. `PASSPORT_ASSERTION` naming this peer and a `sessionKey` → the challenge
  *    is spent, the assertion verified, and a signed `PASSPORT_SESSION` sent back.
  * 3. From then on, frames on that connection signed by `sessionKey` are the
- *    identity's ({@link callerOf}), each once. A relay that forwards the
- *    handshake can't sign as the session key, so it can't speak for the user,
- *    and a frame it sends again speaks for nobody. Once a connection has
- *    carried as many as it remembers, its session-signed frames are refused
- *    (`passport_replay_limit`) until the session resumes on a new connection.
+ *    identity's ({@link callerOf}), each once per session: the frames a
+ *    session has spoken are remembered across every connection it is bound
+ *    on, so a frame sent again (by a relay that saw it, or on a connection the
+ *    session resumed on) speaks for nobody. Once a session has carried as many
+ *    as it remembers, its frames are refused (`passport_replay_limit`) until
+ *    the user signs in again.
  * 4. `PASSPORT_RESUME`, signed by the session key over a fresh challenge,
  *    re-binds a live session on a new connection without asking the user.
  *
@@ -55,8 +56,8 @@ const PASSPORT_BINDING_HEADER = 'x-fabric-binding';
 const HTTP_HANDSHAKE_TTL_MS = 4 * 60 * 1000;
 /** Most HTTP handshakes in flight. */
 const MAX_HTTP_HANDSHAKES = 10000;
-/** Session-signed frames one connection remembers; when full, its sessions must resume on a new connection. */
-const MAX_SEEN_FRAMES_PER_CONNECTION = 65536;
+/** Session-signed frames one session may carry; when full, the user signs in again. */
+const MAX_SEEN_FRAMES_PER_SESSION = 65536;
 /** Most request nonces remembered (each until its request expires). */
 const MAX_SEEN_REQUEST_NONCES = 200000;
 /** Largest handshake body. */
@@ -105,7 +106,8 @@ function isPassportPeerFrame (input) {
  *   verified assertion and the connection before a session starts. Return extra session fields, or
  *   throw to refuse.
  * @param {number} [settings.maxRequestNonces] Live request nonces remembered; when full, new requests get 503.
- * @param {number} [settings.maxFramesPerConnection] Session-signed frames one connection may carry.
+ * @param {number} [settings.maxFramesPerSession] Frames one session may carry
+ *   (`maxFramesPerConnection` is the older name).
  * @param {function(): number} [settings.now]
  * @returns {object}
  */
@@ -122,15 +124,36 @@ function createPassportPeer (settings = {}) {
   const maxSeenNonces = Number.isSafeInteger(settings.maxRequestNonces) && settings.maxRequestNonces > 0
     ? settings.maxRequestNonces
     : MAX_SEEN_REQUEST_NONCES;
-  const maxSeenFrames = Number.isSafeInteger(settings.maxFramesPerConnection) && settings.maxFramesPerConnection > 0
-    ? settings.maxFramesPerConnection
-    : MAX_SEEN_FRAMES_PER_CONNECTION;
+  const frameCap = settings.maxFramesPerSession != null ? settings.maxFramesPerSession : settings.maxFramesPerConnection;
+  const maxSeenFrames = Number.isSafeInteger(frameCap) && frameCap > 0 ? frameCap : MAX_SEEN_FRAMES_PER_SESSION;
   const store = settings.sessionStore || createMemoryStore({ now, max: MEMORY_SESSION_STORE_MAX });
   const connections = new WeakMap();
   /** HTTP handshakes: sha256(binding) → `{ conn, expiresAt }`. */
   const handshakes = new Map();
   /** Request nonces already used: nonce → expiresAt. */
   const seenNonces = new Map();
+  /**
+   * Frames each session has spoken, shared by every connection it is bound
+   * on: sessionId → `{ expiresAt, frames, full }`. Kept until the session ends.
+   */
+  const sessionFrames = new Map();
+
+  function framesOf (record) {
+    let row = sessionFrames.get(record.sessionId);
+    if (!row) {
+      const at = now();
+      for (const [id, old] of sessionFrames) if (old.expiresAt <= at) sessionFrames.delete(id);
+      row = { expiresAt: record.expiresAt, frames: new Set(), full: false };
+      sessionFrames.set(record.sessionId, row);
+    }
+    return row;
+  }
+
+  function replayLimitError () {
+    const err = new Error(`${PASSPORT_REPLAY_LIMIT}: sign in again`);
+    err.code = PASSPORT_REPLAY_LIMIT;
+    return err;
+  }
 
   function homes () {
     const list = typeof settings.homes === 'function' ? settings.homes() : settings.homes;
@@ -140,7 +163,7 @@ function createPassportPeer (settings = {}) {
   function stateOf (conn) {
     let state = connections.get(conn);
     if (!state) {
-      state = { challenge: null, sessions: new Map(), connects: [], seenFrames: new Set(), full: false };
+      state = { challenge: null, sessions: new Map(), connects: [] };
       connections.set(conn, state);
     }
     return state;
@@ -281,6 +304,8 @@ function createPassportPeer (settings = {}) {
     const at = now();
     if (!record || record.expiresAt <= at) return refuse('unknown or expired session', buffer);
     if (record.sessionKey.slice(2) !== read.author) return refuse('resume is not signed by the session key', buffer);
+    const seen = sessionFrames.get(record.sessionId);
+    if (seen && seen.full) return refuse(PASSPORT_REPLAY_LIMIT, buffer);
     const frame = passport.createPeerSession({
       sessionId: record.sessionId,
       assertionHash: record.assertionHash,
@@ -304,7 +329,6 @@ function createPassportPeer (settings = {}) {
     const type = frameType(buffer);
     if (!PASSPORT_PEER_FRAME_TYPES.includes(type)) return refuse('not a Passport peer frame', buffer);
     const state = stateOf(conn);
-    if (state.full) return refuse(PASSPORT_REPLAY_LIMIT, buffer);
     if (type === 'PASSPORT_CONNECT') return onConnect(state, buffer);
     if (type === 'PASSPORT_ASSERTION') return onAssertion(conn, state, buffer);
     return onResume(state, buffer);
@@ -314,7 +338,7 @@ function createPassportPeer (settings = {}) {
    * The session a frame on `conn` speaks for: signed by a session key bound
    * on that connection, and the session still live. Otherwise null.
    * Throws (`code` `passport_replay_limit`) for a session-signed frame once
-   * the connection has carried `maxFramesPerConnection` of them.
+   * the session has carried `maxFramesPerSession` of them.
    * @param {object} conn
    * @param {Buffer|Uint8Array|Message} input Raw frame bytes.
    * @returns {Promise<(object|null)>}
@@ -329,25 +353,24 @@ function createPassportPeer (settings = {}) {
     if (!sessionId) return null;
     const verified = Message.verifyFrameAuthor(buffer);
     if (!verified || !verified.ok) return null;
-    // A frame speaks once: sent again (by a relay that saw it), it speaks for nobody.
-    const frameId = crypto.createHash('sha256').update(buffer).digest('hex');
-    if (state.seenFrames.has(frameId)) return null;
-    if (state.full || state.seenFrames.size >= maxSeenFrames) {
-      // Dropping the bindings would run this call anonymously, so they stay;
-      // the connection never takes a session-signed frame again, so the
-      // frames it saw can go.
-      state.full = true;
-      state.seenFrames.clear();
-      const err = new Error(`${PASSPORT_REPLAY_LIMIT}: open a new connection and resume the session`);
-      err.code = PASSPORT_REPLAY_LIMIT;
-      throw err;
-    }
-    state.seenFrames.add(frameId);
     const record = await store.get(sessionId);
     if (!record || record.expiresAt <= now() || record.sessionKey.slice(2) !== author) {
       state.sessions.delete(author);
+      if (!record || record.expiresAt <= now()) sessionFrames.delete(sessionId);
       return null;
     }
+    // A frame speaks once per session, on any connection: sent again, it speaks for nobody.
+    const seen = framesOf(record);
+    const frameId = crypto.createHash('sha256').update(buffer).digest('hex');
+    if (seen.frames.has(frameId)) return null;
+    if (seen.full || seen.frames.size >= maxSeenFrames) {
+      // Dropping the binding would run this call anonymously, so it stays and
+      // the session never takes a frame again; the frames it saw can go.
+      seen.full = true;
+      seen.frames.clear();
+      throw replayLimitError();
+    }
+    seen.frames.add(frameId);
     return sessionView(record);
   }
 
@@ -449,7 +472,9 @@ function createPassportPeer (settings = {}) {
    * @returns {Promise<void>}
    */
   async function revoke (sessionId) {
-    await store.delete(String(sessionId || '').toLowerCase());
+    const id = String(sessionId || '').toLowerCase();
+    sessionFrames.delete(id);
+    await store.delete(id);
   }
 
   /**

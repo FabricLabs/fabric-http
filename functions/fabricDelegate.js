@@ -237,7 +237,7 @@ function createFabricDelegate (options = {}) {
       try {
         const made = await store.answer(frame, { label: settings.name || settings.signer });
         linkOrigins.clear();
-        linkOrigins.set(made.linkId, origin);
+        linkOrigins.set(made.linkId, { origin, answer: delegation.frameHash(made.uri) });
         return { status: 201, json: { ok: true, linkId: made.linkId, frame: made.uri } };
       } catch (err) {
         return { status: 400, json: { ok: false, error: err.message } };
@@ -245,6 +245,12 @@ function createFabricDelegate (options = {}) {
     }
     if (type === 'DELEGATION_LINK_REVEAL') {
       if (linkWaiting) return { status: 429, json: { ok: false, error: 'wait before pairing again' } };
+      const read = delegation.readLinkReveal(frame, { now: settings.now() });
+      if (!read.ok) return { status: 400, json: { ok: false, error: read.error } };
+      const started = [...linkOrigins.values()].find((link) => link.answer === read.reveal.answer);
+      if (!started || started.origin !== origin) {
+        return { status: 403, json: { ok: false, error: 'pairing started from another origin' } };
+      }
       linkWaiting = true;
       lastLinkPromptAt = settings.now();
       let taken;
@@ -258,7 +264,7 @@ function createFabricDelegate (options = {}) {
         linkWaiting = false;
         return { status: 400, json: { ok: false, error: taken.error } };
       }
-      if (linkOrigins.get(taken.linkId) !== origin) {
+      if (!linkOrigins.has(taken.linkId) || linkOrigins.get(taken.linkId).origin !== origin) {
         linkWaiting = false;
         return { status: 403, json: { ok: false, error: 'pairing started from another origin' } };
       }

@@ -6,6 +6,7 @@
   "module": "module.js",
   "type": "commonjs",
   "bin": {
+    "http": "./scripts/node.js",
     "fabric-http": "./scripts/node.js"
   },
   "scripts": {
@@ -56,7 +57,7 @@
   },
   "homepage": "https://github.com/FabricLabs/fabric-http#readme",
   "engines": {
-    "node": "26.12.1",
+    "node": "26.13.0",
     "npm": ">=12.0.0"
   },
   "files": [

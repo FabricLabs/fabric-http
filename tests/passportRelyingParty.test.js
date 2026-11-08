@@ -46,6 +46,33 @@ describe('passportRelyingParty', function () {
     assert.strictEqual((await rp.redeem(last.bindingSecret, sign(last))).ok, true);
   });
 
+  it('limits unredeemed challenges per client, and frees one when it is redeemed', async function () {
+    const rp = party({ pendingChallengesPerClient: 2 });
+    const a = await rp.issueChallenge({ origin: SITE, client: 'a' });
+    await rp.issueChallenge({ origin: SITE, client: 'a' });
+    await assert.rejects(rp.issueChallenge({ origin: SITE, client: 'a' }), (err) => err.status === 429);
+    assert.ok(await rp.issueChallenge({ origin: SITE, client: 'b' }), 'another client is unaffected');
+    assert.strictEqual((await rp.redeem(a.bindingSecret, sign(a))).ok, true);
+    assert.ok(await rp.issueChallenge({ origin: SITE, client: 'a' }), 'a redeemed challenge makes room');
+  });
+
+  it('keeps an identity to its own session quota, ending its oldest session', async function () {
+    const rp = party({ sessionsPerIdentity: 2 });
+    const tokens = [];
+    for (let i = 0; i < 3; i++) {
+      const issued = await rp.issueChallenge({});
+      tokens.push((await rp.issueSession(await rp.redeem(issued.bindingSecret, sign(issued)))).token);
+    }
+    assert.strictEqual(await rp.readSession(tokens[0]), null, 'the oldest session ended');
+    assert.ok(await rp.readSession(tokens[1]));
+    assert.ok(await rp.readSession(tokens[2]));
+    await rp.revokeSession(tokens[1]);
+    const issued = await rp.issueChallenge({});
+    const fourth = (await rp.issueSession(await rp.redeem(issued.bindingSecret, sign(issued)))).token;
+    assert.ok(await rp.readSession(tokens[2]), 'a revoked session frees its slot');
+    assert.ok(await rp.readSession(fourth));
+  });
+
   it('issues challenges only for pinned origins', async function () {
     const rp = party({ pinnedOrigins: [SITE, OTHER_SITE] });
     assert.strictEqual((await rp.issueChallenge({ origin: `${SITE}/path` })).origin, SITE);

@@ -17,9 +17,9 @@
  * every request carries an `X-Fabric-Request` signed by the session key
  * (`authorize`, `fetch` on the session handle).
  *
- * A connection carries a bounded number of session-signed calls. Past it, the
- * peer refuses them and `call` rejects with `code` `passport_replay_limit`:
- * open a new connection and `openPeerSession({ resume: sessionId, sessionKey })`.
+ * A session carries a bounded number of signed calls, across every connection
+ * it resumes on. Past it, the peer refuses them (and resumes) and `call`
+ * rejects with `code` `passport_replay_limit`: sign in again for a new session.
  */
 
 const crypto = require('crypto');
