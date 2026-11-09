@@ -36,7 +36,7 @@ const stoppable = require('stoppable');
 // const graphql = require('graphql-http/lib/use/http').createHandler;
 
 // Pathing
-const { pathToRegexp, parse: parsePath, compile: compilePath } = require('path-to-regexp');
+const { pathToRegexp, parse: parsePath } = require('path-to-regexp');
 
 // Fabric Core constants (AMP wire)
 const { MAGIC_BYTES, HEADER_SIZE } = require('@fabric/core/constants');
@@ -71,6 +71,25 @@ const WebSocket = require('ws');
 const messageTransport = require('../functions/fabricMessageTransport');
 const jsonRpcTransport = require('../functions/fabricJsonRpcTransport');
 const webrtcInterop = require('../functions/fabricWebRtcInterop');
+const {
+  PASSPORT_REQUEST_HEADER,
+  isPassportPeerFrame,
+  createPassportPeerHttp
+} = require('../functions/passportPeer');
+const { PASSPORT_REPLAY_LIMIT, PASSPORT_REPLAY_LIMIT_CODE } = require('../functions/passportPeerRequest');
+
+/**
+ * Key for the verified call context (`{ passport, connection }`) on a call
+ * object. Calls are also built from client JSON, which cannot carry a Symbol
+ * key, so only server code can vouch for a caller.
+ * @private
+ */
+const CALL_CONTEXT = Symbol('FabricHTTPServer.callContext');
+
+/** Body-parser `verify`: keep the bytes of a request signed as a Passport peer session. */
+function keepSignedBody (req, res, buf) {
+  if (req.headers && req.headers[PASSPORT_REQUEST_HEADER]) req.rawBody = Buffer.from(buf);
+}
 const { resolveJsonBodyLimitForRequest } = require('../functions/jsonBodyLimit');
 const {
   buildApplicationResourceContract
@@ -115,21 +134,25 @@ function safeFileComponent (input, fallback) {
 }
 
 /**
- * A concrete path for `template`, with every parameter set to a sample
- * sha256 hex (blob routes only answer 64-hex hashes).
+ * Concrete paths for `template`, one per combination of its optional groups,
+ * with every parameter and wildcard set to a sample sha256 hex (blob routes
+ * only answer 64-hex hashes).
  * @private
  */
-function sampleRoutePath (template) {
+function sampleRoutePaths (template) {
   const sample = '0123456789abcdef'.repeat(4);
-  const params = {};
-  for (const token of parsePath(template)) {
-    if (typeof token !== 'object') continue;
-    params[token.name] = (token.modifier === '+' || token.modifier === '*') ? [sample] : sample;
-  }
+  const expand = (tokens) => tokens.reduce((paths, token) => {
+    if (token.type === 'group') {
+      const inner = expand(token.tokens);
+      return paths.flatMap((p) => [p].concat(inner.map((i) => p + i)));
+    }
+    const text = token.type === 'text' ? token.value : sample;
+    return paths.map((p) => p + text);
+  }, ['']);
   try {
-    return compilePath(template, { validate: false })(params);
+    return expand(parsePath(template).tokens).slice(0, 256);
   } catch (_) {
-    return null;
+    return [];
   }
 }
 
@@ -138,9 +161,9 @@ function sampleRoutePath (template) {
  * @private
  */
 function routeTemplatesOverlap (a, b) {
-  const probeB = sampleRoutePath(b);
-  const probeA = sampleRoutePath(a);
-  return Boolean((probeB && pathToRegexp(a).test(probeB)) || (probeA && pathToRegexp(b).test(probeA)));
+  const matchA = pathToRegexp(a).regexp;
+  const matchB = pathToRegexp(b).regexp;
+  return sampleRoutePaths(b).some((p) => matchA.test(p)) || sampleRoutePaths(a).some((p) => matchB.test(p));
 }
 
 function xmlEscape (value) {
@@ -154,7 +177,7 @@ function xmlEscape (value) {
 
 /**
  * `express.send` can label theme fonts as `application/octet-stream`. With `X-Content-Type-Options: nosniff`
- * (set by @fabric/hub) Chromium/Electron may refuse to load @font-face resources; set explicit font MIME
+ * (set by many apps) Chromium/Electron may refuse to load @font-face resources; set explicit font MIME
  * types for common Fomantic (Semantic) theme files under /themes/…/assets/fonts/
  * @param {http.ServerResponse} res
  * @param {string} filePath
@@ -362,6 +385,10 @@ class FabricHTTPServer extends Service {
     this.connections = {};
     this.definitions = {};
     this.methods = {};
+    this._methodOptions = {};
+    /** Passport peer sessions (`functions/passportPeer`), when the host attaches one. */
+    this._passportPeer = null;
+    this._passportPeerHttp = null;
     this.stores = {};
     /** Resource instances keyed by name. */
     /** @type {Map<string, Resource>} */
@@ -401,6 +428,7 @@ class FabricHTTPServer extends Service {
     this.collections = [];
     this.routes = [];
     this.customRoutes = [];
+    if (settings.passportPeer) this.attachPassportPeer(settings.passportPeer);
     this.keys = new Set();
     this.accessLogStream = null;
     this.resourceRouteIndex = new Map();
@@ -566,7 +594,8 @@ class FabricHTTPServer extends Service {
     // Do not JSON.stringify the full HTTPServer state on every resource mutation
     // (OpenSSF advisory floods OOMed Hub while this ran on every Create).
     if ((this.settings.verbosity || 0) < 5) return;
-    const message = Message.fromVector(['StateUpdate', JSON.stringify({ clock: this.clock })]);
+    // `StateUpdate` is not a registered type; it always went out as P2P_BASE_MESSAGE.
+    const message = Message.fromVector(['P2P_BASE_MESSAGE', JSON.stringify({ type: 'StateUpdate', clock: this.clock })]);
     if (this._rootKey && this._rootKey.private) message.signWithKey(this._rootKey);
     this.broadcast(message);
   }
@@ -596,10 +625,9 @@ class FabricHTTPServer extends Service {
       this.emit('changes', this['@changes']);
       this.emit('message', message);
 
-      // Broadcast to connected peers (patches only — not a full state snapshot)
-      const outbound = Message.fromVector(['Transaction', JSON.stringify(message['@data'])]);
-      if (this._rootKey && this._rootKey.private) outbound.signWithKey(this._rootKey);
-      this.broadcast(outbound);
+      // No `Transaction` broadcast: `P2P_TRANSACTION` is deprecated (receivers
+      // ignore it) and its JSON body has no layout. Subscribers get resource
+      // changes through `_notifySubscribers`.
     }
 
     return this;
@@ -643,6 +671,8 @@ class FabricHTTPServer extends Service {
     const blobOwner = resource.blobRoute && this.routes.find((r) => r.isBlob && r.resource !== name && routeTemplatesOverlap(r.path, resource.blobRoute));
     if (blobOwner) throw new Error(`[HTTP:SERVER] ${name} cannot mount ${resource.blobRoute}: ${blobOwner.resource} already prices blobs at ${blobOwner.path}`);
     const ownPaths = [resource.routes.view, resource.routes.list];
+    const shadow = resource.blobRoute && ownPaths.find((p) => routeTemplatesOverlap(p, resource.blobRoute));
+    if (shadow) throw new Error(`[HTTP:SERVER] ${name} cannot mount ${resource.blobRoute}: it overlaps its own ${shadow}`);
     const conflict = this.routes.map((r) => {
       if (r.resource === name) return null;
       if (resource.blobRoute && routeTemplatesOverlap(r.path, resource.blobRoute)) return { path: resource.blobRoute, other: r };
@@ -689,10 +719,10 @@ class FabricHTTPServer extends Service {
     resource.store.on('commit', () => server._broadcastStateUpdate());
 
     // Register list and view paths in the route-match table.
-    this.routes.push({ path: resource.routes.view, route: pathToRegexp(resource.routes.view), resource: name, isView: true });
-    this.routes.push({ path: resource.routes.list, route: pathToRegexp(resource.routes.list), resource: name, isView: false });
+    this.routes.push({ path: resource.routes.view, route: pathToRegexp(resource.routes.view).regexp, resource: name, isView: true });
+    this.routes.push({ path: resource.routes.list, route: pathToRegexp(resource.routes.list).regexp, resource: name, isView: false });
     if (resource.blobRoute) {
-      this.routes.push({ path: resource.blobRoute, route: pathToRegexp(resource.blobRoute), resource: name, isView: true, isBlob: true });
+      this.routes.push({ path: resource.blobRoute, route: pathToRegexp(resource.blobRoute).regexp, resource: name, isView: true, isBlob: true });
     }
 
     // Mirror to SPA router; seed local store.
@@ -781,6 +811,31 @@ class FabricHTTPServer extends Service {
       }
     }
     return !!rpcAuthenticated;
+  }
+
+  /**
+   * Optional `settings.websocket.verifyOrigin(req)` hook: an embedding app (e.g. Hub) decides
+   * which upgrade requests to accept by `Origin` / `Host`. Only `true` accepts; a throw or a
+   * promise (the hook is synchronous) rejects the upgrade.
+   * @param {Object} info `ws` verifyClient info (`{ origin, secure, req }`)
+   * @returns {boolean}
+   */
+  _verifyWebSocketOrigin (info) {
+    const wsCfg = this.settings.websocket || {};
+    if (typeof wsCfg.verifyOrigin !== 'function') return true;
+    let ok = false;
+    try {
+      const verdict = wsCfg.verifyOrigin(info && info.req);
+      // The hook is synchronous: a promise refuses the upgrade, and its rejection is handled.
+      if (verdict && typeof verdict.then === 'function') verdict.then(null, () => {});
+      ok = verdict === true;
+    } catch (_) {
+      ok = false;
+    }
+    if (!ok && (this.settings.verbosity || 0) >= 3) {
+      console.warn('[SERVER] WebSocket handshake rejected by verifyOrigin');
+    }
+    return ok;
   }
 
   _verifyWebSocketClient (info) {
@@ -879,8 +934,36 @@ class FabricHTTPServer extends Service {
     return this;
   }
 
-  _registerMethod (name, method) {
+  /**
+   * Register a JSON-RPC method.
+   * @param {string} name
+   * @param {Function} method
+   * @param {Object} [options]
+   * @param {boolean} [options.withContext] Call as `method(context, ...params)`, where
+   *   `context` is `{ passport, transportAuthorized, connection }`: `passport` is the Passport
+   *   peer session the call was signed for (`functions/passportPeer`), or null; `connection`
+   *   is the WebSocket the call came in on, or null over HTTP. Both come only from
+   *   `call[HTTPServer.CALL_CONTEXT]`, never from fields a client can put in a call.
+   */
+  _registerMethod (name, method, options = {}) {
     this.methods[name] = method.bind(this);
+    this._methodOptions[name] = Object.assign({}, options);
+  }
+
+  /**
+   * Answer Passport peer sign-ins on this server: on its WebSockets, on
+   * `GET|POST /sessions/peer` (HTTP handshake), and on any request carrying
+   * `X-Fabric-Request`, which then has `req.passportSession` (or gets 401).
+   * @param {object} passportPeer From `createPassportPeer`.
+   * @param {Object} [options] `createPassportPeerHttp` options; `routes: false` skips the routes.
+   * @returns {HTTPServer}
+   */
+  attachPassportPeer (passportPeer, options = {}) {
+    if (!passportPeer || typeof passportPeer.handleFrame !== 'function') throw new TypeError('attachPassportPeer: a Passport peer is required');
+    this._passportPeer = passportPeer;
+    this._passportPeerHttp = createPassportPeerHttp(passportPeer, options);
+    if (options.routes !== false) this._passportPeerHttp.mount(this);
+    return this;
   }
 
   /**
@@ -1034,6 +1117,12 @@ class FabricHTTPServer extends Service {
     if (params === undefined || params === null) params = [];
     if (!Array.isArray(params)) params = [params];
     if (!this.methods[methodName]) throw new Error(`Method "${methodName}" has not been registered.`);
+    const options = (this._methodOptions && this._methodOptions[methodName]) || {};
+    if (options.withContext) {
+      const trusted = call[CALL_CONTEXT] || {};
+      const context = { passport: trusted.passport || null, transportAuthorized: call._fabricTransportAuthorized === true, connection: trusted.connection || null };
+      return this.methods[methodName].apply(this, [context].concat(params));
+    }
     return this.methods[methodName].apply(this, params);
   }
 
@@ -1072,7 +1161,7 @@ class FabricHTTPServer extends Service {
       clearInterval(socket._heartbeat);
       socket._heartbeat = setInterval(function () {
         const now = Date.now();
-        const ping = Message.fromVector(['Ping', now.toString()]);
+        const ping = Message.fromLegacyBody('P2P_PING', { nonce: now.toString() });
 
         // Sign the ping message before sending
         if (server._rootKey && server._rootKey.private) {
@@ -1101,6 +1190,7 @@ class FabricHTTPServer extends Service {
     // Clean up memory when the connection has been safely closed (ideal case).
     socket.on('close', function () {
       clearInterval(socket._heartbeat);
+      if (server._passportPeer) server._passportPeer.close(socket);
       // Clear subscriptions for this socket
       socket.subscriptions.clear();
       delete server.connections[player['@data'].connection];
@@ -1134,6 +1224,15 @@ class FabricHTTPServer extends Service {
             }
             return;
           }
+          // Passport peer sign-in: answered on this socket before any transport gate.
+          if (server._passportPeer && isPassportPeerFrame(payloadBuf)) {
+            const outcome = await server._passportPeer.handleFrame(socket, payloadBuf);
+            for (const reply of outcome.replies || []) socket.send(reply);
+            if (outcome.session) {
+              server.emit('passport:session', { session: outcome.session, resumed: !!outcome.resumed, connection: handle });
+            }
+            return;
+          }
           message = Message.fromBuffer(payloadBuf);
         } else {
           const data = typeof msg === 'string' ? msg : msg.toString('utf8');
@@ -1158,12 +1257,24 @@ class FabricHTTPServer extends Service {
             const rawType = parsed.type || parsed['@type'];
             if (rawType === messageTransport.HEARTBEAT_TYPE) {
               const payload = parsed.body ?? parsed.data ?? parsed.content ?? parsed['@data'] ?? '';
-              message = Message.fromVector([
-                messageTransport.HEARTBEAT_TYPE,
-                typeof payload === 'string' ? payload : JSON.stringify(payload)
-              ]);
+              // A client JSON keepalive is a ping: carry it as a P2P_PING field
+              // frame (its payload, or the time, as the nonce). Dispatch below
+              // still uses the text frame's own `type`.
+              message = Message.fromLegacyBody('P2P_PING', {
+                nonce: typeof payload === 'string' && payload ? payload : String(Date.now())
+              });
             } else {
-              message = new Message(parsed);
+              // Client JSON may name an app-level type with no opcode; carry it as
+              // P2P_BASE_MESSAGE (what Message used to do silently) and dispatch on `type`.
+              try {
+                message = new Message(Object.assign({}, parsed, {
+                  type: Message.isRegisteredType(rawType) ? rawType : 'P2P_BASE_MESSAGE'
+                }));
+              } catch (buildErr) {
+                // e.g. an object body for a type with a field layout: refuse, don't throw.
+                console.warn('[SERVER]', 'Refused JSON frame:', buildErr && buildErr.message ? buildErr.message : buildErr);
+                return;
+              }
             }
           } else {
             message = Message.fromRaw(parsed);
@@ -1243,11 +1354,29 @@ class FabricHTTPServer extends Service {
                 break;
               }
 
+              let passportCaller = null;
+              if (payloadBuf && server._passportPeer) {
+                try {
+                  passportCaller = await server._passportPeer.callerOf(socket, payloadBuf);
+                } catch (refusal) {
+                  if (!refusal || refusal.code !== PASSPORT_REPLAY_LIMIT) throw refusal;
+                  const errBody = JSON.stringify(jsonRpcTransport.buildWebSocketJsonCallErrorBody({
+                    hash,
+                    code: PASSPORT_REPLAY_LIMIT_CODE,
+                    message: refusal.message
+                  }));
+                  const denied = Message.fromVector([messageTransport.JSON_CALL_CANONICAL_TYPE, errBody]);
+                  if (server._rootKey && server._rootKey.private) denied.signWithKey(server._rootKey);
+                  socket.send(denied.toBuffer());
+                  break;
+                }
+              }
               const result = await server._handleCall({
                 hash: hash,
                 method: jsonCallPayload.method,
                 params: jsonCallPayload.params,
-                _fabricTransportAuthorized: socket._fabricTransportAuthorized === true
+                _fabricTransportAuthorized: socket._fabricTransportAuthorized === true,
+                [CALL_CONTEXT]: { passport: passportCaller, connection: socket }
               });
 
               if (server.settings.debug) {
@@ -1324,7 +1453,7 @@ class FabricHTTPServer extends Service {
           case messageTransport.PING_CANONICAL_TYPE:
             {
               const now = Date.now();
-              local = Message.fromVector([messageTransport.PONG_CANONICAL_TYPE, now.toString()]);
+              local = Message.fromLegacyBody('P2P_PONG', { nonce: now.toString() });
               if (server._rootKey && server._rootKey.private) local.signWithKey(server._rootKey);
               let sendResult = null;
               try {
@@ -1457,13 +1586,6 @@ class FabricHTTPServer extends Service {
       '@type': 'VerAck',
       '@version': 1
     })); */
-
-    if (this.app) {
-      const inventory = Message.fromVector(['InventoryRequest', { parent: server.app.id, version: 0 }]);
-      const state = Message.fromVector(['State', { content: server.app.state }]);
-      // socket.send(inventory.toBuffer());
-      // socket.send(state.toBuffer());
-    }
 
     return socket;
   }
@@ -1787,7 +1909,8 @@ class FabricHTTPServer extends Service {
             _fabricTransportAuthorized: transportAuthorized,
             _fabricRemoteAddress: req && req.socket && req.socket.remoteAddress
               ? String(req.socket.remoteAddress)
-              : ''
+              : '',
+            [CALL_CONTEXT]: { passport: (req && req.passportSession) || null }
           });
         } catch (callErr) {
           if ((this.settings.verbosity || 0) >= 3) console.error('[HTTP:SERVER] RPC call error:', callErr);
@@ -2361,13 +2484,18 @@ class FabricHTTPServer extends Service {
     }
 
     // Other Middlewares
-    this.express.use(parsers.urlencoded({ extended: true }));
+    this.express.use(parsers.urlencoded({ extended: true, verify: keepSignedBody }));
     // Fabric HTTP APIs expect JSON **objects** (or arrays where applicable), not bare primitives.
     // Keep the global JSON limit small; apply a larger limit only on known large-body paths
     // (JSON-RPC / CreateDocument). Unauthenticated POSTs elsewhere must not parse 12mb.
     this.express.use((req, res, next) => {
       const limit = this._jsonBodyLimitForRequest(req);
-      return parsers.json({ limit })(req, res, next);
+      return parsers.json({ limit, verify: keepSignedBody })(req, res, next);
+    });
+    // Passport peer sessions over HTTP: a signed `X-Fabric-Request` names the session.
+    this.express.use((req, res, next) => {
+      if (!this._passportPeerHttp || !req.headers[PASSPORT_REQUEST_HEADER]) return next();
+      return this._passportPeerHttp.middleware(req, res, next);
     });
 
     for (let name in this.settings.middlewares) {
@@ -2448,14 +2576,14 @@ class FabricHTTPServer extends Service {
     }
 
     // Attach the internal router (optional SPA shell before resource router)
-    this.express.get('/*', this._maybeServeSpaShell.bind(this), this._handleRoutableRequest.bind(this));
-    this.express.head('/*', this._handleRoutableRequest.bind(this));
-    this.express.put('/*', this._handleRoutableRequest.bind(this));
-    this.express.post('/*', this._handleRoutableRequest.bind(this));
-    this.express.patch('/*', this._handleRoutableRequest.bind(this));
-    this.express.delete('/*', this._handleRoutableRequest.bind(this));
-    this.express.options('/*', this._handleRoutableRequest.bind(this));
-    this.express.search('/*', this._handleRoutableRequest.bind(this));
+    this.express.get('/{*splat}', this._maybeServeSpaShell.bind(this), this._handleRoutableRequest.bind(this));
+    this.express.head('/{*splat}', this._handleRoutableRequest.bind(this));
+    this.express.put('/{*splat}', this._handleRoutableRequest.bind(this));
+    this.express.post('/{*splat}', this._handleRoutableRequest.bind(this));
+    this.express.patch('/{*splat}', this._handleRoutableRequest.bind(this));
+    this.express.delete('/{*splat}', this._handleRoutableRequest.bind(this));
+    this.express.options('/{*splat}', this._handleRoutableRequest.bind(this));
+    this.express.search('/{*splat}', this._handleRoutableRequest.bind(this));
 
     const servicesTestPrize = (req, res) => res.send({ message: 'I am the prize!' });
     const pay = this.settings.payments || {};
@@ -2479,8 +2607,13 @@ class FabricHTTPServer extends Service {
     const wsCfg = this.settings.websocket || {};
     const wsTokenConfigured = Boolean(wsCfg.clientToken || wsCfg.sharedSecret);
     const wsTokenRequired = wsCfg.requireClientToken === true || wsCfg.requireClientToken === '1' || wsCfg.requireClientToken === 1;
-    if (wsTokenConfigured && wsTokenRequired) {
-      wsOpts.verifyClient = this._verifyWebSocketClient.bind(this);
+    const wsCheckToken = wsTokenConfigured && wsTokenRequired;
+    const wsCheckOrigin = typeof wsCfg.verifyOrigin === 'function';
+    if (wsCheckToken || wsCheckOrigin) {
+      wsOpts.verifyClient = (info) => {
+        if (wsCheckOrigin && !this._verifyWebSocketOrigin(info)) return false;
+        return wsCheckToken ? this._verifyWebSocketClient(info) : true;
+      };
     }
     this.wss = new WebSocket.Server(wsOpts);
 
@@ -2718,5 +2851,7 @@ class FabricHTTPServer extends Service {
     return result;
   }
 }
+
+FabricHTTPServer.CALL_CONTEXT = CALL_CONTEXT;
 
 module.exports = FabricHTTPServer;

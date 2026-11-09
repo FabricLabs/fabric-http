@@ -2,13 +2,13 @@
 'use strict';
 
 /**
- * Minimal @fabric/http server aligned with a local Hub / extension workflow:
+ * Minimal @fabric/http server aligned with a local hub workflow:
  * - CORS on (browser fetches with Authorization to POST /services/rpc)
  * - JSON-RPC on POST /services/rpc (optional bearer via jsonRpc.requireAuth)
  * - Static tree from examples/hub-local-dev-assets (hub-mesh-bridge.html)
  *
- * Default listen: 127.0.0.1:8099 — **not** 8080, so a real @fabric/hub (see hub.fabric.pub) can use 8080.
- * Override: PORT=8080 node scripts/sample-hub-http-server.js to align with a Hub on the same port.
+ * Default listen: 127.0.0.1:8099 — **not** 8080, so a full hub can use 8080.
+ * Override: PORT=8080 node scripts/sample-hub-http-server.js to take a full hub's port.
  */
 
 const path = require('path');

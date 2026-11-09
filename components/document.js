@@ -4,7 +4,7 @@
  * @fileoverview `fabric-document` — the user-facing presentation of a core
  * `Document` (sealed blob tree). Renders the **hash-only record** (Tree root,
  * blob leaves, publisher key) plus ranked provider offers from a local
- * `DocumentOfferBook`, a buy action per blob (existing HTTP 402 flow:
+ * `DocumentBook`, a buy action per blob (existing HTTP 402 flow:
  * `functions/fabricDocumentPayment402.js` carries `blobHashHex`), and — only
  * client-side, once keys are held — the opened manifest / content.
  *
@@ -25,7 +25,7 @@ class FabricDocument extends Component {
    * @param {string} [settings.href='/documents'] Resource list path.
    * @param {string} [settings.blobsHref='/blobs'] Canonical blob path (`<blobsHref>/<blobHashHex>`).
    * @param {Object} [settings.document] Hash-only record (`Document#record()`).
-   * @param {Object[]} [settings.offers] Rows from `DocumentOfferBook#listOffers`.
+   * @param {Object[]} [settings.offers] Rows from `DocumentBook#listOffers`.
    * @param {Object} [settings.opened] `{ manifest, blobs: { [index]: true } }` — client-side only.
    */
   constructor (settings = {}) {
@@ -40,7 +40,7 @@ class FabricDocument extends Component {
       opened: null
     }, settings);
     this._state.content = {
-      document: this.settings.document,
+      document: view.sanitizeRecord(this.settings.document),
       offers: Array.isArray(this.settings.offers) ? this.settings.offers : [],
       opened: this.settings.opened || null
     };
@@ -136,7 +136,7 @@ class FabricDocument extends Component {
    */
   async _buyBlob (index) {
     const doc = this._view.document;
-    const leaf = doc && doc.blobs.find((b) => b.index === Number(index));
+    const leaf = doc && Array.isArray(doc.blobs) ? doc.blobs.find((b) => b.index === Number(index)) : null;
     if (!leaf || !leaf.blobHashHex || typeof fetch !== 'function') return null;
     const base = String(this.settings.blobsHref || '/blobs').replace(/\/$/, '');
     const res = await fetch(`${base}/${leaf.blobHashHex}`, {

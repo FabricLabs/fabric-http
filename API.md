@@ -124,7 +124,8 @@ answers <code>{ document: record, offers }</code>.</li>
 when that blob is not for sale. Blobs are content-addressed and may belong
 to many documents, so this mounts the canonical <code>GET /blobs/:hash</code>
 (<code>definition.routes.blob</code> to move it; it must keep a <code>:hash</code> parameter).
-That route answers HTTP 402 with <code>X-Fabric-Payment-Request</code>, or 404 when
+That route answers HTTP 402 with <code>X-Fabric-Payment-Request</code>, 400 when
+<code>:hash</code> is not 64 hex characters (before <code>blobOffer</code> runs), 404 when
 <code>blobOffer</code> returns nothing, 500 when the hook throws or returns an
 <code>amount</code> that is not a positive number, 503 when <code>settings.payments</code> is
 off or <code>server.bitcoin.createInvoice</code> is missing, and 502 when invoice
@@ -226,7 +227,7 @@ Binds routes on a <a href="#FabricHTTPServer">FabricHTTPServer</a> via <code>_ad
 </dd>
 <dt><a href="#fabricHttpStaticSetHeaders">fabricHttpStaticSetHeaders(res, filePath)</a></dt>
 <dd><p><code>express.send</code> can label theme fonts as <code>application/octet-stream</code>. With <code>X-Content-Type-Options: nosniff</code>
-(set by @fabric/hub) Chromium/Electron may refuse to load @font-face resources; set explicit font MIME
+(set by many apps) Chromium/Electron may refuse to load @font-face resources; set explicit font MIME
 types for common Fomantic (Semantic) theme files under /themes/…/assets/fonts/</p>
 </dd>
 <dt><a href="#mergeStaticSetHeaders">mergeStaticSetHeaders(res, filePath, [user])</a></dt>
@@ -695,7 +696,8 @@ Both are optional; without them the resource behaves as above.
   when that blob is not for sale. Blobs are content-addressed and may belong
   to many documents, so this mounts the canonical `GET /blobs/:hash`
   (`definition.routes.blob` to move it; it must keep a `:hash` parameter).
-  That route answers HTTP 402 with `X-Fabric-Payment-Request`, or 404 when
+  That route answers HTTP 402 with `X-Fabric-Payment-Request`, 400 when
+  `:hash` is not 64 hex characters (before `blobOffer` runs), 404 when
   `blobOffer` returns nothing, 500 when the hook throws or returns an
   `amount` that is not a positive number, 503 when `settings.payments` is
   off or `server.bitcoin.createInvoice` is missing, and 502 when invoice
@@ -1304,7 +1306,7 @@ Resolve `relativeCandidate` under `staticRoot` and reject `..` / absolute escape
 
 ## fabricHttpStaticSetHeaders(res, filePath)
 `express.send` can label theme fonts as `application/octet-stream`. With `X-Content-Type-Options: nosniff`
-(set by @fabric/hub) Chromium/Electron may refuse to load @font-face resources; set explicit font MIME
+(set by many apps) Chromium/Electron may refuse to load @font-face resources; set explicit font MIME
 types for common Fomantic (Semantic) theme files under /themes/…/assets/fonts/
 
 **Kind**: global function  

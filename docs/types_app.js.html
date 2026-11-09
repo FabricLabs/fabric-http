@@ -3,6 +3,10 @@
   <head>
     <meta charset="utf-8">
     <title>Source: types/app.js &middot; Docs</title>
+    <link rel="icon" href="/favicon.ico" sizes="48x48">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <meta name="theme-color" content="#4C1D95">
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
     <!--[if lt IE 9]>
@@ -50,7 +54,19 @@ const Component = require('./component');
 // TODO: move component imports to components/ or scripts/
 const Introduction = require('../components/introduction');
 const ResourceList = require('../components/resource-list');
+const ResourceView = require('../components/resource-view');
 const Menu = require('../components/menu');
+
+const path = require('path');
+const { composeFile, fillContentSlot, loadReferenceComponents } = require('../functions/compose');
+
+function cloneState (value) {
+  try {
+    return JSON.parse(JSON.stringify(value || {}));
+  } catch (_) {
+    return {};
+  }
+}
 
 /**
  * Applications can be deployed to the legacy web using {@link App}, a powerful
@@ -83,6 +99,9 @@ class App extends Component {
       identities: {},
       resources: {},
       seeds: [
+        'hub.fabric.pub:7777',
+        'hub.goon.vc:7777',
+        'relay.goon.vc:7777',
         'hub.fabric.pub:9999',
         'chat.roleplaygateway.com:9999',
         'hub.roleplaygateway.com:9999'
@@ -110,7 +129,9 @@ class App extends Component {
       resources: {},
       messages: {}
     }; */
-    this._state = {};
+    this._state = {
+      content: {}
+    };
 
     this.modal = null;
     this.target = null;
@@ -146,7 +167,7 @@ class App extends Component {
     // properties
     this.identities = {};
     this.peers = {};
-    this.components = { ResourceList };
+    this.components = { ResourceList, ResourceView };
     this.resources = {};
     this.elements = {};
     this.routes = [];
@@ -194,11 +215,16 @@ class App extends Component {
   }
 
   get state () {
-    return this._state;
+    return cloneState(this._state.content);
   }
 
   set state (value) {
-    return this._state = value;
+    if (!value || typeof value !== 'object') {
+      this._state.content = {};
+      return this._state.content;
+    }
+    this._state.content = cloneState(value);
+    return this._state.content;
   }
 
   get version () {
@@ -214,7 +240,7 @@ class App extends Component {
     if (this.settings.verbosity >= 4) console.log('[WEB:APP]', 'Defining', name, route);
     this.types.state[name] = definition;
     this.resources[name] = definition;
-    this._state[pluralize(name).toLowerCase()] = definition.data || {};
+    this._state.content[pluralize(name).toLowerCase()] = definition.data || {};
   }
 
   dispatch (name, data = {}) {
@@ -439,49 +465,29 @@ class App extends Component {
   }
 
   _renderContent (html) {
-    // TODO: enable multi-view composition?
-    // NOTE: this means to iterate over all bound targets, instead of the first one...
-    if (!this.target) this.target = document.querySelector(BROWSER_TARGET);
-    if (!this.target) return console.log('COULD NOT ACQUIRE TARGET:', document);
+    if (typeof document !== 'undefined') {
+      const slot = fillContentSlot(document, html);
+      if (slot) {
+        this.target = slot;
+        return slot;
+      }
+    }
+    if (!this.target &amp;&amp; typeof document !== 'undefined') this.target = document.querySelector(BROWSER_TARGET);
+    if (!this.target) return console.log('COULD NOT ACQUIRE TARGET:', typeof document === 'undefined' ? null : document);
     this.target.innerHTML = html;
     return this.target;
   }
 
-  // TODO: write Purity-based version, use in production
   _loadHTML (html) {
-    const blob = JSON.stringify(this.state, null, '  ');
-    const verification = crypto.createHash('sha256').update(blob).digest('hex');
-    let content = ``;
-
-    // Begin Content Body
-    content += `&lt;fabric-application route="${this.route}" integrity="${this.integrity}" class="window">`;
-
-    if (this.settings.header) {
-      content += `&lt;header>
-        &lt;fabric-grid-row id="details" class="ui grid">
-          &lt;div class="wide column">
-            &lt;div class="ui inverted header">
-              &lt;a href="/">&lt;img src="/images/brand.png" class="ui small image" />&lt;/a>
-              &lt;h1 class="content">&lt;a href="/">${this.settings.name}&lt;/a>&lt;/h1>
-              &lt;p class="sub header">${this.settings.synopsis}&lt;/p>
-            &lt;/div>
-          &lt;/div>
-        &lt;/fabric-grid-row>
-      &lt;/header>`;
-    }
-
-    // Main Browser Viewport
-    content += `&lt;fabric-grid-row id="browser">${this.browser.render()}&lt;/fabric-grid-row>`;
-
-    if (this.settings.footer) {
-      content += `&lt;footer>
-        &lt;fabric-debug>&lt;/fabric-debug>
-      &lt;/footer>`;
-    }
-
-    content += `&lt;div id="ephemeral-content">&lt;/div>
-    &lt;/fabric-application>`;
-    return content;
+    loadReferenceComponents();
+    const fragment = composeFile(path.join(__dirname, '../views/client.jade'), this.state || {}, {
+      basedir: path.join(__dirname, '../views')
+    });
+    if (!html) return fragment;
+    return fragment.replace(
+      '&lt;div data-slot="content" id="browser-content">&lt;/div>',
+      '&lt;div data-slot="content" id="browser-content">' + html + '&lt;/div>'
+    );
   }
 
   async _toggleFullscreen () {
@@ -568,7 +574,7 @@ module.exports = App;
 
 
     </div>
-    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Avatar.html">Avatar</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricDistributedExecutionHTTP.html">FabricDistributedExecutionHTTP</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul><h3>Global</h3><ul><li><a href="global.html#compression">compression</a></li><li><a href="global.html#cors">cors</a></li><li><a href="global.html#jsonRpc">jsonRpc</a></li><li><a href="global.html#merge">merge</a></li><li><a href="global.html#static">static</a></li></ul></nav>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Avatar.html">Avatar</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricDistributedExecutionHTTP.html">FabricDistributedExecutionHTTP</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul><h3>Global</h3><ul><li><a href="global.html#FABRIC_AMP_MAGIC">FABRIC_AMP_MAGIC</a></li><li><a href="global.html#Server">Server</a></li><li><a href="global.html#acceptFirstHtmlNavigation">acceptFirstHtmlNavigation</a></li><li><a href="global.html#compression">compression</a></li><li><a href="global.html#cors">cors</a></li><li><a href="global.html#fabricHttpStaticSetHeaders">fabricHttpStaticSetHeaders</a></li><li><a href="global.html#jsonBodyLargePaths">jsonBodyLargePaths</a></li><li><a href="global.html#jsonBodyLimit">jsonBodyLimit</a></li><li><a href="global.html#jsonBodyLimitDefault">jsonBodyLimitDefault</a></li><li><a href="global.html#jsonRpc">jsonRpc</a></li><li><a href="global.html#merge">merge</a></li><li><a href="global.html#mergeStaticSetHeaders">mergeStaticSetHeaders</a></li><li><a href="global.html#payments">payments</a></li><li><a href="global.html#resolveAppAssetsDir">resolveAppAssetsDir</a></li><li><a href="global.html#resolveFabricHttpPackageAssetsDir">resolveFabricHttpPackageAssetsDir</a></li><li><a href="global.html#resolvedPathUnderStaticRoot">resolvedPathUnderStaticRoot</a></li><li><a href="global.html#sitemap">sitemap</a></li><li><a href="global.html#static">static</a></li><li><a href="global.html#webrtc">webrtc</a></li></ul></nav>
     <br class="clear" />
     <footer>
         <a href="https://github.com/FabricLabs/web">git://</a> &middot; <a href="https://chat.fabric.pub/#/room/#web:fabric.pub">Community</a>

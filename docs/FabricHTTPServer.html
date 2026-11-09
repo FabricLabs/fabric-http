@@ -3,6 +3,10 @@
   <head>
     <meta charset="utf-8">
     <title>Class: FabricHTTPServer &middot; Docs</title>
+    <link rel="icon" href="/favicon.ico" sizes="48x48">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <meta name="theme-color" content="#4C1D95">
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
     <!--[if lt IE 9]>
@@ -261,7 +265,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line70">line 70</a>
+        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line234">line 234</a>
     </li></ul></dd>
     
 
@@ -344,6 +348,150 @@
 
         
             
+<h4 class="name" id="_optionsEnricher"><span class="type-signature"></span>_optionsEnricher<span class="type-signature"> :null|function</span></h4>
+
+
+
+
+<div class="description">
+    Optional sync/async enricher for OPTIONS `/` Application Resource Contract.
+Return `{ contract?, services?, status?, fabricCapabilities?, methods? }`.
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">null</span>
+|
+
+<span class="param-type">function</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line375">line 375</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+        
+            
+<h4 class="name" id="resources"><span class="type-signature"></span>resources<span class="type-signature"> :Map.&lt;string, <a href="Resource.html">Resource</a>></span></h4>
+
+
+
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">Map.&lt;string, <a href="Resource.html">Resource</a>></span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line368">line 368</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+        
+            
 <h4 class="name" id="webrtcPeerList"><span class="type-signature"></span>webrtcPeerList<span class="type-signature"></span></h4>
 
 
@@ -388,7 +536,75 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line222">line 222</a>
+        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line465">line 465</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+        
+            
+<h4 class="name" id="webrtcPeerSecrets"><span class="type-signature"></span>webrtcPeerSecrets<span class="type-signature"> :Map.&lt;string, string></span></h4>
+
+
+
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">Map.&lt;string, string></span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line440">line 440</a>
     </li></ul></dd>
     
 
@@ -563,6 +779,90 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
+        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line1727">line 1727</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="_getWebRtcLimits"><span class="type-signature"></span>_getWebRtcLimits<span class="signature">()</span><span class="type-signature"> &rarr; {Object}</span></h4>
+    
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
         <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line889">line 889</a>
     </li></ul></dd>
     
@@ -588,6 +888,24 @@
 
 
 
+<h5>Returns:</h5>
+
+        
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Object</span>
+
+
+    </dd>
+</dl>
+
+    
 
 
 
@@ -723,7 +1041,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line813">line 813</a>
+        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line1521">line 1521</a>
     </li></ul></dd>
     
 
@@ -883,7 +1201,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line513">line 513</a>
+        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line1046">line 1046</a>
     </li></ul></dd>
     
 
@@ -924,6 +1242,344 @@
     <dd>
         
 <span class="param-type">WebSocket</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="_isJsonRpcTransportAuthorized"><span class="type-signature"></span>_isJsonRpcTransportAuthorized<span class="signature">(req)</span><span class="type-signature"> &rarr; {boolean}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Same authorization inputs as HTTP POST JSON-RPC: verified bearer (`req.authenticated`),
+raw `Bearer` on the upgrade/request, or websocket client-token channels.
+WebSocket handshake may also use `settings.websocket` client token (query / Bearer / Sec-WebSocket-Protocol).
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>req</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Node.js `IncomingMessage` (HTTP upgrade or Express `req`).</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line760">line 760</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">boolean</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="_normalizeWebRtcMeta"><span class="type-signature"></span>_normalizeWebRtcMeta<span class="signature">(raw, maxBytes)</span><span class="type-signature"> &rarr; {Object|null}</span></h4>
+    
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>raw</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">unknown</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>maxBytes</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line941">line 941</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    Clone via JSON round-trip
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Object</span>
+|
+
+<span class="param-type">null</span>
 
 
     </dd>
@@ -1065,7 +1721,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line1009">line 1009</a>
+        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line1947">line 1947</a>
     </li></ul></dd>
     
 
@@ -1101,7 +1757,7 @@
     
 
     
-    <h4 class="name" id="_verifyWebSocketClient"><span class="type-signature"></span>_verifyWebSocketClient<span class="signature">(info)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="buildOptionsApplicationContract"><span class="type-signature">(async) </span>buildOptionsApplicationContract<span class="signature">(extra<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {Promise.&lt;object>}</span></h4>
     
 
     
@@ -1109,8 +1765,7 @@
 
 
 <div class="description">
-    Optional WebSocket handshake gate when `settings.websocket.requireClientToken` and `clientToken` are set.
-Token may appear in query string (?token= / ?clientToken=), Authorization: Bearer, or Sec-WebSocket-Protocol fabric.token.*
+    Build the Application Resource Contract document for `OPTIONS /`.
 </div>
 
 
@@ -1134,6 +1789,8 @@ Token may appear in query string (?token= / ?clientToken=), Authorization: Beare
         <th>Type</th>
 
         
+        <th>Attributes</th>
+        
 
         
 
@@ -1146,23 +1803,33 @@ Token may appear in query string (?token= / ?clientToken=), Authorization: Beare
 
         <tr>
             
-                <td class="name"><code>info</code></td>
+                <td class="name"><code>extra</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">Object</span>
+<span class="param-type">object</span>
 
 
             
             </td>
 
             
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
 
             
 
-            <td class="description last">`ws` handshake object; `info.req` is the Node.js HTTP IncomingMessage.</td>
+            <td class="description last">Merged after enricher output</td>
         </tr>
 
     
@@ -1203,167 +1870,7 @@ Token may appear in query string (?token= / ?clientToken=), Authorization: Beare
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line405">line 405</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-            
-
-    
-
-    
-    <h4 class="name" id="define"><span class="type-signature">(async) </span>define<span class="signature">(name, definition)</span><span class="type-signature"> &rarr; {<a href="FabricHTTPServer.html">FabricHTTPServer</a>}</span></h4>
-    
-
-    
-
-
-
-<div class="description">
-    Define a Type by name.
-</div>
-
-
-
-
-
-
-
-
-
-    <h5>Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>name</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">String</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">Human-friendly name of the type.</td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>definition</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type"><a href="Definition.html">Definition</a></span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">Configuration object for the type.</td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line265">line 265</a>
+        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line1635">line 1635</a>
     </li></ul></dd>
     
 
@@ -1391,10 +1898,6 @@ Token may appear in query string (?token= / ?clientToken=), Authorization: Beare
 <h5>Returns:</h5>
 
         
-<div class="param-desc">
-    Instance of the configured server.
-</div>
-
 
 
 <dl>
@@ -1403,7 +1906,206 @@ Token may appear in query string (?token= / ?clientToken=), Authorization: Beare
     </dt>
     <dd>
         
-<span class="param-type"><a href="FabricHTTPServer.html">FabricHTTPServer</a></span>
+<span class="param-type">Promise.&lt;object></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="define"><span class="type-signature">(async) </span>define<span class="signature">(name, definition<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {Promise.&lt;<a href="FabricHTTPServer.html">FabricHTTPServer</a>>}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Define a Resource on this server.  A single call produces a <a href="Resource.html">Resource</a> instance
+that owns its store, schema, and all HTTP verb handlers.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">Singular PascalCase name, e.g. `"Message"`.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>definition</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Object</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">See <a href="Resource.html">Resource</a> for full descriptor shape.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line636">line 636</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;<a href="FabricHTTPServer.html">FabricHTTPServer</a>></span>
 
 
     </dd>
@@ -1687,7 +2389,7 @@ Handles JSON/HTML negotiation with proper precedence.
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line1169">line 1169</a>
+        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line2153">line 2153</a>
     </li></ul></dd>
     
 
@@ -1718,6 +2420,955 @@ Handles JSON/HTML negotiation with proper precedence.
 
 
         
+            
+
+    
+
+    
+    <h4 class="name" id="getApplicationHtml"><span class="type-signature"></span>getApplicationHtml<span class="signature">()</span><span class="type-signature"> &rarr; {string}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    In-memory HTML shell for dual JSON/HTML routes. Set with <a href="FabricHTTPServer.html#setApplicationHtml">FabricHTTPServer#setApplicationHtml</a> or
+`settings.applicationString` from the app constructor.
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line1539">line 1539</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">string</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="jsonOnly"><span class="type-signature"></span>jsonOnly<span class="signature">(req, res, onJSON)</span><span class="type-signature"></span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Always JSON (no `Accept` negotiation). For API-only routes.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>req</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">http.IncomingMessage</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>res</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">http.ServerResponse</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>onJSON</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Async callback that writes the JSON body</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line1590">line 1590</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="jsonOrShell"><span class="type-signature"></span>jsonOrShell<span class="signature">(req, res, onJSON)</span><span class="type-signature"></span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    JSON for API clients, HTML application shell for `Accept: text/html` (e.g. SPA deep-link refresh on JSON routes).
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>req</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">http.IncomingMessage</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>res</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">http.ServerResponse</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>onJSON</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Async callback that writes the JSON body</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line1561">line 1561</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="serveSpaShellIfHtmlNavigation"><span class="type-signature"></span>serveSpaShellIfHtmlNavigation<span class="signature">(req, res)</span><span class="type-signature"> &rarr; {boolean}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    If the request’s first `Accept` type is `text/html`, send the configured shell; otherwise return false.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>req</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">http.IncomingMessage</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>res</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">http.ServerResponse</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line1609">line 1609</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    true if a response was sent
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">boolean</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="setApplicationHtml"><span class="type-signature"></span>setApplicationHtml<span class="signature">(html)</span><span class="type-signature"></span></h4>
+    
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>html</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">full document for `text/html` in <a href="FabricHTTPServer.html#jsonOrShell">FabricHTTPServer#jsonOrShell</a> and
+  <a href="FabricHTTPServer.html#serveSpaShellIfHtmlNavigation">FabricHTTPServer#serveSpaShellIfHtmlNavigation</a>.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line1551">line 1551</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="setOptionsEnricher"><span class="type-signature"></span>setOptionsEnricher<span class="signature">(fn)</span><span class="type-signature"> &rarr; {<a href="FabricHTTPServer.html">FabricHTTPServer</a>}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Register an enricher for `OPTIONS /` Application Resource Contract responses.
+Used by Hub (and other apps) to attach Fabric contract identity, peering
+service pointers, and live status (e.g. OracleAttestation).
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>fn</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">null</span>
+|
+
+<span class="param-type">function</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="types_server.js.html">types/server.js</a>, <a href="types_server.js.html#line1625">line 1625</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type"><a href="FabricHTTPServer.html">FabricHTTPServer</a></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
     
 
     
@@ -1731,7 +3382,7 @@ Handles JSON/HTML negotiation with proper precedence.
 
 
     </div>
-    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Avatar.html">Avatar</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricDistributedExecutionHTTP.html">FabricDistributedExecutionHTTP</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul><h3>Global</h3><ul><li><a href="global.html#compression">compression</a></li><li><a href="global.html#cors">cors</a></li><li><a href="global.html#jsonRpc">jsonRpc</a></li><li><a href="global.html#merge">merge</a></li><li><a href="global.html#static">static</a></li></ul></nav>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Avatar.html">Avatar</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricDistributedExecutionHTTP.html">FabricDistributedExecutionHTTP</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul><h3>Global</h3><ul><li><a href="global.html#FABRIC_AMP_MAGIC">FABRIC_AMP_MAGIC</a></li><li><a href="global.html#Server">Server</a></li><li><a href="global.html#acceptFirstHtmlNavigation">acceptFirstHtmlNavigation</a></li><li><a href="global.html#compression">compression</a></li><li><a href="global.html#cors">cors</a></li><li><a href="global.html#fabricHttpStaticSetHeaders">fabricHttpStaticSetHeaders</a></li><li><a href="global.html#jsonBodyLargePaths">jsonBodyLargePaths</a></li><li><a href="global.html#jsonBodyLimit">jsonBodyLimit</a></li><li><a href="global.html#jsonBodyLimitDefault">jsonBodyLimitDefault</a></li><li><a href="global.html#jsonRpc">jsonRpc</a></li><li><a href="global.html#merge">merge</a></li><li><a href="global.html#mergeStaticSetHeaders">mergeStaticSetHeaders</a></li><li><a href="global.html#payments">payments</a></li><li><a href="global.html#resolveAppAssetsDir">resolveAppAssetsDir</a></li><li><a href="global.html#resolveFabricHttpPackageAssetsDir">resolveFabricHttpPackageAssetsDir</a></li><li><a href="global.html#resolvedPathUnderStaticRoot">resolvedPathUnderStaticRoot</a></li><li><a href="global.html#sitemap">sitemap</a></li><li><a href="global.html#static">static</a></li><li><a href="global.html#webrtc">webrtc</a></li></ul></nav>
     <br class="clear" />
     <footer>
         <a href="https://github.com/FabricLabs/web">git://</a> &middot; <a href="https://chat.fabric.pub/#/room/#web:fabric.pub">Community</a>

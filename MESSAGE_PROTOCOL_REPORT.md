@@ -164,7 +164,6 @@ This will fail when `message.toBuffer()` is called on a plain object.
 - `fabric-http/types/spa.js:329` - Converts Pong to JSON string: `JSON.stringify(message.toObject())`
 - `fabric-http/types/bridge.js:156` - Converts Ping to JSON string (but doesn't send it)
 - `fabric-http/types/server.js:495` - Extracts object for Actor creation (not sent)
-- `hub.fabric.pub/stores/schemas/types/peer.js:895` - Converts Message to object before broadcasting
 
 ### 2. Plain Object to Message
 **Location**: `fabric-http/types/server.js:650,670`
