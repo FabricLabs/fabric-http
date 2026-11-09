@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 
-try {
-  require('@fabric/core/functions/fabricHomeEnv').loadFabricHomeEnv();
-} catch (_) { /* older @fabric/core pin */ }
+require('@fabric/core/functions/fabricHomeEnv').loadFabricHomeEnv();
 
 // Constants
 const {

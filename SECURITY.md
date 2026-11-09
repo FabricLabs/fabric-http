@@ -7,7 +7,7 @@ HTTP / WebSocket gateway for Fabric peers and browser clients.
 Fabric networks are intended for deployment where **peers, relays, hubs, and operators may be hostile**. Design and review against:
 
 - Untrusted TCP / WebSocket / WebRTC neighbors (forgery, replay, amplification, pin hijack)
-- Phishing of identity flows (`fabric://login`, device-link) toward attacker-controlled hubs
+- Phishing of identity flows (Passport sign-in, device-link) toward attacker-controlled sites and hubs
 - Public observability of unsigned or plaintext application traffic unless an explicit seal is used
 - No reliance on an “honest majority” of random internet peers for key custody
 
@@ -30,7 +30,7 @@ This package fails closed on missing auth secrets, enforces Hub origin allowlist
 - ~~**Peer host self-check DNS**~~ — IPv6 bracketed addresses parse correctly; ports must be decimal **1..65535** (`parseFabricPeerPort`); DNS cache keys include `ownHosts`. Own-host checks use `dns.promises.lookup` (cached; cache miss is **not** treated as self). Optional `pubkey@host:port` userinfo is stripped so gossip pins share the same host as `host:port`.
 - ~~**RFC6902 sidechain JSON bridge**~~ — multi-op sequences are preserved in `patchesCanonical` (`functions/messageBodyJsonBridge.js`; `tests/messageBodyJsonBridge.test.js`). Catalog still seeds from the first `/registry` op.
 - **Fabric coin types (downstream)** — core pin includes **7777** / **7778**; Hub/app helpers that still hardcode `7778` for mainnet still need alignment.
-- **Site-login delegation token** — fail-closed when `expected` supplies only one of `sessionId` / `origin`; expired-session GET requires opaque Bearer registry key + `timingSafeEqual` bind to path `sessionId`, or `Authorization: Bearer` matching path when the path **is** the token; unauthenticated `GET /sessions/:delegationToken` is 404. Standalone relays omit Bearer when `issueBearer` is absent (no orphan random token). Remaining: hub dual-key legacy cleanup if any path still stores under `sessionId`.
+- ~~**Site-login delegation token**~~ — removed with site login. Passport v2 (`functions/passportRelyingParty`, `functions/passportHttp`; spec `@fabric/core` `docs/PASSPORT.md`) pins origins, binds each challenge to an HttpOnly cookie secret, redeems once atomically, stores sessions as sha256(token), and returns a Bearer token only to native clients. See [AUDIT.md](AUDIT.md) item 9.
 - **Device-link client** — `prepareDeviceLinkOffer` / `commitDeviceLinkOffer` / fetch / signature helpers require an explicit browser `origin` (no `hubBase` fallback).
 
 ## Process

@@ -28,15 +28,17 @@ npm ci
 npm run ci   # tests + build:scripts — use before tags / CI
 ```
 
-### `fabric-http` CLI (http-server–style)
-The `fabric-http` binary serves a directory with Express static middleware (correct `Content-Type`, caching, `ETag`, dotfile hiding) plus Fabric services (WebSocket `/`, JSON-RPC when enabled, peering/WebRTC signaling via the **Hub** rather than legacy PeerJS, etc.). Treat it like [`http-server`](https://www.npmjs.com/package/http-server) for the filesystem, with extra endpoints.
+### `http` CLI (http-server–style)
+Installed globally (`npm i -g @fabric/http`), the `http` command serves a directory with Express static middleware (correct `Content-Type`, caching, `ETag`, dotfile hiding) plus Fabric services (WebSocket `/`, JSON-RPC when enabled, peering/WebRTC signaling via the **Hub** rather than legacy PeerJS, etc.). Treat it like [`http-server`](https://www.npmjs.com/package/http-server) for the filesystem, with extra endpoints. `fabric-http` is the same command, for `npx` and for machines where `http` already names something else (HTTPie installs an `http` too).
 
 ```sh
-npx fabric-http ./dist -p 8080 -a 0.0.0.0
+http ./dist -p 8080 -a 0.0.0.0
 # cache static assets for one hour (seconds, like http-server -c)
-npx fabric-http ./assets -c 3600
+http ./assets -c 3600
 # client-side routing: serve index.html when no matching file exists
-npx fabric-http ./build --spa
+http ./build --spa
+# without a global install
+npx fabric-http ./dist
 ```
 
 Programmatic options on `new HTTPServer({ ... })` include `assets` (or `path` alias for the static root), `static: { cacheSeconds, ... }`, `spaFallback`, `jsonRpc: { enabled, paths }`, `cors`, and `compression`. HTTP JSON-RPC (`POST /rpc`) uses the same `_handleCall` surface as WebSocket `JSONCall` when `jsonRpc.enabled` is true. For a small hub-shaped dev server (default **8099** so it does not take **8080** from a full hub, CORS, `POST /services/rpc`, `hub-mesh-bridge.html` for browser extensions), use **`npm run sample:hub`** (see [docs/WEBRTC_FABRIC_HTTP.md](docs/WEBRTC_FABRIC_HTTP.md)). Set `PORT=8080` only when no other hub uses that port on the same machine.
@@ -55,6 +57,18 @@ await server.start();
 Advanced protocol helpers are optional:
 - grouped under `require('@fabric/http').protocol`
 - or imported directly from `@fabric/http/functions/*` when you want a specific helper module
+
+### Semantic UI theme (Fomantic)
+`HTTPServer` serves this package's prebuilt Fomantic UI assets (`/semantic.min.css`, `/semantic.min.js`, `/themes/fabric/…`) behind your own `assets/`, so an app needs no Semantic files for the defaults. Apps that ship their own copy (static or desktop builds) run `fabric-http-semantic` from their root; it writes `assets/semantic*`, `assets/scripts/semantic*.js`, and `assets/themes/fabric/`. Bundlers can import `@fabric/http/assets/semantic.min.css` directly.
+
+To customize, add only the Fomantic site files you change under `semantic/site/` and install `fomantic-ui` (an optional peer dependency); `fabric-http-semantic` then compiles the fabric theme with them on top:
+
+```less
+/* semantic/site/globals/site.variables */
+@primaryColor: #663399;
+```
+
+The same is available in code from `@fabric/http/functions/semanticBuild` (`run`, `build`, `sync`).
 
 ### Deterministic avatars (`types/avatar`)
 `@fabric/http` includes a deterministic, Gravatar-like `Avatar` class with a Fabric-themed palette and an academic visual-hash approach inspired by "drunken bishop" / marching-bishop algorithms:

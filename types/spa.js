@@ -18,7 +18,7 @@ const config = {
 const crypto = require('crypto');
 const { fabricFaviconHeadHtml } = require('../functions/fabricBrand');
 const merge = require('lodash.merge');
-const page = require('page');
+const { page } = require('../functions/pageRouter');
 const pluralize = require('pluralize');
 
 // Requisite Types
@@ -140,7 +140,8 @@ class SPA extends App {
     // TODO: check for async compatibility in HTTP.App
     super.define(name, definition);
 
-    let resource = new Resource(definition);
+    // Core Resource takes one definition object; its name gives the state address (`/<plural>`).
+    let resource = new Resource(Object.assign({}, definition, { name }));
     let snapshot = Object.assign({
       name: name,
       names: { plural: pluralize(name) }
@@ -155,7 +156,7 @@ class SPA extends App {
     this.types.state[name] = definition;
     this.resources[name] = definition;
 
-    this._state.content[address] = {};
+    if (this._state.content[address] == null) this._state.content[address] = {};
 
     return this.resources[name];
   }
@@ -338,18 +339,25 @@ class SPA extends App {
       case 'Receipt':
         console.log('Receipt for your message:', msg);
         break;
-      case 'Pong':
-        console.log('Received pong:', msg.data);
-        let time = new Date(msg.data / 1000);
-        console.log('time:', time, time.toISOString());
-      case 'Ping':
+      // `Message.fromBuffer` names binary heartbeats `P2P_PING` / `P2P_PONG`; JSON ones arrive as `Ping` / `Pong`.
+      case 'P2P_PONG':
+      case 'Pong': {
+        // Field body `{ nonce }`: the sender's clock in ms.
+        const parsed = typeof msg.toBuffer === 'function' ? Message.tryParseLegacyBody(msg) : null;
+        const nonce = parsed && parsed.ok && parsed.value ? Number(parsed.value.nonce) : NaN;
+        if (this.settings.verbosity >= 5) console.log('[HTTP:SPA]', 'Received pong:', Number.isFinite(nonce) ? new Date(nonce).toISOString() : msg.data);
+        break;
+      }
+      case 'P2P_PING':
+      case 'Ping': {
         const now = Date.now();
-        const message = Message.fromVector(['Pong', now.toString()]);
+        const message = Message.fromLegacyBody('P2P_PONG', { nonce: now.toString() });
         if (this.bridge && this.bridge.key && this.bridge.key.private) {
           message.signWithKey(this.bridge.key);
         }
         this.bridge.send(message.toBuffer());
         break;
+      }
       case 'State':
         console.log('RAD STATE:', msg);
         this.state = msg.data;
@@ -422,6 +430,9 @@ class SPA extends App {
     } catch (E) {
       console.error('Could not start SPA router:', E);
     }
+
+    // Dispatch the current URL, `popstate`, and in-app link clicks through `handler` (browser only).
+    page.start();
 
     if (this.settings.websockets) {
       try {
