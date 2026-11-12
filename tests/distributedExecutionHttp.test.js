@@ -16,6 +16,8 @@ describe('types/distributedExecutionHttp', function () {
       getEpochStatus: async () => ({ ok: true }),
       listPendingBeaconEpochSignatures: async () => ({ type: 'PendingBeaconEpochSignatures', rounds: [] }),
       submitBeaconEpochSignature: async () => ({ status: 'success' }),
+      getSidechainState: async () => ({ clock: 0 }),
+      submitSidechainStatePatch: async () => ({ ok: true }),
       getSidechainJournal: async () => ({ entries: [] }),
       getSidechainSnapshots: async () => ({ snapshots: [] })
     });
@@ -24,6 +26,10 @@ describe('types/distributedExecutionHttp', function () {
     assert.ok(routes.some((r) => r.path === '/services/distributed/epoch'));
     assert.ok(routes.some((r) => r.method === 'GET' && r.path === '/services/distributed/epoch/signatures'));
     assert.ok(routes.some((r) => r.method === 'POST' && r.path === '/services/distributed/epoch/signatures'));
+    assert.ok(routes.some((r) => r.method === 'GET' && r.path === '/services/distributed/sidechain'));
+    assert.ok(routes.some((r) => r.method === 'GET' && r.path === '/services/distributed/statechain'));
+    assert.ok(routes.some((r) => r.method === 'POST' && r.path === '/services/distributed/sidechain/patches'));
+    assert.ok(routes.some((r) => r.method === 'POST' && r.path === '/services/distributed/statechain/patches'));
     assert.ok(routes.some((r) => r.method === 'GET' && r.path === '/services/distributed/sidechain/journal'));
     assert.ok(routes.some((r) => r.method === 'GET' && r.path === '/services/distributed/statechain/journal'));
     assert.ok(routes.some((r) => r.method === 'GET' && r.path === '/services/distributed/sidechain/snapshots'));

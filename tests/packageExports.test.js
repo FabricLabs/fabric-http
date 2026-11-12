@@ -1,12 +1,11 @@
 'use strict';
 
 /**
- * The `exports` map in `package.json` is the supported entry surface: Hub,
- * GoonCitizen, Passport, and the browser extension all reach in through these
- * subpaths. Nothing in the suite loads every one of them, so a subpath can rot
+ * The `exports` map in `package.json` is the supported entry surface:
+ * downstream apps reach in through these subpaths. Nothing in the suite loads every one of them, so a subpath can rot
  * (renamed file, dropped `files[]` glob, shim pointing at a package that no
  * longer exists) and still ship green — the same failure mode as the dead
- * `shims/noble-secp256k1.js` found in `@fabric/hub`, which threw
+ * shim found in a downstream app, which threw
  * MODULE_NOT_FOUND on every load while CI stayed green because nothing
  * required it.
  *

@@ -5,10 +5,9 @@ const {
   BROWSER_TARGET
 } = require('../constants');
 
-const page = require('page');
+const { page } = require('../functions/pageRouter');
 const crypto = require('crypto');
 const pluralize = require('pluralize');
-const beautify = require('js-beautify');
 // const d3 = require('d3');
 
 const Collection = require('@fabric/core/types/collection');
@@ -73,6 +72,7 @@ class App extends Component {
       resources: {},
       seeds: [
         'hub.fabric.pub:7777',
+        'hub.goon.vc:7777',
         'relay.goon.vc:7777',
         'hub.fabric.pub:9999',
         'chat.roleplaygateway.com:9999',
@@ -181,9 +181,7 @@ class App extends Component {
 
   get page () {
     // TODO: return current page
-    return new Resource({
-      name: 'BlankPage'
-    });
+    return new Resource('BlankPage');
   }
 
   get state () {
@@ -306,6 +304,7 @@ class App extends Component {
 
     let self = this;
     let address = await self.browser.route(ctx.path);
+    if (!address || !address.route) return typeof next === 'function' ? next() : undefined;
     let sample = await self.browser.load(ctx.path);
 
     console.log('[MAKI:APP]', 'final testing:', sample);
@@ -431,7 +430,7 @@ class App extends Component {
   }
 
   _refresh () {
-    let resource = new Resource();
+    let resource = new Resource('BlankPage');
     this.target.innerHTML = this._loadHTML(resource.render());
     return this;
   }
@@ -472,13 +471,8 @@ class App extends Component {
    */
   render () {
     let page = this.page.render();
-    let html = this._loadHTML(page);
-    let pretty = beautify.html(html, {
-      indent_size: 2,
-      extra_liners: []
-    });
-
-    return pretty;
+    // Not pretty-printed: `js-beautify` is only a devDependency (see `Compiler`).
+    return this._loadHTML(page);
   }
 
   /**
@@ -523,6 +517,9 @@ class App extends Component {
     } catch (E) {
       console.error('Could not start, Exception:', E);
     }
+
+    // Dispatch the current URL, `popstate`, and in-app link clicks through `handler` (browser only).
+    page.start();
 
     return true;
   }

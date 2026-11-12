@@ -5,49 +5,17 @@
  *
  * Core AMP bodies are C-like typed fields (`@fabric/core` messageBodyCodec).
  * This helper maps fields ↔ plain JSON objects for REST and SPA views.
- * Legacy UTF-8 JSON bodies (no schema) still parse via tryParseWireJson.
+ * UTF-8 JSON bodies (types with no schema, stored frames) parse via tryParseWireJson.
  *
  * @module functions/messageBodyJsonBridge
  * @see @fabric/core/docs/MESSAGE_BODY.md
  */
 
 const Message = require('@fabric/core/types/message');
-
-let codec = null;
-try {
-  codec = require('@fabric/core/functions/messageBodyCodec');
-} catch (_) {
-  codec = null;
-}
-
-let wireJson = null;
-try {
-  wireJson = require('@fabric/core/functions/wireJson');
-} catch (_) {
-  wireJson = null;
-}
+const codec = require('@fabric/core/functions/messageBodyCodec');
+const wireJson = require('@fabric/core/functions/wireJson');
 
 const RFC6902_OPS = new Set(['add', 'remove', 'replace', 'move', 'copy', 'test']);
-
-// Side-effect: ensure SIDECHAIN_STATE_PATCH includes optional patchesCanonical.
-try {
-  require('@fabric/core/functions/documentRegistrySidechain');
-} catch (_) {
-  /* older core without the module */
-}
-if (codec && typeof codec.registerBodySchema === 'function') {
-  const existing = codec.getBodySchema('SIDECHAIN_STATE_PATCH');
-  if (!existing || existing.length < 4) {
-    const schema = Object.freeze([
-      { name: 'basisClock', type: 'u32' },
-      { name: 'basisDigest', type: 'bytes32' },
-      { name: 'catalogCanonical', type: 'string' },
-      { name: 'patchesCanonical', type: 'string', optional: true }
-    ]);
-    codec.registerBodySchema('SIDECHAIN_STATE_PATCH', schema);
-    codec.registerBodySchema('SidechainStatePatch', schema);
-  }
-}
 
 /**
  * @param {unknown} patches
@@ -140,11 +108,54 @@ function registryFieldsToRfc6902Json (fieldsJson = {}) {
 }
 
 /**
+ * Wire name when core maps this type's legacy JSON object onto fields.
+ * @param {string|number} type
+ * @returns {string|null}
+ */
+function legacyBodyType (type) {
+  if (type == null) return null;
+  const name = Message.canonicalTypeName(type);
+  return name && Message.LEGACY_BODY_TYPES.includes(name) ? name : null;
+}
+
+/**
+ * Legacy JSON object of a message body, from either encoding (JSON or fields).
+ * @param {import('@fabric/core/types/message')} message
+ * @returns {object|null}
+ */
+function legacyBodyOf (message) {
+  if (!message) return null;
+  if (!legacyBodyType(message.type)) return null;
+  try {
+    const parsed = Message.tryParseLegacyBody(message);
+    return parsed && parsed.ok ? parsed.value : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
  * Present a Message body as a JSON-safe value for HTTP/browser consumers.
+ * For types core maps (`Message.LEGACY_BODY_TYPES`), `legacy` carries the
+ * application JSON object whichever encoding the sender used.
  * @param {import('@fabric/core/types/message')|object} message Message instance or { type, data }
- * @returns {{ ok: boolean, format: 'fields'|'json'|'raw'|'empty', value: *, error?: string }}
+ * @returns {{ ok: boolean, format: 'fields'|'json'|'raw'|'empty', value: *, legacy?: object, error?: string }}
  */
 function messageBodyToJson (message) {
+  const view = messageBodyView(message);
+  if (view.ok && view.format !== 'empty') {
+    const legacy = legacyBodyOf(message);
+    if (legacy) view.legacy = legacy;
+  }
+  return view;
+}
+
+/**
+ * @private
+ * @param {import('@fabric/core/types/message')|object} message
+ * @returns {object}
+ */
+function messageBodyView (message) {
   if (!message) return { ok: false, format: 'empty', value: null, error: 'message required' };
 
   const type = message.type || message.wireType || null;
@@ -156,7 +167,15 @@ function messageBodyToJson (message) {
 
   if (!buf.length) return { ok: true, format: 'empty', value: null };
 
-  if (codec && typeof message.toFields === 'function') {
+  // A stored JSON frame of a schema type must not hit the field decoder.
+  try {
+    const parsed = Message.tryParseMessageBody(message);
+    if (parsed && parsed.ok && parsed.encoding === 'json') {
+      return { ok: true, format: 'json', value: parsed.value };
+    }
+  } catch (_) { /* fall through */ }
+
+  if (typeof message.toFields === 'function') {
     try {
       const fields = message.toFields();
       if (fields && typeof fields === 'object') {
@@ -177,11 +196,11 @@ function messageBodyToJson (message) {
         return { ok: true, format: 'fields', value: jsonSafe };
       }
     } catch (err) {
-      /* fall through to legacy JSON */
+      /* fall through to the schema decoder */
     }
   }
 
-  if (codec && type) {
+  if (type) {
     const schema = codec.getBodySchema(type);
     if (schema) {
       try {
@@ -213,14 +232,8 @@ function messageBodyToJson (message) {
   }
 
   const text = buf.toString('utf8');
-  if (wireJson && typeof wireJson.tryParseWireJson === 'function') {
-    const parsed = wireJson.tryParseWireJson(text);
-    if (parsed.ok) return { ok: true, format: 'json', value: parsed.value };
-  } else {
-    try {
-      return { ok: true, format: 'json', value: JSON.parse(text) };
-    } catch (_) { /* raw */ }
-  }
+  const parsed = wireJson.tryParseWireJson(text);
+  if (parsed.ok) return { ok: true, format: 'json', value: parsed.value };
 
   return { ok: true, format: 'raw', value: text };
 }
@@ -233,7 +246,7 @@ function messageBodyToJson (message) {
  * @returns {import('@fabric/core/types/message')}
  */
 function messageFromJsonBody (type, body, opts = {}) {
-  if (codec && body && typeof body === 'object' && !Buffer.isBuffer(body)) {
+  if (body && typeof body === 'object' && !Buffer.isBuffer(body)) {
     let fieldSource = body;
     if ((type === 'SIDECHAIN_STATE_PATCH' || type === 'SidechainStatePatch') &&
         Array.isArray(body.patches)) {
@@ -261,9 +274,28 @@ function messageFromJsonBody (type, body, opts = {}) {
   return new Message(Object.assign({}, opts, { type, data }));
 }
 
+/**
+ * Build a Message from an application JSON object. Types core maps
+ * (`Message.LEGACY_BODY_TYPES`) are field-encoded via `Message.fromLegacyBody`;
+ * others fall back to {@link messageFromJsonBody}.
+ * @param {string} type
+ * @param {object} body Legacy JSON object (e.g. `{ contract, type, object }`).
+ * @param {object} [opts]
+ * @returns {import('@fabric/core/types/message')}
+ */
+function messageFromLegacyJson (type, body, opts = {}) {
+  const name = legacyBodyType(type);
+  if (name && body && typeof body === 'object' && !Buffer.isBuffer(body)) {
+    return Message.fromLegacyBody(name, body, opts);
+  }
+  return messageFromJsonBody(type, body, opts);
+}
+
 module.exports = {
   messageBodyToJson,
   messageFromJsonBody,
+  messageFromLegacyJson,
+  legacyBodyOf,
   rfc6902SidechainJsonToFields,
   registryFieldsToRfc6902Json,
   assertValidRfc6902Patches

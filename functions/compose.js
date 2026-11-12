@@ -113,6 +113,7 @@ function loadReferenceComponents () {
   require('../components/log-list');
   require('../components/resource-list');
   require('../components/resource-view');
+  require('../components/document');
 }
 
 function ensureDom () {

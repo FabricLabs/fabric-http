@@ -383,7 +383,7 @@ describe('@fabric/http server resource state/auth/ws wiring', function () {
         unauthorized.once('error', reject);
       });
 
-      const unauthPost = Message.fromVector(['POST', {
+      const unauthPost = Message.fromVector(['P2P_BASE_MESSAGE', {
         path: '/notes',
         value: { text: 'blocked' }
       }]);
