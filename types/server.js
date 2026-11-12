@@ -77,6 +77,8 @@ const {
   createPassportPeerHttp
 } = require('../functions/passportPeer');
 const { PASSPORT_REPLAY_LIMIT, PASSPORT_REPLAY_LIMIT_CODE } = require('../functions/passportPeerRequest');
+const { originList, webSocketOriginAllowed } = require('../functions/webSocketOrigin');
+const { attachFrameAncestors } = require('../functions/spaFrameAncestors');
 
 /**
  * Key for the verified call context (`{ passport, connection }`) on a call
@@ -379,6 +381,10 @@ class FabricHTTPServer extends Service {
     }, settings);
 
     this.settings.assets = settings.assets || settings.path || this.settings.assets || 'assets';
+    this._webSocketOrigins = originList([].concat(
+      (this.settings.websocket && this.settings.websocket.allowedOrigins) || [],
+      (this.settings.passport && this.settings.passport.pinnedOrigins) || []
+    ));
 
     this._rootKey = new Key(this.settings.key);
 
@@ -814,15 +820,31 @@ class FabricHTTPServer extends Service {
   }
 
   /**
-   * Optional `settings.websocket.verifyOrigin(req)` hook: an embedding app (e.g. Hub) decides
-   * which upgrade requests to accept by `Origin` / `Host`. Only `true` accepts; a throw or a
-   * promise (the hook is synchronous) rejects the upgrade.
+   * Add browser origins that may open a WebSocket when no `verifyOrigin` hook
+   * is set. Passport mounts its pinned origins here.
+   * @param {string[]|string} origins
+   * @returns {FabricHTTPServer}
+   */
+  allowWebSocketOrigins (origins) {
+    for (const origin of originList(origins)) this._webSocketOrigins.add(origin);
+    return this;
+  }
+
+  /**
+   * Which upgrade requests to accept by `Origin`. An embedding app's
+   * `settings.websocket.verifyOrigin(req)` decides when it is set: only `true`
+   * accepts, and a throw or a promise refuses. Without that hook, a missing
+   * `Origin` (not a browser) and a page on this host are accepted, and any
+   * other origin must be pinned (`passport.pinnedOrigins` or
+   * `websocket.allowedOrigins`).
    * @param {Object} info `ws` verifyClient info (`{ origin, secure, req }`)
    * @returns {boolean}
    */
   _verifyWebSocketOrigin (info) {
     const wsCfg = this.settings.websocket || {};
-    if (typeof wsCfg.verifyOrigin !== 'function') return true;
+    if (typeof wsCfg.verifyOrigin !== 'function') {
+      return webSocketOriginAllowed(info && info.req, this._webSocketOrigins);
+    }
     let ok = false;
     try {
       const verdict = wsCfg.verifyOrigin(info && info.req);
@@ -1809,6 +1831,11 @@ class FabricHTTPServer extends Service {
   }
 
   _headerMiddleware (req, res, next) {
+    const security = this.settings.security || {};
+    const framePolicy = Object.prototype.hasOwnProperty.call(security, 'frameAncestors')
+      ? security.frameAncestors
+      : undefined;
+    attachFrameAncestors(res, framePolicy === false ? false : framePolicy);
     res.header('X-Powered-By', '@fabric/http');
     if (this.settings.cors) {
       res.header('Access-Control-Allow-Origin', '*');
@@ -2608,13 +2635,10 @@ class FabricHTTPServer extends Service {
     const wsTokenConfigured = Boolean(wsCfg.clientToken || wsCfg.sharedSecret);
     const wsTokenRequired = wsCfg.requireClientToken === true || wsCfg.requireClientToken === '1' || wsCfg.requireClientToken === 1;
     const wsCheckToken = wsTokenConfigured && wsTokenRequired;
-    const wsCheckOrigin = typeof wsCfg.verifyOrigin === 'function';
-    if (wsCheckToken || wsCheckOrigin) {
-      wsOpts.verifyClient = (info) => {
-        if (wsCheckOrigin && !this._verifyWebSocketOrigin(info)) return false;
-        return wsCheckToken ? this._verifyWebSocketClient(info) : true;
-      };
-    }
+    wsOpts.verifyClient = (info) => {
+      if (!this._verifyWebSocketOrigin(info)) return false;
+      return wsCheckToken ? this._verifyWebSocketClient(info) : true;
+    };
     this.wss = new WebSocket.Server(wsOpts);
 
     // set up the WebSocket connection handler

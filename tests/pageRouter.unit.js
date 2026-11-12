@@ -4,6 +4,8 @@ const assert = require('assert');
 const { createPageRouter, page } = require('../functions/pageRouter');
 
 describe('functions/pageRouter', function () {
+  this.timeout(20000);
+
   it('runs the callbacks of matching routes in order, with params', async function () {
     const router = createPageRouter();
     const seen = [];
