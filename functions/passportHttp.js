@@ -383,6 +383,9 @@ function createPassportHttp (settings = {}) {
    * @param {object} server
    */
   function mount (server) {
+    if (server && typeof server.allowWebSocketOrigins === 'function') {
+      server.allowWebSocketOrigins(rp.pinnedOrigins);
+    }
     for (const route of routes) {
       if (server && typeof server._addRoute === 'function') {
         server._addRoute(route.method, route.path, route.handler);
