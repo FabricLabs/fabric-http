@@ -93,8 +93,8 @@ class Sandbox extends Service {
   }
 
   async _navigateTo (url) {
+    // `goto` resolves on load; a following `waitForNavigation` would wait for a second navigation.
     await this.browser.goto(url /*, { waitUntil: 'networkidle0' } */);
-    await this.browser.waitForNavigation();
     return this;
   }
 

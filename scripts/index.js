@@ -118,6 +118,8 @@ async function main () {
       console.log('click event on actionable element:', action, event);
       let method = window.app.circuit.methods[action];
       if (!method) console.warn('NO METHOD ON CIRCUIT:', method);
+      // Component-owned actions (e.g. `fabric-document` buy/load) are handled by their component.
+      if (typeof window.app.circuit[action] !== 'function') return;
       let result = await window.app.circuit[action].call(window.app.circuit);
       console.log('result:', result);
     });

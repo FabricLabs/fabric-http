@@ -209,7 +209,7 @@ class Hub extends Oracle {
 
     // peer manager
     server.express.post('/peers', async function (req, res) {
-      let proposal = req.body;
+      let proposal = req.body || {};
       let peers = await server._GET('/peers');
 
       if (!peers) peers = [];
@@ -234,7 +234,7 @@ class Hub extends Oracle {
 
     // player manager
     server.express.post('/players', async function (req, res) {
-      let proposal = req.body;
+      let proposal = req.body || {};
       let players = await server._GET('/players');
 
       if (!players) players = [];

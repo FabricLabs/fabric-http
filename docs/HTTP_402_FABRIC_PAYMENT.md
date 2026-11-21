@@ -19,9 +19,9 @@ Decoded JSON matches `functions/fabricDocumentPayment402.js`:
 - **`documentOffer`**: optional `{ documentId, contentHashHex, purchasePriceSats, network, blobIndex?, blobHashHex? }` from `settings.payments.documentOffer`.
   - **`contentHashHex`** MUST come from `@fabric/core/functions/documentPaymentHash` (`resolveDocumentContentHashHex`) — never a raw file `sha256`.
 
-## Hub (`hub.fabric.pub`) — priced documents
+## Hubs — priced documents
 
-`settings.http.payments` is passed into `@fabric/http` `HTTPServer`. When **`FABRIC_HTTP_PAYMENTS_ENABLED=1`**, Bitcoin/Lightning invoice creation works, and a **published** document has **`purchasePriceSats` > 0**, **`GET /documents/:id`** with **`Accept: application/json`** **always** returns **402** + **`X-Fabric-Payment-Request`** (with **`documentOffer`** from catalog metadata). No extra env flag is required for document routes. The inventory / HTLC Fabric path is unchanged; this adds an HTTP surface for **Fabric Passport** overlays.
+`settings.http.payments` is passed into `@fabric/http` `HTTPServer`. When **`FABRIC_HTTP_PAYMENTS_ENABLED=1`**, Bitcoin/Lightning invoice creation works, and a **published** document has **`purchasePriceSats` > 0**, **`GET /documents/:id`** with **`Accept: application/json`** **always** returns **402** + **`X-Fabric-Payment-Request`** (with **`documentOffer`** from catalog metadata). No extra env flag is required for document routes. The inventory / HTLC Fabric path is unchanged; this adds an HTTP surface for wallet-extension overlays.
 
 ## Lightning L402
 

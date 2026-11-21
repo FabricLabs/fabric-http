@@ -14,8 +14,9 @@
     "declarationDir": "types",
     "sourceMap": true,
     "outDir": "assets/types",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
+    "types": ["node"],
     "emitDeclarationOnly": true
   },
   "include": [

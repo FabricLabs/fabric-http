@@ -61,7 +61,7 @@ describe('HTTPServer', function () {
 
         ws.onopen = () => {
           for (let i = 0; i < maxMessages; i++) {
-            const msg = Message.fromVector(['Ping', startTime]).signWithKey(key);
+            const msg = Message.fromVector(['Ping', String(startTime)]).signWithKey(key);
             ws.send(msg.toBuffer());
           }
         };
