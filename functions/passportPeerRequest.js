@@ -16,7 +16,7 @@
 
 const crypto = require('crypto');
 const Message = require('@fabric/core/types/message');
-const { encodeFabricUri, decodeFabricUri } = require('@fabric/core/functions/fabricUri');
+const { encodeFabricUri, decodeFabricUri } = require('@fabric/core/types/message');
 
 /** Contract id the request frames name (sha256 of a fixed label). */
 const PASSPORT_REQUEST_CONTRACT = crypto.createHash('sha256').update('@fabric/http:PassportRequest:1', 'utf8').digest('hex');

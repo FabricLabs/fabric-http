@@ -1,7 +1,8 @@
 'use strict';
 
-// TODO: evaluate why have to climb tree?
-const playnet = require('@fabric/core/settings/playnet');
+// Core no longer exports `settings/`. The playnet fixture is still the JSON file.
+const path = require('path');
+const playnet = require(path.join(path.dirname(require.resolve('@fabric/core')), '..', 'settings', 'playnet.json'));
 
 module.exports = {
   seed: null,

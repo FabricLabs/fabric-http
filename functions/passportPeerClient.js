@@ -26,7 +26,7 @@ const crypto = require('crypto');
 const passport = require('@fabric/core/functions/passport');
 const Key = require('@fabric/core/types/key');
 const Message = require('@fabric/core/types/message');
-const { encodeFabricUri, decodeFabricUri } = require('@fabric/core/functions/fabricUri');
+const { encodeFabricUri, decodeFabricUri } = require('@fabric/core/types/message');
 const { computeWebSocketJsonCallHashPair, JSON_CALL_RESULT_METHOD } = require('./fabricJsonRpcTransport');
 const { createPeerRequest, PASSPORT_REPLAY_LIMIT, PASSPORT_REPLAY_LIMIT_CODE } = require('./passportPeerRequest');
 

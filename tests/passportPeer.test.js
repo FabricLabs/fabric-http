@@ -10,7 +10,7 @@ const Key = require('@fabric/core/types/key');
 const Message = require('@fabric/core/types/message');
 const passport = require('@fabric/core/functions/passport');
 const { FIXTURE_SEED } = require('@fabric/core/constants');
-const { importSeed, deriveAccount } = require('@fabric/core/functions/accountKeys');
+const { importSeed, deriveAccount } = require('@fabric/core/types/key');
 
 const HTTPServer = require('../types/server');
 const { createPassportPeer, isPassportPeerFrame } = require('../functions/passportPeer');
@@ -278,7 +278,7 @@ describe('@fabric/http functions/passportPeer', function () {
     const started = await (await fetch(`${base}/sessions/peer`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ frame: c.uri }) })).json();
     assert.ok(started.binding);
     const lifted = await signWithKey(USER.identity.key)({ challenge: started.frame, read: passport.readChallenge(started.frame), sessionKey: new Key().pubkey });
-    const { encodeFabricUri } = require('@fabric/core/functions/fabricUri');
+    const { encodeFabricUri } = require('@fabric/core/types/message');
     const noBinding = await fetch(`${base}/sessions/peer`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ frame: encodeFabricUri(lifted) }) });
     assert.strictEqual(noBinding.status, 400);
     assert.match(passport.readRefusal((await noBinding.json()).frame).error, /handshake/);

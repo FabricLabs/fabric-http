@@ -7,7 +7,7 @@
  * No listening socket. The relying party keeps the challenge in memory.
  */
 
-const { generateMnemonic, importSeed, deriveAccount } = require('@fabric/core/functions/accountKeys');
+const { generateMnemonic, importSeed, deriveAccount } = require('@fabric/core/types/key');
 const { signAssertion } = require('@fabric/core/functions/passport');
 const { createPassportRelyingParty } = require('../functions/passportRelyingParty');
 

@@ -64,7 +64,7 @@ describe('@fabric/http core re-exports', function () {
 
   it('resolves core home-env / key-material helpers on this pin', function () {
     const home = require('@fabric/core/functions/fabricHomeEnv');
-    const material = require('@fabric/core/functions/fabricKeyMaterial');
+    const material = require('@fabric/core/types/key').Material;
     assert.strictEqual(typeof home.loadFabricHomeEnv, 'function');
     assert.strictEqual(typeof material.parseRawSeedHex, 'function');
     assert.strictEqual(typeof material.keySettingsFromEnv, 'function');

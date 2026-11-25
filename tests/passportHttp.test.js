@@ -3,7 +3,7 @@
 const assert = require('assert');
 const http = require('http');
 const { FIXTURE_SEED } = require('@fabric/core/constants');
-const { importSeed, deriveAccount } = require('@fabric/core/functions/accountKeys');
+const { importSeed, deriveAccount } = require('@fabric/core/types/key');
 const { signAssertion } = require('@fabric/core/functions/passport');
 const { createPassportRelyingParty } = require('../functions/passportRelyingParty');
 const { createPassportHttp, passportOutdated, SESSION_COOKIE, BINDING_COOKIE } = require('../functions/passportHttp');

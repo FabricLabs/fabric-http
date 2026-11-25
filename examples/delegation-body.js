@@ -7,7 +7,7 @@
  * No socket. readFrame accepts the body object Express would already have parsed.
  */
 
-const { generateMnemonic, importSeed, deriveAccount } = require('@fabric/core/functions/accountKeys');
+const { generateMnemonic, importSeed, deriveAccount } = require('@fabric/core/types/key');
 const { createGrant } = require('@fabric/core/types/delegation');
 const { readFrame, createRateLimit } = require('../functions/httpRequestTrust');
 

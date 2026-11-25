@@ -22,7 +22,7 @@
  */
 
 const passport = require('@fabric/core/functions/passport');
-const { decodeFabricUri } = require('@fabric/core/functions/fabricUri');
+const { decodeFabricUri } = require('@fabric/core/types/message');
 const {
   isLocalRequest,
   isLoopbackHostname,

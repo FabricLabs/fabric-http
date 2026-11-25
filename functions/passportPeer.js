@@ -35,7 +35,7 @@
 const crypto = require('crypto');
 const passport = require('@fabric/core/functions/passport');
 const Message = require('@fabric/core/types/message');
-const { encodeFabricUri, decodeFabricUri } = require('@fabric/core/functions/fabricUri');
+const { encodeFabricUri, decodeFabricUri } = require('@fabric/core/types/message');
 const { createMemoryStore, hashSecret } = require('./passportRelyingParty');
 const { clientKey, createRateLimit, fabricUriFromBody } = require('./httpRequestTrust');
 const { readPeerRequest, PASSPORT_REQUEST_CLOCK_SKEW_MS, PASSPORT_REPLAY_LIMIT } = require('./passportPeerRequest');

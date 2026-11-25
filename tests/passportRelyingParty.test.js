@@ -2,7 +2,7 @@
 
 const assert = require('assert');
 const { FIXTURE_SEED } = require('@fabric/core/constants');
-const { importSeed, deriveAccount } = require('@fabric/core/functions/accountKeys');
+const { importSeed, deriveAccount } = require('@fabric/core/types/key');
 const { signAssertion } = require('@fabric/core/functions/passport');
 const {
   hashSecret,

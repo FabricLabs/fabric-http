@@ -10,7 +10,7 @@ const Key = require('@fabric/core/types/key');
 
 const ATTESTATION_TYPE = 'OracleAttestation';
 const KIND_PEERING = 'PeeringCapability';
-const ORACLE_ATTESTATION_TAG = require('@fabric/core/functions/signingTags').ORACLE_ATTESTATION;
+const ORACLE_ATTESTATION_TAG = require('@fabric/core/types/key').TAGS.ORACLE_ATTESTATION;
 
 let _canon;
 try {

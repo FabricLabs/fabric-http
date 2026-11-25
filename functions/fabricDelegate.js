@@ -28,7 +28,7 @@
  */
 
 const delegation = require('@fabric/core/types/delegation');
-const { decodeFabricUri, encodeFabricUri } = require('@fabric/core/functions/fabricUri');
+const { decodeFabricUri, encodeFabricUri } = require('@fabric/core/types/message');
 const { isLoopbackHostname, isLocalRequest, requestHasProxyForwardHeaders, readFrame, sendJson } = require('./httpRequestTrust');
 const { PASSPORT_OUTDATED } = require('./passportHttp');
 

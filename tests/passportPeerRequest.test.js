@@ -3,7 +3,7 @@
 const assert = require('assert');
 const Key = require('@fabric/core/types/key');
 const Message = require('@fabric/core/types/message');
-const { encodeFabricUri } = require('@fabric/core/functions/fabricUri');
+const { encodeFabricUri } = require('@fabric/core/types/message');
 const {
   PASSPORT_REQUEST_CONTRACT,
   createPeerRequest,

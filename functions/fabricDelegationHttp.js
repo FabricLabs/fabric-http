@@ -53,7 +53,7 @@
 
 const crypto = require('crypto');
 const delegation = require('@fabric/core/types/delegation');
-const { encodeFabricUri } = require('@fabric/core/functions/fabricUri');
+const { encodeFabricUri } = require('@fabric/core/types/message');
 const { normalizeHubOrigin } = require('./fabricHubAllowlist');
 const { readFrame, sendJson, clientKey, clientGroup, createRateLimit } = require('./httpRequestTrust');
 
