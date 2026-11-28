@@ -547,9 +547,10 @@ Register routes on an HTTP server instance.
 <a name="Hub"></a>
 
 ## Hub ⇐ <code>Oracle</code>
-The [Hub](#Hub) is a temporary class in the Fabric HTTP library
-which handles WebRTC and WebSocket connections, wrapping the core
-[Fabric](Fabric) protocol for legacy web clients (including browsers).
+The [Hub](#Hub) composes the one [FabricHTTPServer](#FabricHTTPServer).
+WebSocket and JSON-RPC stay on that server. The application contract
+(sessions, peers, entities) is `services/application.js`, mounted
+with `define()` before listen.
 
 **Kind**: global class  
 **Extends**: <code>Oracle</code>  

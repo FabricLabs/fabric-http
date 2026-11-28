@@ -309,6 +309,41 @@ describe('@fabric/http functions/passportPeer', function () {
     assert.match(replay.error, /replayed/);
   });
 
+  it('one session at its nonce cap does not block another session', async function () {
+    const small = createPassportPeer({
+      key: PEER,
+      network: 'regtest',
+      maxRequestNonces: 4,
+      maxRequestNoncesPerSession: 2
+    });
+    const other = deriveAccount(MASTER, { account: 5, network: 'regtest' }).identity.key;
+    function transport () {
+      const conn = {};
+      const listeners = new Set();
+      return {
+        send (buffer) {
+          small.handleFrame(conn, buffer).then((out) => {
+            for (const reply of out.replies) for (const l of listeners) l(reply);
+          });
+        },
+        onFrame (fn) { listeners.add(fn); return () => listeners.delete(fn); },
+        close () {}
+      };
+    }
+    const first = await openPeerSession({ transport: transport(), peer: PEER.pubkey, sign: signWithKey(USER.identity.key) });
+    const second = await openPeerSession({ transport: transport(), peer: PEER.pubkey, sign: signWithKey(other) });
+    const ask = (session) => small.authorizeRequest({
+      method: 'GET',
+      target: '/x',
+      header: session.authorize({ method: 'GET', target: '/x' })
+    });
+    assert.strictEqual((await ask(first)).ok, true);
+    assert.strictEqual((await ask(first)).ok, true);
+    const capped = await ask(first);
+    assert.strictEqual(capped.status, 503);
+    assert.strictEqual((await ask(second)).ok, true);
+  });
+
   it('works without HTTP: any transport object', async function () {
     const standalone = createPassportPeer({ key: PEER, network: 'regtest' });
     const conn = {};

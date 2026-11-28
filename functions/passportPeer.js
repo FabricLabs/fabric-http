@@ -106,6 +106,7 @@ function isPassportPeerFrame (input) {
  *   verified assertion and the connection before a session starts. Return extra session fields, or
  *   throw to refuse.
  * @param {number} [settings.maxRequestNonces] Live request nonces remembered; when full, new requests get 503.
+ * @param {number} [settings.maxRequestNoncesPerSession] How many of those one session may hold. Defaults to at most 1024, and never above the process cap, so one session cannot fill the map for everyone else.
  * @param {number} [settings.maxFramesPerSession] Frames one session may carry
  *   (`maxFramesPerConnection` is the older name).
  * @param {function(): number} [settings.now]
@@ -124,14 +125,20 @@ function createPassportPeer (settings = {}) {
   const maxSeenNonces = Number.isSafeInteger(settings.maxRequestNonces) && settings.maxRequestNonces > 0
     ? settings.maxRequestNonces
     : MAX_SEEN_REQUEST_NONCES;
+  const askedPerSession = Number.isSafeInteger(settings.maxRequestNoncesPerSession) && settings.maxRequestNoncesPerSession > 0
+    ? settings.maxRequestNoncesPerSession
+    : Math.min(1024, maxSeenNonces);
+  const maxPerSession = Math.min(askedPerSession, maxSeenNonces);
   const frameCap = settings.maxFramesPerSession != null ? settings.maxFramesPerSession : settings.maxFramesPerConnection;
   const maxSeenFrames = Number.isSafeInteger(frameCap) && frameCap > 0 ? frameCap : MAX_SEEN_FRAMES_PER_SESSION;
   const store = settings.sessionStore || createMemoryStore({ now, max: MEMORY_SESSION_STORE_MAX });
   const connections = new WeakMap();
   /** HTTP handshakes: sha256(binding) → `{ conn, expiresAt }`. */
   const handshakes = new Map();
-  /** Request nonces already used: nonce → expiresAt. */
+  /** Request nonces already used: nonce → `{ expiresAt, sessionId }`. */
   const seenNonces = new Map();
+  /** How many live nonces each session holds. */
+  const noncesBySession = new Map();
   /**
    * Frames each session has spoken, shared by every connection it is bound
    * on: sessionId → `{ expiresAt, frames, full }`. Kept until the session ends.
@@ -455,14 +462,21 @@ function createPassportPeer (settings = {}) {
     if (!record || record.expiresAt <= at) return { ok: false, status: 401, error: 'unknown or expired session' };
     if (record.sessionKey.slice(2) !== read.author) return { ok: false, status: 401, error: 'not signed by the session key' };
     // Forget only nonces whose requests have expired: dropping a live one
-    // would let its request be replayed. Oldest first; when full, sweep all.
-    for (const [nonce, expiresAt] of seenNonces) {
-      if (expiresAt > at && seenNonces.size < maxSeenNonces) break;
-      if (expiresAt <= at) seenNonces.delete(nonce);
+    // would let its request be replayed.
+    for (const [nonce, row] of seenNonces) {
+      if (row.expiresAt > at) continue;
+      seenNonces.delete(nonce);
+      const left = (noncesBySession.get(row.sessionId) || 1) - 1;
+      if (left <= 0) noncesBySession.delete(row.sessionId);
+      else noncesBySession.set(row.sessionId, left);
     }
     if (seenNonces.has(read.nonce)) return { ok: false, status: 401, error: 'request replayed' };
-    if (seenNonces.size >= maxSeenNonces) return { ok: false, status: 503, error: 'too many requests in flight; retry shortly' };
-    seenNonces.set(read.nonce, read.expiresAt + PASSPORT_REQUEST_CLOCK_SKEW_MS);
+    const held = noncesBySession.get(read.sessionId) || 0;
+    if (held >= maxPerSession || seenNonces.size >= maxSeenNonces) {
+      return { ok: false, status: 503, error: 'too many requests in flight; retry shortly' };
+    }
+    seenNonces.set(read.nonce, { expiresAt: read.expiresAt + PASSPORT_REQUEST_CLOCK_SKEW_MS, sessionId: read.sessionId });
+    noncesBySession.set(read.sessionId, held + 1);
     return { ok: true, session: sessionView(record) };
   }
 

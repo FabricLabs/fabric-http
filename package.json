@@ -106,6 +106,7 @@
     "./functions/fabricMessageTransport": "./functions/fabricMessageTransport.js",
     "./functions/fabricJsonRpcTransport": "./functions/fabricJsonRpcTransport.js",
     "./functions/applicationResourceContract": "./functions/applicationResourceContract.js",
+    "./services/application": "./services/application.js",
     "./functions/fabricHubAllowlist": "./functions/fabricHubAllowlist.js",
     "./functions/httpSharedMode": "./functions/httpSharedMode.js",
     "./functions/fabricIdentitySchnorr": "./functions/fabricIdentitySchnorr.js",
