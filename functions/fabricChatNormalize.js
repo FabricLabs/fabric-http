@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Normalize Fabric shoutbox chat for Hub UI / cache and LiveRelay mesh ingest.
+ * Normalize Fabric shoutbox chat for hub UIs / caches and relay mesh ingest.
  *
  * Mesh wire (first-class P2P_CHAT_MESSAGE): body = raw UTF-8 text only.
  * Peer emits: `{ text, type: 'P2P_CHAT_MESSAGE' }` (+ meta.signer).

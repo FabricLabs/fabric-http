@@ -30,6 +30,18 @@ describe('@fabric/http/types/sandbox', function () {
       assert.ok(sandbox);
     });
 
+    it('navigates once, without waiting for a second navigation', async function () {
+      const calls = [];
+      const sandbox = new Sandbox();
+      sandbox.browser = {
+        goto: async (url) => { calls.push(url); },
+        waitForNavigation: () => new Promise(() => {})
+      };
+      const result = await sandbox._navigateTo('http://localhost:8484/');
+      assert.strictEqual(result, sandbox);
+      assert.deepStrictEqual(calls, ['http://localhost:8484/']);
+    });
+
     xit('can start and stop', async function () {
       const sandbox = new Sandbox();
       await sandbox.start();

@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Shared PeeringCapability HTTP helpers for Hub and light peers (LiveRelay).
+ * Shared PeeringCapability HTTP helpers for hubs and light peers (relays).
  * Claim builders stay app-specific; this module shapes envelopes and raw-http mounts.
  */
 
@@ -98,8 +98,8 @@ function writePeeringOptions (res) {
 }
 
 /**
- * Raw Node `http` peering discovery mount (LiveRelay / light peers).
- * Hub Express routes may use {@link buildPeeringCapabilitiesBody} only.
+ * Raw Node `http` peering discovery mount (relays / light peers).
+ * Express-based hubs may use {@link buildPeeringCapabilitiesBody} only.
  *
  * @param {import('http').IncomingMessage} req
  * @param {import('http').ServerResponse} res

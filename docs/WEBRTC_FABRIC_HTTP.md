@@ -1,6 +1,6 @@
 # Fabric over WebRTC vs `@fabric/http`
 
-`FabricHTTPServer` is responsible for **HTTP** (static, JSON-RPC, optional 402) and **WebSocket** connections on one port. **WebRTC** (native `RTCPeerConnection` + `RTCDataChannel`) is **not** set up by this package alone; production stacks use the **Hub** (`hub.fabric.pub`) **Bridge** for signaling and the same `Message` binary as WebSocket where possible.
+`FabricHTTPServer` is responsible for **HTTP** (static, JSON-RPC, optional 402) and **WebSocket** connections on one port. **WebRTC** (native `RTCPeerConnection` + `RTCDataChannel`) is **not** set up by this package alone; production stacks use a hub **Bridge** for signaling and the same `Message` binary as WebSocket where possible.
 
 ## What this server provides
 
@@ -11,7 +11,7 @@
   - `UnregisterWebRTCPeer` — `{ "id" | "peerId", "secret" }` — unregisters when `secret` matches the one from the most recent register for that id.
   - `ListWebRTCPeers` — returns `{ ok, peers: [...] }` (no secrets in `peers`).
 
-These exist so **dev tools and the extension** can align with a single RPC namespace before Hub-specific signaling is in use.
+These exist so **dev tools and browser extensions** can align with a single RPC namespace before an app's own signaling is in use.
 
 ### Security defaults (production-oriented)
 
@@ -24,29 +24,27 @@ These exist so **dev tools and the extension** can align with a single RPC names
 
 ## Message ↔ JSON at the HTTP edge
 
-`@fabric/http` exports [`functions/messageBodyJsonBridge`](../functions/messageBodyJsonBridge.js) (`require('@fabric/http/functions/messageBodyJsonBridge')`) for Message field-body ↔ plain JSON (REST / SPA). That helper is shared by Hub Bridge and other HTTP consumers; it does **not** implement WebRTC mesh signaling by itself. Hub Bridge remains the signaling authority for browser peers.
+`@fabric/http` exports [`functions/messageBodyJsonBridge`](../functions/messageBodyJsonBridge.js) (`require('@fabric/http/functions/messageBodyJsonBridge')`) for Message field-body ↔ plain JSON (REST / SPA). That helper is shared by hub Bridges and other HTTP consumers; it does **not** implement WebRTC mesh signaling by itself. The app's Bridge remains the signaling authority for browser peers.
 
 ## What lives downstream
 
-- **Extension** (`@fabric/passport`): `src/fabric/fabricWebRTCPeering.ts` and the offscreen mesh helpers hold **signaling URL** and `RTCPeerConnection` construction; they are wired toward Hub WebSocket, not the bare `fabric-http` static server.
-- **Hub**: authoritative **Bridge** + JSON-RPC; see that repo for full WebRTC + identity flows.
+- **Browser extensions** hold the **signaling URL** and `RTCPeerConnection` construction; they are wired toward a hub WebSocket, not the bare `fabric-http` static server.
+- **Hubs**: authoritative **Bridge** + JSON-RPC for full WebRTC + identity flows.
 
-## Local Hub-shaped stub (localhost, extension-friendly)
+## Local hub-shaped stub (localhost, extension-friendly)
 
-For the same static + JSON-RPC surface without the full **@fabric/hub** stack, this repo provides:
+For the same static + JSON-RPC surface without a full hub stack, this repo provides:
 
-- `npm run sample:hub` — `FabricHTTPServer` on **127.0.0.1:8099** by default (override `PORT` / `HOST`; `PORT=8080` only if you are not also running a real Hub on 8080), `cors: true`, `POST /services/rpc` with a trivial `HubStubPing` method, and `examples/hub-local-dev-assets/hub-mesh-bridge.html` (same `postMessage` contract as a Hub page for **@fabric/passport** background mesh). For extension checks, point the UI at the sample origin or at a real Hub on `http://localhost:8080`.
+- `npm run sample:hub` — `FabricHTTPServer` on **127.0.0.1:8099** by default (override `PORT` / `HOST`; `PORT=8080` only if no other hub uses 8080), `cors: true`, `POST /services/rpc` with a trivial `HubStubPing` method, and `examples/hub-local-dev-assets/hub-mesh-bridge.html` (same `postMessage` contract as a hub page, for an extension's background mesh). For extension checks, point the UI at the sample origin or at a full hub on `http://localhost:8080`.
 
 - **CORS / preflight:** When `settings.cors` is true, `OPTIONS` to each configured JSON-RPC path (e.g. `/services/rpc`) returns **204** so browser `fetch` with `Authorization` from an extension or another origin can complete the preflight (see `tests/web.server.js`).
 
 - Stricter auth for local tests: set `FABRIC_JSONRPC_REQUIRE_AUTH=1` and `FABRIC_HTTP_TOKEN_SECRET=…` (bearer via `middlewares/auth.js`).
 
-- **@fabric/passport (extension):** With this server up, in the extension repo run **`npm run test:ui:mesh-remote`** (or set `FABRIC_HUB_BASE_URL` yourself) to exercise the mesh bridge on this origin; see the extension `README` “Remote Hub (localhost:8080) mesh integration”.
-
 ## “Finalize” checklist
 
-- [ ] Hub + extension E2E: offer/answer and data channel with `Message.toBuffer()`.
-- [ ] Optional: proxy signaling through `fabric-http` (only if product requires a no-Hub path).
+- [ ] Downstream browser E2E: offer/answer and data channel with `Message.toBuffer()`.
+- [ ] Optional: proxy signaling through `fabric-http` (only if a no-hub path is required).
 
 ## See also
 

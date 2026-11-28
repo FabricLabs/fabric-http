@@ -22,4 +22,6 @@ jobs:
           node-version-file: '.nvmrc'
           cache: npm
       - run: npm ci
+      # Production dependencies only; the known dev-only findings are listed in AUDIT.md.
+      - run: npm audit --omit=dev
       - run: npm run ci

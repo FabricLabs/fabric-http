@@ -3,6 +3,10 @@
   <head>
     <meta charset="utf-8">
     <title>Source: types/spa.js &middot; Docs</title>
+    <link rel="icon" href="/favicon.ico" sizes="48x48">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <meta name="theme-color" content="#4C1D95">
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
     <!--[if lt IE 9]>
@@ -39,11 +43,14 @@ const config = {
 
 // core dependencies
 const crypto = require('crypto');
+const { fabricFaviconHeadHtml } = require('../functions/fabricBrand');
 const merge = require('lodash.merge');
 const page = require('page');
 const pluralize = require('pluralize');
 
 // Requisite Types
+const { assertKnownComponents } = require('../functions/componentCatalog');
+const { fillContentSlot } = require('../functions/compose');
 const App = require('./app');
 const Bridge = require('./bridge');
 const Browser = require('./browser');
@@ -54,6 +61,14 @@ const Message = require('@fabric/core/types/message');
 // const Circuit = require('@fabric/core/types/circuit');
 const Resource = require('@fabric/core/types/resource');
 // const Store = require('@fabric/core/types/store');
+
+function cloneState (value) {
+  try {
+    return JSON.parse(JSON.stringify(value || {}));
+  } catch (_) {
+    return {};
+  }
+}
 
 /**
  * Fully-managed HTML application.
@@ -103,14 +118,10 @@ class SPA extends App {
     };
 
     this._state = {
-      content: this.settings.state
+      content: cloneState(this.settings.state)
     };
 
     return this;
-  }
-
-  get state () {
-    return this._state.content;
   }
 
   get title () {
@@ -128,7 +139,12 @@ class SPA extends App {
     this.browser = new Browser(this.settings);
     // this.store = new Store(Object.assign({}, this.settings, { path: './stores/spa' }));
     this.settings = Object.assign({}, this.settings, settings);
-    this._state = (window.app &amp;&amp; window.app.state) ? window.app.state : {};
+    const prior = (typeof window !== 'undefined' &amp;&amp; window.app &amp;&amp; window.app.state)
+      ? window.app.state
+      : this.settings.state;
+    this._state = {
+      content: cloneState(prior || {})
+    };
   }
 
   get handler () {
@@ -137,15 +153,16 @@ class SPA extends App {
 
   set state (state) {
     if (!state) throw new Error('State must be provided.');
-    this._state = state;
-    this._redraw(this._state);
+    this._state.content = cloneState(state);
+    this._redraw(this._state.content);
   }
 
   get state () {
-    return Object.assign({}, this._state);
+    return cloneState(this._state.content);
   }
 
   define (name, definition) {
+    assertKnownComponents(definition);
     if (this.settings.verbosity >= 5) console.trace('[WEB:SPA]', 'Defining for SPA:', name, definition);
     // TODO: check for async compatibility in HTTP.App
     super.define(name, definition);
@@ -165,7 +182,7 @@ class SPA extends App {
     this.types.state[name] = definition;
     this.resources[name] = definition;
 
-    this.state[address] = {};
+    this._state.content[address] = {};
 
     return this.resources[name];
   }
@@ -257,10 +274,15 @@ class SPA extends App {
   }
 
   _renderContent (html) {
-    // TODO: enable multi-view composition?
-    // NOTE: this means to iterate over all bound targets, instead of the first one...
-    if (!this.target) this.target = document.querySelector(BROWSER_TARGET);
-    if (!this.target) return console.log('COULD NOT ACQUIRE TARGET:', document);
+    if (typeof document !== 'undefined') {
+      const slot = fillContentSlot(document, html);
+      if (slot) {
+        this.target = slot;
+        return slot;
+      }
+    }
+    if (!this.target &amp;&amp; typeof document !== 'undefined') this.target = document.querySelector(BROWSER_TARGET);
+    if (!this.target) return console.log('COULD NOT ACQUIRE TARGET:', typeof document === 'undefined' ? null : document);
     this.target.innerHTML = html;
     return this.target;
   }
@@ -275,11 +297,12 @@ class SPA extends App {
     &lt;meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     &lt;meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     &lt;title>${this.title || this.settings.title}&lt;/title>
+    ${fabricFaviconHeadHtml()}
     &lt;!-- &lt;link rel="manifest" href="/manifest.json"> -->
-    &lt;link rel="stylesheet" type="text/css" href="/styles/semantic.min.css" />
+    &lt;link rel="stylesheet" type="text/css" href="/semantic.min.css" />
     &lt;link rel="stylesheet" type="text/css" href="/styles/screen.css" />
     &lt;script src="/scripts/jquery-3.4.1.js">&lt;/script>
-    &lt;script src="/scripts/semantic.min.js">&lt;/script>
+    &lt;script src="/semantic.min.js">&lt;/script>
   &lt;/head>
   &lt;body>
     &lt;div data-hash="${hash}" id="application-target">${html}&lt;/div>
@@ -454,7 +477,7 @@ module.exports = SPA;
 
 
     </div>
-    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Avatar.html">Avatar</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricDistributedExecutionHTTP.html">FabricDistributedExecutionHTTP</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul><h3>Global</h3><ul><li><a href="global.html#compression">compression</a></li><li><a href="global.html#cors">cors</a></li><li><a href="global.html#jsonRpc">jsonRpc</a></li><li><a href="global.html#merge">merge</a></li><li><a href="global.html#static">static</a></li></ul></nav>
+    <nav><h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="App.html">App</a></li><li><a href="Avatar.html">Avatar</a></li><li><a href="Bridge.html">Bridge</a></li><li><a href="Compiler.html">Compiler</a></li><li><a href="Definition.html">Definition</a></li><li><a href="FabricComponent.html">FabricComponent</a></li><li><a href="FabricDistributedExecutionHTTP.html">FabricDistributedExecutionHTTP</a></li><li><a href="FabricHTTPServer.html">FabricHTTPServer</a></li><li><a href="HTTPClient.html">HTTPClient</a></li><li><a href="Hub.html">Hub</a></li><li><a href="Maki.html">Maki</a></li><li><a href="Remote.html">Remote</a></li><li><a href="Resource.html">Resource</a></li><li><a href="Router.html">Router</a></li><li><a href="SPA.html">SPA</a></li><li><a href="Site.html">Site</a></li><li><a href="Stash.html">Stash</a></li><li><a href="UI.html">UI</a></li><li><a href="Wallet.html">Wallet</a></li></ul><h3>Global</h3><ul><li><a href="global.html#FABRIC_AMP_MAGIC">FABRIC_AMP_MAGIC</a></li><li><a href="global.html#Server">Server</a></li><li><a href="global.html#acceptFirstHtmlNavigation">acceptFirstHtmlNavigation</a></li><li><a href="global.html#compression">compression</a></li><li><a href="global.html#cors">cors</a></li><li><a href="global.html#fabricHttpStaticSetHeaders">fabricHttpStaticSetHeaders</a></li><li><a href="global.html#jsonBodyLargePaths">jsonBodyLargePaths</a></li><li><a href="global.html#jsonBodyLimit">jsonBodyLimit</a></li><li><a href="global.html#jsonBodyLimitDefault">jsonBodyLimitDefault</a></li><li><a href="global.html#jsonRpc">jsonRpc</a></li><li><a href="global.html#merge">merge</a></li><li><a href="global.html#mergeStaticSetHeaders">mergeStaticSetHeaders</a></li><li><a href="global.html#payments">payments</a></li><li><a href="global.html#resolveAppAssetsDir">resolveAppAssetsDir</a></li><li><a href="global.html#resolveFabricHttpPackageAssetsDir">resolveFabricHttpPackageAssetsDir</a></li><li><a href="global.html#resolvedPathUnderStaticRoot">resolvedPathUnderStaticRoot</a></li><li><a href="global.html#sitemap">sitemap</a></li><li><a href="global.html#static">static</a></li><li><a href="global.html#webrtc">webrtc</a></li></ul></nav>
     <br class="clear" />
     <footer>
         <a href="https://github.com/FabricLabs/web">git://</a> &middot; <a href="https://chat.fabric.pub/#/room/#web:fabric.pub">Community</a>

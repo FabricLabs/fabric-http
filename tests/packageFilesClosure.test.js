@@ -5,7 +5,7 @@
  * without `components/browser-content.js` produces a package that resolves fine
  * in this repo and throws `MODULE_NOT_FOUND` the moment a consumer installs it.
  *
- * That is not hypothetical. `@fabric/hub` CI went red on exactly this: its
+ * That is not hypothetical. A downstream app's CI went red on exactly this: its
  * lockfile pinned http at `ca27d1472`, whose `files[]` had no
  * `components/**` glob, so `require('../components/browser-content')` from
  * `types/browser.js` failed inside `scripts/build.js`. Local `npm test` and

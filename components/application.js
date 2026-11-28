@@ -191,15 +191,7 @@ class Application extends App {
 
   async _updatePosition (x, y, z) {
     if (!this.player) return;
-    return console.log('short circuited position patch');
-    await this.authority.patch(`/players/${this.player.id}`, {
-      id: this.player.id,
-      position: {
-        x: x,
-        y: y,
-        z: z
-      }
-    });
+    return console.log('short circuited position patch', x, y, z);
   }
 
   _toggleFullscreen () {
